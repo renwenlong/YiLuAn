@@ -8,7 +8,16 @@ let _messageCallback = null
 const MAX_RECONNECT = 5
 const HEARTBEAT_INTERVAL = 30000
 
-function connect(orderId) {
+function connect(options) {
+  let orderId, onErrorCallback
+  if (typeof options === 'object') {
+    orderId = options.orderId
+    if (options.onMessage) _messageCallback = options.onMessage
+    onErrorCallback = options.onError || null
+  } else {
+    orderId = options
+  }
+
   const token = getAccessToken()
   const url = config.WS_BASE_URL + '/ws/chat/' + orderId + '?token=' + token
 
@@ -35,12 +44,13 @@ function connect(orderId) {
     if (_reconnectCount < MAX_RECONNECT) {
       const delay = Math.min(1000 * Math.pow(2, _reconnectCount), 30000)
       _reconnectCount++
-      setTimeout(() => connect(orderId), delay)
+      setTimeout(() => connect({ orderId, onMessage: _messageCallback, onError: onErrorCallback }), delay)
     }
   })
 
   _socketTask.onError(() => {
     _stopHeartbeat()
+    if (onErrorCallback) onErrorCallback()
   })
 }
 

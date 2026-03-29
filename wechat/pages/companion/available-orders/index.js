@@ -30,7 +30,8 @@ Page({
         page: this.data.page,
         pageSize: 10
       })
-      const newOrders = (res.list || []).map(order => ({
+      const list = res.data && res.data.items ? res.data.items : (res.list || res.data || [])
+      const newOrders = list.map(order => ({
         ...order,
         formattedDate: formatDate(order.date)
       }))

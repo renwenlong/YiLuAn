@@ -12,10 +12,10 @@ Page({
   },
 
   onLoad(options) {
-    const userInfo = store.getState().userInfo || {}
+    const user = store.getState().user || {}
     this.setData({
       orderId: options.id,
-      currentUserId: userInfo.id || ''
+      currentUserId: user.id || ''
     })
     this.loadHistory()
     this.connectWebSocket()

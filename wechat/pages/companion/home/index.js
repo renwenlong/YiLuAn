@@ -41,14 +41,14 @@ Page({
 
   onViewAllPending() {
     wx.navigateTo({
-      url: '/pages/orders/available/index'
+      url: '/pages/companion/available-orders/index'
     })
   },
 
   onOrderTap(e) {
     const id = e.currentTarget.dataset.id
     wx.navigateTo({
-      url: '/pages/orders/detail/index?id=' + id
+      url: '/pages/companion/order-detail/index?id=' + id
     })
   }
 })

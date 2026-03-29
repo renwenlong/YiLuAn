@@ -38,7 +38,7 @@ Page({
 
     const statusMap = {
       0: undefined,
-      1: 'pending',
+      1: 'created',
       2: 'in_progress',
       3: 'completed'
     }
@@ -82,8 +82,12 @@ Page({
 
   onOrderTap(e) {
     const id = e.currentTarget.dataset.id
+    const role = store.getState().user && store.getState().user.role
+    const detailPage = role === 'companion'
+      ? '/pages/companion/order-detail/index?id='
+      : '/pages/patient/order-detail/index?id='
     wx.navigateTo({
-      url: '/pages/orders/detail/index?id=' + id
+      url: detailPage + id
     })
   }
 })

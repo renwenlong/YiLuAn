@@ -11,7 +11,7 @@ Page({
   onLoad() {
     const types = Object.keys(SERVICE_TYPES).map(key => ({
       key: key,
-      name: SERVICE_TYPES[key].name || SERVICE_TYPES[key],
+      name: SERVICE_TYPES[key].label,
       icon: SERVICE_TYPES[key].icon || ''
     }))
     this.setData({ serviceTypes: types })
@@ -32,14 +32,14 @@ Page({
   onServiceTap(e) {
     const type = e.currentTarget.dataset.type
     wx.navigateTo({
-      url: '/pages/orders/create/index?type=' + type
+      url: '/pages/patient/create-order/index?type=' + type
     })
   },
 
   onCompanionTap(e) {
     const id = e.currentTarget.dataset.id
     wx.navigateTo({
-      url: '/pages/companion/detail/index?id=' + id
+      url: '/pages/companion-detail/index?id=' + id
     })
   },
 
