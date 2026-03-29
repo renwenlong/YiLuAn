@@ -35,7 +35,7 @@ struct RoleSelectionView: View {
 
     private func roleCard(title: String, subtitle: String, icon: String, role: UserRole) -> some View {
         Button {
-            // TODO: Phase 1 — call API to set role
+            Task { await authViewModel.setRole(role) }
         } label: {
             HStack(spacing: 16) {
                 Image(systemName: icon)

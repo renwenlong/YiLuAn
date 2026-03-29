@@ -11,12 +11,16 @@ from app.config import settings
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    app.state.redis = aioredis.from_url(
-        settings.redis_url, encoding="utf-8", decode_responses=True
-    )
+    try:
+        app.state.redis = aioredis.from_url(
+            settings.redis_url, encoding="utf-8", decode_responses=True
+        )
+    except Exception:
+        app.state.redis = None
     yield
     # Shutdown
-    await app.state.redis.close()
+    if app.state.redis:
+        await app.state.redis.close()
 
 
 def create_app() -> FastAPI:

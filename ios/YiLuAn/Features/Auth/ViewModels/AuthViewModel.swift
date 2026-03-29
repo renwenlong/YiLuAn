@@ -57,6 +57,22 @@ class AuthViewModel: ObservableObject {
         }
     }
 
+    func setRole(_ role: UserRole) async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        do {
+            struct UpdateRoleRequest: Encodable {
+                let role: String
+            }
+            let body = UpdateRoleRequest(role: role.rawValue)
+            currentUser = try await APIClient.shared.request(.updateMe, body: body)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func signOut() {
         KeychainManager.clearTokens()
         isAuthenticated = false
