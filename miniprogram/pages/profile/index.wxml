@@ -1,0 +1,47 @@
+<view class="profile-page">
+  <!-- 用户信息区域 -->
+  <view class="user-section">
+    <view class="user-info">
+      <view class="user-avatar">
+        <image wx:if="{{user.avatar}}" src="{{user.avatar}}" class="avatar-img" />
+        <view wx:else class="avatar-placeholder">
+          <text>{{user.name[0] || '用'}}</text>
+        </view>
+      </view>
+      <view class="user-detail">
+        <text class="user-name">{{user.name || '用户'}}</text>
+        <view class="user-phone" wx:if="{{user.phone}}">
+          <text class="phone-text">{{user.phone}}</text>
+        </view>
+        <view class="user-phone bind-phone" wx:else bindtap="onBindPhone">
+          <text class="phone-text unbind">未绑定手机</text>
+          <text class="bind-btn">去绑定</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 菜单列表 -->
+  <view class="menu-section">
+    <view class="menu-item" data-target="/pages/orders/index" bindtap="onMenuTap">
+      <text class="menu-icon">订</text>
+      <text class="menu-text">我的订单</text>
+      <text class="menu-arrow">></text>
+    </view>
+    <view class="menu-item" data-target="/pages/profile/settings/index" bindtap="onMenuTap">
+      <text class="menu-icon">设</text>
+      <text class="menu-text">设置</text>
+      <text class="menu-arrow">></text>
+    </view>
+    <view class="menu-item" data-target="/pages/profile/about/index" bindtap="onMenuTap">
+      <text class="menu-icon">关</text>
+      <text class="menu-text">关于</text>
+      <text class="menu-arrow">></text>
+    </view>
+  </view>
+
+  <!-- 退出登录 -->
+  <view class="logout-section">
+    <button class="logout-btn" bindtap="onLogout">退出登录</button>
+  </view>
+</view>

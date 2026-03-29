@@ -1,0 +1,38 @@
+<view class="chat-list-page">
+  <view class="conversation-list" wx:if="{{conversations.length > 0}}">
+    <view
+      class="conversation-item"
+      wx:for="{{conversations}}"
+      wx:key="id"
+      data-id="{{item.id}}"
+      data-name="{{item.name}}"
+      bindtap="onConversationTap"
+    >
+      <view class="avatar-wrapper">
+        <view class="avatar-placeholder">
+          <text>{{item.name[0] || '?'}}</text>
+        </view>
+        <view class="unread-badge" wx:if="{{item.unreadCount > 0}}">
+          <text>{{item.unreadCount > 99 ? '99+' : item.unreadCount}}</text>
+        </view>
+      </view>
+      <view class="conversation-content">
+        <view class="conversation-top">
+          <text class="conversation-name">{{item.name}}</text>
+          <text class="conversation-time">{{item.lastTime}}</text>
+        </view>
+        <view class="conversation-bottom">
+          <text class="last-message">{{item.lastMessage || '暂无消息'}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:if="{{conversations.length === 0}}">
+    <view class="empty-icon">
+      <text class="empty-icon-text">消</text>
+    </view>
+    <text class="empty-text">暂无消息</text>
+    <text class="empty-hint">接单后可与患者沟通</text>
+  </view>
+</view>

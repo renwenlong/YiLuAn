@@ -1,0 +1,21 @@
+<view class="order-card" bindtap="onTap">
+  <view class="order-header">
+    <text class="order-service">{{serviceLabel}}</text>
+    <view class="order-status" style="background: {{statusInfo.color}};">
+      <text class="status-text">{{statusInfo.label}}</text>
+    </view>
+  </view>
+  <view class="order-body">
+    <view class="order-row">
+      <text class="order-label">医院</text>
+      <text class="order-value">{{order.hospital}}</text>
+    </view>
+    <view class="order-row">
+      <text class="order-label">日期</text>
+      <text class="order-value">{{order.date}}</text>
+    </view>
+  </view>
+  <view class="order-footer">
+    <text class="order-price">¥{{order.price}}</text>
+  </view>
+</view>

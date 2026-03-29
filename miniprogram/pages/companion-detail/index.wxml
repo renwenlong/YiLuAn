@@ -1,0 +1,74 @@
+<loading-overlay wx:if="{{loading}}" />
+
+<view class="page-container" wx:if="{{companion}}">
+  <!-- Profile Header -->
+  <view class="profile-header">
+    <image
+      class="profile-avatar"
+      src="{{companion.avatar}}"
+      mode="aspectFill"
+      bindtap="onPreviewAvatar"
+    />
+    <view class="profile-name">{{companion.name}}</view>
+    <view class="profile-rating">
+      <rating-stars value="{{companion.rating}}" readonly="{{true}}" />
+      <text class="rating-text">{{companion.rating}}分</text>
+    </view>
+  </view>
+
+  <!-- Bio -->
+  <view class="detail-section">
+    <view class="section-title">个人简介</view>
+    <text class="bio-text">{{companion.bio || '暂无简介'}}</text>
+  </view>
+
+  <!-- Service Info -->
+  <view class="detail-section">
+    <view class="section-title">服务信息</view>
+    <view class="info-row">
+      <text class="info-label">服务区域</text>
+      <text class="info-value">{{companion.serviceArea || '暂无'}}</text>
+    </view>
+    <view class="info-row">
+      <text class="info-label">已完成订单</text>
+      <text class="info-value">{{companion.completedOrders || 0}}单</text>
+    </view>
+    <view class="info-row">
+      <text class="info-label">从业时间</text>
+      <text class="info-value">{{companion.experience || '暂无'}}</text>
+    </view>
+
+    <view class="service-areas" wx:if="{{companion.serviceAreas && companion.serviceAreas.length > 0}}">
+      <text class="info-label">擅长领域</text>
+      <view class="tag-list">
+        <text class="tag" wx:for="{{companion.serviceAreas}}" wx:key="*this">{{item}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- Reviews -->
+  <view class="detail-section">
+    <view class="section-title">用户评价 ({{reviews.length}})</view>
+    <view class="review-list" wx:if="{{reviews.length > 0}}">
+      <view class="review-item" wx:for="{{reviews}}" wx:key="id">
+        <view class="review-header">
+          <text class="review-user">{{item.userName}}</text>
+          <rating-stars value="{{item.rating}}" readonly="{{true}}" size="small" />
+        </view>
+        <text class="review-content">{{item.content}}</text>
+        <text class="review-date">{{item.date}}</text>
+      </view>
+    </view>
+    <view class="empty-reviews" wx:else>
+      <text>暂无评价</text>
+    </view>
+  </view>
+
+  <!-- Bottom Spacer for fixed button -->
+  <view class="bottom-spacer"></view>
+
+  <!-- Book Button -->
+  <view class="book-bar">
+    <button class="btn-book" bindtap="onBook">预约陪诊</button>
+  </view>
+</view>

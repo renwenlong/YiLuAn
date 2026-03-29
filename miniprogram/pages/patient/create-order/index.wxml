@@ -1,0 +1,144 @@
+<loading-overlay wx:if="{{loading}}" />
+
+<view class="page-container">
+  <!-- Step Indicator -->
+  <view class="step-indicator">
+    <view class="step-item {{step >= 1 ? 'active' : ''}}" data-step="1">
+      <view class="step-number">1</view>
+      <text class="step-label">服务</text>
+    </view>
+    <view class="step-line {{step >= 2 ? 'active' : ''}}"></view>
+    <view class="step-item {{step >= 2 ? 'active' : ''}}" data-step="2">
+      <view class="step-number">2</view>
+      <text class="step-label">医院</text>
+    </view>
+    <view class="step-line {{step >= 3 ? 'active' : ''}}"></view>
+    <view class="step-item {{step >= 3 ? 'active' : ''}}" data-step="3">
+      <view class="step-number">3</view>
+      <text class="step-label">日期</text>
+    </view>
+    <view class="step-line {{step >= 4 ? 'active' : ''}}"></view>
+    <view class="step-item {{step >= 4 ? 'active' : ''}}" data-step="4">
+      <view class="step-number">4</view>
+      <text class="step-label">确认</text>
+    </view>
+  </view>
+
+  <!-- Step 1: Service Type -->
+  <view class="step-content" wx:if="{{step === 1}}">
+    <view class="section-title">选择服务类型</view>
+    <view class="service-type-list">
+      <view
+        class="service-type-btn {{serviceType === item.value ? 'selected' : ''}}"
+        wx:for="{{serviceTypes}}"
+        wx:key="value"
+        data-type="{{item.value}}"
+        bindtap="onServiceTypeSelect"
+      >
+        <text class="service-type-icon">{{item.icon}}</text>
+        <text class="service-type-name">{{item.label}}</text>
+        <text class="service-type-desc">{{item.desc}}</text>
+      </view>
+    </view>
+    <view class="step-actions">
+      <button class="btn-primary" bindtap="nextStep">下一步</button>
+    </view>
+  </view>
+
+  <!-- Step 2: Hospital -->
+  <view class="step-content" wx:if="{{step === 2}}">
+    <view class="section-title">选择医院</view>
+    <view class="search-bar">
+      <input
+        class="search-input"
+        placeholder="搜索医院名称"
+        value="{{searchKeyword}}"
+        bindinput="onSearchInput"
+        bindconfirm="doSearchHospitals"
+      />
+      <button class="search-btn" bindtap="doSearchHospitals">搜索</button>
+    </view>
+    <view class="hospital-list">
+      <view
+        class="hospital-item {{hospital === item.id ? 'selected' : ''}}"
+        wx:for="{{hospitals}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        data-name="{{item.name}}"
+        bindtap="onHospitalSelect"
+      >
+        <text class="hospital-name">{{item.name}}</text>
+        <text class="hospital-address">{{item.address}}</text>
+      </view>
+      <view class="empty-tip" wx:if="{{hospitals.length === 0}}">
+        <text>请输入关键词搜索医院</text>
+      </view>
+    </view>
+    <view class="step-actions">
+      <button class="btn-secondary" bindtap="prevStep">上一步</button>
+      <button class="btn-primary" bindtap="nextStep">下一步</button>
+    </view>
+  </view>
+
+  <!-- Step 3: Date & Time -->
+  <view class="step-content" wx:if="{{step === 3}}">
+    <view class="section-title">选择日期和时间</view>
+    <view class="form-group">
+      <text class="form-label">日期</text>
+      <picker mode="date" value="{{date}}" bindchange="onDateChange">
+        <view class="picker-value">{{date || '请选择日期'}}</view>
+      </picker>
+    </view>
+    <view class="form-group">
+      <text class="form-label">时间</text>
+      <picker mode="time" value="{{time}}" bindchange="onTimeChange">
+        <view class="picker-value">{{time || '请选择时间'}}</view>
+      </picker>
+    </view>
+    <view class="form-group">
+      <text class="form-label">备注（可选）</text>
+      <textarea
+        class="form-textarea"
+        placeholder="请输入备注信息"
+        value="{{notes}}"
+        bindinput="onNotesInput"
+        maxlength="200"
+      />
+    </view>
+    <view class="step-actions">
+      <button class="btn-secondary" bindtap="prevStep">上一步</button>
+      <button class="btn-primary" bindtap="nextStep">下一步</button>
+    </view>
+  </view>
+
+  <!-- Step 4: Confirm -->
+  <view class="step-content" wx:if="{{step === 4}}">
+    <view class="section-title">确认订单信息</view>
+    <view class="summary-card">
+      <view class="summary-row">
+        <text class="summary-label">服务类型</text>
+        <text class="summary-value">{{serviceType}}</text>
+      </view>
+      <view class="summary-row">
+        <text class="summary-label">医院</text>
+        <text class="summary-value">{{hospitalName}}</text>
+      </view>
+      <view class="summary-row">
+        <text class="summary-label">日期</text>
+        <text class="summary-value">{{date}}</text>
+      </view>
+      <view class="summary-row">
+        <text class="summary-label">时间</text>
+        <text class="summary-value">{{time}}</text>
+      </view>
+      <view class="summary-row" wx:if="{{notes}}">
+        <text class="summary-label">备注</text>
+        <text class="summary-value">{{notes}}</text>
+      </view>
+    </view>
+    <view class="step-actions">
+      <button class="btn-secondary" bindtap="prevStep">上一步</button>
+      <button class="btn-primary" bindtap="onSubmit" loading="{{loading}}">确认下单</button>
+    </view>
+  </view>
+</view>

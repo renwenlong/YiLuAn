@@ -9,6 +9,7 @@
 | 层级 | 技术 |
 |------|------|
 | iOS | SwiftUI + MVVM + Combine |
+| 微信小程序 | 原生框架 (WXML + WXSS + JS) |
 | 后端 | Python 3.11 + FastAPI (async) |
 | 数据库 | PostgreSQL 15 (Azure Flexible Server) |
 | 缓存 | Redis 7 (Azure Cache for Redis) |
@@ -53,6 +54,51 @@ backend/
 ├── Dockerfile
 ├── docker-compose.yaml       # 本地开发: postgres + redis
 └── requirements.txt
+```
+
+### 微信小程序 `miniprogram/`
+
+```
+miniprogram/
+├── app.js / app.json / app.wxss   # 小程序入口
+├── config/index.js                 # 环境配置 (API地址)
+├── services/                       # 网络请求层
+│   ├── api.js                     # wx.request 封装 + Bearer 注入 + 401 自动刷新
+│   ├── auth.js                    # 微信登录, Token刷新, OTP, 手机绑定
+│   ├── user.js / order.js         # 用户/订单 API
+│   ├── companion.js / hospital.js # 陪诊师/医院 API
+│   ├── chat.js                    # 聊天消息 API
+│   └── websocket.js               # WebSocket 封装 + 心跳 + 重连
+├── store/index.js                  # 简单响应式全局状态 (observer 模式)
+├── utils/                          # 工具函数
+│   ├── token.js                   # JWT 存取 + 过期检测
+│   ├── validate.js                # 手机号/验证码校验
+│   ├── format.js                  # 日期/价格/手机号格式化
+│   └── constants.js               # 服务类型/订单状态枚举
+├── components/                     # 7 个可复用组件
+│   ├── service-card/              # 服务类型卡片
+│   ├── order-card/                # 订单摘要卡片
+│   ├── companion-card/            # 陪诊师列表项
+│   ├── rating-stars/              # 评分星星 (展示/交互)
+│   ├── empty-state/               # 空状态占位
+│   ├── loading-overlay/           # 加载遮罩
+│   └── chat-bubble/               # 聊天气泡
+├── pages/                          # 14 个页面
+│   ├── login/                     # 微信一键登录
+│   ├── role-select/               # 角色选择
+│   ├── patient/home/              # 患者首页
+│   ├── patient/create-order/      # 创建订单 (多步表单)
+│   ├── patient/order-detail/      # 患者订单详情
+│   ├── companion/home/            # 陪诊师工作台
+│   ├── companion/available-orders/# 待接订单
+│   ├── companion/order-detail/    # 陪诊师订单详情
+│   ├── orders/                    # 我的订单列表
+│   ├── chat/list/                 # 会话列表
+│   ├── chat/room/                 # 聊天室 (WebSocket)
+│   ├── companion-detail/          # 陪诊师资料
+│   ├── review/write/              # 写评价
+│   └── profile/                   # 个人中心
+└── __tests__/                      # Jest 单元测试 (33个)
 ```
 
 ### iOS `YiLuAn/`
@@ -125,7 +171,7 @@ accepted → cancelled_by_companion
 
 | 模块 | 关键端点 |
 |------|---------|
-| **Auth** | `POST /auth/send-otp`, `POST /auth/verify-otp`, `POST /auth/refresh` |
+| **Auth** | `POST /auth/send-otp`, `POST /auth/verify-otp`, `POST /auth/refresh`, `POST /auth/wechat-login`, `POST /auth/bind-phone` |
 | **Users** | `GET/PUT /users/me`, `PUT /users/me/patient-profile`, `POST /users/me/avatar` |
 | **Companions** | `GET /companions` (筛选/排序), `GET /companions/{id}`, `POST /companions/apply` |
 | **Orders** | `POST /orders`, `GET /orders`, `POST /orders/{id}/accept/start/complete/cancel` |
@@ -187,7 +233,9 @@ accepted → cancelled_by_companion
 ## Azure 基础设施
 
 ```
-iOS App ──HTTPS/WSS──► Azure Container Apps (1-5 replicas, WebSocket enabled)
+iOS App ──────HTTPS/WSS──────►
+                                 Azure Container Apps (1-5 replicas, WebSocket enabled)
+微信小程序 ──HTTPS/WSS──────►
                               │               │
                     PostgreSQL Flexible    Redis Cache
                     (B1ms, Private VNet)   (Basic C0)
@@ -214,7 +262,8 @@ iOS App ──HTTPS/WSS──► Azure Container Apps (1-5 replicas, WebSocket e
 
 ## 验证方式
 
-- **后端:** pytest + pytest-asyncio, 覆盖率 80%+ services 层, 集成测试覆盖全订单生命周期
+- **后端:** pytest + pytest-asyncio, 覆盖率 80%+ services 层, 集成测试覆盖全订单生命周期 (44 tests)
 - **iOS:** XCTest 单元测试 ViewModels, XCUITest 核心流程
+- **微信小程序:** Jest 单元测试, 覆盖 services / store / utils 层 (33 tests)
 - **E2E:** docker-compose 本地全栈测试; Azure staging 部署后完整流程验证
-- **手动测试:** iPhone SE (小屏) + iPhone 15 Pro (大屏), iOS 17+
+- **手动测试:** iPhone SE (小屏) + iPhone 15 Pro (大屏), iOS 17+; 微信开发者工具

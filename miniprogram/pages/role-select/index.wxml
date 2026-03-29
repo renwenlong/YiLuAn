@@ -1,0 +1,28 @@
+<view class="role-select-page">
+  <view class="page-header">
+    <text class="title">选择您的身份</text>
+    <text class="subtitle">请选择您的使用身份，后续可在设置中更改</text>
+  </view>
+
+  <view class="role-cards">
+    <view class="role-card" data-role="patient" bindtap="onSelectRole">
+      <view class="role-icon patient-icon">
+        <text class="icon-text">患</text>
+      </view>
+      <text class="role-name">我是患者</text>
+      <text class="role-desc">寻找专业陪诊师</text>
+    </view>
+
+    <view class="role-card" data-role="companion" bindtap="onSelectRole">
+      <view class="role-icon companion-icon">
+        <text class="icon-text">陪</text>
+      </view>
+      <text class="role-name">我是陪诊师</text>
+      <text class="role-desc">接单赚取收入</text>
+    </view>
+  </view>
+
+  <view class="loading-mask" wx:if="{{loading}}">
+    <view class="loading-spinner"></view>
+  </view>
+</view>

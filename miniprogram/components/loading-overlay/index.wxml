@@ -1,0 +1,6 @@
+<view class="loading-overlay" wx:if="{{show}}">
+  <view class="loading-content">
+    <view class="spinner"></view>
+    <text class="loading-text">加载中...</text>
+  </view>
+</view>

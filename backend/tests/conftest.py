@@ -102,6 +102,32 @@ def seed_user():
 
 
 @pytest.fixture
+def seed_wechat_user():
+    async def _seed(
+        openid: str = "test_openid_001",
+        role: UserRole | None = None,
+        is_active: bool = True,
+    ) -> User:
+        async with test_session_factory() as session:
+            user = User(wechat_openid=openid, role=role, is_active=is_active)
+            session.add(user)
+            await session.commit()
+            await session.refresh(user)
+            return user
+
+    return _seed
+
+
+@pytest.fixture
+async def wechat_client(client, seed_wechat_user) -> AsyncClient:
+    user = await seed_wechat_user(openid="test_openid_auth")
+    token = create_access_token({"sub": str(user.id), "role": None})
+    client.headers["Authorization"] = f"Bearer {token}"
+    client._test_user = user  # type: ignore[attr-defined]
+    return client
+
+
+@pytest.fixture
 async def authenticated_client(client, seed_user) -> AsyncClient:
     user = await seed_user(phone="13800138000", role=UserRole.patient)
     token = create_access_token({"sub": str(user.id), "role": "patient"})
