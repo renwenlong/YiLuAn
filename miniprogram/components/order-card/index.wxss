@@ -1,0 +1,67 @@
+.order-card {
+  background: #fff;
+  border-radius: 16rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
+  margin-bottom: 20rpx;
+  padding: 24rpx;
+  overflow: hidden;
+}
+
+.order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.order-service {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.order-status {
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+}
+
+.status-text {
+  font-size: 24rpx;
+  color: #fff;
+}
+
+.order-body {
+  margin-bottom: 20rpx;
+}
+
+.order-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.order-label {
+  font-size: 26rpx;
+  color: #999;
+  width: 80rpx;
+  flex-shrink: 0;
+}
+
+.order-value {
+  font-size: 26rpx;
+  color: #666;
+  margin-left: 16rpx;
+}
+
+.order-footer {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1rpx solid #f0f0f0;
+  padding-top: 16rpx;
+}
+
+.order-price {
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #ff6b35;
+}

@@ -30,6 +30,10 @@ class Settings(BaseSettings):
     apns_team_id: str = ""
     apns_bundle_id: str = "com.yiluan.app"
 
+    # WeChat Mini Program
+    wechat_app_id: str = ""
+    wechat_app_secret: str = ""
+
     # SMS
     sms_provider: str = "mock"
 

@@ -1,0 +1,149 @@
+.profile-page {
+  min-height: 100vh;
+  background-color: #F5F5F5;
+}
+
+/* 用户信息区域 */
+.user-section {
+  background-color: #FFFFFF;
+  padding: 48rpx 32rpx;
+  margin-bottom: 20rpx;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+}
+
+.user-avatar {
+  margin-right: 24rpx;
+  flex-shrink: 0;
+}
+
+.avatar-img {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+}
+
+.avatar-placeholder {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  background-color: #1890FF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-placeholder text {
+  font-size: 44rpx;
+  color: #FFFFFF;
+  font-weight: 600;
+}
+
+.user-detail {
+  flex: 1;
+}
+
+.user-name {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #333333;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.user-phone {
+  display: flex;
+  align-items: center;
+}
+
+.phone-text {
+  font-size: 28rpx;
+  color: #999999;
+}
+
+.phone-text.unbind {
+  color: #FAAD14;
+}
+
+.bind-phone {
+  display: flex;
+  align-items: center;
+}
+
+.bind-btn {
+  font-size: 24rpx;
+  color: #1890FF;
+  margin-left: 12rpx;
+}
+
+/* 菜单列表 */
+.menu-section {
+  background-color: #FFFFFF;
+  margin-bottom: 20rpx;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 32rpx;
+  border-bottom: 1rpx solid #F0F0F0;
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-item:active {
+  background-color: #F5F5F5;
+}
+
+.menu-icon {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 8rpx;
+  background-color: rgba(24, 144, 255, 0.1);
+  color: #1890FF;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24rpx;
+  font-weight: 600;
+  margin-right: 20rpx;
+  text-align: center;
+  line-height: 48rpx;
+}
+
+.menu-text {
+  flex: 1;
+  font-size: 30rpx;
+  color: #333333;
+}
+
+.menu-arrow {
+  font-size: 28rpx;
+  color: #CCCCCC;
+}
+
+/* 退出登录 */
+.logout-section {
+  padding: 40rpx 32rpx;
+}
+
+.logout-btn {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  background-color: #FFFFFF;
+  color: #FF4D4F;
+  font-size: 30rpx;
+  border-radius: 12rpx;
+  border: none;
+}
+
+.logout-btn::after {
+  border: none;
+}

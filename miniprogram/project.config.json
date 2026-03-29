@@ -1,0 +1,31 @@
+{
+  "description": "医路安 - 陪诊服务平台",
+  "packOptions": {
+    "ignore": [
+      { "type": "folder", "value": "__tests__" },
+      { "type": "folder", "value": "node_modules" },
+      { "type": "file", "value": "package.json" },
+      { "type": "file", "value": "jest.config.js" }
+    ]
+  },
+  "setting": {
+    "urlCheck": true,
+    "es6": true,
+    "enhance": true,
+    "postcss": true,
+    "preloadBackgroundData": false,
+    "minified": true,
+    "newFeature": true,
+    "autoAudits": false,
+    "checkSiteMap": true,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
+  },
+  "compileType": "miniprogram",
+  "appid": "wx0000000000000000",
+  "projectname": "yiluan-miniprogram",
+  "condition": {}
+}

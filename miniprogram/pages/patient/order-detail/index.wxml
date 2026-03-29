@@ -1,0 +1,96 @@
+<loading-overlay wx:if="{{loading}}" />
+
+<view class="page-container" wx:if="{{order}}">
+  <!-- Status Header -->
+  <view class="status-header status-{{order.status}}">
+    <text class="status-text">{{statusList[order.status] || order.status}}</text>
+  </view>
+
+  <!-- Order Info -->
+  <view class="detail-section">
+    <view class="section-title">订单信息</view>
+    <view class="info-row">
+      <text class="info-label">订单编号</text>
+      <text class="info-value">{{order.id}}</text>
+    </view>
+    <view class="info-row">
+      <text class="info-label">服务类型</text>
+      <text class="info-value">{{order.serviceType}}</text>
+    </view>
+    <view class="info-row">
+      <text class="info-label">医院</text>
+      <text class="info-value">{{order.hospitalName}}</text>
+    </view>
+    <view class="info-row">
+      <text class="info-label">预约日期</text>
+      <text class="info-value">{{order.formattedDate}}</text>
+    </view>
+    <view class="info-row">
+      <text class="info-label">预约时间</text>
+      <text class="info-value">{{order.time}}</text>
+    </view>
+    <view class="info-row" wx:if="{{order.formattedPrice}}">
+      <text class="info-label">费用</text>
+      <text class="info-value price">{{order.formattedPrice}}</text>
+    </view>
+    <view class="info-row" wx:if="{{order.notes}}">
+      <text class="info-label">备注</text>
+      <text class="info-value">{{order.notes}}</text>
+    </view>
+  </view>
+
+  <!-- Companion Info -->
+  <view class="detail-section" wx:if="{{order.companion}}">
+    <view class="section-title">陪诊师信息</view>
+    <view class="companion-card">
+      <image class="companion-avatar" src="{{order.companion.avatar}}" mode="aspectFill" />
+      <view class="companion-info">
+        <text class="companion-name">{{order.companion.name}}</text>
+        <rating-stars value="{{order.companion.rating}}" readonly="{{true}}" size="small" />
+        <text class="companion-phone" bindtap="onCallCompanion">{{order.companion.phone}}</text>
+      </view>
+    </view>
+  </view>
+
+  <!-- Status Timeline -->
+  <view class="detail-section">
+    <view class="section-title">订单进度</view>
+    <view class="timeline">
+      <view class="timeline-item {{order.timeline && index <= order.timelineIndex ? 'active' : ''}}" wx:for="{{order.timeline}}" wx:key="time">
+        <view class="timeline-dot"></view>
+        <view class="timeline-content">
+          <text class="timeline-title">{{item.title}}</text>
+          <text class="timeline-time">{{item.time}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- Review Section (if completed with review) -->
+  <view class="detail-section" wx:if="{{order.review}}">
+    <view class="section-title">评价</view>
+    <view class="review-card">
+      <rating-stars value="{{order.review.rating}}" readonly="{{true}}" />
+      <text class="review-content">{{order.review.content}}</text>
+    </view>
+  </view>
+
+  <!-- Action Buttons -->
+  <view class="action-bar">
+    <!-- Created: can cancel -->
+    <block wx:if="{{order.status === 'created'}}">
+      <button class="btn-danger" bindtap="onCancel">取消订单</button>
+    </block>
+
+    <!-- Accepted / In Progress: can chat -->
+    <block wx:if="{{order.status === 'accepted' || order.status === 'in_progress'}}">
+      <button class="btn-primary" bindtap="onChat">联系陪诊师</button>
+    </block>
+
+    <!-- Completed without review: can review -->
+    <block wx:if="{{order.status === 'completed' && !order.review}}">
+      <button class="btn-primary" bindtap="onReview">写评价</button>
+      <button class="btn-secondary" bindtap="onChat">联系陪诊师</button>
+    </block>
+  </view>
+</view>

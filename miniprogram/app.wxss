@@ -1,0 +1,62 @@
+page {
+  --primary-color: #1890FF;
+  --success-color: #52C41A;
+  --warning-color: #FAAD14;
+  --error-color: #FF4D4F;
+  --text-primary: #333333;
+  --text-secondary: #666666;
+  --text-hint: #999999;
+  --bg-page: #F5F5F5;
+  --bg-card: #FFFFFF;
+  --border-color: #E8E8E8;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', sans-serif;
+  font-size: 28rpx;
+  color: var(--text-primary);
+  background: var(--bg-page);
+  box-sizing: border-box;
+}
+
+.container {
+  padding: 32rpx;
+}
+
+.card {
+  background: var(--bg-card);
+  border-radius: 16rpx;
+  padding: 32rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.btn-primary {
+  background: var(--primary-color);
+  color: #ffffff;
+  border: none;
+  border-radius: 12rpx;
+  padding: 24rpx 0;
+  font-size: 32rpx;
+  text-align: center;
+  width: 100%;
+}
+
+.btn-primary[disabled] {
+  opacity: 0.5;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  margin-bottom: 24rpx;
+}
+
+.flex-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.flex-between {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}

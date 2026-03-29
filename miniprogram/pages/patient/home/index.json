@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "首页",
+  "usingComponents": {
+    "service-card": "/components/service-card/index",
+    "companion-card": "/components/companion-card/index"
+  }
+}

@@ -1,0 +1,74 @@
+.companion-card {
+  display: flex;
+  align-items: center;
+  padding: 24rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
+  margin-bottom: 20rpx;
+}
+
+.avatar-placeholder {
+  width: 96rpx;
+  height: 96rpx;
+  border-radius: 50%;
+  background: #e6f7ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 24rpx;
+  flex-shrink: 0;
+}
+
+.avatar-text {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #1890ff;
+}
+
+.companion-info {
+  flex: 1;
+  overflow: hidden;
+}
+
+.companion-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8rpx;
+}
+
+.companion-name {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333;
+}
+
+.companion-rating {
+  font-size: 26rpx;
+  color: #faad14;
+  font-weight: 600;
+}
+
+.companion-meta {
+  margin-bottom: 12rpx;
+}
+
+.meta-item {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.companion-areas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8rpx;
+}
+
+.area-tag {
+  font-size: 22rpx;
+  color: #1890ff;
+  background: #e6f7ff;
+  padding: 4rpx 12rpx;
+  border-radius: 8rpx;
+}

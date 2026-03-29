@@ -1,0 +1,57 @@
+.orders-page {
+  min-height: 100vh;
+  background-color: #F5F5F5;
+}
+
+.tabs-scroll {
+  display: flex;
+  white-space: nowrap;
+  background-color: #FFFFFF;
+  padding: 0 16rpx;
+  border-bottom: 1rpx solid #F0F0F0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.tab-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24rpx 32rpx;
+  font-size: 28rpx;
+  color: #666666;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.tab-active {
+  color: #1890FF;
+  font-weight: 600;
+}
+
+.tab-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 48rpx;
+  height: 4rpx;
+  background-color: #1890FF;
+  border-radius: 2rpx;
+}
+
+.order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+  padding: 24rpx;
+}
+
+.load-more {
+  text-align: center;
+  padding: 32rpx 0;
+  color: #999999;
+  font-size: 26rpx;
+}

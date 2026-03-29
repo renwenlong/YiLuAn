@@ -1,0 +1,39 @@
+<view class="companion-home">
+  <!-- 数据统计 -->
+  <view class="stats-row">
+    <view class="stat-item">
+      <text class="stat-value">{{stats.todayOrders}}</text>
+      <text class="stat-label">今日订单</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-item">
+      <text class="stat-value">{{stats.totalEarnings}}</text>
+      <text class="stat-label">累计收入(元)</text>
+    </view>
+    <view class="stat-divider"></view>
+    <view class="stat-item">
+      <text class="stat-value">{{stats.rating || '-'}}</text>
+      <text class="stat-label">评分</text>
+    </view>
+  </view>
+
+  <!-- 待接订单 -->
+  <view class="section">
+    <view class="section-header">
+      <text class="section-title">待接订单</text>
+      <text class="section-link" bindtap="onViewAllPending">查看全部待接单</text>
+    </view>
+    <view class="order-list">
+      <order-card
+        wx:for="{{pendingOrders}}"
+        wx:key="id"
+        order="{{item}}"
+        data-id="{{item.id}}"
+        bindtap="onOrderTap"
+      />
+    </view>
+    <view class="empty-hint" wx:if="{{pendingOrders.length === 0}}">
+      <text>暂无待接订单</text>
+    </view>
+  </view>
+</view>
