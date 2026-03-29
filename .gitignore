@@ -78,6 +78,6 @@ Pods/
 credentials.json
 
 # WeChat Mini Program
-miniprogram/node_modules/
-miniprogram/miniprogram_npm/
-miniprogram/coverage/
+wechat/node_modules/
+wechat/miniprogram_npm/
+wechat/coverage/
