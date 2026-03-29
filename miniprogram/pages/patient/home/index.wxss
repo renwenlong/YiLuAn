@@ -1,0 +1,48 @@
+.patient-home {
+  min-height: 100vh;
+  background-color: #F5F5F5;
+  padding: 24rpx;
+  box-sizing: border-box;
+}
+
+.section {
+  margin-bottom: 40rpx;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24rpx;
+}
+
+.section-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  color: #333333;
+}
+
+.service-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24rpx;
+}
+
+.companion-scroll {
+  display: flex;
+  white-space: nowrap;
+  padding-bottom: 16rpx;
+}
+
+.companion-scroll companion-card {
+  display: inline-block;
+  margin-right: 24rpx;
+  width: 280rpx;
+}
+
+.empty-hint {
+  text-align: center;
+  padding: 60rpx 0;
+  color: #999999;
+  font-size: 28rpx;
+}

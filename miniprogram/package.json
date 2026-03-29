@@ -1,0 +1,12 @@
+{
+  "name": "yiluan-miniprogram",
+  "version": "1.0.0",
+  "description": "医路安微信小程序",
+  "scripts": {
+    "test": "jest --verbose",
+    "test:coverage": "jest --coverage"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}

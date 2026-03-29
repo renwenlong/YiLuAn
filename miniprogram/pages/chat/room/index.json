@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "聊天",
+  "usingComponents": {
+    "chat-bubble": "/components/chat-bubble/index"
+  }
+}

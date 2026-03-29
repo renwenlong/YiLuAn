@@ -2,7 +2,7 @@ import re
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class SendOTPRequest(BaseModel):
@@ -41,7 +41,7 @@ class RefreshTokenRequest(BaseModel):
 
 class UserResponse(BaseModel):
     id: UUID
-    phone: str
+    phone: str | None = None
     role: str | None = None
     display_name: str | None = None
     avatar_url: str | None = None
@@ -59,3 +59,26 @@ class TokenResponse(BaseModel):
 class RefreshTokenResponse(BaseModel):
     access_token: str
     refresh_token: str
+
+
+class WeChatLoginRequest(BaseModel):
+    code: str = Field(..., min_length=1, max_length=128)
+
+
+class PhoneBindRequest(BaseModel):
+    phone: str
+    code: str
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str) -> str:
+        if not re.match(r"^1[3-9]\d{9}$", v):
+            raise ValueError("Invalid phone number format")
+        return v
+
+    @field_validator("code")
+    @classmethod
+    def validate_code(cls, v: str) -> str:
+        if not re.match(r"^\d{6}$", v):
+            raise ValueError("OTP code must be 6 digits")
+        return v

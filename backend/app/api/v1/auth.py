@@ -1,12 +1,15 @@
 from fastapi import APIRouter, Request
 
-from app.dependencies import DBSession
+from app.dependencies import CurrentUser, DBSession
 from app.schemas.auth import (
+    PhoneBindRequest,
     RefreshTokenRequest,
     RefreshTokenResponse,
     SendOTPRequest,
     TokenResponse,
+    UserResponse,
     VerifyOTPRequest,
+    WeChatLoginRequest,
 )
 from app.services.auth import AuthService
 
@@ -30,3 +33,21 @@ async def verify_otp(body: VerifyOTPRequest, request: Request, session: DBSessio
 async def refresh_token(body: RefreshTokenRequest, request: Request, session: DBSession):
     service = AuthService(session, request.app.state.redis)
     return await service.refresh_token(body.refresh_token)
+
+
+@router.post("/wechat-login", response_model=TokenResponse)
+async def wechat_login(body: WeChatLoginRequest, request: Request, session: DBSession):
+    service = AuthService(session, request.app.state.redis)
+    return await service.wechat_login(body.code)
+
+
+@router.post("/bind-phone", response_model=UserResponse)
+async def bind_phone(
+    body: PhoneBindRequest,
+    request: Request,
+    session: DBSession,
+    current_user: CurrentUser,
+):
+    service = AuthService(session, request.app.state.redis)
+    user = await service.bind_phone(current_user.id, body.phone, body.code)
+    return UserResponse.model_validate(user)

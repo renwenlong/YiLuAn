@@ -1,0 +1,26 @@
+.rating-stars {
+  display: flex;
+  align-items: center;
+}
+
+.star {
+  font-size: 40rpx;
+  margin-right: 8rpx;
+  transition: transform 0.2s ease;
+}
+
+.star-filled {
+  color: #faad14;
+}
+
+.star-empty {
+  color: #d9d9d9;
+}
+
+.star-interactive {
+  cursor: pointer;
+}
+
+.star-interactive:active {
+  transform: scale(1.2);
+}

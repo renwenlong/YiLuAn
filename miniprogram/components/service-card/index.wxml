@@ -1,0 +1,9 @@
+<view class="service-card" wx:if="{{info.label}}">
+  <view class="service-icon">
+    <view class="icon-placeholder">{{info.icon}}</view>
+  </view>
+  <view class="service-info">
+    <text class="service-label">{{info.label}}</text>
+    <text class="service-price">¥{{info.price}}</text>
+  </view>
+</view>

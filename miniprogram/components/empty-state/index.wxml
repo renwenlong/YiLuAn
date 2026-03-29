@@ -1,0 +1,6 @@
+<view class="empty-state">
+  <view class="empty-icon">
+    <text class="icon-placeholder">{{icon}}</text>
+  </view>
+  <text class="empty-text">{{text}}</text>
+</view>

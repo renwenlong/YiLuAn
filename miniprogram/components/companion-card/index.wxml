@@ -1,0 +1,17 @@
+<view class="companion-card" bindtap="onTap">
+  <view class="avatar-placeholder">
+    <text class="avatar-text">{{companion.name[0]}}</text>
+  </view>
+  <view class="companion-info">
+    <view class="companion-header">
+      <text class="companion-name">{{companion.name}}</text>
+      <text class="companion-rating">★ {{companion.rating}}</text>
+    </view>
+    <view class="companion-meta">
+      <text class="meta-item">已完成 {{companion.completed_orders}} 单</text>
+    </view>
+    <view class="companion-areas" wx:if="{{companion.service_areas && companion.service_areas.length > 0}}">
+      <text class="area-tag" wx:for="{{companion.service_areas}}" wx:key="*this">{{item}}</text>
+    </view>
+  </view>
+</view>

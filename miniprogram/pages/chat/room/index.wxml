@@ -1,0 +1,42 @@
+<view class="chat-container">
+  <!-- Message List -->
+  <scroll-view
+    class="message-list"
+    scroll-y="{{true}}"
+    scroll-into-view="{{scrollIntoView}}"
+    scroll-with-animation="{{true}}"
+  >
+    <view class="message-padding-top"></view>
+    <view
+      wx:for="{{messages}}"
+      wx:key="id"
+      id="msg-{{index}}"
+    >
+      <chat-bubble
+        message="{{item}}"
+        isSelf="{{item.senderId === currentUserId}}"
+      />
+    </view>
+    <view class="message-padding-bottom"></view>
+  </scroll-view>
+
+  <!-- Input Bar -->
+  <view class="input-bar">
+    <view class="input-wrapper">
+      <input
+        class="chat-input"
+        placeholder="输入消息..."
+        value="{{inputValue}}"
+        bindinput="onInput"
+        bindconfirm="onSend"
+        confirm-type="send"
+        adjust-position="{{true}}"
+      />
+    </view>
+    <button
+      class="send-btn {{inputValue ? 'active' : ''}}"
+      bindtap="onSend"
+      disabled="{{!inputValue}}"
+    >发送</button>
+  </view>
+</view>

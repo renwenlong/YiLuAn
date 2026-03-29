@@ -1,0 +1,186 @@
+.page-container {
+  padding-bottom: 160rpx;
+  background-color: #f5f5f5;
+}
+
+/* Profile Header */
+.profile-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60rpx 32rpx 40rpx;
+  background-color: #fff;
+}
+
+.profile-avatar {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+  margin-bottom: 20rpx;
+  border: 4rpx solid #f0f0f0;
+}
+
+.profile-name {
+  font-size: 38rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 12rpx;
+}
+
+.profile-rating {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+
+.rating-text {
+  font-size: 28rpx;
+  color: #FF9800;
+  font-weight: bold;
+}
+
+/* Detail Section */
+.detail-section {
+  margin: 24rpx;
+  padding: 32rpx;
+  background-color: #fff;
+  border-radius: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 24rpx;
+  padding-bottom: 16rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.bio-text {
+  font-size: 28rpx;
+  color: #666;
+  line-height: 1.8;
+}
+
+.info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 0;
+}
+
+.info-label {
+  font-size: 28rpx;
+  color: #999;
+}
+
+.info-value {
+  font-size: 28rpx;
+  color: #333;
+}
+
+/* Service Areas Tags */
+.service-areas {
+  margin-top: 16rpx;
+  padding-top: 16rpx;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  margin-top: 12rpx;
+}
+
+.tag {
+  display: inline-block;
+  padding: 8rpx 24rpx;
+  background-color: #f0f9f0;
+  color: #4CAF50;
+  font-size: 24rpx;
+  border-radius: 24rpx;
+}
+
+/* Reviews */
+.review-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
+.review-item {
+  padding-bottom: 24rpx;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.review-item:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.review-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12rpx;
+}
+
+.review-user {
+  font-size: 28rpx;
+  font-weight: bold;
+  color: #333;
+}
+
+.review-content {
+  display: block;
+  font-size: 26rpx;
+  color: #666;
+  line-height: 1.6;
+  margin-bottom: 8rpx;
+}
+
+.review-date {
+  display: block;
+  font-size: 22rpx;
+  color: #bbb;
+}
+
+.empty-reviews {
+  text-align: center;
+  padding: 40rpx 0;
+  color: #999;
+  font-size: 28rpx;
+}
+
+/* Bottom */
+.bottom-spacer {
+  height: 40rpx;
+}
+
+.book-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 24rpx 32rpx;
+  background-color: #fff;
+  box-shadow: 0 -2rpx 12rpx rgba(0, 0, 0, 0.08);
+  padding-bottom: calc(24rpx + env(safe-area-inset-bottom));
+}
+
+.btn-book {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  font-size: 34rpx;
+  background-color: #4CAF50;
+  color: #fff;
+  border-radius: 16rpx;
+  font-weight: bold;
+  padding: 0;
+}
+
+.btn-book:active {
+  background-color: #388E3C;
+}

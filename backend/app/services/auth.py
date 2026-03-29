@@ -7,10 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.security import create_access_token, create_refresh_token, decode_token
-from app.exceptions import BadRequestException, UnauthorizedException
+from app.exceptions import BadRequestException, ConflictException, UnauthorizedException
 from app.models.user import User
 from app.repositories.user import UserRepository
 from app.schemas.auth import TokenResponse, UserResponse
+from app.services.wechat import WeChatAPIClient
 
 
 OTP_TTL = 300
@@ -98,3 +99,64 @@ class AuthService:
         new_refresh = create_refresh_token(token_data)
 
         return {"access_token": new_access, "refresh_token": new_refresh}
+
+    async def wechat_login(self, code: str) -> TokenResponse:
+        DEV_WX_CODE = "dev_test_code"
+        DEV_WX_OPENID = "dev_openid_000"
+
+        is_dev = settings.environment == "development"
+        if is_dev and code == DEV_WX_CODE:
+            openid = DEV_WX_OPENID
+            unionid = None
+        else:
+            result = await WeChatAPIClient.code2session(code)
+            openid = result["openid"]
+            unionid = result.get("unionid")
+
+        user = await self.user_repo.get_by_wechat_openid(openid)
+        if user is None:
+            user = User(wechat_openid=openid, wechat_unionid=unionid)
+            user = await self.user_repo.create(user)
+
+        if not user.is_active:
+            raise UnauthorizedException("Account is disabled")
+
+        token_data = {"sub": str(user.id), "role": user.role.value if user.role else None}
+        access_token = create_access_token(token_data)
+        refresh_token = create_refresh_token(token_data)
+
+        return TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            user=UserResponse.model_validate(user),
+        )
+
+    async def bind_phone(self, user_id: UUID, phone: str, code: str) -> User:
+        otp_key = f"otp:{phone}"
+
+        is_dev = settings.environment == "development"
+        if is_dev and code == DEV_OTP:
+            pass
+        else:
+            stored_code = await self.redis.get(otp_key)
+            if stored_code is None:
+                raise BadRequestException("OTP code expired or not found")
+            if stored_code != code:
+                raise BadRequestException("Invalid OTP code")
+            await self.redis.delete(otp_key)
+
+        user = await self.user_repo.get_by_id(user_id)
+        if user is None:
+            raise UnauthorizedException("User not found")
+
+        if user.phone is not None:
+            raise BadRequestException("User already has a phone number bound")
+
+        existing = await self.user_repo.get_by_phone(phone)
+        if existing is not None and existing.id != user.id:
+            raise ConflictException("Phone number already registered to another account")
+
+        user.phone = phone
+        await self.session.flush()
+        await self.session.refresh(user)
+        return user

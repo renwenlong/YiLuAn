@@ -76,3 +76,8 @@ Pods/
 *.pem
 *.key
 credentials.json
+
+# WeChat Mini Program
+miniprogram/node_modules/
+miniprogram/miniprogram_npm/
+miniprogram/coverage/

@@ -1,0 +1,37 @@
+<loading-overlay wx:if="{{loading && orders.length === 0}}" />
+
+<view class="page-container">
+  <!-- Order List -->
+  <view class="order-list" wx:if="{{orders.length > 0}}">
+    <view class="order-card-wrapper" wx:for="{{orders}}" wx:key="id">
+      <order-card
+        order="{{item}}"
+        data-id="{{item.id}}"
+        bindtap="onOrderTap"
+      />
+      <view class="accept-action">
+        <button
+          class="btn-accept"
+          data-id="{{item.id}}"
+          catchtap="onAccept"
+        >接单</button>
+      </view>
+    </view>
+  </view>
+
+  <!-- Empty State -->
+  <empty-state
+    wx:if="{{!loading && orders.length === 0}}"
+    icon="order"
+    text="暂无待接订单"
+    subText="新订单将会在这里显示"
+  />
+
+  <!-- Load More -->
+  <view class="load-more" wx:if="{{loading && orders.length > 0}}">
+    <text>加载中...</text>
+  </view>
+  <view class="no-more" wx:if="{{!hasMore && orders.length > 0}}">
+    <text>没有更多了</text>
+  </view>
+</view>

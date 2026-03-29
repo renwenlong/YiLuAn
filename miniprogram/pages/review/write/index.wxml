@@ -1,0 +1,50 @@
+<loading-overlay wx:if="{{loading}}" />
+
+<view class="page-container">
+  <!-- Rating Section -->
+  <view class="section">
+    <view class="section-title">服务评分</view>
+    <view class="rating-wrapper">
+      <rating-stars
+        value="{{rating}}"
+        readonly="{{false}}"
+        size="large"
+        bind:change="onRatingChange"
+      />
+      <text class="rating-text">{{rating}}分</text>
+    </view>
+    <view class="rating-labels">
+      <text class="rating-label" wx:if="{{rating === 1}}">非常差</text>
+      <text class="rating-label" wx:if="{{rating === 2}}">较差</text>
+      <text class="rating-label" wx:if="{{rating === 3}}">一般</text>
+      <text class="rating-label" wx:if="{{rating === 4}}">满意</text>
+      <text class="rating-label" wx:if="{{rating === 5}}">非常满意</text>
+    </view>
+  </view>
+
+  <!-- Content Section -->
+  <view class="section">
+    <view class="section-title">评价内容</view>
+    <textarea
+      class="review-textarea"
+      placeholder="请分享您的陪诊体验，帮助其他患者做出选择..."
+      value="{{content}}"
+      bindinput="onInput"
+      maxlength="500"
+      auto-height="{{false}}"
+    />
+    <view class="char-count">
+      <text>{{content.length}}/500</text>
+    </view>
+  </view>
+
+  <!-- Submit Button -->
+  <view class="submit-wrapper">
+    <button
+      class="btn-submit"
+      bindtap="onSubmit"
+      loading="{{loading}}"
+      disabled="{{loading}}"
+    >提交评价</button>
+  </view>
+</view>

@@ -1,0 +1,21 @@
+<view class="login-page">
+  <view class="login-content">
+    <view class="logo-section">
+      <view class="logo-placeholder">
+        <text class="logo-text">医路安</text>
+      </view>
+      <text class="app-description">专业医疗陪诊服务</text>
+    </view>
+
+    <view class="action-section">
+      <button
+        class="login-btn"
+        loading="{{loading}}"
+        disabled="{{loading}}"
+        bindtap="onLogin"
+      >
+        微信一键登录
+      </button>
+    </view>
+  </view>
+</view>
