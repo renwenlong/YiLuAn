@@ -1,0 +1,38 @@
+# Web framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.18
+
+# Database
+sqlalchemy[asyncio]==2.0.36
+asyncpg==0.30.0
+alembic==1.14.1
+
+# Validation & Settings
+pydantic==2.10.4
+pydantic-settings==2.7.1
+
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# Redis
+redis[hiredis]==5.2.1
+
+# Azure
+azure-storage-blob==12.24.0
+
+# HTTP client (for APNs etc)
+httpx==0.28.1
+
+# YAML for config
+pyyaml==6.0.2
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.25.0
+httpx==0.28.1
+
+# Dev
+black==24.10.0
+ruff==0.8.6
