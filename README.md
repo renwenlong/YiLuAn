@@ -56,10 +56,10 @@ backend/
 └── requirements.txt
 ```
 
-### 微信小程序 `miniprogram/`
+### 微信小程序 `wechat/`
 
 ```
-miniprogram/
+wechat/
 ├── app.js / app.json / app.wxss   # 小程序入口
 ├── config/index.js                 # 环境配置 (API地址)
 ├── services/                       # 网络请求层
