@@ -1,22 +1,22 @@
-# PeiZhen iOS App
+# YiLuAn iOS App
 
 ## Setup
 
 This iOS project requires creating the Xcode project on macOS:
 
 1. Open Xcode → Create New Project → App
-2. Product Name: `PeiZhen`
+2. Product Name: `YiLuAn`
 3. Organization Identifier: `com.yiluan`
 4. Interface: SwiftUI, Language: Swift
 5. Save into the `ios/` directory
 6. Delete the auto-generated `ContentView.swift`
-7. Add all existing Swift files from `PeiZhen/` to the project
+7. Add all existing Swift files from `YiLuAn/` to the project
 
 All source files are pre-written:
 
 ```
-PeiZhen/
-├── PeiZhenApp.swift              # App entry point
+YiLuAn/
+├── YiLuAnApp.swift              # App entry point
 ├── Configuration/
 │   └── AppConfig.swift           # API URLs, keys, pricing
 ├── Core/

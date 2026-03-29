@@ -21,10 +21,10 @@
 
 ## 项目结构
 
-### 后端 `peizhen-backend/`
+### 后端 `backend/`
 
 ```
-peizhen-backend/
+backend/
 ├── alembic/                   # 数据库迁移
 ├── app/
 │   ├── main.py                # FastAPI 入口, CORS, 中间件
@@ -55,12 +55,12 @@ peizhen-backend/
 └── requirements.txt
 ```
 
-### iOS `PeiZhen/`
+### iOS `YiLuAn/`
 
 ```
-PeiZhen/
-├── PeiZhen/
-│   ├── PeiZhenApp.swift          # @main, 根据登录态路由
+YiLuAn/
+├── YiLuAn/
+│   ├── YiLuAnApp.swift          # @main, 根据登录态路由
 │   ├── Core/
 │   │   ├── Networking/
 │   │   │   ├── APIClient.swift       # URLSession 封装
@@ -79,7 +79,7 @@ PeiZhen/
 │   │   ├── Notifications/ # 通知中心
 │   │   └── Profile/       # 个人资料
 │   └── SharedViews/       # 通用组件
-└── PeiZhenTests/
+└── YiLuAnTests/
 ```
 
 ---

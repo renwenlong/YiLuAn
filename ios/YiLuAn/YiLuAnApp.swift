@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct PeiZhenApp: App {
+struct YiLuAnApp: App {
     @StateObject private var authViewModel = AuthViewModel()
 
     var body: some Scene {
