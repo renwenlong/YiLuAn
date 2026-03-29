@@ -10,7 +10,7 @@ from app.core.security import create_access_token, create_refresh_token, decode_
 from app.exceptions import BadRequestException, ConflictException, UnauthorizedException
 from app.models.user import User
 from app.repositories.user import UserRepository
-from app.schemas.auth import TokenResponse, UserResponse
+from app.schemas.auth import RefreshTokenResponse, TokenResponse, UserResponse
 from app.services.wechat import WeChatAPIClient
 
 
@@ -71,7 +71,7 @@ class AuthService:
             user=UserResponse.model_validate(user),
         )
 
-    async def refresh_token(self, refresh_token_str: str) -> dict:
+    async def refresh_token(self, refresh_token_str: str) -> RefreshTokenResponse:
         payload = decode_token(refresh_token_str)
         if payload is None:
             raise UnauthorizedException("Invalid refresh token")
@@ -98,7 +98,7 @@ class AuthService:
         new_access = create_access_token(token_data)
         new_refresh = create_refresh_token(token_data)
 
-        return {"access_token": new_access, "refresh_token": new_refresh}
+        return RefreshTokenResponse(access_token=new_access, refresh_token=new_refresh)
 
     async def wechat_login(self, code: str) -> TokenResponse:
         DEV_WX_CODE = "dev_test_code"

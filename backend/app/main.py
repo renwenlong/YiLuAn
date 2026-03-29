@@ -1,22 +1,17 @@
 from contextlib import asynccontextmanager
 
-import redis.asyncio as aioredis
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import api_v1_router
 from app.config import settings
+from app.core.redis import init_redis
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    try:
-        app.state.redis = aioredis.from_url(
-            settings.redis_url, encoding="utf-8", decode_responses=True
-        )
-    except Exception:
-        app.state.redis = None
+    app.state.redis = init_redis()
     yield
     # Shutdown
     if app.state.redis:

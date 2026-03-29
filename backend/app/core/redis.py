@@ -1,21 +1,14 @@
 import redis.asyncio as aioredis
+from fastapi import Request
 
 from app.config import settings
 
-redis_client: aioredis.Redis | None = None
+
+def init_redis() -> aioredis.Redis:
+    return aioredis.from_url(
+        settings.redis_url, encoding="utf-8", decode_responses=True
+    )
 
 
-async def get_redis() -> aioredis.Redis:
-    global redis_client
-    if redis_client is None:
-        redis_client = aioredis.from_url(
-            settings.redis_url, encoding="utf-8", decode_responses=True
-        )
-    return redis_client
-
-
-async def close_redis():
-    global redis_client
-    if redis_client:
-        await redis_client.close()
-        redis_client = None
+def get_redis(request: Request) -> aioredis.Redis:
+    return request.app.state.redis
