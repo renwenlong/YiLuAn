@@ -165,17 +165,9 @@ actor APIClient {
             throw APIError.unauthorized
         }
 
-        struct RefreshRequest: Encodable {
-            let refreshToken: String
-        }
-        struct TokenResponse: Decodable {
-            let accessToken: String
-            let refreshToken: String
-        }
-
         let request = try buildRequest(
             .refreshToken,
-            body: RefreshRequest(refreshToken: refreshToken)
+            body: RefreshTokenRequest(refreshToken: refreshToken)
         )
         let (data, response) = try await session.data(for: request)
 
@@ -185,7 +177,7 @@ actor APIClient {
             throw APIError.unauthorized
         }
 
-        let tokens = try decoder.decode(TokenResponse.self, from: data)
+        let tokens = try decoder.decode(RefreshTokenResponse.self, from: data)
         KeychainManager.accessToken = tokens.accessToken
         KeychainManager.refreshToken = tokens.refreshToken
     }

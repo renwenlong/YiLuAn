@@ -1,8 +1,3 @@
-from fastapi import APIRouter
+from app.api.v1.router import api_v1_router
 
-api_v1_router = APIRouter()
-
-
-@api_v1_router.get("/ping")
-async def ping():
-    return {"message": "pong", "version": "v1"}
+__all__ = ["api_v1_router"]
