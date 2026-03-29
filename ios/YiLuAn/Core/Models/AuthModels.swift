@@ -18,3 +18,8 @@ struct TokenResponse: Decodable {
 struct RefreshTokenRequest: Encodable {
     let refreshToken: String
 }
+
+struct RefreshTokenResponse: Decodable {
+    let accessToken: String
+    let refreshToken: String
+}
