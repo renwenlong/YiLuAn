@@ -7,6 +7,7 @@
     "pages/orders/index",
     "pages/chat/list/index",
     "pages/profile/index",
+    "pages/profile/edit/index",
     "pages/patient/create-order/index",
     "pages/patient/order-detail/index",
     "pages/companion/available-orders/index",

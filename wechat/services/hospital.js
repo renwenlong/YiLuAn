@@ -8,4 +8,8 @@ function getHospitals(params = {}) {
   return request({ url, method: 'GET' })
 }
 
-module.exports = { getHospitals, searchHospitals: getHospitals }
+function getHospitalDetail(id) {
+  return request({ url: 'hospitals/' + id, method: 'GET' })
+}
+
+module.exports = { getHospitals, searchHospitals: getHospitals, getHospitalDetail }

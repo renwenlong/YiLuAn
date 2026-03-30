@@ -16,12 +16,24 @@ Page({
   async loadData() {
     this.setData({ loading: true })
     try {
-      const [companion, reviewsRes] = await Promise.all([
+      const [rawCompanion, reviewsRes] = await Promise.all([
         getCompanionDetail(this.companionId),
         getCompanionReviews(this.companionId)
       ])
+      var companion = {
+        id: rawCompanion.id,
+        name: rawCompanion.name || rawCompanion.user_name || '',
+        avatar: rawCompanion.avatar || rawCompanion.user_avatar || '',
+        bio: rawCompanion.bio || '',
+        rating: rawCompanion.avg_rating || rawCompanion.rating || 0,
+        completedOrders: rawCompanion.total_orders || rawCompanion.completedOrders || 0,
+        serviceArea: rawCompanion.service_area || rawCompanion.serviceArea || '',
+        experience: rawCompanion.experience || '',
+        serviceAreas: rawCompanion.service_areas || rawCompanion.serviceAreas || [],
+        is_verified: rawCompanion.is_verified || false
+      }
       this.setData({
-        companion,
+        companion: companion,
         reviews: reviewsRes.list || reviewsRes || []
       })
     } catch (err) {
@@ -33,7 +45,7 @@ Page({
 
   onBook() {
     wx.navigateTo({
-      url: `/pages/patient/create-order/index?companionId=${this.companionId}`
+      url: '/pages/patient/create-order/index?companionId=' + this.companionId
     })
   },
 

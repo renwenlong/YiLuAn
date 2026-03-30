@@ -1,0 +1,74 @@
+<view class="edit-page">
+  <view class="form-section" wx:if="{{!loading}}">
+    <!-- Patient Fields -->
+    <block wx:if="{{role === 'patient'}}">
+      <view class="form-group">
+        <text class="form-label">紧急联系人</text>
+        <input
+          class="form-input"
+          placeholder="请输入紧急联系人姓名"
+          value="{{emergency_contact}}"
+          data-field="emergency_contact"
+          bindinput="onInputChange"
+        />
+      </view>
+      <view class="form-group">
+        <text class="form-label">紧急联系电话</text>
+        <input
+          class="form-input"
+          type="number"
+          placeholder="请输入紧急联系电话"
+          value="{{emergency_phone}}"
+          data-field="emergency_phone"
+          bindinput="onInputChange"
+        />
+      </view>
+      <view class="form-group">
+        <text class="form-label">病情备注</text>
+        <textarea
+          class="form-textarea"
+          placeholder="请输入病情备注信息"
+          value="{{medical_notes}}"
+          data-field="medical_notes"
+          bindinput="onInputChange"
+          maxlength="500"
+        />
+      </view>
+    </block>
+
+    <!-- Companion Fields -->
+    <block wx:if="{{role === 'companion'}}">
+      <view class="form-group">
+        <text class="form-label">个人简介</text>
+        <textarea
+          class="form-textarea"
+          placeholder="请输入个人简介"
+          value="{{bio}}"
+          data-field="bio"
+          bindinput="onInputChange"
+          maxlength="500"
+        />
+      </view>
+      <view class="form-group">
+        <text class="form-label">服务区域</text>
+        <input
+          class="form-input"
+          placeholder="请输入服务区域"
+          value="{{service_area}}"
+          data-field="service_area"
+          bindinput="onInputChange"
+        />
+      </view>
+    </block>
+
+    <view class="btn-section">
+      <button class="btn-save" bindtap="onSave" disabled="{{saving}}">
+        {{saving ? '保存中...' : '保存'}}
+      </button>
+    </view>
+  </view>
+
+  <view class="loading-section" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+</view>

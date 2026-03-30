@@ -27,12 +27,17 @@ struct APIEndpoint {
     static let updateMe = APIEndpoint(path: "users/me", method: .put, requiresAuth: true)
     static let uploadAvatar = APIEndpoint(path: "users/me/avatar", method: .post, requiresAuth: true)
 
+    // MARK: - Patient Profile
+    static let patientProfile = APIEndpoint(path: "users/me/patient-profile", method: .get, requiresAuth: true)
+    static let updatePatientProfile = APIEndpoint(path: "users/me/patient-profile", method: .put, requiresAuth: true)
+
     // MARK: - Companions
     static let companions = APIEndpoint(path: "companions", method: .get, requiresAuth: true)
     static func companion(id: String) -> APIEndpoint {
         APIEndpoint(path: "companions/\(id)", method: .get, requiresAuth: true)
     }
     static let applyCompanion = APIEndpoint(path: "companions/apply", method: .post, requiresAuth: true)
+    static let updateCompanionProfile = APIEndpoint(path: "companions/me", method: .put, requiresAuth: true)
 
     // MARK: - Orders
     static let orders = APIEndpoint(path: "orders", method: .get, requiresAuth: true)
@@ -63,4 +68,7 @@ struct APIEndpoint {
 
     // MARK: - Hospitals
     static let hospitals = APIEndpoint(path: "hospitals", method: .get, requiresAuth: true)
+    static func hospital(id: String) -> APIEndpoint {
+        APIEndpoint(path: "hospitals/\(id)", method: .get, requiresAuth: false)
+    }
 }

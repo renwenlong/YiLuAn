@@ -27,6 +27,29 @@
   margin-bottom: 12rpx;
 }
 
+.profile-name-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+}
+
+.verified-badge {
+  font-size: 22rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 16rpx;
+  background-color: #F6FFED;
+  color: #52C41A;
+}
+
+.unverified-badge {
+  font-size: 22rpx;
+  padding: 4rpx 16rpx;
+  border-radius: 16rpx;
+  background-color: #FFF7E6;
+  color: #FAAD14;
+}
+
 .profile-rating {
   display: flex;
   align-items: center;

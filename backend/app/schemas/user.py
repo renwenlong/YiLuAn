@@ -12,3 +12,7 @@ class UpdateUserRequest(BaseModel):
         if v is not None and v not in ("patient", "companion"):
             raise ValueError("Role must be 'patient' or 'companion'")
         return v
+
+
+class AvatarUploadResponse(BaseModel):
+    avatar_url: str

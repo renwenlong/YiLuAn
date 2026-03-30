@@ -17,4 +17,12 @@ function getCompanionReviews(companionId) {
   return request({ url: 'companions/' + companionId + '/reviews', method: 'GET' })
 }
 
-module.exports = { getCompanions, getCompanionDetail, getCompanionReviews }
+function applyCompanion(data) {
+  return request({ url: 'companions/apply', method: 'POST', data })
+}
+
+function updateCompanionProfile(data) {
+  return request({ url: 'companions/me', method: 'PUT', data })
+}
+
+module.exports = { getCompanions, getCompanionDetail, getCompanionReviews, applyCompanion, updateCompanionProfile }
