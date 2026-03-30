@@ -48,6 +48,12 @@ struct APIEndpoint {
     static func orderAction(id: String, action: String) -> APIEndpoint {
         APIEndpoint(path: "orders/\(id)/\(action)", method: .post, requiresAuth: true)
     }
+    static func payOrder(id: String) -> APIEndpoint {
+        APIEndpoint(path: "orders/\(id)/pay", method: .post, requiresAuth: true)
+    }
+    static func refundOrder(id: String) -> APIEndpoint {
+        APIEndpoint(path: "orders/\(id)/refund", method: .post, requiresAuth: true)
+    }
 
     // MARK: - Chat
     static func chatMessages(orderId: String) -> APIEndpoint {
