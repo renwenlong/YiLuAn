@@ -14,12 +14,15 @@ struct User: Codable, Identifiable {
     let createdAt: Date
 }
 
-struct PatientProfile: Codable {
+struct PatientProfile: Codable, Identifiable {
+    let id: String
     let userId: String
     let emergencyContact: String?
     let emergencyPhone: String?
     let medicalNotes: String?
     let preferredHospitalId: String?
+    let createdAt: Date?
+    let updatedAt: Date?
 }
 
 struct CompanionProfile: Codable, Identifiable {
@@ -35,4 +38,32 @@ struct CompanionProfile: Codable, Identifiable {
     let bio: String?
     let avatarUrl: String?
     let displayName: String?
+    let createdAt: Date?
+}
+
+struct AvatarUploadResponse: Decodable {
+    let avatarUrl: String
+}
+
+struct UpdatePatientProfileRequest: Encodable {
+    let emergencyContact: String?
+    let emergencyPhone: String?
+    let medicalNotes: String?
+    let preferredHospitalId: String?
+}
+
+struct UpdateCompanionProfileRequest: Encodable {
+    let bio: String?
+    let serviceArea: String?
+}
+
+struct ApplyCompanionRequest: Encodable {
+    let realName: String
+    let idNumber: String?
+    let serviceArea: String?
+    let bio: String?
+}
+
+struct UpdateDisplayNameRequest: Encodable {
+    let displayName: String
 }

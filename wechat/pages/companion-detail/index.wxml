@@ -9,7 +9,11 @@
       mode="aspectFill"
       bindtap="onPreviewAvatar"
     />
-    <view class="profile-name">{{companion.name}}</view>
+    <view class="profile-name-row">
+      <text class="profile-name">{{companion.name}}</text>
+      <text wx:if="{{companion.is_verified}}" class="verified-badge">已认证</text>
+      <text wx:else class="unverified-badge">未认证</text>
+    </view>
     <view class="profile-rating">
       <rating-stars value="{{companion.rating}}" readonly="{{true}}" />
       <text class="rating-text">{{companion.rating}}分</text>

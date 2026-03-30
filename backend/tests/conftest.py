@@ -8,6 +8,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.core.security import create_access_token
 from app.database import Base, get_db
 from app.main import app
+from app.models.companion_profile import CompanionProfile, VerificationStatus
+from app.models.hospital import Hospital
+from app.models.patient_profile import PatientProfile
 from app.models.user import User, UserRole
 
 
@@ -143,3 +146,66 @@ async def no_role_client(client, seed_user) -> AsyncClient:
     client.headers["Authorization"] = f"Bearer {token}"
     client._test_user = user  # type: ignore[attr-defined]
     return client
+
+
+@pytest.fixture
+async def companion_client(client, seed_user) -> AsyncClient:
+    user = await seed_user(phone="13700137000", role=UserRole.companion)
+    token = create_access_token({"sub": str(user.id), "role": "companion"})
+    client.headers["Authorization"] = f"Bearer {token}"
+    client._test_user = user  # type: ignore[attr-defined]
+    return client
+
+
+@pytest.fixture
+def seed_patient_profile():
+    async def _seed(user_id: uuid.UUID, **kwargs) -> PatientProfile:
+        async with test_session_factory() as session:
+            profile = PatientProfile(user_id=user_id, **kwargs)
+            session.add(profile)
+            await session.commit()
+            await session.refresh(profile)
+            return profile
+
+    return _seed
+
+
+@pytest.fixture
+def seed_companion_profile():
+    async def _seed(
+        user_id: uuid.UUID,
+        real_name: str = "测试陪诊师",
+        verification_status: VerificationStatus = VerificationStatus.verified,
+        **kwargs,
+    ) -> CompanionProfile:
+        async with test_session_factory() as session:
+            profile = CompanionProfile(
+                user_id=user_id,
+                real_name=real_name,
+                verification_status=verification_status,
+                **kwargs,
+            )
+            session.add(profile)
+            await session.commit()
+            await session.refresh(profile)
+            return profile
+
+    return _seed
+
+
+@pytest.fixture
+def seed_hospital():
+    async def _seed(
+        name: str = "测试医院",
+        address: str = "北京市测试区",
+        level: str = "三甲",
+        **kwargs,
+    ) -> Hospital:
+        async with test_session_factory() as session:
+            hospital = Hospital(name=name, address=address, level=level, **kwargs)
+            session.add(hospital)
+            await session.commit()
+            await session.refresh(hospital)
+            return hospital
+
+    return _seed

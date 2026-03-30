@@ -1,15 +1,22 @@
 <view class="profile-page">
-  <!-- 用户信息区域 -->
+  <!-- User Info Section -->
   <view class="user-section">
     <view class="user-info">
-      <view class="user-avatar">
+      <view class="user-avatar" bindtap="onAvatarTap">
         <image wx:if="{{user.avatar}}" src="{{user.avatar}}" class="avatar-img" />
         <view wx:else class="avatar-placeholder">
           <text>{{user.name[0] || '用'}}</text>
         </view>
+        <view class="avatar-edit-hint">
+          <text>换</text>
+        </view>
       </view>
       <view class="user-detail">
-        <text class="user-name">{{user.name || '用户'}}</text>
+        <view class="user-name-row">
+          <text class="user-name">{{user.name || '用户'}}</text>
+          <text wx:if="{{user.role === 'companion'}}" class="role-badge companion-badge">陪诊师</text>
+          <text wx:elif="{{user.role === 'patient'}}" class="role-badge patient-badge">患者</text>
+        </view>
         <view class="user-phone" wx:if="{{user.phone}}">
           <text class="phone-text">{{user.phone}}</text>
         </view>
@@ -21,8 +28,13 @@
     </view>
   </view>
 
-  <!-- 菜单列表 -->
+  <!-- Menu List -->
   <view class="menu-section">
+    <view class="menu-item" data-target="/pages/profile/edit/index" bindtap="onMenuTap">
+      <text class="menu-icon">编</text>
+      <text class="menu-text">编辑资料</text>
+      <text class="menu-arrow">></text>
+    </view>
     <view class="menu-item" data-target="/pages/orders/index" bindtap="onMenuTap">
       <text class="menu-icon">订</text>
       <text class="menu-text">我的订单</text>
@@ -40,7 +52,7 @@
     </view>
   </view>
 
-  <!-- 退出登录 -->
+  <!-- Logout -->
   <view class="logout-section">
     <button class="logout-btn" bindtap="onLogout">退出登录</button>
   </view>
