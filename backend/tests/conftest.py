@@ -10,6 +10,7 @@ from app.database import Base, get_db
 from app.main import app
 from app.models.companion_profile import CompanionProfile, VerificationStatus
 from app.models.hospital import Hospital
+from app.models.order import Order, OrderStatus, ServiceType
 from app.models.patient_profile import PatientProfile
 from app.models.user import User, UserRole
 
@@ -207,5 +208,37 @@ def seed_hospital():
             await session.commit()
             await session.refresh(hospital)
             return hospital
+
+    return _seed
+
+
+@pytest.fixture
+def seed_order():
+    async def _seed(
+        patient_id: uuid.UUID,
+        hospital_id: uuid.UUID,
+        *,
+        companion_id: uuid.UUID | None = None,
+        service_type: ServiceType = ServiceType.full_accompany,
+        status: OrderStatus = OrderStatus.created,
+        **kwargs,
+    ) -> Order:
+        async with test_session_factory() as session:
+            order = Order(
+                order_number=f"YLA{uuid.uuid4().hex[:12].upper()}",
+                patient_id=patient_id,
+                hospital_id=hospital_id,
+                companion_id=companion_id,
+                service_type=service_type,
+                status=status,
+                appointment_date=kwargs.pop("appointment_date", "2026-04-15"),
+                appointment_time=kwargs.pop("appointment_time", "09:00"),
+                price=kwargs.pop("price", 299.0),
+                **kwargs,
+            )
+            session.add(order)
+            await session.commit()
+            await session.refresh(order)
+            return order
 
     return _seed

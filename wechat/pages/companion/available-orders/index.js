@@ -28,12 +28,12 @@ Page({
       const res = await getOrders({
         status: 'created',
         page: this.data.page,
-        pageSize: 10
+        page_size: 10
       })
-      const list = res.data && res.data.items ? res.data.items : (res.list || res.data || [])
+      const list = res.items ? res.items : (res.data && res.data.items ? res.data.items : (res.list || res.data || []))
       const newOrders = list.map(order => ({
         ...order,
-        formattedDate: formatDate(order.date)
+        formattedDate: formatDate(order.appointment_date)
       }))
       this.setData({
         orders: this.data.page === 1 ? newOrders : [...this.data.orders, ...newOrders],

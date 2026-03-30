@@ -24,4 +24,12 @@ function orderAction(orderId, action) {
   return request({ url: 'orders/' + orderId + '/' + action, method: 'POST' })
 }
 
-module.exports = { getOrders, createOrder, getOrderDetail, orderAction }
+function payOrder(orderId) {
+  return request({ url: 'orders/' + orderId + '/pay', method: 'POST' })
+}
+
+function refundOrder(orderId) {
+  return request({ url: 'orders/' + orderId + '/refund', method: 'POST' })
+}
+
+module.exports = { getOrders, createOrder, getOrderDetail, orderAction, payOrder, refundOrder }

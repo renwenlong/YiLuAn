@@ -52,7 +52,8 @@ struct Order: Codable, Identifiable {
     let hospitalId: String
     let serviceType: ServiceType
     let status: OrderStatus
-    let appointmentDate: Date
+    let appointmentDate: String
+    let appointmentTime: String?
     let description: String?
     let price: Decimal
     let createdAt: Date

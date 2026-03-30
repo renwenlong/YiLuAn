@@ -28,7 +28,7 @@ Page({
       this.setData({
         order: {
           ...order,
-          formattedDate: formatDate(order.date),
+          formattedDate: formatDate(order.appointment_date),
           formattedPrice: order.price ? formatPrice(order.price) : ''
         }
       })
