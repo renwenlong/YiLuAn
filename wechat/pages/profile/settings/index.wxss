@@ -1,0 +1,46 @@
+.settings-page {
+  min-height: 100vh;
+  background-color: #F5F5F5;
+}
+
+.settings-section {
+  background-color: #FFFFFF;
+  margin-top: 20rpx;
+}
+
+.settings-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32rpx;
+  border-bottom: 1rpx solid #F0F0F0;
+}
+
+.settings-item:last-child {
+  border-bottom: none;
+}
+
+.settings-item:active {
+  background-color: #F5F5F5;
+}
+
+.item-label {
+  font-size: 30rpx;
+  color: #333333;
+}
+
+.item-right {
+  display: flex;
+  align-items: center;
+}
+
+.item-value {
+  font-size: 28rpx;
+  color: #999999;
+  margin-right: 12rpx;
+}
+
+.item-arrow {
+  font-size: 28rpx;
+  color: #CCCCCC;
+}

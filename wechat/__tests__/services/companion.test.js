@@ -66,4 +66,14 @@ describe('services/companion', () => {
     expect(callArgs.method).toBe('GET')
     expect(result.list[0].rating).toBe(5)
   })
+
+  // Test 6: getCompanionStats fetches companion stats
+  test('getCompanionStats fetches companion stats', async () => {
+    __mockWxRequest(200, { today_orders: 3, total_orders: 50, avg_rating: 4.8, total_earnings: 15000 })
+    const { getCompanionStats } = require('../../services/companion')
+    const result = await getCompanionStats()
+    const callArgs = wx.request.mock.calls[0][0]
+    expect(callArgs.url).toContain('companions/me/stats')
+    expect(callArgs.method).toBe('GET')
+  })
 })

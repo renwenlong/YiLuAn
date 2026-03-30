@@ -38,6 +38,7 @@ struct APIEndpoint {
     }
     static let applyCompanion = APIEndpoint(path: "companions/apply", method: .post, requiresAuth: true)
     static let updateCompanionProfile = APIEndpoint(path: "companions/me", method: .put, requiresAuth: true)
+    static let companionStats = APIEndpoint(path: "companions/me/stats", method: .get, requiresAuth: true)
 
     // MARK: - Orders
     static let orders = APIEndpoint(path: "orders", method: .get, requiresAuth: true)

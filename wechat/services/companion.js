@@ -25,4 +25,8 @@ function updateCompanionProfile(data) {
   return request({ url: 'companions/me', method: 'PUT', data })
 }
 
-module.exports = { getCompanions, getCompanionDetail, getCompanionReviews, applyCompanion, updateCompanionProfile }
+function getCompanionStats() {
+  return request({ url: 'companions/me/stats', method: 'GET' })
+}
+
+module.exports = { getCompanions, getCompanionDetail, getCompanionReviews, applyCompanion, updateCompanionProfile, getCompanionStats }

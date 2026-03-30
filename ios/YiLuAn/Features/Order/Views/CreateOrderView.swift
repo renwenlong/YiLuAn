@@ -7,6 +7,8 @@ struct CreateOrderView: View {
     @State private var selectedService: ServiceType?
     @State private var hospitalId = ""
     @State private var hospitalName = ""
+    @State private var hospitalSearchText = ""
+    @State private var isSearchingHospitals = false
     @State private var appointmentDate = Date()
     @State private var appointmentTime = "09:00"
     @State private var description = ""
@@ -108,16 +110,87 @@ struct CreateOrderView: View {
         VStack(spacing: 16) {
             Text("选择医院")
                 .font(.headline)
-            if hospitalName.isEmpty {
-                Text("请在首页搜索并选择医院")
-                    .foregroundStyle(.secondary)
+
+            HStack {
+                TextField("搜索医院名称", text: $hospitalSearchText)
+                    .textFieldStyle(.roundedBorder)
+
+                Button {
+                    isSearchingHospitals = true
+                    Task {
+                        await viewModel.searchHospitals(keyword: hospitalSearchText)
+                        isSearchingHospitals = false
+                    }
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                        .padding(8)
+                        .background(Color.blue)
+                        .foregroundStyle(.white)
+                        .cornerRadius(8)
+                }
+                .disabled(hospitalSearchText.isEmpty)
+            }
+
+            if !hospitalName.isEmpty {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Text(hospitalName)
+                        .font(.subheadline.bold())
+                    Spacer()
+                    Button("清除") {
+                        hospitalId = ""
+                        hospitalName = ""
+                    }
+                    .font(.caption)
+                }
+                .padding()
+                .background(Color.green.opacity(0.1))
+                .cornerRadius(8)
+            }
+
+            if isSearchingHospitals {
+                ProgressView()
             } else {
-                Text(hospitalName)
-                    .font(.title3)
-                    .padding()
-                    .frame(maxWidth: .infinity)
-                    .background(Color(.systemGray6))
-                    .cornerRadius(12)
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        ForEach(viewModel.hospitals) { hospital in
+                            Button {
+                                hospitalId = hospital.id
+                                hospitalName = hospital.name
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(hospital.name)
+                                            .font(.subheadline.bold())
+                                            .foregroundStyle(.primary)
+                                        Text(hospital.address)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        if let level = hospital.level, !level.isEmpty {
+                                            Text(level)
+                                                .font(.caption2)
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(Color.blue.opacity(0.1))
+                                                .foregroundStyle(.blue)
+                                                .cornerRadius(4)
+                                        }
+                                    }
+                                    Spacer()
+                                    if hospitalId == hospital.id {
+                                        Image(systemName: "checkmark.circle.fill")
+                                            .foregroundStyle(.blue)
+                                    }
+                                }
+                                .padding()
+                                .background(Color(.systemGray6))
+                                .cornerRadius(8)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
             }
         }
         .padding()
