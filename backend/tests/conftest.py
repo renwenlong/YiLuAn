@@ -10,6 +10,7 @@ from app.database import Base, get_db
 from app.main import app
 from app.models.chat_message import ChatMessage, MessageType
 from app.models.companion_profile import CompanionProfile, VerificationStatus
+from app.models.device_token import DeviceToken
 from app.models.hospital import Hospital
 from app.models.notification import Notification, NotificationType
 from app.models.order import Order, OrderStatus, ServiceType
@@ -323,5 +324,29 @@ def seed_notification():
             await session.commit()
             await session.refresh(notification)
             return notification
+
+    return _seed
+
+
+@pytest.fixture
+def seed_device_token():
+    async def _seed(
+        user_id: uuid.UUID,
+        *,
+        token: str = "test_device_token_001",
+        device_type: str = "ios",
+        **kwargs,
+    ) -> DeviceToken:
+        async with test_session_factory() as session:
+            device = DeviceToken(
+                user_id=user_id,
+                token=token,
+                device_type=device_type,
+                **kwargs,
+            )
+            session.add(device)
+            await session.commit()
+            await session.refresh(device)
+            return device
 
     return _seed

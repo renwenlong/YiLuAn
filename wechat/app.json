@@ -14,7 +14,8 @@
     "pages/companion/order-detail/index",
     "pages/chat/room/index",
     "pages/companion-detail/index",
-    "pages/review/write/index"
+    "pages/review/write/index",
+    "pages/notification/index"
   ],
   "tabBar": {
     "color": "#999999",

@@ -85,6 +85,7 @@ struct APIEndpoint {
     }
     static let markAllNotificationsRead = APIEndpoint(path: "notifications/read-all", method: .post, requiresAuth: true)
     static let registerDevice = APIEndpoint(path: "notifications/device-token", method: .post, requiresAuth: true)
+    static let deleteDevice = APIEndpoint(path: "notifications/device-token", method: .delete, requiresAuth: true)
 
     // MARK: - Hospitals
     static let hospitals = APIEndpoint(path: "hospitals", method: .get, requiresAuth: true)
