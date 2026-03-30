@@ -19,6 +19,7 @@ from app.repositories.hospital import HospitalRepository
 from app.repositories.order import OrderRepository
 from app.repositories.payment import PaymentRepository, OrderStatusHistoryRepository
 from app.schemas.order import CreateOrderRequest
+from app.services.notification import NotificationService
 
 
 def generate_order_number() -> str:
@@ -33,6 +34,7 @@ class OrderService:
         self.hospital_repo = HospitalRepository(session)
         self.payment_repo = PaymentRepository(session)
         self.history_repo = OrderStatusHistoryRepository(session)
+        self.notification_svc = NotificationService(session)
         self.session = session
 
     async def create_order(
@@ -114,6 +116,10 @@ class OrderService:
         await self._record_history(
             order.id, OrderStatus.created, OrderStatus.accepted, user.id
         )
+        # Notify patient that order was accepted
+        await self.notification_svc.notify_order_status_changed(
+            order, OrderStatus.accepted.value, order.patient_id
+        )
         return order
 
     async def start_order(self, order_id: uuid.UUID, user: User) -> Order:
@@ -128,6 +134,10 @@ class OrderService:
         await self._record_history(
             order.id, OrderStatus.accepted, OrderStatus.in_progress, user.id
         )
+        # Notify patient that service started
+        await self.notification_svc.notify_order_status_changed(
+            order, OrderStatus.in_progress.value, order.patient_id
+        )
         return order
 
     async def complete_order(self, order_id: uuid.UUID, user: User) -> Order:
@@ -141,6 +151,10 @@ class OrderService:
         )
         await self._record_history(
             order.id, OrderStatus.in_progress, OrderStatus.completed, user.id
+        )
+        # Notify patient that service completed
+        await self.notification_svc.notify_order_status_changed(
+            order, OrderStatus.completed.value, order.patient_id
         )
         return order
 
@@ -162,6 +176,15 @@ class OrderService:
 
         order = await self.order_repo.update(order, {"status": new_status})
         await self._record_history(order.id, order.status, new_status, user.id)
+        # Notify the other party about cancellation
+        if user.role == UserRole.patient and order.companion_id:
+            await self.notification_svc.notify_order_status_changed(
+                order, new_status.value, order.companion_id
+            )
+        elif user.role == UserRole.companion:
+            await self.notification_svc.notify_order_status_changed(
+                order, new_status.value, order.patient_id
+            )
         return order
 
     async def pay_order(self, order_id: uuid.UUID, user: User) -> Payment:

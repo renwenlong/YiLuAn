@@ -9,12 +9,14 @@ from app.models.user import User, UserRole
 from app.repositories.chat_message import ChatMessageRepository
 from app.repositories.order import OrderRepository
 from app.schemas.chat import SendMessageRequest
+from app.services.notification import NotificationService
 
 
 class ChatService:
     def __init__(self, session: AsyncSession):
         self.chat_repo = ChatMessageRepository(session)
         self.order_repo = OrderRepository(session)
+        self.notification_svc = NotificationService(session)
         self.session = session
 
     async def send_message(
@@ -28,7 +30,20 @@ class ChatService:
             type=MessageType(data.type),
             content=data.content,
         )
-        return await self.chat_repo.create(message)
+        message = await self.chat_repo.create(message)
+
+        # Notify the other party
+        recipient_id = (
+            order.companion_id if order.patient_id == user.id else order.patient_id
+        )
+        if recipient_id:
+            await self.notification_svc.notify_new_message(
+                order_id=order_id,
+                sender_name=user.display_name or user.phone,
+                recipient_id=recipient_id,
+            )
+
+        return message
 
     async def list_messages(
         self,

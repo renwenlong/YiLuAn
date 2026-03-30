@@ -6,15 +6,19 @@ from app.exceptions import BadRequestException, ForbiddenException, NotFoundExce
 from app.models.order import Order, OrderStatus
 from app.models.review import Review
 from app.models.user import User, UserRole
+from app.repositories.companion_profile import CompanionProfileRepository
 from app.repositories.order import OrderRepository
 from app.repositories.review import ReviewRepository
 from app.schemas.review import CreateReviewRequest
+from app.services.notification import NotificationService
 
 
 class ReviewService:
     def __init__(self, session: AsyncSession):
         self.review_repo = ReviewRepository(session)
         self.order_repo = OrderRepository(session)
+        self.companion_repo = CompanionProfileRepository(session)
+        self.notification_svc = NotificationService(session)
         self.session = session
 
     async def submit_review(
@@ -47,6 +51,27 @@ class ReviewService:
 
         # Transition order to reviewed
         await self.order_repo.update(order, {"status": OrderStatus.reviewed})
+
+        # Update companion avg_rating
+        profile = await self.companion_repo.get_by_user_id(order.companion_id)
+        if profile:
+            avg = await self.review_repo.get_companion_avg_rating(order.companion_id)
+            await self.companion_repo.update(
+                profile,
+                {
+                    "avg_rating": avg,
+                    "total_orders": profile.total_orders + 1,
+                },
+            )
+
+        # Notify companion about the review
+        await self.notification_svc.notify_review_received(
+            companion_id=order.companion_id,
+            patient_name=user.display_name or user.phone,
+            order_id=order_id,
+            rating=data.rating,
+        )
+
         return review
 
     async def get_review(self, order_id: uuid.UUID) -> Review:

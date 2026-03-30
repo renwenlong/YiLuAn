@@ -1,5 +1,6 @@
 from app.models.chat_message import ChatMessage, MessageType
 from app.models.companion_profile import CompanionProfile, VerificationStatus
+from app.models.device_token import DeviceToken
 from app.models.hospital import Hospital
 from app.models.notification import Notification, NotificationType
 from app.models.order import ORDER_TRANSITIONS, Order, OrderStatus, ServiceType
@@ -27,4 +28,5 @@ __all__ = [
     "MessageType",
     "Notification",
     "NotificationType",
+    "DeviceToken",
 ]

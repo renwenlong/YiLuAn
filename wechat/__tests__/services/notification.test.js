@@ -56,4 +56,12 @@ describe('services/notification', () => {
     expect(callArgs.method).toBe('POST')
     expect(result.marked_read).toBe(3)
   })
+
+  test('getNotifications with custom page_size', async () => {
+    __mockWxRequest(200, { items: [], total: 0 })
+
+    await getNotifications({ page: 1, page_size: 50 })
+    const callArgs = wx.request.mock.calls[0][0]
+    expect(callArgs.url).toContain('page_size=50')
+  })
 })

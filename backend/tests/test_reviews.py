@@ -236,3 +236,92 @@ class TestListCompanionReviews:
         assert resp.status_code == 200
         assert resp.json()["total"] == 0
         assert resp.json()["items"] == []
+
+
+class TestAvgRatingDenormalization:
+    async def test_submit_review_updates_avg_rating(
+        self,
+        authenticated_client,
+        seed_user,
+        seed_hospital,
+        seed_order,
+        seed_companion_profile,
+    ):
+        patient = authenticated_client._test_user
+        companion = await seed_user(phone="13700137030", role=UserRole.companion)
+        profile = await seed_companion_profile(companion.id)
+        hospital = await seed_hospital()
+        order = await seed_order(
+            patient.id,
+            hospital.id,
+            companion_id=companion.id,
+            status=OrderStatus.completed,
+        )
+
+        resp = await authenticated_client.post(
+            f"/api/v1/orders/{order.id}/review",
+            json={"rating": 4, "content": "评价后应更新平均分"},
+        )
+        assert resp.status_code == 201
+
+        # Check companion profile via API
+        resp = await authenticated_client.get(
+            f"/api/v1/companions/{profile.id}",
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["avg_rating"] == 4.0
+        assert data["total_orders"] == 1
+
+    async def test_multiple_reviews_avg_rating(
+        self,
+        client,
+        seed_user,
+        seed_hospital,
+        seed_order,
+        seed_companion_profile,
+    ):
+        patient1 = await seed_user(phone="13800138030", role=UserRole.patient)
+        patient2 = await seed_user(phone="13800138031", role=UserRole.patient)
+        companion = await seed_user(phone="13700137031", role=UserRole.companion)
+        profile = await seed_companion_profile(companion.id)
+        hospital = await seed_hospital()
+
+        # First review (rating=4)
+        order1 = await seed_order(
+            patient1.id,
+            hospital.id,
+            companion_id=companion.id,
+            status=OrderStatus.completed,
+        )
+        token1 = create_access_token({"sub": str(patient1.id), "role": "patient"})
+        client.headers["Authorization"] = f"Bearer {token1}"
+        resp = await client.post(
+            f"/api/v1/orders/{order1.id}/review",
+            json={"rating": 4, "content": "第一次评价还行的服务"},
+        )
+        assert resp.status_code == 201
+
+        # Second review (rating=2)
+        order2 = await seed_order(
+            patient2.id,
+            hospital.id,
+            companion_id=companion.id,
+            status=OrderStatus.completed,
+        )
+        token2 = create_access_token({"sub": str(patient2.id), "role": "patient"})
+        client.headers["Authorization"] = f"Bearer {token2}"
+        resp = await client.post(
+            f"/api/v1/orders/{order2.id}/review",
+            json={"rating": 2, "content": "第二次评价一般的服务"},
+        )
+        assert resp.status_code == 201
+
+        # Avg should be (4+2)/2 = 3.0
+        resp = await client.get(
+            f"/api/v1/companions/{profile.id}",
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["avg_rating"] == 3.0
+        assert data["total_orders"] == 2

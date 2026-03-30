@@ -1,21 +1,32 @@
+import logging
+import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.api.v1.router import api_v1_router
 from app.config import settings
+from app.core.logging import setup_logging
+from app.core.rate_limit import limiter
 from app.core.redis import init_redis
+
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
+    setup_logging()
+    logger.info("Starting %s v%s", settings.app_name, settings.app_version)
     app.state.redis = init_redis()
     yield
     # Shutdown
     if app.state.redis:
         await app.state.redis.close()
+    logger.info("Shutdown complete")
 
 
 def create_app() -> FastAPI:
@@ -27,6 +38,10 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # Rate limiting
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
     # CORS
     app.add_middleware(
         CORSMiddleware,
@@ -35,6 +50,21 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    # Request logging middleware
+    @app.middleware("http")
+    async def log_requests(request: Request, call_next):
+        start = time.time()
+        response: Response = await call_next(request)
+        duration_ms = (time.time() - start) * 1000
+        logger.info(
+            "%s %s %s %.1fms",
+            request.method,
+            request.url.path,
+            response.status_code,
+            duration_ms,
+        )
+        return response
 
     # Routers
     app.include_router(api_v1_router, prefix="/api/v1")

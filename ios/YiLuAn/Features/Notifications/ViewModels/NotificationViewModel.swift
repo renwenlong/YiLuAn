@@ -17,6 +17,27 @@ struct MarkAllReadResponse: Decodable {
     let markedRead: Int
 }
 
+struct RegisterDeviceRequest: Encodable {
+    let token: String
+    let deviceType: String
+
+    enum CodingKeys: String, CodingKey {
+        case token
+        case deviceType = "device_type"
+    }
+}
+
+struct DeviceTokenResponse: Decodable {
+    let id: String
+    let token: String
+    let deviceType: String
+    let createdAt: String
+}
+
+struct UnregisterDeviceRequest: Encodable {
+    let token: String
+}
+
 @MainActor
 class NotificationViewModel: ObservableObject {
     @Published var notifications: [AppNotification] = []
@@ -93,6 +114,28 @@ class NotificationViewModel: ObservableObject {
             unreadCount = 0
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    func registerDeviceToken(_ token: String, deviceType: String = "ios") async {
+        do {
+            let body = RegisterDeviceRequest(token: token, deviceType: deviceType)
+            let _: DeviceTokenResponse = try await APIClient.shared.request(
+                .registerDevice, body: body
+            )
+        } catch {
+            // Silently ignore device registration failures
+        }
+    }
+
+    func deleteDeviceToken(_ token: String) async {
+        do {
+            let body = UnregisterDeviceRequest(token: token)
+            let _: [String: Bool] = try await APIClient.shared.request(
+                .deleteDevice, body: body
+            )
+        } catch {
+            // Silently ignore device deletion failures
         }
     }
 }

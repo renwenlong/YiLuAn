@@ -424,12 +424,12 @@ Request → API Route → Service → Repository → Database
 |-------|------|------|------|------|
 | **0** | 项目脚手架 | ✅ 完成 | FastAPI + SQLAlchemy async + Docker + BaseRepository + pytest | Xcode 项目 + APIClient + 小程序骨架 |
 | **1** | 认证系统 | ✅ 完成 | users 表, OTP, JWT, 微信登录, 手机绑定 (44 tests) | iOS: Login/OTP/RoleSelect; 小程序: 14 页面 + 7 组件 (33 tests) |
-| **2** | 用户资料 + 医院 | 🔲 规划 | patient/companion profiles, 头像上传, 医院种子数据 | ProfileView, HospitalPicker |
-| **3** | 订单系统 | 🔲 规划 | 订单 CRUD, 状态机, 定价, 模拟支付 | CreateOrder 多步表单, OrderDetail, 双角色首页 |
-| **4** | 实时聊天 | 🔲 规划 | WebSocket + Redis pub/sub, 消息持久化 | ChatRoom (WS + REST 历史) |
-| **5** | 评价系统 | 🔲 规划 | 评价提交, avg_rating 反规范化 | WriteReview, StarRating |
-| **6** | 推送通知 | 🔲 规划 | APNs 集成, 通知生成, 设备管理 | 推送权限, 通知列表, 深度链接 |
-| **7** | 部署收尾 | 🔲 规划 | 日志, 速率限制, API 文档, CI/CD | 骨架屏, 错误处理, App 图标 |
+| **2** | 用户资料 + 医院 | ✅ 完成 | patient/companion profiles, 头像上传, 医院种子数据 | ProfileView, HospitalPicker |
+| **3** | 订单系统 | ✅ 完成 | 订单 CRUD, 状态机, 定价, 模拟支付 | CreateOrder 多步表单, OrderDetail, 双角色首页 |
+| **4** | 实时聊天 + 评价 + 通知 UI | ✅ 完成 | WebSocket + Redis pub/sub, 聊天/评价/通知 CRUD (142 tests) | ChatRoom, WriteReview, Notifications; 小程序: 16 页面 (69 tests) |
+| **5** | 评价反规范化 + 通知触发 + 部署基础设施 | ✅ 完成 | avg_rating 反规范化, 通知触发器, 设备令牌管理, 日志, 速率限制, CI/CD (162 tests) | 小程序: 通知列表页, 聊天列表修复 (73 tests); iOS: 设备令牌 API |
+| **6** | 推送通知 | 🔲 规划 | APNs 集成, 真实推送发送 | 推送权限, 深度链接 |
+| **7** | 部署收尾 | 🔲 规划 | 骨架屏, 错误处理, App 图标, 文档完善 | — |
 
 ---
 
