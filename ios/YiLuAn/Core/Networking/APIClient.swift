@@ -84,6 +84,60 @@ actor APIClient {
         }
     }
 
+    func uploadImage(
+        _ endpoint: APIEndpoint,
+        imageData: Data,
+        filename: String = "avatar.jpg"
+    ) async throws -> AvatarUploadResponse {
+        let boundary = UUID().uuidString
+        var request = URLRequest(url: endpoint.url)
+        request.httpMethod = endpoint.method.rawValue
+        request.setValue(
+            "multipart/form-data; boundary=\(boundary)",
+            forHTTPHeaderField: "Content-Type"
+        )
+
+        if endpoint.requiresAuth, let token = KeychainManager.accessToken {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append(imageData)
+        body.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        request.httpBody = body
+
+        let (data, response) = try await session.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+
+        if httpResponse.statusCode == 401 && endpoint.requiresAuth {
+            try await refreshTokenIfNeeded()
+            if let token = KeychainManager.accessToken {
+                request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            }
+            let (retryData, retryResponse) = try await session.data(for: request)
+            guard let retryHttp = retryResponse as? HTTPURLResponse,
+                  (200...299).contains(retryHttp.statusCode) else {
+                throw APIError.unauthorized
+            }
+            return try decoder.decode(AvatarUploadResponse.self, from: retryData)
+        }
+
+        guard (200...299).contains(httpResponse.statusCode) else {
+            let errorMsg = try? decoder.decode(ErrorResponse.self, from: data)
+            throw APIError.httpError(
+                statusCode: httpResponse.statusCode,
+                message: errorMsg?.detail
+            )
+        }
+
+        return try decoder.decode(AvatarUploadResponse.self, from: data)
+    }
+
     // MARK: - Private
 
     private func buildRequest(

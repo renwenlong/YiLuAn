@@ -15,6 +15,7 @@ global.wx = {
 
   // Network
   request: jest.fn(),
+  uploadFile: jest.fn(),
   connectSocket: jest.fn(() => ({
     onOpen: jest.fn(),
     onMessage: jest.fn(),
@@ -38,6 +39,8 @@ global.wx = {
   showLoading: jest.fn(),
   hideLoading: jest.fn(),
   showModal: jest.fn(),
+  chooseImage: jest.fn(),
+  previewImage: jest.fn(),
 }
 
 // __wxConfig mock
@@ -62,6 +65,16 @@ global.__mockWxRequestFail = (error) => {
   wx.request.mockImplementation((options) => {
     if (options.fail) {
       options.fail(error || { errMsg: 'request:fail' })
+    }
+  })
+}
+
+// Helper to mock wx.uploadFile with a response
+global.__mockWxUploadFile = (statusCode, data) => {
+  wx.uploadFile.mockImplementation((options) => {
+    if (options.success) {
+      var responseData = typeof data === 'string' ? data : JSON.stringify(data)
+      options.success({ statusCode: statusCode, data: responseData })
     }
   })
 }

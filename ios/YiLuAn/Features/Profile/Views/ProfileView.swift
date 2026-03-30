@@ -27,7 +27,7 @@ struct ProfileView: View {
                 // Settings
                 Section("设置") {
                     NavigationLink("个人资料") {
-                        Text("编辑资料 — Phase 2")
+                        ProfileEditView()
                     }
                     NavigationLink("通知设置") {
                         Text("通知设置 — Phase 6")
