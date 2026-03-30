@@ -8,10 +8,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.core.security import create_access_token
 from app.database import Base, get_db
 from app.main import app
+from app.models.chat_message import ChatMessage, MessageType
 from app.models.companion_profile import CompanionProfile, VerificationStatus
 from app.models.hospital import Hospital
+from app.models.notification import Notification, NotificationType
 from app.models.order import Order, OrderStatus, ServiceType
 from app.models.patient_profile import PatientProfile
+from app.models.review import Review
 from app.models.user import User, UserRole
 
 
@@ -240,5 +243,85 @@ def seed_order():
             await session.commit()
             await session.refresh(order)
             return order
+
+    return _seed
+
+
+@pytest.fixture
+def seed_review():
+    async def _seed(
+        order_id: uuid.UUID,
+        patient_id: uuid.UUID,
+        companion_id: uuid.UUID,
+        *,
+        rating: int = 5,
+        content: str = "很好的服务",
+        **kwargs,
+    ) -> Review:
+        async with test_session_factory() as session:
+            review = Review(
+                order_id=order_id,
+                patient_id=patient_id,
+                companion_id=companion_id,
+                rating=rating,
+                content=content,
+                **kwargs,
+            )
+            session.add(review)
+            await session.commit()
+            await session.refresh(review)
+            return review
+
+    return _seed
+
+
+@pytest.fixture
+def seed_chat_message():
+    async def _seed(
+        order_id: uuid.UUID,
+        sender_id: uuid.UUID,
+        *,
+        content: str = "Hello",
+        msg_type: MessageType = MessageType.text,
+        **kwargs,
+    ) -> ChatMessage:
+        async with test_session_factory() as session:
+            message = ChatMessage(
+                order_id=order_id,
+                sender_id=sender_id,
+                type=msg_type,
+                content=content,
+                **kwargs,
+            )
+            session.add(message)
+            await session.commit()
+            await session.refresh(message)
+            return message
+
+    return _seed
+
+
+@pytest.fixture
+def seed_notification():
+    async def _seed(
+        user_id: uuid.UUID,
+        *,
+        type: NotificationType = NotificationType.system,
+        title: str = "Test Notification",
+        body: str = "Test body",
+        **kwargs,
+    ) -> Notification:
+        async with test_session_factory() as session:
+            notification = Notification(
+                user_id=user_id,
+                type=type,
+                title=title,
+                body=body,
+                **kwargs,
+            )
+            session.add(notification)
+            await session.commit()
+            await session.refresh(notification)
+            return notification
 
     return _seed

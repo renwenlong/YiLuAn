@@ -6,4 +6,19 @@ function getChatMessages(orderId, params = {}) {
   return request({ url, method: 'GET' })
 }
 
-module.exports = { getChatMessages }
+function sendMessage(orderId, data) {
+  return request({
+    url: 'chats/' + orderId + '/messages',
+    method: 'POST',
+    data: data,
+  })
+}
+
+function markRead(orderId) {
+  return request({
+    url: 'chats/' + orderId + '/read',
+    method: 'POST',
+  })
+}
+
+module.exports = { getChatMessages, sendMessage, markRead }
