@@ -19,4 +19,11 @@ function getReviews(companionId, params = {}) {
   })
 }
 
-module.exports = { submitReview, getReviews }
+function getOrderReview(orderId) {
+  return request({
+    url: 'orders/' + orderId + '/review',
+    method: 'GET',
+  })
+}
+
+module.exports = { submitReview, getReviews, getOrderReview }
