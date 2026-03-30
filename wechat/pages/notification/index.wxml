@@ -1,0 +1,33 @@
+<view class="notification-page">
+  <view class="header-bar" wx:if="{{unreadCount > 0}}">
+    <text class="unread-text">{{unreadCount}} 条未读</text>
+    <text class="mark-all-btn" bindtap="onMarkAllRead">全部已读</text>
+  </view>
+
+  <view class="notification-list" wx:if="{{notifications.length > 0}}">
+    <view
+      class="notification-item {{item.is_read ? 'read' : 'unread'}}"
+      wx:for="{{notifications}}"
+      wx:key="id"
+      data-id="{{item.id}}"
+      data-read="{{item.is_read}}"
+      bindtap="onNotificationTap"
+    >
+      <view class="notif-icon">
+        <view class="icon-dot" wx:if="{{!item.is_read}}"></view>
+      </view>
+      <view class="notif-content">
+        <view class="notif-title">{{item.title}}</view>
+        <view class="notif-body">{{item.body}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="empty-state" wx:if="{{notifications.length === 0 && !loading}}">
+    <text class="empty-text">暂无通知</text>
+  </view>
+
+  <view class="loading-state" wx:if="{{loading}}">
+    <text>加载中...</text>
+  </view>
+</view>

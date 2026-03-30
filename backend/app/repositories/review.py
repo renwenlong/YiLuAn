@@ -31,3 +31,10 @@ class ReviewRepository(BaseRepository[Review]):
         stmt = base.order_by(Review.created_at.desc()).offset(skip).limit(limit)
         result = await self.session.execute(stmt)
         return result.scalars().all(), total
+
+    async def get_companion_avg_rating(self, companion_id: UUID) -> float:
+        stmt = select(func.avg(Review.rating)).where(
+            Review.companion_id == companion_id
+        )
+        result = await self.session.execute(stmt)
+        return float(result.scalar() or 0.0)

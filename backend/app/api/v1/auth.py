@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Request
 
 from app.dependencies import CurrentUser, DBSession
+from app.core.rate_limit import limiter
 from app.schemas.auth import (
     PhoneBindRequest,
     RefreshTokenRequest,
@@ -17,6 +18,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/send-otp")
+@limiter.limit("5/minute")
 async def send_otp(body: SendOTPRequest, request: Request, session: DBSession):
     service = AuthService(session, request.app.state.redis)
     await service.send_otp(body.phone)

@@ -25,6 +25,9 @@ azure-storage-blob==12.24.0
 # HTTP client (for APNs etc)
 httpx==0.28.1
 
+# Rate limiting
+slowapi==0.1.9
+
 # YAML for config
 pyyaml==6.0.2
 
