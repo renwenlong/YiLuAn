@@ -59,10 +59,19 @@ struct APIEndpoint {
     static func chatMessages(orderId: String) -> APIEndpoint {
         APIEndpoint(path: "chats/\(orderId)/messages", method: .get, requiresAuth: true)
     }
+    static func sendChatMessage(orderId: String) -> APIEndpoint {
+        APIEndpoint(path: "chats/\(orderId)/messages", method: .post, requiresAuth: true)
+    }
+    static func markChatRead(orderId: String) -> APIEndpoint {
+        APIEndpoint(path: "chats/\(orderId)/read", method: .post, requiresAuth: true)
+    }
 
     // MARK: - Reviews
     static func createReview(orderId: String) -> APIEndpoint {
         APIEndpoint(path: "orders/\(orderId)/review", method: .post, requiresAuth: true)
+    }
+    static func orderReview(orderId: String) -> APIEndpoint {
+        APIEndpoint(path: "orders/\(orderId)/review", method: .get, requiresAuth: true)
     }
     static func companionReviews(companionId: String) -> APIEndpoint {
         APIEndpoint(path: "companions/\(companionId)/reviews", method: .get, requiresAuth: true)
@@ -70,6 +79,11 @@ struct APIEndpoint {
 
     // MARK: - Notifications
     static let notifications = APIEndpoint(path: "notifications", method: .get, requiresAuth: true)
+    static let unreadCount = APIEndpoint(path: "notifications/unread-count", method: .get, requiresAuth: true)
+    static func markNotificationRead(id: String) -> APIEndpoint {
+        APIEndpoint(path: "notifications/\(id)/read", method: .post, requiresAuth: true)
+    }
+    static let markAllNotificationsRead = APIEndpoint(path: "notifications/read-all", method: .post, requiresAuth: true)
     static let registerDevice = APIEndpoint(path: "notifications/device-token", method: .post, requiresAuth: true)
 
     // MARK: - Hospitals
