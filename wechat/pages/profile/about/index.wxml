@@ -1,0 +1,28 @@
+<view class="about-page">
+  <view class="logo-section">
+    <view class="app-logo">
+      <text class="logo-text">医</text>
+    </view>
+    <text class="app-name">医路安</text>
+    <text class="app-version">v{{version}}</text>
+  </view>
+
+  <view class="desc-section">
+    <text class="desc-text">医路安是一款专业的陪诊服务平台，致力于为患者提供贴心、专业的就医陪伴服务，让每一次就医都更安心。</text>
+  </view>
+
+  <view class="info-section">
+    <view class="info-item">
+      <text class="info-label">客服电话</text>
+      <text class="info-value">400-000-0000</text>
+    </view>
+    <view class="info-item">
+      <text class="info-label">官方邮箱</text>
+      <text class="info-value">support@yiluan.com</text>
+    </view>
+  </view>
+
+  <view class="copyright-section">
+    <text class="copyright-text">Copyright 2026 医路安 All Rights Reserved</text>
+  </view>
+</view>

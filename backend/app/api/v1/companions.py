@@ -7,6 +7,7 @@ from app.schemas.companion import (
     ApplyCompanionRequest,
     CompanionDetailResponse,
     CompanionListResponse,
+    CompanionStatsResponse,
     UpdateCompanionProfileRequest,
 )
 from app.services.companion_profile import CompanionProfileService
@@ -25,6 +26,15 @@ async def list_companions(
     service = CompanionProfileService(session)
     skip = (page - 1) * page_size
     return await service.list_companions(area=area, skip=skip, limit=page_size)
+
+
+@router.get("/me/stats", response_model=CompanionStatsResponse)
+async def get_companion_stats(
+    session: DBSession,
+    current_user: CurrentUser,
+):
+    service = CompanionProfileService(session)
+    return await service.get_stats(current_user)
 
 
 @router.get("/{companion_id}", response_model=CompanionDetailResponse)

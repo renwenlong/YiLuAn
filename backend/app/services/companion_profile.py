@@ -7,6 +7,7 @@ from app.exceptions import ConflictException, ForbiddenException, NotFoundExcept
 from app.models.companion_profile import CompanionProfile
 from app.models.user import User, UserRole
 from app.repositories.companion_profile import CompanionProfileRepository
+from app.repositories.order import OrderRepository
 from app.repositories.user import UserRepository
 from app.schemas.companion import ApplyCompanionRequest, UpdateCompanionProfileRequest
 
@@ -15,6 +16,8 @@ class CompanionProfileService:
     def __init__(self, session: AsyncSession):
         self.repo = CompanionProfileRepository(session)
         self.user_repo = UserRepository(session)
+        self.order_repo = OrderRepository(session)
+        self.session = session
 
     async def apply(self, user: User, data: ApplyCompanionRequest) -> CompanionProfile:
         existing = await self.repo.get_by_user_id(user.id)
@@ -61,3 +64,23 @@ class CompanionProfileService:
         limit: int = 20,
     ) -> Sequence[CompanionProfile]:
         return await self.repo.search(area=area, skip=skip, limit=limit)
+
+    async def get_stats(self, user: User) -> dict:
+        if user.role != UserRole.companion:
+            raise ForbiddenException("Only companions can view stats")
+        profile = await self.repo.get_by_user_id(user.id)
+        avg_rating = 0.0
+        total_orders = 0
+        if profile:
+            avg_rating = profile.avg_rating
+            total_orders = profile.total_orders
+
+        today_orders = await self.order_repo.count_today_by_companion(user.id)
+        total_earnings = await self.order_repo.sum_earnings_by_companion(user.id)
+
+        return {
+            "today_orders": today_orders,
+            "total_orders": total_orders,
+            "avg_rating": avg_rating,
+            "total_earnings": total_earnings,
+        }

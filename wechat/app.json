@@ -15,6 +15,9 @@
     "pages/chat/room/index",
     "pages/companion-detail/index",
     "pages/review/write/index",
+    "pages/profile/bind-phone/index",
+    "pages/profile/settings/index",
+    "pages/profile/about/index",
     "pages/notification/index"
   ],
   "tabBar": {

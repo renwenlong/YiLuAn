@@ -1,5 +1,12 @@
 import SwiftUI
 
+struct CompanionStatsResponse: Decodable {
+    let todayOrders: Int
+    let totalOrders: Int
+    let avgRating: Double
+    let totalEarnings: Double
+}
+
 @MainActor
 class CompanionProfileViewModel: ObservableObject {
     @Published var companions: [CompanionProfile] = []
@@ -9,6 +16,7 @@ class CompanionProfileViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var isSaved = false
+    @Published var stats: CompanionStatsResponse?
 
     // MARK: - List & Detail
 
@@ -111,6 +119,14 @@ class CompanionProfileViewModel: ObservableObject {
             isSaved = true
         } catch {
             errorMessage = error.localizedDescription
+        }
+    }
+
+    func loadStats() async {
+        do {
+            stats = try await APIClient.shared.request(.companionStats)
+        } catch {
+            // Stats are non-critical; silently ignore
         }
     }
 }
