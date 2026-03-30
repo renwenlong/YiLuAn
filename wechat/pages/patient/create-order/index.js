@@ -78,7 +78,8 @@ Page({
     if (!searchKeyword.trim()) return
     this.setData({ loading: true })
     try {
-      const hospitals = await searchHospitals({ keyword: searchKeyword })
+      const res = await searchHospitals({ keyword: searchKeyword })
+      const hospitals = res.items || res || []
       this.setData({ hospitals })
     } catch (err) {
       wx.showToast({ title: '搜索失败', icon: 'none' })
@@ -97,11 +98,11 @@ Page({
     this.setData({ loading: true })
     try {
       const order = await createOrder({
-        serviceType,
-        hospitalId: hospital,
-        date,
-        time,
-        notes
+        service_type: serviceType,
+        hospital_id: hospital,
+        appointment_date: date,
+        appointment_time: time,
+        description: notes
       })
       wx.showToast({ title: '订单创建成功', icon: 'success' })
       setTimeout(() => {
