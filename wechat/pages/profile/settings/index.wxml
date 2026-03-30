@@ -1,0 +1,17 @@
+<view class="settings-page">
+  <view class="settings-section">
+    <view class="settings-item" bindtap="onClearCache">
+      <text class="item-label">清除缓存</text>
+      <view class="item-right">
+        <text class="item-value">{{cacheSize}}</text>
+        <text class="item-arrow">></text>
+      </view>
+    </view>
+    <view class="settings-item" bindtap="onAbout">
+      <text class="item-label">关于</text>
+      <view class="item-right">
+        <text class="item-arrow">></text>
+      </view>
+    </view>
+  </view>
+</view>

@@ -63,7 +63,7 @@ backend/
 │   └── core/
 │       ├── security.py        # JWT 签发/验证
 │       └── redis.py           # Redis 连接管理
-├── tests/                     # 44 个 pytest-asyncio 测试
+├── tests/                     # 167 个 pytest-asyncio 测试
 │   ├── conftest.py            # SQLite 内存 DB + FakeRedis + fixtures
 │   ├── test_auth.py           # 32 个认证测试
 │   └── test_wechat_auth.py    # 12 个微信认证测试
@@ -115,8 +115,8 @@ wechat/
 │   ├── chat/room/                  # 聊天室 (WebSocket 实时)
 │   ├── companion-detail/           # 陪诊师资料页
 │   ├── review/write/               # 写评价
-│   └── profile/                    # 个人中心 (含手机绑定入口)
-└── __tests__/                       # 33 个 Jest 单元测试
+│   ├── profile/                    # 个人中心 (含手机绑定/设置/关于)
+└── __tests__/                       # 77 个 Jest 单元测试
     ├── setup.js                    # wx 全局对象 mock
     ├── services/                   # api(6), auth(7), user(3), order(3)
     ├── store/                      # store(4)
@@ -294,7 +294,7 @@ UserResponse:
 
 | 模块 | Phase | 端点 |
 |------|-------|------|
-| **Companions** | Phase 2 | `GET /companions` (筛选/排序), `GET /companions/{id}`, `POST /companions/apply`, `PUT /users/me/patient-profile`, `POST /users/me/avatar` |
+| **Companions** | Phase 2 | `GET /companions` (筛选/排序), `GET /companions/{id}`, `GET /companions/me/stats`, `POST /companions/apply`, `PUT /users/me/patient-profile`, `POST /users/me/avatar` |
 | **Hospitals** | Phase 2 | `GET /hospitals` (搜索/筛选) |
 | **Orders** | Phase 3 | `POST /orders`, `GET /orders`, `GET /orders/{id}`, `POST /orders/{id}/accept`, `POST /orders/{id}/start`, `POST /orders/{id}/complete`, `POST /orders/{id}/cancel` |
 | **Payment** | Phase 3 | `POST /orders/{id}/pay`, `POST /orders/{id}/refund` |
@@ -428,8 +428,8 @@ Request → API Route → Service → Repository → Database
 | **3** | 订单系统 | ✅ 完成 | 订单 CRUD, 状态机, 定价, 模拟支付 | CreateOrder 多步表单, OrderDetail, 双角色首页 |
 | **4** | 实时聊天 + 评价 + 通知 UI | ✅ 完成 | WebSocket + Redis pub/sub, 聊天/评价/通知 CRUD (142 tests) | ChatRoom, WriteReview, Notifications; 小程序: 16 页面 (69 tests) |
 | **5** | 评价反规范化 + 通知触发 + 部署基础设施 | ✅ 完成 | avg_rating 反规范化, 通知触发器, 设备令牌管理, 日志, 速率限制, CI/CD (162 tests) | 小程序: 通知列表页, 聊天列表修复 (73 tests); iOS: 设备令牌 API |
-| **6** | 推送通知 | 🔲 规划 | APNs 集成, 真实推送发送 | 推送权限, 深度链接 |
-| **7** | 部署收尾 | 🔲 规划 | 骨架屏, 错误处理, App 图标, 文档完善 | — |
+| **6** | 推送通知 | ⏭️ 跳过 | APNs 集成, 真实推送发送 | 推送权限, 深度链接 |
+| **7** | 功能完整性收尾 | ✅ 完成 | 陪诊师统计 API (167 tests) | 全部 placeholder 替换为真实实现; 小程序: 绑定手机/设置/关于页面 (77 tests) |
 
 ---
 
@@ -456,8 +456,8 @@ Request → API Route → Service → Repository → Database
 
 | 目标 | 工具 | 覆盖范围 | 数量 |
 |------|------|----------|------|
-| **后端** | pytest + pytest-asyncio | Services 层 80%+, 认证全流程 | 44 tests ✅ |
-| **微信小程序** | Jest | services / store / utils 全覆盖 | 33 tests ✅ |
+| **后端** | pytest + pytest-asyncio | Services 层 80%+, 认证全流程 | 167 tests ✅ |
+| **微信小程序** | Jest | services / store / utils 全覆盖 | 77 tests ✅ |
 | **iOS** | XCTest + XCUITest | ViewModels 单测 + 核心流程 UI 测试 | 规划中 |
 | **E2E** | docker-compose | 本地全栈集成测试 | 规划中 |
 | **手动** | 真机 | iPhone SE (小屏) + iPhone 15 Pro, iOS 17+; 微信开发者工具 | — |
@@ -470,12 +470,12 @@ cd backend
 pip install -r requirements.txt
 docker compose up -d              # PostgreSQL + Redis
 uvicorn app.main:app --reload     # http://localhost:8000
-pytest -v                         # 44 tests
+pytest -v                         # 167 tests
 
 # 微信小程序
 cd wechat
 npm install
-npm test                          # 33 Jest tests
+npm test                          # 77 Jest tests
 # 用微信开发者工具打开 wechat/ 目录
 
 # API 文档

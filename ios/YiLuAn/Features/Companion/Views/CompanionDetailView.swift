@@ -78,8 +78,7 @@ struct CompanionDetailView: View {
 
                     // Book button
                     NavigationLink {
-                        // Navigate to create order — placeholder until Order feature is built
-                        Text("创建订单 — Phase 3")
+                        CreateOrderView()
                     } label: {
                         Text("预约陪诊")
                             .font(.headline)

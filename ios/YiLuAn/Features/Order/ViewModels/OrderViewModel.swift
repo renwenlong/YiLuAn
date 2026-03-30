@@ -13,10 +13,16 @@ struct OrderListResponse: Decodable {
     let total: Int
 }
 
+struct HospitalListResponse: Decodable {
+    let items: [Hospital]
+    let total: Int
+}
+
 @MainActor
 class OrderViewModel: ObservableObject {
     @Published var orders: [Order] = []
     @Published var currentOrder: Order?
+    @Published var hospitals: [Hospital] = []
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var total = 0
@@ -125,6 +131,26 @@ class OrderViewModel: ObservableObject {
         } catch {
             errorMessage = error.localizedDescription
             return nil
+        }
+    }
+
+    func searchHospitals(keyword: String) async {
+        guard !keyword.isEmpty else {
+            hospitals = []
+            return
+        }
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        do {
+            let queryItems = [URLQueryItem(name: "keyword", value: keyword)]
+            let response: [Hospital] = try await APIClient.shared.request(
+                .hospitals, queryItems: queryItems
+            )
+            hospitals = response
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 }
