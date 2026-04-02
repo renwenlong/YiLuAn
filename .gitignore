@@ -81,3 +81,4 @@ credentials.json
 wechat/node_modules/
 wechat/miniprogram_npm/
 wechat/coverage/
+wechat/project.private.config.json

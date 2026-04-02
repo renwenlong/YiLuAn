@@ -1,5 +1,9 @@
 {
   "description": "医路安 - 陪诊服务平台",
+  "projectname": "YiLuAn",
+  "compileType": "miniprogram",
+  "appid": "wx0000000000000000",
+  "condition": {},
   "packOptions": {
     "ignore": [
       {
@@ -50,10 +54,6 @@
     "swc": false,
     "disableSWC": true
   },
-  "compileType": "miniprogram",
-  "appid": "wx0000000000000000",
-  "projectname": "yiluan-miniprogram",
-  "condition": {},
   "simulatorPluginLibVersion": {},
   "editorSetting": {}
 }
