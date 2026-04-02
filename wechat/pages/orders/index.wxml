@@ -40,3 +40,5 @@
     <text>没有更多了</text>
   </view>
 </view>
+
+<patient-tab-bar active="orders" />

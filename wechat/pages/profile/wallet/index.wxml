@@ -1,0 +1,59 @@
+<view class="wallet-page">
+  <!-- 余额卡片 -->
+  <view class="balance-card">
+    <text class="balance-label">账户余额(元)</text>
+    <text class="balance-value">{{balance}}</text>
+  </view>
+
+  <!-- 充值区域 -->
+  <view class="recharge-section">
+    <view class="section-title">选择充值金额</view>
+    <view class="amount-grid">
+      <view
+        class="amount-item {{selectedAmount === item ? 'active' : ''}}"
+        wx:for="{{amountOptions}}"
+        wx:key="*this"
+        data-amount="{{item}}"
+        bindtap="onSelectAmount"
+      >
+        <text class="amount-value">¥{{item}}</text>
+      </view>
+    </view>
+
+    <!-- 自定义金额 -->
+    <view class="custom-amount">
+      <text class="custom-label">自定义金额</text>
+      <input
+        class="custom-input"
+        type="digit"
+        placeholder="请输入充值金额"
+        value="{{customAmount}}"
+        bindinput="onCustomInput"
+        bindtap="onCustomTap"
+      />
+    </view>
+
+    <button class="recharge-btn" bindtap="onRecharge">立即充值</button>
+  </view>
+
+  <!-- 消费明细 -->
+  <view class="record-section">
+    <view class="section-header">
+      <text class="section-title">消费明细</text>
+    </view>
+    <block wx:if="{{records.length > 0}}">
+      <view class="record-item" wx:for="{{records}}" wx:key="id">
+        <view class="record-left">
+          <text class="record-title">{{item.title}}</text>
+          <text class="record-time">{{item.time}}</text>
+        </view>
+        <text class="record-amount {{item.type === 'income' ? 'income' : 'expense'}}">
+          {{item.type === 'income' ? '+' : '-'}}¥{{item.amount}}
+        </text>
+      </view>
+    </block>
+    <view class="empty-hint" wx:else>
+      <text>暂无消费记录</text>
+    </view>
+  </view>
+</view>

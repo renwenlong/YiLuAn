@@ -14,7 +14,7 @@ class TestCompanionStats:
         resp = await companion_client.get("/api/v1/companions/me/stats")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["today_orders"] == 0
+        assert data["open_orders"] == 0
         assert data["total_orders"] == 0
         assert data["avg_rating"] == 0.0
         assert data["total_earnings"] == 0.0
@@ -52,7 +52,8 @@ class TestCompanionStats:
         resp = await companion_client.get("/api/v1/companions/me/stats")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["today_orders"] == 2
+        # total_orders comes from companion_profile aggregate field (not auto-updated by seed_order)
+        # total_earnings is dynamically computed from orders table
         assert data["total_earnings"] == 498.0
 
     async def test_get_stats_no_auth(self, client):
@@ -87,4 +88,4 @@ class TestCompanionStats:
         resp = await companion_client.get("/api/v1/companions/me/stats")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["today_orders"] >= 1
+        assert data["open_orders"] >= 1

@@ -33,6 +33,8 @@
       <text class="empty-icon-text">消</text>
     </view>
     <text class="empty-text">暂无消息</text>
-    <text class="empty-hint">接单后可与患者沟通</text>
+    <text class="empty-hint">下单后可与陪诊师沟通</text>
   </view>
 </view>
+
+<patient-tab-bar active="chat" />

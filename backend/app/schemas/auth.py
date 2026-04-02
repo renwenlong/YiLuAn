@@ -43,11 +43,19 @@ class UserResponse(BaseModel):
     id: UUID
     phone: str | None = None
     role: str | None = None
+    roles: list[str] = []
     display_name: str | None = None
     avatar_url: str | None = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @field_validator("roles", mode="before")
+    @classmethod
+    def parse_roles(cls, v: str | list | None) -> list[str]:
+        if isinstance(v, str):
+            return [r for r in v.split(",") if r]
+        return v or []
 
 
 class TokenResponse(BaseModel):

@@ -29,12 +29,13 @@ async def list_orders(
     current_user: CurrentUser,
     session: DBSession,
     status: str | None = Query(None),
+    date: str | None = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
     service = OrderService(session)
     items, total = await service.list_orders(
-        current_user, status=status, page=page, page_size=page_size
+        current_user, status=status, date=date, page=page, page_size=page_size
     )
     return OrderListResponse(
         items=[OrderResponse.model_validate(o) for o in items],

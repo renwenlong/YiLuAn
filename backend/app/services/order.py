@@ -85,20 +85,33 @@ class OrderService:
         user: User,
         *,
         status: str | None = None,
+        date: str | None = None,
         page: int = 1,
         page_size: int = 20,
     ) -> tuple[Sequence[Order], int]:
         skip = (page - 1) * page_size
-        order_status = OrderStatus(status) if status else None
+
+        # Virtual status: "cancelled" maps to both cancellation types
+        if status == "cancelled":
+            order_status = None
+            status_list = [
+                OrderStatus.cancelled_by_patient,
+                OrderStatus.cancelled_by_companion,
+            ]
+        else:
+            order_status = OrderStatus(status) if status else None
+            status_list = None
 
         if user.role == UserRole.companion:
             if order_status == OrderStatus.created:
-                return await self.order_repo.list_available(skip=skip, limit=page_size)
+                return await self.order_repo.list_available(skip=skip, limit=page_size, date=date)
             return await self.order_repo.list_by_companion(
-                user.id, status=order_status, skip=skip, limit=page_size
+                user.id, status=order_status, status_list=status_list,
+                date=date, skip=skip, limit=page_size,
             )
         return await self.order_repo.list_by_patient(
-            user.id, status=order_status, skip=skip, limit=page_size
+            user.id, status=order_status, status_list=status_list,
+            date=date, skip=skip, limit=page_size,
         )
 
     async def accept_order(self, order_id: uuid.UUID, user: User) -> Order:

@@ -1,9 +1,9 @@
 <view class="companion-home">
   <!-- 数据统计 -->
   <view class="stats-row">
-    <view class="stat-item" bindtap="onTodayOrdersTap">
-      <text class="stat-value">{{stats.todayOrders}}</text>
-      <text class="stat-label">今日订单</text>
+    <view class="stat-item" bindtap="onOpenOrdersTap">
+      <text class="stat-value open-orders-value">{{stats.openOrders}}</text>
+      <text class="stat-label">未结订单</text>
     </view>
     <view class="stat-divider"></view>
     <view class="stat-item">
@@ -42,4 +42,9 @@
       <text>暂无待接订单</text>
     </view>
   </view>
+
+  <!-- 底部占位，防止内容被导航栏遮挡 -->
+  <view class="bottom-spacer"></view>
 </view>
+
+<companion-tab-bar active="home" />

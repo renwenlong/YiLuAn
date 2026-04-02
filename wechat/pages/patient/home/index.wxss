@@ -2,6 +2,7 @@
   min-height: 100vh;
   background-color: #F5F5F5;
   padding: 24rpx;
+  padding-bottom: 140rpx;
   box-sizing: border-box;
 }
 
@@ -23,21 +24,15 @@
 }
 
 .service-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24rpx;
-}
-
-.companion-scroll {
   display: flex;
-  white-space: nowrap;
-  padding-bottom: 16rpx;
+  flex-direction: column;
+  gap: 20rpx;
 }
 
-.companion-scroll companion-card {
-  display: inline-block;
-  margin-right: 24rpx;
-  width: 280rpx;
+.companion-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
 }
 
 .empty-hint {

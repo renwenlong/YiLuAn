@@ -8,8 +8,7 @@
       <service-card
         wx:for="{{serviceTypes}}"
         wx:key="key"
-        name="{{item.name}}"
-        icon="{{item.icon}}"
+        type="{{item.key}}"
         data-type="{{item.key}}"
         bindtap="onServiceTap"
       />
@@ -21,7 +20,7 @@
     <view class="section-header">
       <text class="section-title">推荐陪诊师</text>
     </view>
-    <scroll-view class="companion-scroll" scroll-x enable-flex>
+    <view class="companion-list">
       <companion-card
         wx:for="{{companions}}"
         wx:key="id"
@@ -29,9 +28,11 @@
         data-id="{{item.id}}"
         bindtap="onCompanionTap"
       />
-    </scroll-view>
+    </view>
     <view class="empty-hint" wx:if="{{companions.length === 0}}">
       <text>暂无推荐陪诊师</text>
     </view>
   </view>
 </view>
+
+<patient-tab-bar active="home" />

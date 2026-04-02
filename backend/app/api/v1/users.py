@@ -1,8 +1,9 @@
 from fastapi import APIRouter, UploadFile
 
+from app.core.security import create_access_token, create_refresh_token
 from app.dependencies import CurrentUser, DBSession
-from app.schemas.auth import UserResponse
-from app.schemas.user import AvatarUploadResponse, UpdateUserRequest
+from app.schemas.auth import TokenResponse, UserResponse
+from app.schemas.user import AvatarUploadResponse, SwitchRoleRequest, UpdateUserRequest
 from app.services.upload import UploadService
 from app.services.user import UserService
 
@@ -37,3 +38,25 @@ async def upload_avatar(
         current_user, UpdateUserRequest(avatar_url=avatar_url)
     )
     return AvatarUploadResponse(avatar_url=avatar_url)
+
+
+@router.post("/me/switch-role", response_model=TokenResponse)
+async def switch_role(
+    body: SwitchRoleRequest,
+    current_user: CurrentUser,
+    session: DBSession,
+):
+    service = UserService(session)
+    user = await service.switch_role(current_user, body.role)
+    token_data = {
+        "sub": str(user.id),
+        "role": user.role.value if user.role else None,
+        "roles": user.get_roles(),
+    }
+    access_token = create_access_token(token_data)
+    refresh_token = create_refresh_token(token_data)
+    return TokenResponse(
+        access_token=access_token,
+        refresh_token=refresh_token,
+        user=UserResponse.model_validate(user),
+    )

@@ -1,6 +1,7 @@
 .profile-page {
   min-height: 100vh;
   background-color: #F5F5F5;
+  padding-bottom: 120rpx;
 }
 
 /* User Info Section */
@@ -94,6 +95,7 @@
   color: #52C41A;
 }
 
+
 .user-phone {
   display: flex;
   align-items: center;
@@ -138,22 +140,6 @@
 
 .menu-item:active {
   background-color: #F5F5F5;
-}
-
-.menu-icon {
-  width: 48rpx;
-  height: 48rpx;
-  border-radius: 8rpx;
-  background-color: rgba(24, 144, 255, 0.1);
-  color: #1890FF;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24rpx;
-  font-weight: 600;
-  margin-right: 20rpx;
-  text-align: center;
-  line-height: 48rpx;
 }
 
 .menu-text {
