@@ -27,8 +27,9 @@ Page({
 
   async loadHistory() {
     try {
-      const messages = await getChatMessages(this.data.orderId)
-      this.setData({ messages: messages || [] })
+      const res = await getChatMessages(this.data.orderId)
+      const messages = res.items || []
+      this.setData({ messages })
       this.scrollToBottom()
     } catch (err) {
       wx.showToast({ title: '加载消息失败', icon: 'none' })
@@ -39,13 +40,15 @@ Page({
     ws.connect({
       orderId: this.data.orderId,
       onMessage: (msg) => {
+        // Skip own messages (already added optimistically in onSend)
+        if (msg.sender_id === this.data.currentUserId) return
         this.setData({
           messages: [...this.data.messages, msg]
         })
         this.scrollToBottom()
       },
       onError: () => {
-        wx.showToast({ title: '连接断开，正在重连...', icon: 'none' })
+        wx.showToast({ title: '连接断开，正在重连...', icon: 'none', duration: 2000 })
       }
     })
   },
@@ -59,16 +62,18 @@ Page({
     const content = inputValue.trim()
     if (!content) return
 
+    // Send to WebSocket — backend only needs content and type
+    ws.send({ content, type: 'text' })
+
+    // Optimistic local display using snake_case to match backend/chat-bubble
     const message = {
       id: Date.now().toString(),
-      orderId,
-      senderId: currentUserId,
+      order_id: orderId,
+      sender_id: currentUserId,
       content,
-      timestamp: new Date().toISOString(),
+      created_at: new Date().toISOString(),
       type: 'text'
     }
-
-    ws.send(message)
 
     this.setData({
       messages: [...this.data.messages, message],

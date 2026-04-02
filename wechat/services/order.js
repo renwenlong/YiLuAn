@@ -2,12 +2,12 @@ const { request } = require('./api')
 const config = require('../config/index')
 
 function getOrders(params = {}) {
-  const { status, page = 1 } = params
+  const { status, page = 1, page_size } = params
   let url = 'orders'
   const queryParts = []
   if (status) queryParts.push('status=' + status)
   queryParts.push('page=' + page)
-  queryParts.push('page_size=' + config.PAGE_SIZE)
+  queryParts.push('page_size=' + (page_size || config.PAGE_SIZE))
   if (queryParts.length > 0) url += '?' + queryParts.join('&')
   return request({ url, method: 'GET' })
 }

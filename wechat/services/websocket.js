@@ -19,7 +19,7 @@ function connect(options) {
   }
 
   const token = getAccessToken()
-  const url = config.WS_BASE_URL + '/ws/chat/' + orderId + '?token=' + token
+  const url = config.WS_BASE_URL + '/api/v1/ws/chat/' + orderId + '?token=' + token
 
   _socketTask = wx.connectSocket({
     url,

@@ -3,7 +3,7 @@
 <view class="page-container" wx:if="{{order}}">
   <!-- Status Header -->
   <view class="status-header status-{{order.status}}">
-    <text class="status-text">{{statusList[order.status] || order.status}}</text>
+    <text class="status-text">{{statusList[order.status].label || order.status}}</text>
   </view>
 
   <!-- Order Info -->
@@ -11,50 +11,36 @@
     <view class="section-title">订单信息</view>
     <view class="info-row">
       <text class="info-label">订单编号</text>
-      <text class="info-value">{{order.id}}</text>
+      <text class="info-value">{{order.order_number}}</text>
     </view>
     <view class="info-row">
       <text class="info-label">服务类型</text>
-      <text class="info-value">{{order.serviceType}}</text>
+      <text class="info-value">{{serviceLabel}}</text>
     </view>
     <view class="info-row">
       <text class="info-label">医院</text>
-      <text class="info-value">{{order.hospitalName}}</text>
-    </view>
-    <view class="info-row">
-      <text class="info-label">预约日期</text>
-      <text class="info-value">{{order.formattedDate}}</text>
+      <text class="info-value">{{order.hospital_name}}</text>
     </view>
     <view class="info-row">
       <text class="info-label">预约时间</text>
-      <text class="info-value">{{order.time}}</text>
+      <text class="info-value">{{order.appointment_date}} {{order.appointment_time}}</text>
     </view>
     <view class="info-row" wx:if="{{order.formattedPrice}}">
       <text class="info-label">费用</text>
       <text class="info-value price">{{order.formattedPrice}}</text>
     </view>
-    <view class="info-row" wx:if="{{order.notes}}">
+    <view class="info-row" wx:if="{{order.description}}">
       <text class="info-label">备注</text>
-      <text class="info-value">{{order.notes}}</text>
+      <text class="info-value">{{order.description}}</text>
     </view>
   </view>
 
   <!-- Patient Info -->
-  <view class="detail-section" wx:if="{{order.patient}}">
+  <view class="detail-section" wx:if="{{order.patient_name}}">
     <view class="section-title">患者信息</view>
-    <view class="patient-card">
-      <view class="patient-info">
-        <text class="patient-name">{{order.patient.name}}</text>
-        <text class="patient-phone" bindtap="onCallPatient">{{order.patient.phone}}</text>
-      </view>
-    </view>
-    <view class="info-row" wx:if="{{order.patient.age}}">
-      <text class="info-label">年龄</text>
-      <text class="info-value">{{order.patient.age}}岁</text>
-    </view>
-    <view class="info-row" wx:if="{{order.patient.gender}}">
-      <text class="info-label">性别</text>
-      <text class="info-value">{{order.patient.gender}}</text>
+    <view class="info-row">
+      <text class="info-label">患者姓名</text>
+      <text class="info-value">{{order.patient_name}}</text>
     </view>
   </view>
 

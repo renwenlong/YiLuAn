@@ -1,13 +1,14 @@
 const { getOrderDetail, orderAction } = require('../../../services/order')
 const store = require('../../../store/index')
-const { ORDER_STATUS } = require('../../../utils/constants')
+const { ORDER_STATUS, SERVICE_TYPES } = require('../../../utils/constants')
 const { formatPrice, formatDate } = require('../../../utils/format')
 
 Page({
   data: {
     order: null,
     loading: true,
-    statusList: ORDER_STATUS
+    statusList: ORDER_STATUS,
+    serviceLabel: ''
   },
 
   onLoad(options) {
@@ -25,12 +26,14 @@ Page({
     this.setData({ loading: true })
     try {
       const order = await getOrderDetail(this.orderId)
+      const svc = SERVICE_TYPES[order.service_type] || {}
       this.setData({
         order: {
           ...order,
           formattedDate: formatDate(order.appointment_date),
           formattedPrice: order.price ? formatPrice(order.price) : ''
-        }
+        },
+        serviceLabel: svc.label || order.service_type
       })
     } catch (err) {
       wx.showToast({ title: '加载失败', icon: 'none' })

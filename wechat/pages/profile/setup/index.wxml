@@ -1,0 +1,75 @@
+<view class="setup-page">
+  <view class="page-header">
+    <text class="title">完善您的资料</text>
+    <text class="subtitle">设置昵称和头像，方便其他用户识别您</text>
+  </view>
+
+  <view class="avatar-section" bindtap="onChooseAvatar">
+    <image wx:if="{{avatarUrl}}" src="{{avatarUrl}}" class="avatar-img" mode="aspectFill" />
+    <view wx:else class="avatar-placeholder">
+      <text class="avatar-placeholder-text">+</text>
+    </view>
+    <text class="avatar-hint">点击上传头像</text>
+  </view>
+
+  <view class="form-section">
+    <view class="form-group">
+      <text class="form-label">昵称 <text class="required">*</text></text>
+      <input
+        class="form-input"
+        placeholder="请输入您的昵称"
+        maxlength="20"
+        value="{{nickname}}"
+        bindinput="onNicknameInput"
+      />
+    </view>
+
+    <view class="phone-toggle" bindtap="onTogglePhone">
+      <text class="phone-toggle-text">绑定手机号（可选）</text>
+      <text class="phone-toggle-arrow">{{showPhoneSection ? '收起' : '展开'}}</text>
+    </view>
+
+    <block wx:if="{{showPhoneSection}}">
+      <view class="form-group">
+        <text class="form-label">手机号</text>
+        <view class="phone-row">
+          <input
+            class="form-input phone-input"
+            type="number"
+            maxlength="11"
+            placeholder="请输入手机号"
+            value="{{phone}}"
+            bindinput="onPhoneInput"
+          />
+          <button class="otp-btn" disabled="{{sending || countdown > 0}}" bindtap="onSendOTP">
+            {{countdown > 0 ? countdown + 's' : '获取验证码'}}
+          </button>
+        </view>
+      </view>
+      <view class="form-group">
+        <text class="form-label">验证码</text>
+        <input
+          class="form-input"
+          type="number"
+          maxlength="6"
+          placeholder="请输入6位验证码"
+          value="{{code}}"
+          bindinput="onCodeInput"
+        />
+      </view>
+    </block>
+  </view>
+
+  <view class="btn-section">
+    <button class="btn-submit" bindtap="onSubmit" disabled="{{saving}}">
+      {{saving ? '保存中...' : '完成设置'}}
+    </button>
+    <view class="skip-link" bindtap="onSkip">
+      <text>跳过，稍后完善</text>
+    </view>
+  </view>
+
+  <view class="loading-mask" wx:if="{{saving}}">
+    <view class="loading-spinner"></view>
+  </view>
+</view>
