@@ -14,9 +14,14 @@ Page({
     updateMe({ role })
       .then(res => {
         const state = store.getState()
-        store.setState({ user: Object.assign({}, state.user, { role }) })
-        const home = role === 'patient' ? '/pages/patient/home/index' : '/pages/companion/home/index'
-        wx.reLaunch({ url: home })
+        const user = Object.assign({}, state.user, { role })
+        store.setState({ user: user })
+        if (!user.display_name) {
+          wx.redirectTo({ url: '/pages/profile/setup/index' })
+        } else {
+          const home = role === 'patient' ? '/pages/patient/home/index' : '/pages/companion/home/index'
+          wx.reLaunch({ url: home })
+        }
       })
       .catch(err => {
         console.error('设置角色失败', err)

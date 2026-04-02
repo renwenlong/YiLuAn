@@ -1,0 +1,214 @@
+.setup-page {
+  min-height: 100vh;
+  background-color: #F5F5F5;
+  padding: 60rpx 40rpx;
+  box-sizing: border-box;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 60rpx;
+}
+
+.title {
+  display: block;
+  font-size: 44rpx;
+  font-weight: bold;
+  color: #333333;
+  margin-bottom: 16rpx;
+}
+
+.subtitle {
+  display: block;
+  font-size: 28rpx;
+  color: #999999;
+}
+
+.avatar-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 48rpx;
+}
+
+.avatar-img {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+}
+
+.avatar-placeholder {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+  border: 3rpx dashed #B5B5B5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #FFFFFF;
+}
+
+.avatar-placeholder-text {
+  font-size: 60rpx;
+  color: #B5B5B5;
+}
+
+.avatar-hint {
+  font-size: 24rpx;
+  color: #999999;
+  margin-top: 16rpx;
+}
+
+.form-section {
+  background-color: #FFFFFF;
+  border-radius: 16rpx;
+  padding: 32rpx;
+}
+
+.form-group {
+  margin-bottom: 32rpx;
+}
+
+.form-label {
+  display: block;
+  font-size: 28rpx;
+  color: #333333;
+  font-weight: 600;
+  margin-bottom: 16rpx;
+}
+
+.required {
+  color: #FF4D4F;
+}
+
+.form-input {
+  width: 100%;
+  height: 80rpx;
+  border: 1rpx solid #D9D9D9;
+  border-radius: 8rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: #333333;
+  box-sizing: border-box;
+}
+
+.phone-toggle {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 0;
+  margin-bottom: 16rpx;
+  border-top: 1rpx solid #E8E8E8;
+}
+
+.phone-toggle-text {
+  font-size: 28rpx;
+  color: #666666;
+}
+
+.phone-toggle-arrow {
+  font-size: 24rpx;
+  color: #999999;
+}
+
+.phone-row {
+  display: flex;
+  align-items: center;
+}
+
+.phone-input {
+  flex: 1;
+  margin-right: 16rpx;
+}
+
+.otp-btn {
+  width: 220rpx;
+  height: 80rpx;
+  line-height: 80rpx;
+  text-align: center;
+  background-color: #1890FF;
+  color: #FFFFFF;
+  font-size: 24rpx;
+  border-radius: 8rpx;
+  border: none;
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.otp-btn[disabled] {
+  background-color: #B5B5B5;
+  color: #FFFFFF;
+}
+
+.otp-btn::after {
+  border: none;
+}
+
+.btn-section {
+  margin-top: 48rpx;
+}
+
+.btn-submit {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  background-color: #1890FF;
+  color: #FFFFFF;
+  font-size: 32rpx;
+  border-radius: 12rpx;
+  border: none;
+  font-weight: 600;
+}
+
+.btn-submit:active {
+  background-color: #096DD9;
+}
+
+.btn-submit[disabled] {
+  background-color: #B5B5B5;
+  color: #FFFFFF;
+}
+
+.btn-submit::after {
+  border: none;
+}
+
+.skip-link {
+  text-align: center;
+  margin-top: 24rpx;
+  padding: 16rpx;
+}
+
+.skip-link text {
+  font-size: 28rpx;
+  color: #999999;
+}
+
+.loading-mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.loading-spinner {
+  width: 80rpx;
+  height: 80rpx;
+  border: 6rpx solid #FFFFFF;
+  border-top-color: #1890FF;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

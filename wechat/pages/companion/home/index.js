@@ -9,7 +9,8 @@ Page({
       totalEarnings: 0,
       rating: 0
     },
-    pendingOrders: []
+    pendingOrders: [],
+    pendingTotal: 0
   },
 
   onLoad() {
@@ -18,6 +19,7 @@ Page({
   },
 
   onShow() {
+    this.fetchStats()
     this.fetchPendingOrders()
   },
 
@@ -40,10 +42,11 @@ Page({
   },
 
   fetchPendingOrders() {
-    getOrders({ status: 'created', page: 1, page_size: 5 })
+    getOrders({ status: 'created', page: 1, page_size: 3 })
       .then(res => {
-        const list = res.data && res.data.items ? res.data.items : (res.data || [])
-        this.setData({ pendingOrders: list })
+        const list = res.items ? res.items : (res.data && res.data.items ? res.data.items : [])
+        const total = res.total || (res.data && res.data.total) || list.length
+        this.setData({ pendingOrders: list, pendingTotal: total })
       })
       .catch(err => {
         console.error('获取待接单列表失败', err)
@@ -53,6 +56,12 @@ Page({
   onViewAllPending() {
     wx.navigateTo({
       url: '/pages/companion/available-orders/index'
+    })
+  },
+
+  onTodayOrdersTap() {
+    wx.navigateTo({
+      url: '/pages/companion/today-orders/index'
     })
   },
 

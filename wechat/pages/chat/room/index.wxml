@@ -14,7 +14,7 @@
     >
       <chat-bubble
         message="{{item}}"
-        isSelf="{{item.senderId === currentUserId}}"
+        isMine="{{item.sender_id === currentUserId}}"
       />
     </view>
     <view class="message-padding-bottom"></view>

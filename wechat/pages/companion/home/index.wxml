@@ -1,7 +1,7 @@
 <view class="companion-home">
   <!-- 数据统计 -->
   <view class="stats-row">
-    <view class="stat-item">
+    <view class="stat-item" bindtap="onTodayOrdersTap">
       <text class="stat-value">{{stats.todayOrders}}</text>
       <text class="stat-label">今日订单</text>
     </view>
@@ -20,10 +20,13 @@
   <!-- 待接订单 -->
   <view class="section">
     <view class="section-header">
-      <text class="section-title">待接订单</text>
+      <view class="section-title-wrap">
+        <text class="section-title">待接订单</text>
+        <text class="pending-badge" wx:if="{{pendingTotal > 0}}">{{pendingTotal}}</text>
+      </view>
       <text class="section-link" bindtap="onViewAllPending">查看全部待接单</text>
     </view>
-    <view class="order-list">
+    <view class="order-list" wx:if="{{pendingOrders.length > 0}}">
       <order-card
         wx:for="{{pendingOrders}}"
         wx:key="id"
@@ -31,6 +34,9 @@
         data-id="{{item.id}}"
         bindtap="onOrderTap"
       />
+    </view>
+    <view class="view-more" wx:if="{{pendingTotal > 3}}" bindtap="onViewAllPending">
+      <text>查看全部 {{pendingTotal}} 条待接订单</text>
     </view>
     <view class="empty-hint" wx:if="{{pendingOrders.length === 0}}">
       <text>暂无待接订单</text>
