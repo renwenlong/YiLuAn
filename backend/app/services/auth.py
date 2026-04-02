@@ -61,7 +61,7 @@ class AuthService:
         if not user.is_active:
             raise UnauthorizedException("Account is disabled")
 
-        token_data = {"sub": str(user.id), "role": user.role.value if user.role else None}
+        token_data = {"sub": str(user.id), "role": user.role.value if user.role else None, "roles": user.get_roles()}
         access_token = create_access_token(token_data)
         refresh_token = create_refresh_token(token_data)
 
@@ -94,7 +94,7 @@ class AuthService:
         if not user.is_active:
             raise UnauthorizedException("Account is disabled")
 
-        token_data = {"sub": str(user.id), "role": user.role.value if user.role else None}
+        token_data = {"sub": str(user.id), "role": user.role.value if user.role else None, "roles": user.get_roles()}
         new_access = create_access_token(token_data)
         new_refresh = create_refresh_token(token_data)
 
@@ -121,7 +121,7 @@ class AuthService:
         if not user.is_active:
             raise UnauthorizedException("Account is disabled")
 
-        token_data = {"sub": str(user.id), "role": user.role.value if user.role else None}
+        token_data = {"sub": str(user.id), "role": user.role.value if user.role else None, "roles": user.get_roles()}
         access_token = create_access_token(token_data)
         refresh_token = create_refresh_token(token_data)
 

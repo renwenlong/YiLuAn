@@ -27,6 +27,7 @@ class User(Base):
         String(128), unique=True, nullable=True, index=True
     )
     role: Mapped[UserRole | None] = mapped_column(Enum(UserRole), nullable=True)
+    roles: Mapped[str | None] = mapped_column(String(50), nullable=True)
     display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -41,3 +42,18 @@ class User(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+
+    def has_role(self, r: UserRole) -> bool:
+        if not self.roles:
+            return False
+        return r.value in self.roles.split(",")
+
+    def get_roles(self) -> list[str]:
+        if not self.roles:
+            return []
+        return self.roles.split(",")
+
+    def add_role(self, r: UserRole) -> None:
+        current = set(self.get_roles())
+        current.add(r.value)
+        self.roles = ",".join(sorted(current))

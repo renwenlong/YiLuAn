@@ -1,0 +1,15 @@
+<view class="tab-bar">
+  <view class="tab-item {{active === 'home' ? 'active' : ''}}" data-page="home" bindtap="onTap">
+    <text class="tab-label">工作台</text>
+  </view>
+  <view class="tab-item {{active === 'orders' ? 'active' : ''}}" data-page="orders" bindtap="onTap">
+    <text class="tab-label">订单</text>
+  </view>
+  <view class="tab-item {{active === 'chat' ? 'active' : ''}}" data-page="chat" bindtap="onTap">
+    <text class="tab-label">消息</text>
+  </view>
+  <view class="tab-item {{active === 'profile' ? 'active' : ''}}" data-page="profile" bindtap="onTap">
+    <text class="tab-label">我的</text>
+  </view>
+</view>
+<view class="tab-bar-spacer"></view>

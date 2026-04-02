@@ -17,6 +17,7 @@
           <text wx:if="{{user.role === 'companion'}}" class="role-badge companion-badge">陪诊师</text>
           <text wx:elif="{{user.role === 'patient'}}" class="role-badge patient-badge">患者</text>
         </view>
+
         <view class="user-phone" wx:if="{{user.phone}}">
           <text class="phone-text">{{user.phone}}</text>
         </view>
@@ -31,23 +32,19 @@
   <!-- Menu List -->
   <view class="menu-section">
     <view class="menu-item" data-target="/pages/profile/edit/index" bindtap="onMenuTap">
-      <text class="menu-icon">编</text>
       <text class="menu-text">编辑资料</text>
       <text class="menu-arrow">></text>
     </view>
     <view class="menu-item" data-target="/pages/orders/index" bindtap="onMenuTap">
-      <text class="menu-icon">订</text>
       <text class="menu-text">我的订单</text>
       <text class="menu-arrow">></text>
     </view>
-    <view class="menu-item" data-target="/pages/profile/settings/index" bindtap="onMenuTap">
-      <text class="menu-icon">设</text>
-      <text class="menu-text">设置</text>
+    <view class="menu-item" data-target="/pages/profile/wallet/index" bindtap="onMenuTap">
+      <text class="menu-text">我的钱包</text>
       <text class="menu-arrow">></text>
     </view>
-    <view class="menu-item" data-target="/pages/profile/about/index" bindtap="onMenuTap">
-      <text class="menu-icon">关</text>
-      <text class="menu-text">关于</text>
+    <view class="menu-item" data-target="/pages/profile/settings/index" bindtap="onMenuTap">
+      <text class="menu-text">设置</text>
       <text class="menu-arrow">></text>
     </view>
   </view>
@@ -57,3 +54,5 @@
     <button class="logout-btn" bindtap="onLogout">退出登录</button>
   </view>
 </view>
+
+<patient-tab-bar active="profile" />

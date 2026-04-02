@@ -5,7 +5,7 @@ const store = require('../../../store/index')
 Page({
   data: {
     stats: {
-      todayOrders: 0,
+      openOrders: 0,
       totalEarnings: 0,
       rating: 0
     },
@@ -30,7 +30,7 @@ Page({
         var data = res.data || res
         self.setData({
           stats: {
-            todayOrders: data.today_orders || 0,
+            openOrders: data.open_orders || 0,
             totalEarnings: data.total_earnings || 0,
             rating: data.avg_rating || 0
           }
@@ -59,7 +59,7 @@ Page({
     })
   },
 
-  onTodayOrdersTap() {
+  onOpenOrdersTap() {
     wx.navigateTo({
       url: '/pages/companion/today-orders/index'
     })

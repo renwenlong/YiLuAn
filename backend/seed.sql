@@ -9,15 +9,25 @@ INSERT INTO hospitals (id, name, address, level, latitude, longitude, created_at
 ('a0000001-0000-0000-0000-000000000008', '北京积水潭医院', '北京市西城区新街口东街31号', '三甲', 39.9405, 116.3764, NOW());
 
 -- Patient users
-INSERT INTO users (id, phone, role, display_name, avatar_url, is_active, created_at, updated_at) VALUES
-('b0000001-0000-0000-0000-000000000001', '13800000001', 'patient', '张先生', NULL, true, NOW(), NOW()),
-('b0000001-0000-0000-0000-000000000002', '13800000002', 'patient', '李女士', NULL, true, NOW(), NOW()),
-('b0000001-0000-0000-0000-000000000003', '13800000003', 'patient', '王大爷', NULL, true, NOW(), NOW()),
-('b0000001-0000-0000-0000-000000000004', '13800000004', 'patient', '刘阿姨', NULL, true, NOW(), NOW()),
-('b0000001-0000-0000-0000-000000000005', '13800000005', 'patient', '赵女士', NULL, true, NOW(), NOW()),
-('b0000001-0000-0000-0000-000000000006', '13800000006', 'patient', '孙先生', NULL, true, NOW(), NOW()),
-('b0000001-0000-0000-0000-000000000007', '13800000007', 'patient', '周阿姨', NULL, true, NOW(), NOW()),
-('b0000001-0000-0000-0000-000000000008', '13800000008', 'patient', '吴大爷', NULL, true, NOW(), NOW());
+INSERT INTO users (id, phone, role, roles, display_name, avatar_url, is_active, created_at, updated_at) VALUES
+('b0000001-0000-0000-0000-000000000001', '13800000001', 'patient', 'patient', '张先生', NULL, true, NOW(), NOW()),
+('b0000001-0000-0000-0000-000000000002', '13800000002', 'patient', 'patient', '李女士', NULL, true, NOW(), NOW()),
+('b0000001-0000-0000-0000-000000000003', '13800000003', 'patient', 'patient', '王大爷', NULL, true, NOW(), NOW()),
+('b0000001-0000-0000-0000-000000000004', '13800000004', 'patient', 'patient', '刘阿姨', NULL, true, NOW(), NOW()),
+('b0000001-0000-0000-0000-000000000005', '13800000005', 'patient', 'patient', '赵女士', NULL, true, NOW(), NOW()),
+('b0000001-0000-0000-0000-000000000006', '13800000006', 'patient', 'patient', '孙先生', NULL, true, NOW(), NOW()),
+('b0000001-0000-0000-0000-000000000007', '13800000007', 'patient', 'patient', '周阿姨', NULL, true, NOW(), NOW()),
+('b0000001-0000-0000-0000-000000000008', '13800000008', 'patient', 'patient', '吴大爷', NULL, true, NOW(), NOW());
+
+-- Companion users
+INSERT INTO users (id, phone, role, roles, display_name, avatar_url, is_active, created_at, updated_at) VALUES
+('b0000002-0000-0000-0000-000000000001', '13900000001', 'companion', 'companion', '陈护士', NULL, true, NOW(), NOW()),
+('b0000002-0000-0000-0000-000000000002', '13900000002', 'companion', 'companion', '林医助', NULL, true, NOW(), NOW());
+
+-- Companion profiles
+INSERT INTO companion_profiles (id, user_id, real_name, id_number, certifications, service_area, bio, avg_rating, total_orders, verification_status, created_at, updated_at) VALUES
+('d0000001-0000-0000-0000-000000000001', 'b0000002-0000-0000-0000-000000000001', '陈晓燕', '110101199203150024', '护士执业证、急救证', '北京市西城区、东城区', '三甲医院5年护理经验，熟悉各科室流程，耐心细致，擅长老年患者陪诊', 4.8, 126, 'verified', NOW(), NOW()),
+('d0000001-0000-0000-0000-000000000002', 'b0000002-0000-0000-0000-000000000002', '林志强', '110105199508220031', '健康管理师证', '北京市朝阳区、海淀区', '医学院毕业，从事陪诊服务3年，擅长就医流程规划和医患沟通，服务高效', 4.6, 89, 'verified', NOW(), NOW());
 
 -- 20 pending orders (status=created, companion_id=NULL)
 INSERT INTO orders (id, order_number, patient_id, companion_id, hospital_id, service_type, status, appointment_date, appointment_time, description, price, hospital_name, patient_name, created_at, updated_at) VALUES

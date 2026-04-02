@@ -16,3 +16,14 @@ class UpdateUserRequest(BaseModel):
 
 class AvatarUploadResponse(BaseModel):
     avatar_url: str
+
+
+class SwitchRoleRequest(BaseModel):
+    role: str
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: str) -> str:
+        if v not in ("patient", "companion"):
+            raise ValueError("Role must be 'patient' or 'companion'")
+        return v

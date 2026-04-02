@@ -39,7 +39,7 @@ class CompanionDetailResponse(CompanionListResponse):
 
 
 class CompanionStatsResponse(BaseModel):
-    today_orders: int = 0
+    open_orders: int = 0
     total_orders: int = 0
     avg_rating: float = 0.0
     total_earnings: float = 0.0

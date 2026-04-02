@@ -4,7 +4,7 @@ const store = require('../../store/index')
 
 Page({
   data: {
-    tabs: ['全部', '待接单', '进行中', '已完成'],
+    tabs: ['全部', '待接单', '进行中', '已完成', '已取消'],
     activeTab: 0,
     orders: [],
     page: 1,
@@ -40,7 +40,8 @@ Page({
       0: undefined,
       1: 'created',
       2: 'in_progress',
-      3: 'completed'
+      3: 'completed',
+      4: 'cancelled'
     }
     const status = statusMap[this.data.activeTab]
     const params = {
@@ -53,7 +54,7 @@ Page({
 
     getOrders(params)
       .then(res => {
-        const list = res.data && res.data.items ? res.data.items : (res.data || [])
+        const list = res.items || []
         const hasMore = list.length >= 10
         this.setData({
           orders: this.data.orders.concat(list),

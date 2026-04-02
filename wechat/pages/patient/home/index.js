@@ -21,7 +21,14 @@ Page({
   fetchCompanions() {
     getCompanions({ page: 1, page_size: 5 })
       .then(res => {
-        const list = res.data && res.data.items ? res.data.items : (res.data || [])
+        const raw = Array.isArray(res) ? res : (res.items || res.data || [])
+        const list = raw.map(item => ({
+          id: item.id,
+          name: item.real_name || item.display_name || '',
+          rating: item.avg_rating || 0,
+          completed_orders: item.total_orders || 0,
+          service_areas: item.service_area ? item.service_area.split('、') : []
+        }))
         this.setData({ companions: list })
       })
       .catch(err => {

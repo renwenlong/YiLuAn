@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "我的",
+  "usingComponents": {
+    "companion-tab-bar": "/components/companion-tab-bar/index"
+  }
+}
