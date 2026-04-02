@@ -8,11 +8,18 @@
   <view class="order-body">
     <view class="order-row">
       <text class="order-label">医院</text>
-      <text class="order-value">{{order.hospital}}</text>
+      <text class="order-value">{{order.hospital_name}}</text>
     </view>
     <view class="order-row">
-      <text class="order-label">日期</text>
-      <text class="order-value">{{order.date}}</text>
+      <text class="order-label">时间</text>
+      <text class="order-value">{{order.appointment_date}} {{order.appointment_time}}</text>
+    </view>
+    <view class="order-row" wx:if="{{order.patient_name}}">
+      <text class="order-label">患者</text>
+      <text class="order-value">{{order.patient_name}}</text>
+    </view>
+    <view class="order-desc" wx:if="{{order.description}}">
+      <text class="order-desc-text">{{order.description}}</text>
     </view>
   </view>
   <view class="order-footer">

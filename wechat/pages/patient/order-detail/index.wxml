@@ -3,7 +3,7 @@
 <view class="page-container" wx:if="{{order}}">
   <!-- Status Header -->
   <view class="status-header status-{{order.status}}">
-    <text class="status-text">{{statusList[order.status] || order.status}}</text>
+    <text class="status-text">{{statusList[order.status].label || order.status}}</text>
   </view>
 
   <!-- Order Info -->
@@ -11,44 +11,36 @@
     <view class="section-title">订单信息</view>
     <view class="info-row">
       <text class="info-label">订单编号</text>
-      <text class="info-value">{{order.id}}</text>
+      <text class="info-value">{{order.order_number}}</text>
     </view>
     <view class="info-row">
       <text class="info-label">服务类型</text>
-      <text class="info-value">{{order.serviceType}}</text>
+      <text class="info-value">{{serviceLabel}}</text>
     </view>
     <view class="info-row">
       <text class="info-label">医院</text>
-      <text class="info-value">{{order.hospitalName}}</text>
-    </view>
-    <view class="info-row">
-      <text class="info-label">预约日期</text>
-      <text class="info-value">{{order.formattedDate}}</text>
+      <text class="info-value">{{order.hospital_name}}</text>
     </view>
     <view class="info-row">
       <text class="info-label">预约时间</text>
-      <text class="info-value">{{order.time}}</text>
+      <text class="info-value">{{order.appointment_date}} {{order.appointment_time}}</text>
     </view>
     <view class="info-row" wx:if="{{order.formattedPrice}}">
       <text class="info-label">费用</text>
       <text class="info-value price">{{order.formattedPrice}}</text>
     </view>
-    <view class="info-row" wx:if="{{order.notes}}">
+    <view class="info-row" wx:if="{{order.description}}">
       <text class="info-label">备注</text>
-      <text class="info-value">{{order.notes}}</text>
+      <text class="info-value">{{order.description}}</text>
     </view>
   </view>
 
   <!-- Companion Info -->
-  <view class="detail-section" wx:if="{{order.companion}}">
+  <view class="detail-section" wx:if="{{order.companion_name}}">
     <view class="section-title">陪诊师信息</view>
-    <view class="companion-card">
-      <image class="companion-avatar" src="{{order.companion.avatar}}" mode="aspectFill" />
-      <view class="companion-info">
-        <text class="companion-name">{{order.companion.name}}</text>
-        <rating-stars value="{{order.companion.rating}}" readonly="{{true}}" size="small" />
-        <text class="companion-phone" bindtap="onCallCompanion">{{order.companion.phone}}</text>
-      </view>
+    <view class="info-row">
+      <text class="info-label">陪诊师</text>
+      <text class="info-value">{{order.companion_name}}</text>
     </view>
   </view>
 

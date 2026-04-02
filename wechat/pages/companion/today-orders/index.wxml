@@ -1,0 +1,24 @@
+<loading-overlay wx:if="{{loading && orders.length === 0}}" />
+
+<view class="page-container">
+  <view class="order-list" wx:if="{{orders.length > 0}}">
+    <order-card
+      wx:for="{{orders}}"
+      wx:key="id"
+      order="{{item}}"
+      data-id="{{item.id}}"
+      bindtap="onOrderTap"
+    />
+  </view>
+
+  <empty-state
+    wx:if="{{!loading && orders.length === 0}}"
+    icon="order"
+    text="暂无今日订单"
+    subText="接单后订单将显示在这里"
+  />
+
+  <view class="load-more" wx:if="{{loading && orders.length > 0}}">
+    <text>加载中...</text>
+  </view>
+</view>

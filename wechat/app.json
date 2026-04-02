@@ -2,6 +2,7 @@
   "pages": [
     "pages/login/index",
     "pages/role-select/index",
+    "pages/profile/setup/index",
     "pages/patient/home/index",
     "pages/companion/home/index",
     "pages/orders/index",
@@ -11,6 +12,7 @@
     "pages/patient/create-order/index",
     "pages/patient/order-detail/index",
     "pages/companion/available-orders/index",
+    "pages/companion/today-orders/index",
     "pages/companion/order-detail/index",
     "pages/chat/room/index",
     "pages/companion-detail/index",

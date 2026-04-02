@@ -10,8 +10,12 @@ Page({
     const state = store.getState()
     if (state && state.user && state.user.token) {
       if (state.user.role) {
-        const home = state.user.role === 'patient' ? '/pages/patient/home/index' : '/pages/companion/home/index'
-        wx.reLaunch({ url: home })
+        if (!state.user.display_name) {
+          wx.redirectTo({ url: '/pages/profile/setup/index' })
+        } else {
+          const home = state.user.role === 'patient' ? '/pages/patient/home/index' : '/pages/companion/home/index'
+          wx.reLaunch({ url: home })
+        }
       } else {
         wx.redirectTo({ url: '/pages/role-select/index' })
       }
@@ -27,8 +31,12 @@ Page({
         const user = res.data || res
         store.setState({ user })
         if (user.role) {
-          const home = user.role === 'patient' ? '/pages/patient/home/index' : '/pages/companion/home/index'
-          wx.reLaunch({ url: home })
+          if (!user.display_name) {
+            wx.redirectTo({ url: '/pages/profile/setup/index' })
+          } else {
+            const home = user.role === 'patient' ? '/pages/patient/home/index' : '/pages/companion/home/index'
+            wx.reLaunch({ url: home })
+          }
         } else {
           wx.redirectTo({ url: '/pages/role-select/index' })
         }
