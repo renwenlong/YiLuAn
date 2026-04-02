@@ -100,7 +100,9 @@ def seed_user():
         is_active: bool = True,
     ) -> User:
         async with test_session_factory() as session:
-            user = User(phone=phone, role=role, is_active=is_active)
+            role_val = role.value if isinstance(role, UserRole) else role
+            roles = role_val if role else None
+            user = User(phone=phone, role=role, roles=roles, is_active=is_active)
             session.add(user)
             await session.commit()
             await session.refresh(user)
@@ -117,7 +119,9 @@ def seed_wechat_user():
         is_active: bool = True,
     ) -> User:
         async with test_session_factory() as session:
-            user = User(wechat_openid=openid, role=role, is_active=is_active)
+            role_val = role.value if isinstance(role, UserRole) else role
+            roles = role_val if role else None
+            user = User(wechat_openid=openid, role=role, roles=roles, is_active=is_active)
             session.add(user)
             await session.commit()
             await session.refresh(user)

@@ -1,0 +1,44 @@
+<view class="orders-page">
+  <!-- 状态标签栏 -->
+  <scroll-view class="tabs-scroll" scroll-x enable-flex>
+    <view
+      class="tab-item {{activeTab === index ? 'tab-active' : ''}}"
+      wx:for="{{tabs}}"
+      wx:key="index"
+      data-index="{{index}}"
+      bindtap="onTabChange"
+    >
+      <text>{{item}}</text>
+    </view>
+  </scroll-view>
+
+  <!-- 订单列表 -->
+  <view class="order-list" wx:if="{{orders.length > 0}}">
+    <order-card
+      wx:for="{{orders}}"
+      wx:key="id"
+      order="{{item}}"
+      data-id="{{item.id}}"
+      bindtap="onOrderTap"
+    />
+  </view>
+
+  <!-- 空状态 -->
+  <empty-state
+    wx:if="{{orders.length === 0 && !loading}}"
+    message="暂无订单"
+  />
+
+  <!-- 加载中 -->
+  <loading-overlay wx:if="{{loading && orders.length === 0}}" />
+
+  <!-- 底部加载提示 -->
+  <view class="load-more" wx:if="{{loading && orders.length > 0}}">
+    <text>加载中...</text>
+  </view>
+  <view class="load-more" wx:if="{{!hasMore && orders.length > 0}}">
+    <text>没有更多了</text>
+  </view>
+</view>
+
+<companion-tab-bar active="orders" />

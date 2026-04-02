@@ -46,4 +46,8 @@ function uploadAvatar(filePath) {
   })
 }
 
-module.exports = { getMe, updateMe, getPatientProfile, updatePatientProfile, uploadAvatar }
+function switchRole(role) {
+  return request({ url: 'users/me/switch-role', method: 'POST', data: { role } })
+}
+
+module.exports = { getMe, updateMe, getPatientProfile, updatePatientProfile, uploadAvatar, switchRole }

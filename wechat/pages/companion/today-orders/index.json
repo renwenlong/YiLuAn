@@ -1,5 +1,5 @@
 {
-  "navigationBarTitleText": "今日订单",
+  "navigationBarTitleText": "未结订单",
   "usingComponents": {
     "order-card": "/components/order-card/index",
     "empty-state": "/components/empty-state/index",

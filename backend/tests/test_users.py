@@ -53,12 +53,14 @@ class TestUpdateMe:
         assert data["display_name"] == "张三"
 
     async def test_update_role_already_set(self, authenticated_client):
-        # User already has role=patient, trying to change to companion
+        # User already has role=patient, changing to companion is now allowed (dual-role)
         response = await authenticated_client.put(
             "/api/v1/users/me", json={"role": "companion"}
         )
-        assert response.status_code == 400
-        assert "cannot be changed" in response.json()["detail"].lower()
+        assert response.status_code == 200
+        data = response.json()
+        assert data["role"] == "companion"
+        assert "companion" in data["roles"]
 
     async def test_update_invalid_role(self, no_role_client):
         response = await no_role_client.put(

@@ -1,0 +1,173 @@
+.wallet-page {
+  min-height: 100vh;
+  background-color: #F5F5F5;
+}
+
+/* 余额卡片 */
+.balance-card {
+  background: linear-gradient(135deg, #1890FF, #36CFC9);
+  padding: 60rpx 40rpx;
+  color: #FFFFFF;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.balance-label {
+  font-size: 28rpx;
+  opacity: 0.8;
+  margin-bottom: 16rpx;
+}
+
+.balance-value {
+  font-size: 64rpx;
+  font-weight: bold;
+}
+
+/* 充值区域 */
+.recharge-section {
+  background-color: #FFFFFF;
+  margin: 20rpx 24rpx;
+  padding: 32rpx;
+  border-radius: 16rpx;
+}
+
+.section-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333333;
+  margin-bottom: 24rpx;
+}
+
+.amount-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20rpx;
+  margin-bottom: 32rpx;
+}
+
+.amount-item {
+  height: 100rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #F5F7FA;
+  border-radius: 12rpx;
+  border: 2rpx solid transparent;
+}
+
+.amount-item.active {
+  background-color: #E6F7FF;
+  border-color: #1890FF;
+}
+
+.amount-value {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333333;
+}
+
+.amount-item.active .amount-value {
+  color: #1890FF;
+}
+
+/* 自定义金额 */
+.custom-amount {
+  display: flex;
+  align-items: center;
+  margin-bottom: 40rpx;
+  border-bottom: 1rpx solid #EEEEEE;
+  padding-bottom: 20rpx;
+}
+
+.custom-label {
+  font-size: 28rpx;
+  color: #666666;
+  white-space: nowrap;
+  margin-right: 20rpx;
+}
+
+.custom-input {
+  flex: 1;
+  font-size: 28rpx;
+  color: #333333;
+  text-align: right;
+}
+
+/* 充值按钮 */
+.recharge-btn {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  background: linear-gradient(135deg, #1890FF, #36CFC9);
+  color: #FFFFFF;
+  font-size: 32rpx;
+  font-weight: 600;
+  border-radius: 44rpx;
+  border: none;
+}
+
+.recharge-btn::after {
+  border: none;
+}
+
+/* 消费明细 */
+.record-section {
+  background-color: #FFFFFF;
+  margin: 20rpx 24rpx;
+  padding: 32rpx;
+  border-radius: 16rpx;
+}
+
+.section-header {
+  margin-bottom: 24rpx;
+}
+
+.record-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #F5F5F5;
+}
+
+.record-item:last-child {
+  border-bottom: none;
+}
+
+.record-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.record-title {
+  font-size: 28rpx;
+  color: #333333;
+  margin-bottom: 8rpx;
+}
+
+.record-time {
+  font-size: 24rpx;
+  color: #999999;
+}
+
+.record-amount {
+  font-size: 32rpx;
+  font-weight: 600;
+}
+
+.record-amount.expense {
+  color: #333333;
+}
+
+.record-amount.income {
+  color: #52C41A;
+}
+
+.empty-hint {
+  text-align: center;
+  padding: 60rpx 0;
+  color: #999999;
+  font-size: 28rpx;
+}

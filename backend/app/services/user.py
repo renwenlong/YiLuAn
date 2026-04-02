@@ -22,11 +22,18 @@ class UserService:
         update_data = data.model_dump(exclude_unset=True)
 
         if "role" in update_data and update_data["role"] is not None:
-            if user.role is not None:
-                raise BadRequestException("Role cannot be changed once set")
-            update_data["role"] = UserRole(update_data["role"])
+            new_role = UserRole(update_data["role"])
+            update_data["role"] = new_role
+            user.add_role(new_role)
+            update_data["roles"] = user.roles
 
         if not update_data:
             return user
 
         return await self.user_repo.update(user, update_data)
+
+    async def switch_role(self, user: User, role_str: str) -> User:
+        target_role = UserRole(role_str)
+        if not user.has_role(target_role):
+            raise BadRequestException(f"User does not have role: {role_str}")
+        return await self.user_repo.update(user, {"role": target_role})

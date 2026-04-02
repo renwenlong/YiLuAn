@@ -36,6 +36,8 @@ class CompanionProfileService:
 
         if user.role is None:
             await self.user_repo.update(user, {"role": UserRole.companion})
+        user.add_role(UserRole.companion)
+        await self.user_repo.update(user, {"roles": user.roles})
 
         return profile
 
@@ -66,7 +68,7 @@ class CompanionProfileService:
         return await self.repo.search(area=area, skip=skip, limit=limit)
 
     async def get_stats(self, user: User) -> dict:
-        if user.role != UserRole.companion:
+        if not user.has_role(UserRole.companion):
             raise ForbiddenException("Only companions can view stats")
         profile = await self.repo.get_by_user_id(user.id)
         avg_rating = 0.0
@@ -75,11 +77,11 @@ class CompanionProfileService:
             avg_rating = profile.avg_rating
             total_orders = profile.total_orders
 
-        today_orders = await self.order_repo.count_today_by_companion(user.id)
+        open_orders = await self.order_repo.count_open_by_companion(user.id)
         total_earnings = await self.order_repo.sum_earnings_by_companion(user.id)
 
         return {
-            "today_orders": today_orders,
+            "open_orders": open_orders,
             "total_orders": total_orders,
             "avg_rating": avg_rating,
             "total_earnings": total_earnings,

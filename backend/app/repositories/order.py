@@ -22,6 +22,8 @@ class OrderRepository(BaseRepository[Order]):
         patient_id: UUID,
         *,
         status: OrderStatus | None = None,
+        status_list: list[OrderStatus] | None = None,
+        date: str | None = None,
         skip: int = 0,
         limit: int = 20,
     ) -> tuple[Sequence[Order], int]:
@@ -29,9 +31,15 @@ class OrderRepository(BaseRepository[Order]):
         count_stmt = select(func.count()).select_from(Order).where(
             Order.patient_id == patient_id
         )
-        if status:
+        if status_list:
+            stmt = stmt.where(Order.status.in_(status_list))
+            count_stmt = count_stmt.where(Order.status.in_(status_list))
+        elif status:
             stmt = stmt.where(Order.status == status)
             count_stmt = count_stmt.where(Order.status == status)
+        if date:
+            stmt = stmt.where(Order.appointment_date == date)
+            count_stmt = count_stmt.where(Order.appointment_date == date)
         total_result = await self.session.execute(count_stmt)
         total = total_result.scalar_one()
         stmt = stmt.order_by(Order.created_at.desc()).offset(skip).limit(limit)
@@ -43,6 +51,8 @@ class OrderRepository(BaseRepository[Order]):
         companion_id: UUID,
         *,
         status: OrderStatus | None = None,
+        status_list: list[OrderStatus] | None = None,
+        date: str | None = None,
         skip: int = 0,
         limit: int = 20,
     ) -> tuple[Sequence[Order], int]:
@@ -50,27 +60,28 @@ class OrderRepository(BaseRepository[Order]):
         count_stmt = select(func.count()).select_from(Order).where(
             Order.companion_id == companion_id
         )
-        if status:
+        if status_list:
+            stmt = stmt.where(Order.status.in_(status_list))
+            count_stmt = count_stmt.where(Order.status.in_(status_list))
+        elif status:
             stmt = stmt.where(Order.status == status)
             count_stmt = count_stmt.where(Order.status == status)
+        if date:
+            stmt = stmt.where(Order.appointment_date == date)
+            count_stmt = count_stmt.where(Order.appointment_date == date)
         total_result = await self.session.execute(count_stmt)
         total = total_result.scalar_one()
         stmt = stmt.order_by(Order.created_at.desc()).offset(skip).limit(limit)
         result = await self.session.execute(stmt)
         return result.scalars().all(), total
 
-    async def count_today_by_companion(self, companion_id: UUID) -> int:
-        from datetime import date, datetime, timezone
-
-        today_start = datetime.combine(date.today(), datetime.min.time()).replace(
-            tzinfo=timezone.utc
-        )
+    async def count_open_by_companion(self, companion_id: UUID) -> int:
         stmt = (
             select(func.count())
             .select_from(Order)
             .where(
                 Order.companion_id == companion_id,
-                Order.created_at >= today_start,
+                Order.status.in_([OrderStatus.accepted, OrderStatus.in_progress]),
             )
         )
         result = await self.session.execute(stmt)
@@ -88,7 +99,7 @@ class OrderRepository(BaseRepository[Order]):
         return float(result.scalar_one())
 
     async def list_available(
-        self, *, skip: int = 0, limit: int = 20
+        self, *, skip: int = 0, limit: int = 20, date: str | None = None
     ) -> tuple[Sequence[Order], int]:
         stmt = select(Order).where(Order.status == OrderStatus.created)
         count_stmt = (
@@ -96,6 +107,9 @@ class OrderRepository(BaseRepository[Order]):
             .select_from(Order)
             .where(Order.status == OrderStatus.created)
         )
+        if date:
+            stmt = stmt.where(Order.appointment_date == date)
+            count_stmt = count_stmt.where(Order.appointment_date == date)
         total_result = await self.session.execute(count_stmt)
         total = total_result.scalar_one()
         stmt = stmt.order_by(Order.created_at.desc()).offset(skip).limit(limit)

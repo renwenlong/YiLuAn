@@ -8,24 +8,6 @@
   margin-bottom: 20rpx;
 }
 
-.service-icon {
-  width: 96rpx;
-  height: 96rpx;
-  border-radius: 16rpx;
-  background: #f0f5ff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-right: 24rpx;
-  flex-shrink: 0;
-}
-
-.icon-placeholder {
-  font-size: 28rpx;
-  color: #1890ff;
-  font-weight: bold;
-}
-
 .service-info {
   display: flex;
   flex-direction: column;

@@ -1,6 +1,7 @@
 {
   "navigationBarTitleText": "工作台",
   "usingComponents": {
-    "order-card": "/components/order-card/index"
+    "order-card": "/components/order-card/index",
+    "companion-tab-bar": "/components/companion-tab-bar/index"
   }
 }

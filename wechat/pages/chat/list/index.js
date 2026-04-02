@@ -38,9 +38,17 @@ Page({
   },
 
   _orderToConversation(order) {
+    // Patient sees companion name + hospital
+    var name = '聊天'
+    if (order.companion_name) {
+      name = '陪诊师·' + order.companion_name
+    }
+    if (order.hospital_name) {
+      name = name + ' - ' + order.hospital_name
+    }
     return {
       id: order.id,
-      name: order.companion_name || order.patient_name || '聊天',
+      name: name,
       lastMessage: order.status === 'completed' ? '订单已完成' : '点击进入聊天',
       lastTime: order.appointment_date || '',
       unreadCount: 0,
