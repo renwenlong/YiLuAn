@@ -28,26 +28,26 @@
       {
         "pagePath": "pages/patient/home/index",
         "text": "首页",
-        "iconPath": "",
-        "selectedIconPath": ""
+        "iconPath": "images/tabbar/home.png",
+        "selectedIconPath": "images/tabbar/home_active.png"
       },
       {
         "pagePath": "pages/orders/index",
         "text": "订单",
-        "iconPath": "",
-        "selectedIconPath": ""
+        "iconPath": "images/tabbar/order.png",
+        "selectedIconPath": "images/tabbar/order_active.png"
       },
       {
         "pagePath": "pages/chat/list/index",
         "text": "消息",
-        "iconPath": "",
-        "selectedIconPath": ""
+        "iconPath": "images/tabbar/chat.png",
+        "selectedIconPath": "images/tabbar/chat_active.png"
       },
       {
         "pagePath": "pages/profile/index",
         "text": "我的",
-        "iconPath": "",
-        "selectedIconPath": ""
+        "iconPath": "images/tabbar/profile.png",
+        "selectedIconPath": "images/tabbar/profile_active.png"
       }
     ]
   },
