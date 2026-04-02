@@ -2,11 +2,24 @@
   "description": "医路安 - 陪诊服务平台",
   "packOptions": {
     "ignore": [
-      { "type": "folder", "value": "__tests__" },
-      { "type": "folder", "value": "node_modules" },
-      { "type": "file", "value": "package.json" },
-      { "type": "file", "value": "jest.config.js" }
-    ]
+      {
+        "value": "__tests__",
+        "type": "folder"
+      },
+      {
+        "value": "node_modules",
+        "type": "folder"
+      },
+      {
+        "value": "package.json",
+        "type": "file"
+      },
+      {
+        "value": "jest.config.js",
+        "type": "file"
+      }
+    ],
+    "include": []
   },
   "setting": {
     "urlCheck": true,
@@ -22,10 +35,25 @@
       "ignore": [],
       "disablePlugins": [],
       "outputPath": ""
-    }
+    },
+    "compileWorklet": false,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false,
+    "condition": false,
+    "swc": false,
+    "disableSWC": true
   },
   "compileType": "miniprogram",
   "appid": "wx0000000000000000",
   "projectname": "yiluan-miniprogram",
-  "condition": {}
+  "condition": {},
+  "simulatorPluginLibVersion": {},
+  "editorSetting": {}
 }
