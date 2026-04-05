@@ -29,6 +29,7 @@ class CompanionProfile(Base):
     service_area: Mapped[str | None] = mapped_column(String(200), nullable=True)
     service_types: Mapped[str | None] = mapped_column(String(200), nullable=True)
     service_hospitals: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    service_city: Mapped[str | None] = mapped_column(String(50), nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
     avg_rating: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
     total_orders: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

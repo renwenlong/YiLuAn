@@ -186,6 +186,42 @@ class OrderService:
         )
         return order
 
+    async def request_start_service(self, order_id: uuid.UUID, user: User) -> Order:
+        order = await self._get_order_for_update_or_404(order_id)
+        if order.companion_id != user.id:
+            raise ForbiddenException("Not your order")
+        if order.status != OrderStatus.accepted:
+            raise BadRequestException("订单状态不允许请求开始服务")
+
+        companion_name = user.display_name or user.phone or "陪诊师"
+        await self.notification_svc.notify_start_service_request(
+            order, companion_name, order.patient_id
+        )
+        await self._fill_payment_status(order)
+        await self._fill_timeline(order)
+        return order
+
+    async def confirm_start_service(self, order_id: uuid.UUID, user: User) -> Order:
+        order = await self._get_order_for_update_or_404(order_id)
+        if order.patient_id != user.id:
+            raise ForbiddenException("Not your order")
+        self._validate_transition(order.status, OrderStatus.in_progress)
+
+        order = await self.order_repo.update(
+            order, {"status": OrderStatus.in_progress}
+        )
+        await self._record_history(
+            order.id, OrderStatus.accepted, OrderStatus.in_progress, user.id
+        )
+        # Notify companion that patient confirmed start
+        if order.companion_id:
+            await self.notification_svc.notify_order_status_changed(
+                order, OrderStatus.in_progress.value, order.companion_id
+            )
+        await self._fill_payment_status(order)
+        await self._fill_timeline(order)
+        return order
+
     async def complete_order(self, order_id: uuid.UUID, user: User) -> Order:
         order = await self._get_order_for_update_or_404(order_id)
         if order.companion_id != user.id:
@@ -358,12 +394,52 @@ class OrderService:
         "cancelled_by_companion": "陪诊师已取消",
     }
 
+    # The standard progression used to build a synthetic timeline
+    STATUS_PROGRESSION = [
+        OrderStatus.created,
+        OrderStatus.accepted,
+        OrderStatus.in_progress,
+        OrderStatus.completed,
+        OrderStatus.reviewed,
+    ]
+
     async def _fill_timeline(self, order: Order) -> None:
         history = await self.history_repo.list_by_order_id(order.id)
+        if history:
+            timeline = []
+            for h in history:
+                label = self.STATUS_LABELS.get(h.to_status, h.to_status)
+                ts = h.created_at.strftime("%Y-%m-%d %H:%M") if h.created_at else ""
+                timeline.append({"title": label, "time": ts})
+            order.timeline = timeline
+            order.timeline_index = len(timeline) - 1 if timeline else -1
+            return
+
+        # No history records (e.g. seed data) — build synthetic timeline
+        current = order.status
+        is_cancelled = current in (
+            OrderStatus.cancelled_by_patient,
+            OrderStatus.cancelled_by_companion,
+        )
+
         timeline = []
-        for h in history:
-            label = self.STATUS_LABELS.get(h.to_status, h.to_status)
-            ts = h.created_at.strftime("%Y-%m-%d %H:%M") if h.created_at else ""
+        active_index = 0
+        for s in self.STATUS_PROGRESSION:
+            label = self.STATUS_LABELS.get(s.value, s.value)
+            if s == OrderStatus.created:
+                ts = order.created_at.strftime("%Y-%m-%d %H:%M") if order.created_at else ""
+            else:
+                ts = ""
             timeline.append({"title": label, "time": ts})
+            if s.value == current.value:
+                active_index = len(timeline) - 1
+                break
+
+        if is_cancelled:
+            cancel_label = self.STATUS_LABELS.get(current.value, current.value)
+            ts = order.updated_at.strftime("%Y-%m-%d %H:%M") if order.updated_at else ""
+            timeline.append({"title": cancel_label, "time": ts})
+            active_index = len(timeline) - 1
+
         order.timeline = timeline
-        order.timeline_index = len(timeline) - 1 if timeline else -1
+        order.timeline_index = active_index

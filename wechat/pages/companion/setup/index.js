@@ -9,6 +9,7 @@ Page({
   data: {
     realName: '',
     bio: '',
+    certifications: '',
     // phone
     phone: '',
     phoneBound: false,
@@ -20,6 +21,10 @@ Page({
     serviceTypeList: [],
     selectedServiceTypes: [],
     serviceTypeMap: {},
+    // service area (districts)
+    selectedDistricts: [],
+    districtMap: {},
+    serviceDistricts: [],
     // hospital
     city: '',
     locating: false,
@@ -105,10 +110,12 @@ Page({
     if (self.data.city && self.data.city !== '定位中...') params.city = self.data.city
     getHospitalFilters(params)
       .then(function (res) {
-        var districts = ['不限'].concat(res.districts || [])
+        var rawDistricts = res.districts || []
+        var districts = ['不限'].concat(rawDistricts)
         var levels = ['不限'].concat(res.levels || [])
         var tags = ['不限'].concat(res.tags || [])
         self.setData({
+          serviceDistricts: rawDistricts,
           allDistricts: districts,
           allLevels: levels,
           allTags: tags,
@@ -230,6 +237,22 @@ Page({
     this.setData({ selectedServiceTypes: list, serviceTypeMap: map })
   },
 
+  onDistrictToggle(e) {
+    var name = e.currentTarget.dataset.name
+    var list = this.data.selectedDistricts.slice()
+    var map = {}
+    var idx = list.indexOf(name)
+    if (idx >= 0) {
+      list.splice(idx, 1)
+    } else {
+      list.push(name)
+    }
+    for (var i = 0; i < list.length; i++) {
+      map[list[i]] = true
+    }
+    this.setData({ selectedDistricts: list, districtMap: map })
+  },
+
   onHospitalSearch(e) {
     var self = this
     self.setData({ hospitalKeyword: e.detail.value })
@@ -297,6 +320,9 @@ Page({
       real_name: d.realName.trim(),
       service_types: d.selectedServiceTypes.join(','),
       bio: d.bio || undefined,
+      certifications: d.certifications || undefined,
+      service_area: d.selectedDistricts.length > 0 ? d.selectedDistricts.join('、') : undefined,
+      service_city: d.city && d.city !== '定位中...' ? d.city : undefined,
       service_hospitals: d.selectedHospitalIds.length > 0 ? d.selectedHospitalIds.join(',') : undefined
     }
     applyCompanion(body)

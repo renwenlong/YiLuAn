@@ -11,6 +11,7 @@ class ApplyCompanionRequest(BaseModel):
     service_area: str | None = None
     service_types: str = Field(..., min_length=1, max_length=200)
     service_hospitals: str | None = None
+    service_city: str | None = None
     bio: str | None = None
 
 
@@ -20,6 +21,7 @@ class UpdateCompanionProfileRequest(BaseModel):
     bio: str | None = None
     certifications: str | None = None
     service_hospitals: str | None = None
+    service_city: str | None = None
 
 
 class CompanionListResponse(BaseModel):
@@ -29,6 +31,7 @@ class CompanionListResponse(BaseModel):
     service_area: str | None = None
     service_types: str | None = None
     service_hospitals: str | None = None
+    service_city: str | None = None
     bio: str | None = None
     avg_rating: float = 0.0
     total_orders: int = 0

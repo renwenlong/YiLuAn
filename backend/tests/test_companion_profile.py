@@ -107,6 +107,23 @@ class TestCompanionProfile:
         assert data["bio"] == "更新后的简介"
         assert data["service_area"] == "西城区"
 
+    async def test_get_my_profile(
+        self, companion_client, seed_companion_profile
+    ):
+        user = companion_client._test_user
+        await seed_companion_profile(user_id=user.id, service_area="东城区")
+        resp = await companion_client.get("/api/v1/companions/me")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["real_name"] == "测试陪诊师"
+        assert data["service_area"] == "东城区"
+
+    async def test_get_my_profile_no_profile(self, companion_client):
+        resp = await companion_client.get("/api/v1/companions/me")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["real_name"] is not None
+
     async def test_update_companion_no_auth(self, client):
         resp = await client.put(
             "/api/v1/companions/me",

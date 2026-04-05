@@ -13,6 +13,7 @@ class NotificationType(str, enum.Enum):
     new_message = "new_message"
     new_order = "new_order"
     review_received = "review_received"
+    start_service_request = "start_service_request"
     system = "system"
 
 

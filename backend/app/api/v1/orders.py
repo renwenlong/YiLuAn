@@ -74,6 +74,26 @@ async def start_order(
     return await service.start_order(order_id, current_user)
 
 
+@router.post("/{order_id}/request-start", response_model=OrderResponse)
+async def request_start_order(
+    order_id: UUID,
+    current_user: CurrentUser,
+    session: DBSession,
+):
+    service = OrderService(session)
+    return await service.request_start_service(order_id, current_user)
+
+
+@router.post("/{order_id}/confirm-start", response_model=OrderResponse)
+async def confirm_start_order(
+    order_id: UUID,
+    current_user: CurrentUser,
+    session: DBSession,
+):
+    service = OrderService(session)
+    return await service.confirm_start_service(order_id, current_user)
+
+
 @router.post("/{order_id}/complete", response_model=OrderResponse)
 async def complete_order(
     order_id: UUID,

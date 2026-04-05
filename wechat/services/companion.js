@@ -6,6 +6,7 @@ function getCompanions(params = {}) {
   if (params.page) queryParts.push('page=' + params.page)
   if (params.page_size) queryParts.push('page_size=' + params.page_size)
   if (params.area) queryParts.push('area=' + params.area)
+  if (params.city) queryParts.push('city=' + encodeURIComponent(params.city))
   if (params.service_type) queryParts.push('service_type=' + params.service_type)
   if (params.hospital_id) queryParts.push('hospital_id=' + params.hospital_id)
   if (queryParts.length > 0) url += '?' + queryParts.join('&')
@@ -24,6 +25,10 @@ function applyCompanion(data) {
   return request({ url: 'companions/apply', method: 'POST', data })
 }
 
+function getMyProfile() {
+  return request({ url: 'companions/me', method: 'GET' })
+}
+
 function updateCompanionProfile(data) {
   return request({ url: 'companions/me', method: 'PUT', data })
 }
@@ -32,4 +37,4 @@ function getCompanionStats() {
   return request({ url: 'companions/me/stats', method: 'GET' })
 }
 
-module.exports = { getCompanions, getCompanionDetail, getCompanionReviews, applyCompanion, updateCompanionProfile, getCompanionStats }
+module.exports = { getCompanions, getCompanionDetail, getCompanionReviews, applyCompanion, getMyProfile, updateCompanionProfile, getCompanionStats }

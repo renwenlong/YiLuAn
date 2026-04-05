@@ -55,6 +55,20 @@
         </view>
       </view>
 
+      <!-- 认证资质 -->
+      <view class="form-group">
+        <text class="form-label">认证资质</text>
+        <textarea
+          class="form-textarea form-textarea-sm"
+          placeholder="请输入资质证书信息，如护士证、健康管理师证等"
+          value="{{certifications}}"
+          data-field="certifications"
+          bindinput="onInputChange"
+          maxlength="500"
+          auto-height
+        />
+      </view>
+
       <view class="form-group">
         <text class="form-label">个人简介</text>
         <textarea
