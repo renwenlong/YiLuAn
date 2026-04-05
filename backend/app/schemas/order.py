@@ -13,6 +13,11 @@ class CreateOrderRequest(BaseModel):
     companion_id: UUID | None = None
 
 
+class TimelineItem(BaseModel):
+    title: str
+    time: str
+
+
 class OrderResponse(BaseModel):
     id: UUID
     order_number: str
@@ -29,6 +34,8 @@ class OrderResponse(BaseModel):
     companion_name: str | None = None
     patient_name: str | None = None
     payment_status: str | None = None
+    timeline: list[TimelineItem] | None = None
+    timeline_index: int | None = None
     created_at: datetime
     updated_at: datetime
 

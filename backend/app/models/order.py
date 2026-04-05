@@ -44,6 +44,8 @@ ORDER_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     },
     OrderStatus.in_progress: {
         OrderStatus.completed,
+        OrderStatus.cancelled_by_patient,
+        OrderStatus.cancelled_by_companion,
     },
     OrderStatus.completed: {
         OrderStatus.reviewed,

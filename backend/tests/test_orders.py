@@ -486,6 +486,111 @@ class TestPayment:
         assert len(items) > 0
         assert "payment_status" in items[0]
 
+    async def test_accept_unpaid_order_rejected(
+        self, companion_client, seed_hospital, seed_order, seed_user
+    ):
+        """Companion CAN accept unpaid orders — no payment check on accept."""
+        patient = await seed_user(phone="13500135030")
+        hospital = await seed_hospital()
+        order = await seed_order(patient.id, hospital.id)
+        resp = await companion_client.post(f"/api/v1/orders/{order.id}/accept")
+        assert resp.status_code == 200
+
+    async def test_accept_paid_order_succeeds(
+        self, companion_client, seed_hospital, seed_order, seed_user, seed_payment
+    ):
+        patient = await seed_user(phone="13500135031")
+        hospital = await seed_hospital()
+        order = await seed_order(patient.id, hospital.id)
+        await seed_payment(order.id, patient.id)
+        resp = await companion_client.post(f"/api/v1/orders/{order.id}/accept")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "accepted"
+
+    async def test_create_order_blocked_by_unpaid(
+        self, authenticated_client, seed_hospital, seed_order
+    ):
+        """Patient cannot create a new order if they have an unpaid one."""
+        user = authenticated_client._test_user
+        hospital = await seed_hospital()
+        # Create first order (unpaid)
+        await seed_order(user.id, hospital.id)
+        # Try to create second order — should fail
+        resp = await authenticated_client.post(
+            "/api/v1/orders",
+            json={
+                "service_type": "full_accompany",
+                "hospital_id": str(hospital.id),
+                "appointment_date": "2026-05-01",
+                "appointment_time": "09:00",
+            },
+        )
+        assert resp.status_code == 400
+
+    async def test_create_order_allowed_after_payment(
+        self, authenticated_client, seed_hospital, seed_order, seed_payment
+    ):
+        """Patient can create a new order after paying the previous one."""
+        user = authenticated_client._test_user
+        hospital = await seed_hospital()
+        # Create and pay first order
+        order = await seed_order(user.id, hospital.id)
+        await seed_payment(order.id, user.id)
+        # Create second order — should succeed
+        resp = await authenticated_client.post(
+            "/api/v1/orders",
+            json={
+                "service_type": "half_accompany",
+                "hospital_id": str(hospital.id),
+                "appointment_date": "2026-05-02",
+                "appointment_time": "10:00",
+            },
+        )
+        assert resp.status_code == 201
+
+    async def test_cancel_accepted_full_refund(
+        self, authenticated_client, seed_hospital, seed_order, seed_user
+    ):
+        user = authenticated_client._test_user
+        companion = await seed_user(phone="13500135032", role="companion")
+        hospital = await seed_hospital()
+        order = await seed_order(
+            user.id, hospital.id,
+            companion_id=companion.id,
+            status=OrderStatus.accepted,
+        )
+        # Pay first
+        await authenticated_client.post(f"/api/v1/orders/{order.id}/pay")
+        # Cancel accepted order
+        resp = await authenticated_client.post(f"/api/v1/orders/{order.id}/cancel")
+        assert resp.status_code == 200
+        # Verify full refund
+        resp = await authenticated_client.get(f"/api/v1/orders/{order.id}")
+        assert resp.json()["payment_status"] == "refunded"
+
+    async def test_cancel_in_progress_half_refund(
+        self, authenticated_client, seed_hospital, seed_order, seed_user
+    ):
+        user = authenticated_client._test_user
+        companion = await seed_user(phone="13500135033", role="companion")
+        hospital = await seed_hospital()
+        order = await seed_order(
+            user.id, hospital.id,
+            companion_id=companion.id,
+            status=OrderStatus.in_progress,
+        )
+        # Pay first
+        await authenticated_client.post(f"/api/v1/orders/{order.id}/pay")
+        # Cancel in-progress order
+        resp = await authenticated_client.post(f"/api/v1/orders/{order.id}/cancel")
+        assert resp.status_code == 200
+        # Verify 50% refund via wallet transactions
+        resp = await authenticated_client.get("/api/v1/wallet/transactions")
+        data = resp.json()
+        refund_tx = [t for t in data["items"] if t["payment_type"] == "refund"]
+        assert len(refund_tx) == 1
+        assert refund_tx[0]["amount"] == 149.5  # 50% of 299.0
+
 
 @pytest.mark.asyncio
 class TestWallet:

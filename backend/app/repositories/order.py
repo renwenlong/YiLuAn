@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.hospital import Hospital
 from app.models.order import Order, OrderStatus
+from app.models.payment import Payment
 from app.repositories.base import BaseRepository
 
 
@@ -128,3 +129,21 @@ class OrderRepository(BaseRepository[Order]):
         stmt = stmt.order_by(Order.created_at.desc()).offset(skip).limit(limit)
         result = await self.session.execute(stmt)
         return result.scalars().all(), total
+
+    async def has_unpaid_orders(self, patient_id: UUID) -> bool:
+        """Check if patient has any created orders without a pay record."""
+        paid_order_ids = (
+            select(Payment.order_id)
+            .where(Payment.payment_type == "pay")
+        )
+        stmt = (
+            select(func.count())
+            .select_from(Order)
+            .where(
+                Order.patient_id == patient_id,
+                Order.status == OrderStatus.created,
+                Order.id.notin_(paid_order_ids),
+            )
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one() > 0
