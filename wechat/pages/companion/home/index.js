@@ -42,13 +42,19 @@ Page({
   },
 
   fetchPendingOrders() {
-    getOrders({ status: 'created', page: 1, page_size: 3 })
-      .then(res => {
-        const list = res.items ? res.items : (res.data && res.data.items ? res.data.items : [])
-        const total = res.total || (res.data && res.data.total) || list.length
-        this.setData({ pendingOrders: list, pendingTotal: total })
+    var self = this
+    var params = { status: 'created', page: 1, page_size: 3 }
+    var state = store.getState()
+    if (state && state.city) {
+      params.city = state.city
+    }
+    getOrders(params)
+      .then(function (res) {
+        var list = res.items ? res.items : (res.data && res.data.items ? res.data.items : [])
+        var total = res.total || (res.data && res.data.total) || list.length
+        self.setData({ pendingOrders: list, pendingTotal: total })
       })
-      .catch(err => {
+      .catch(function (err) {
         console.error('获取待接单列表失败', err)
       })
   },
@@ -66,7 +72,7 @@ Page({
   },
 
   onOrderTap(e) {
-    const id = e.currentTarget.dataset.id
+    var id = e.currentTarget.dataset.id
     wx.navigateTo({
       url: '/pages/companion/order-detail/index?id=' + id
     })

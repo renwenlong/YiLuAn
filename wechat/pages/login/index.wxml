@@ -8,14 +8,64 @@
     </view>
 
     <view class="action-section">
+      <!-- 微信登录 -->
       <button
-        class="login-btn"
+        wx:if="{{!showPhoneLogin}}"
+        class="login-btn wechat-btn"
         loading="{{loading}}"
         disabled="{{loading}}"
         bindtap="onLogin"
       >
         微信一键登录
       </button>
+
+      <!-- 手机号登录 -->
+      <view wx:if="{{showPhoneLogin}}" class="phone-login-section">
+        <view class="phone-form">
+          <view class="form-group">
+            <view class="phone-row">
+              <input
+                class="form-input phone-input"
+                type="number"
+                maxlength="11"
+                placeholder="请输入手机号"
+                value="{{phone}}"
+                bindinput="onPhoneInput"
+              />
+              <button
+                class="otp-btn"
+                disabled="{{sendingOTP || countdown > 0}}"
+                bindtap="onSendOTP"
+              >
+                {{countdown > 0 ? countdown + 's' : '获取验证码'}}
+              </button>
+            </view>
+          </view>
+          <view class="form-group">
+            <input
+              class="form-input"
+              type="number"
+              maxlength="6"
+              placeholder="请输入6位验证码"
+              value="{{code}}"
+              bindinput="onCodeInput"
+            />
+          </view>
+        </view>
+        <button
+          class="login-btn phone-submit-btn"
+          loading="{{loading}}"
+          disabled="{{loading}}"
+          bindtap="onPhoneLogin"
+        >
+          登录
+        </button>
+      </view>
+
+      <!-- 切换登录方式 -->
+      <view class="switch-login" bindtap="onSwitchLoginMode">
+        <text class="switch-login-text">{{showPhoneLogin ? '微信一键登录' : '手机号登录'}}</text>
+      </view>
     </view>
   </view>
 </view>

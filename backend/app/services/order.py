@@ -99,6 +99,7 @@ class OrderService:
         *,
         status: str | None = None,
         date: str | None = None,
+        city: str | None = None,
         page: int = 1,
         page_size: int = 20,
     ) -> tuple[Sequence[Order], int]:
@@ -117,7 +118,7 @@ class OrderService:
 
         if user.role == UserRole.companion:
             if order_status == OrderStatus.created:
-                return await self.order_repo.list_available(skip=skip, limit=page_size, date=date)
+                return await self.order_repo.list_available(skip=skip, limit=page_size, date=date, city=city)
             return await self.order_repo.list_by_companion(
                 user.id, status=order_status, status_list=status_list,
                 date=date, skip=skip, limit=page_size,

@@ -38,6 +38,23 @@
 
     <!-- Companion Fields -->
     <block wx:if="{{role === 'companion'}}">
+      <!-- 服务类型 -->
+      <view class="form-group">
+        <text class="form-label">服务类型 <text class="required">*</text></text>
+        <view class="tag-select-list">
+          <view
+            class="tag-select-item {{serviceTypeMap[item.key] ? 'selected' : ''}}"
+            wx:for="{{serviceTypeList}}"
+            wx:key="key"
+            data-key="{{item.key}}"
+            bindtap="onServiceTypeToggle"
+          >
+            <text class="tag-select-name">{{item.label}}</text>
+            <text class="tag-select-check" wx:if="{{serviceTypeMap[item.key]}}">✓</text>
+          </view>
+        </view>
+      </view>
+
       <view class="form-group">
         <text class="form-label">个人简介</text>
         <textarea
@@ -49,15 +66,84 @@
           maxlength="500"
         />
       </view>
+
       <view class="form-group">
-        <text class="form-label">服务区域</text>
-        <input
-          class="form-input"
-          placeholder="请输入服务区域"
-          value="{{service_area}}"
-          data-field="service_area"
-          bindinput="onInputChange"
-        />
+        <text class="form-label">服务区域{{city && city !== '定位中...' ? '（' + city + '）' : ''}}</text>
+        <text class="form-hint" wx:if="{{serviceDistricts.length === 0}}">加载中...</text>
+        <view class="district-select-list" wx:if="{{serviceDistricts.length > 0}}">
+          <view
+            class="district-select-item {{districtMap[item] ? 'selected' : ''}}"
+            wx:for="{{serviceDistricts}}"
+            wx:key="*this"
+            data-name="{{item}}"
+            bindtap="onDistrictToggle"
+          >
+            <text class="district-select-name">{{item}}</text>
+            <text class="district-select-check" wx:if="{{districtMap[item]}}">✓</text>
+          </view>
+        </view>
+      </view>
+
+      <!-- 服务医院 -->
+      <view class="form-group">
+        <text class="form-label">服务医院{{city && city !== '定位中...' ? '（' + city + '）' : ''}}</text>
+
+        <!-- 搜索框 -->
+        <view class="search-bar">
+          <input
+            class="search-input"
+            placeholder="搜索医院名称"
+            value="{{hospitalKeyword}}"
+            bindinput="onHospitalSearch"
+          />
+        </view>
+
+        <!-- 筛选条件 (picker下拉框) -->
+        <view class="filter-section" wx:if="{{allDistricts.length > 1 || allLevels.length > 1 || allTags.length > 1}}">
+          <view class="filter-row">
+            <picker wx:if="{{allDistricts.length > 1}}" mode="selector" range="{{allDistricts}}" value="{{districtIndex}}" bindchange="onFilterDistrictChange" class="filter-picker-wrap">
+              <view class="filter-picker">
+                <text class="filter-picker-text">{{districtIndex === 0 ? '区县' : allDistricts[districtIndex]}}</text>
+                <text class="filter-picker-arrow">▼</text>
+              </view>
+            </picker>
+            <picker wx:if="{{allLevels.length > 1}}" mode="selector" range="{{allLevels}}" value="{{levelIndex}}" bindchange="onFilterLevelChange" class="filter-picker-wrap">
+              <view class="filter-picker">
+                <text class="filter-picker-text">{{levelIndex === 0 ? '资质' : allLevels[levelIndex]}}</text>
+                <text class="filter-picker-arrow">▼</text>
+              </view>
+            </picker>
+            <picker wx:if="{{allTags.length > 1}}" mode="selector" range="{{allTags}}" value="{{tagIndex}}" bindchange="onFilterTagChange" class="filter-picker-wrap">
+              <view class="filter-picker">
+                <text class="filter-picker-text">{{tagIndex === 0 ? '专科' : allTags[tagIndex]}}</text>
+                <text class="filter-picker-arrow">▼</text>
+              </view>
+            </picker>
+          </view>
+        </view>
+
+        <text class="form-hint" wx:if="{{loadingHospitals}}">加载中...</text>
+        <view class="hospital-select-list" wx:if="{{!loadingHospitals && allHospitals.length > 0}}">
+          <view
+            class="hospital-select-item {{hospitalIdMap[item.id] ? 'selected' : ''}}"
+            wx:for="{{allHospitals}}"
+            wx:key="id"
+            data-id="{{item.id}}"
+            bindtap="onHospitalToggle"
+          >
+            <view class="hospital-info">
+              <text class="hospital-select-name">{{item.name}}</text>
+              <view class="hospital-meta">
+                <text class="hospital-meta-text" wx:if="{{item.level}}">{{item.level}}</text>
+                <text class="hospital-meta-text" wx:if="{{item.district}}">{{item.district}}</text>
+              </view>
+            </view>
+            <text class="hospital-select-check" wx:if="{{hospitalIdMap[item.id]}}">✓</text>
+          </view>
+        </view>
+        <text class="form-hint" wx:if="{{!loadingHospitals && allHospitals.length === 0}}">暂无医院数据</text>
+
+        <text class="selected-count" wx:if="{{selectedHospitalIds.length > 0}}">已选 {{selectedHospitalIds.length}} 家医院</text>
       </view>
     </block>
 

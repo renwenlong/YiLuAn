@@ -7,7 +7,7 @@ Page({
   data: {
     nickname: '',
     avatarUrl: '',
-    showPhoneSection: false,
+    showPhoneSection: true,
     phone: '',
     code: '',
     countdown: 0,
@@ -46,10 +46,6 @@ Page({
 
   onNicknameInput: function (e) {
     this.setData({ nickname: e.detail.value })
-  },
-
-  onTogglePhone: function () {
-    this.setData({ showPhoneSection: !this.data.showPhoneSection })
   },
 
   onPhoneInput: function (e) {
@@ -106,6 +102,18 @@ Page({
       return
     }
 
+    var phone = this.data.phone.trim()
+    if (!phone || !validate.isValidPhone(phone)) {
+      wx.showToast({ title: '请输入正确的手机号', icon: 'none' })
+      return
+    }
+
+    var code = this.data.code.trim()
+    if (!code || !validate.isValidOTP(code)) {
+      wx.showToast({ title: '请输入6位验证码', icon: 'none' })
+      return
+    }
+
     this.setData({ saving: true })
     var self = this
 
@@ -115,18 +123,11 @@ Page({
         var user = Object.assign({}, state.user, { display_name: nickname })
         store.setState({ user: user })
 
-        var phone = self.data.phone.trim()
-        var code = self.data.code.trim()
-        if (phone && code && validate.isValidPhone(phone) && validate.isValidOTP(code)) {
-          return authService.bindPhone(phone, code)
-            .then(function () {
-              var s = store.getState()
-              store.setState({ user: Object.assign({}, s.user, { phone: phone }) })
-            })
-            .catch(function () {
-              wx.showToast({ title: '手机绑定失败，可稍后在设置中绑定', icon: 'none' })
-            })
-        }
+        return authService.bindPhone(phone, code)
+          .then(function () {
+            var s = store.getState()
+            store.setState({ user: Object.assign({}, s.user, { phone: phone }) })
+          })
       })
       .then(function () {
         self.setData({ saving: false })
