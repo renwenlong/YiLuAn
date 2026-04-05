@@ -113,6 +113,13 @@ class OrderService:
                 OrderStatus.cancelled_by_patient,
                 OrderStatus.cancelled_by_companion,
             ]
+        # Virtual status: "completed" includes reviewed orders
+        elif status == "completed":
+            order_status = None
+            status_list = [
+                OrderStatus.completed,
+                OrderStatus.reviewed,
+            ]
         else:
             order_status = OrderStatus(status) if status else None
             status_list = None
