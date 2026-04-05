@@ -16,6 +16,10 @@ class Hospital(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False, index=True)
     address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     level: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    province: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
+    city: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
+    district: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    tags: Mapped[str | None] = mapped_column(String(500), nullable=True)
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

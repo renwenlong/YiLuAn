@@ -33,6 +33,12 @@
     "backgroundColor": "#F5F5F5",
     "backgroundTextStyle": "dark"
   },
+  "permission": {
+    "scope.userFuzzyLocation": {
+      "desc": "用于推荐您附近的医院"
+    }
+  },
+  "requiredPrivateInfos": ["getFuzzyLocation"],
   "style": "v2",
   "lazyCodeLoading": "requiredComponents",
   "sitemapLocation": "sitemap.json"

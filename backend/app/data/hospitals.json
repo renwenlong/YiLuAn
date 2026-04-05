@@ -1,12 +1,128 @@
 [
-  {"name": "北京协和医院", "address": "北京市东城区帅府园1号", "level": "三甲", "latitude": 39.9120, "longitude": 116.4150},
-  {"name": "北京大学第一医院", "address": "北京市西城区西什库大街8号", "level": "三甲", "latitude": 39.9280, "longitude": 116.3720},
-  {"name": "中国人民解放军总医院", "address": "北京市海淀区复兴路28号", "level": "三甲", "latitude": 39.9070, "longitude": 116.2870},
-  {"name": "北京天坛医院", "address": "北京市丰台区南四环西路119号", "level": "三甲", "latitude": 39.8560, "longitude": 116.2890},
-  {"name": "北京朝阳医院", "address": "北京市朝阳区工人体育场南路8号", "level": "三甲", "latitude": 39.9290, "longitude": 116.4530},
-  {"name": "北京安贞医院", "address": "北京市朝阳区安贞路2号", "level": "三甲", "latitude": 39.9720, "longitude": 116.4070},
-  {"name": "北京友谊医院", "address": "北京市西城区永安路95号", "level": "三甲", "latitude": 39.8860, "longitude": 116.3910},
-  {"name": "北京积水潭医院", "address": "北京市西城区新街口东街31号", "level": "三甲", "latitude": 39.9430, "longitude": 116.3720},
-  {"name": "首都医科大学宣武医院", "address": "北京市西城区长椿街45号", "level": "三甲", "latitude": 39.8920, "longitude": 116.3640},
-  {"name": "北京中日友好医院", "address": "北京市朝阳区樱花园东街", "level": "三甲", "latitude": 39.9780, "longitude": 116.4280}
+  {"name": "北京协和医院", "address": "北京市东城区帅府园1号", "province": "北京", "city": "北京", "district": "东城区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 39.9120, "longitude": 116.4150},
+  {"name": "北京大学第一医院", "address": "北京市西城区西什库大街8号", "province": "北京", "city": "北京", "district": "西城区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 39.9280, "longitude": 116.3720},
+  {"name": "中国人民解放军总医院", "address": "北京市海淀区复兴路28号", "province": "北京", "city": "北京", "district": "海淀区", "level": "三甲", "tags": "综合医院,教学医院,全国重点专科", "latitude": 39.9070, "longitude": 116.2870},
+  {"name": "北京天坛医院", "address": "北京市丰台区南四环西路119号", "province": "北京", "city": "北京", "district": "丰台区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 39.8560, "longitude": 116.2890},
+  {"name": "北京朝阳医院", "address": "北京市朝阳区工人体育场南路8号", "province": "北京", "city": "北京", "district": "朝阳区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,急救中心", "latitude": 39.9290, "longitude": 116.4530},
+  {"name": "北京安贞医院", "address": "北京市朝阳区安贞路2号", "province": "北京", "city": "北京", "district": "朝阳区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 39.9720, "longitude": 116.4070},
+  {"name": "北京友谊医院", "address": "北京市西城区永安路95号", "province": "北京", "city": "北京", "district": "西城区", "level": "三甲", "tags": "综合医院,医保定点,教学医院", "latitude": 39.8860, "longitude": 116.3910},
+  {"name": "北京积水潭医院", "address": "北京市西城区新街口东街31号", "province": "北京", "city": "北京", "district": "西城区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 39.9430, "longitude": 116.3720},
+  {"name": "首都医科大学宣武医院", "address": "北京市西城区长椿街45号", "province": "北京", "city": "北京", "district": "西城区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 39.8920, "longitude": 116.3640},
+  {"name": "中日友好医院", "address": "北京市朝阳区樱花园东街2号", "province": "北京", "city": "北京", "district": "朝阳区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 39.9780, "longitude": 116.4280},
+  {"name": "北京大学第三医院", "address": "北京市海淀区花园北路49号", "province": "北京", "city": "北京", "district": "海淀区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,试管婴儿", "latitude": 39.9820, "longitude": 116.3520},
+  {"name": "北京大学人民医院", "address": "北京市西城区西直门南大街11号", "province": "北京", "city": "北京", "district": "西城区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 39.9350, "longitude": 116.3560},
+  {"name": "北京儿童医院", "address": "北京市西城区南礼士路56号", "province": "北京", "city": "北京", "district": "西城区", "level": "三甲", "tags": "专科医院,医保定点,教学医院,全国重点专科", "latitude": 39.9100, "longitude": 116.3470},
+  {"name": "北京妇产医院", "address": "北京市朝阳区姚家园路251号", "province": "北京", "city": "北京", "district": "朝阳区", "level": "三甲", "tags": "专科医院,医保定点,教学医院", "latitude": 39.9260, "longitude": 116.4880},
+  {"name": "北京同仁医院", "address": "北京市东城区东交民巷1号", "province": "北京", "city": "北京", "district": "东城区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 39.9050, "longitude": 116.4120},
+  {"name": "北京肿瘤医院", "address": "北京市海淀区阜成路52号", "province": "北京", "city": "北京", "district": "海淀区", "level": "三甲", "tags": "专科医院,医保定点,教学医院,肿瘤放化疗", "latitude": 39.9210, "longitude": 116.3080},
+  {"name": "北京中医医院", "address": "北京市东城区美术馆后街23号", "province": "北京", "city": "北京", "district": "东城区", "level": "三甲", "tags": "中医医院,医保定点,教学医院", "latitude": 39.9290, "longitude": 116.4080},
+  {"name": "北京世纪坛医院", "address": "北京市海淀区铁医路10号", "province": "北京", "city": "北京", "district": "海淀区", "level": "三甲", "tags": "综合医院,医保定点,教学医院", "latitude": 39.9080, "longitude": 116.3150},
+  {"name": "北京垂杨柳医院", "address": "北京市朝阳区垂杨柳南街2号", "province": "北京", "city": "北京", "district": "朝阳区", "level": "二甲", "tags": "综合医院,医保定点", "latitude": 39.8760, "longitude": 116.4620},
+  {"name": "北京丰台医院", "address": "北京市丰台区丰台南路99号", "province": "北京", "city": "北京", "district": "丰台区", "level": "二甲", "tags": "综合医院,医保定点", "latitude": 39.8580, "longitude": 116.2870},
+
+  {"name": "复旦大学附属华山医院", "address": "上海市静安区乌鲁木齐中路12号", "province": "上海", "city": "上海", "district": "静安区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 31.2200, "longitude": 121.4470},
+  {"name": "上海交通大学医学院附属瑞金医院", "address": "上海市黄浦区瑞金二路197号", "province": "上海", "city": "上海", "district": "黄浦区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 31.2100, "longitude": 121.4690},
+  {"name": "复旦大学附属中山医院", "address": "上海市徐汇区枫林路180号", "province": "上海", "city": "上海", "district": "徐汇区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 31.1970, "longitude": 121.4500},
+  {"name": "上海交通大学医学院附属仁济医院", "address": "上海市浦东新区东方路1630号", "province": "上海", "city": "上海", "district": "浦东新区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 31.2280, "longitude": 121.5270},
+  {"name": "上海市第一人民医院", "address": "上海市松江区新松江路650号", "province": "上海", "city": "上海", "district": "松江区", "level": "三甲", "tags": "综合医院,医保定点,教学医院", "latitude": 31.0200, "longitude": 121.2230},
+  {"name": "上海市第六人民医院", "address": "上海市徐汇区宜山路600号", "province": "上海", "city": "上海", "district": "徐汇区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 31.1810, "longitude": 121.4220},
+  {"name": "上海市东方医院", "address": "上海市浦东新区即墨路150号", "province": "上海", "city": "上海", "district": "浦东新区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,急救中心", "latitude": 31.2310, "longitude": 121.5160},
+  {"name": "上海市儿童医院", "address": "上海市静安区北京西路1400弄24号", "province": "上海", "city": "上海", "district": "静安区", "level": "三甲", "tags": "专科医院,医保定点,教学医院", "latitude": 31.2320, "longitude": 121.4370},
+  {"name": "上海长海医院", "address": "上海市杨浦区长海路168号", "province": "上海", "city": "上海", "district": "杨浦区", "level": "三甲", "tags": "综合医院,教学医院,全国重点专科", "latitude": 31.2860, "longitude": 121.5200},
+  {"name": "上海中医药大学附属龙华医院", "address": "上海市徐汇区宛平南路725号", "province": "上海", "city": "上海", "district": "徐汇区", "level": "三甲", "tags": "中医医院,医保定点,教学医院", "latitude": 31.1860, "longitude": 121.4500},
+
+  {"name": "广东省人民医院", "address": "广东省广州市越秀区中山二路106号", "province": "广东", "city": "广州", "district": "越秀区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 23.1360, "longitude": 113.2710},
+  {"name": "中山大学附属第一医院", "address": "广东省广州市越秀区中山二路58号", "province": "广东", "city": "广州", "district": "越秀区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科,器官移植", "latitude": 23.1340, "longitude": 113.2730},
+  {"name": "南方医科大学南方医院", "address": "广东省广州市白云区广州大道北1838号", "province": "广东", "city": "广州", "district": "白云区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 23.1930, "longitude": 113.2870},
+  {"name": "广州市第一人民医院", "address": "广东省广州市越秀区盘福路1号", "province": "广东", "city": "广州", "district": "越秀区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,急救中心", "latitude": 23.1380, "longitude": 113.2560},
+  {"name": "中山大学附属第三医院", "address": "广东省广州市天河区天河路600号", "province": "广东", "city": "广州", "district": "天河区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 23.1350, "longitude": 113.3270},
+  {"name": "广州医科大学附属第一医院", "address": "广东省广州市越秀区沿江西路151号", "province": "广东", "city": "广州", "district": "越秀区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 23.1170, "longitude": 113.2480},
+  {"name": "广州市妇女儿童医疗中心", "address": "广东省广州市天河区金穗路9号", "province": "广东", "city": "广州", "district": "天河区", "level": "三甲", "tags": "专科医院,医保定点,教学医院", "latitude": 23.1260, "longitude": 113.3220},
+  {"name": "广东省中医院", "address": "广东省广州市越秀区大德路111号", "province": "广东", "city": "广州", "district": "越秀区", "level": "三甲", "tags": "中医医院,医保定点,教学医院,全国重点专科", "latitude": 23.1270, "longitude": 113.2650},
+  {"name": "深圳市人民医院", "address": "广东省深圳市罗湖区东门北路1017号", "province": "广东", "city": "深圳", "district": "罗湖区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,急救中心", "latitude": 22.5580, "longitude": 114.1210},
+  {"name": "北京大学深圳医院", "address": "广东省深圳市福田区莲花路1120号", "province": "广东", "city": "深圳", "district": "福田区", "level": "三甲", "tags": "综合医院,医保定点,教学医院", "latitude": 22.5530, "longitude": 114.0590},
+  {"name": "深圳市第二人民医院", "address": "广东省深圳市福田区笋岗西路3002号", "province": "广东", "city": "深圳", "district": "福田区", "level": "三甲", "tags": "综合医院,医保定点,教学医院", "latitude": 22.5600, "longitude": 114.0810},
+
+  {"name": "四川大学华西医院", "address": "四川省成都市武侯区国学巷37号", "province": "四川", "city": "成都", "district": "武侯区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科,器官移植", "latitude": 30.6420, "longitude": 104.0560},
+  {"name": "四川省人民医院", "address": "四川省成都市青羊区一环路西二段32号", "province": "四川", "city": "成都", "district": "青羊区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科,急救中心", "latitude": 30.6680, "longitude": 104.0430},
+  {"name": "成都市第三人民医院", "address": "四川省成都市青羊区青龙街82号", "province": "四川", "city": "成都", "district": "青羊区", "level": "三甲", "tags": "综合医院,医保定点,教学医院", "latitude": 30.6730, "longitude": 104.0630},
+  {"name": "华西口腔医院", "address": "四川省成都市武侯区人民南路三段14号", "province": "四川", "city": "成都", "district": "武侯区", "level": "三甲", "tags": "专科医院,医保定点,教学医院,全国重点专科", "latitude": 30.6380, "longitude": 104.0620},
+  {"name": "成都中医药大学附属医院", "address": "四川省成都市金牛区十二桥路39号", "province": "四川", "city": "成都", "district": "金牛区", "level": "三甲", "tags": "中医医院,医保定点,教学医院", "latitude": 30.6690, "longitude": 104.0370},
+
+  {"name": "浙江大学医学院附属第一医院", "address": "浙江省杭州市上城区庆春路79号", "province": "浙江", "city": "杭州", "district": "上城区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科,器官移植", "latitude": 30.2610, "longitude": 120.1720},
+  {"name": "浙江大学医学院附属第二医院", "address": "浙江省杭州市上城区解放路88号", "province": "浙江", "city": "杭州", "district": "上城区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科,急救中心", "latitude": 30.2550, "longitude": 120.1710},
+  {"name": "浙江大学医学院附属邵逸夫医院", "address": "浙江省杭州市上城区庆春东路3号", "province": "浙江", "city": "杭州", "district": "上城区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,微创手术", "latitude": 30.2590, "longitude": 120.1870},
+  {"name": "浙江省人民医院", "address": "浙江省杭州市下城区上塘路158号", "province": "浙江", "city": "杭州", "district": "下城区", "level": "三甲", "tags": "综合医院,医保定点,教学医院", "latitude": 30.2840, "longitude": 120.1650},
+  {"name": "浙江省中医院", "address": "浙江省杭州市西湖区邮电路54号", "province": "浙江", "city": "杭州", "district": "西湖区", "level": "三甲", "tags": "中医医院,医保定点,教学医院", "latitude": 30.2530, "longitude": 120.1570},
+
+  {"name": "江苏省人民医院", "address": "江苏省南京市鼓楼区广州路300号", "province": "江苏", "city": "南京", "district": "鼓楼区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 32.0600, "longitude": 118.7600},
+  {"name": "南京鼓楼医院", "address": "江苏省南京市鼓楼区中山路321号", "province": "江苏", "city": "南京", "district": "鼓楼区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科,试管婴儿", "latitude": 32.0640, "longitude": 118.7780},
+  {"name": "东南大学附属中大医院", "address": "江苏省南京市鼓楼区丁家桥87号", "province": "江苏", "city": "南京", "district": "鼓楼区", "level": "三甲", "tags": "综合医院,医保定点,教学医院", "latitude": 32.0620, "longitude": 118.7870},
+  {"name": "南京市第一医院", "address": "江苏省南京市秦淮区长乐路68号", "province": "江苏", "city": "南京", "district": "秦淮区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,急救中心", "latitude": 32.0360, "longitude": 118.7940},
+  {"name": "苏州大学附属第一医院", "address": "江苏省苏州市姑苏区平海路899号", "province": "江苏", "city": "苏州", "district": "姑苏区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 31.3220, "longitude": 120.6170},
+
+  {"name": "华中科技大学同济医学院附属同济医院", "address": "湖北省武汉市硚口区解放大道1095号", "province": "湖北", "city": "武汉", "district": "硚口区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科,器官移植", "latitude": 30.5820, "longitude": 114.2580},
+  {"name": "华中科技大学同济医学院附属协和医院", "address": "湖北省武汉市江汉区解放大道1277号", "province": "湖北", "city": "武汉", "district": "江汉区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 30.5860, "longitude": 114.2690},
+  {"name": "武汉大学人民医院", "address": "湖北省武汉市武昌区张之洞路99号", "province": "湖北", "city": "武汉", "district": "武昌区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 30.5520, "longitude": 114.3100},
+  {"name": "武汉大学中南医院", "address": "湖北省武汉市武昌区东湖路169号", "province": "湖北", "city": "武汉", "district": "武昌区", "level": "三甲", "tags": "综合医院,医保定点,教学医院", "latitude": 30.5440, "longitude": 114.3520},
+  {"name": "湖北省中医院", "address": "湖北省武汉市武昌区花园山4号", "province": "湖北", "city": "武汉", "district": "武昌区", "level": "三甲", "tags": "中医医院,医保定点,教学医院", "latitude": 30.5590, "longitude": 114.3200},
+
+  {"name": "中南大学湘雅医院", "address": "湖南省长沙市开福区湘雅路87号", "province": "湖南", "city": "长沙", "district": "开福区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 28.2080, "longitude": 112.9850},
+  {"name": "湘雅二医院", "address": "湖南省长沙市芙蓉区人民中路139号", "province": "湖南", "city": "长沙", "district": "芙蓉区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 28.1990, "longitude": 113.0020},
+  {"name": "湖南省人民医院", "address": "湖南省长沙市芙蓉区解放西路61号", "province": "湖南", "city": "长沙", "district": "芙蓉区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,急救中心", "latitude": 28.1960, "longitude": 112.9790},
+
+  {"name": "山东大学齐鲁医院", "address": "山东省济南市历下区文化西路107号", "province": "山东", "city": "济南", "district": "历下区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 36.6620, "longitude": 117.0200},
+  {"name": "山东省立医院", "address": "山东省济南市槐荫区经五纬七路324号", "province": "山东", "city": "济南", "district": "槐荫区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科,急救中心", "latitude": 36.6620, "longitude": 116.9850},
+  {"name": "青岛大学附属医院", "address": "山东省青岛市市南区江苏路16号", "province": "山东", "city": "青岛", "district": "市南区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 36.0660, "longitude": 120.3240},
+
+  {"name": "中国医科大学附属第一医院", "address": "辽宁省沈阳市和平区南京北街155号", "province": "辽宁", "city": "沈阳", "district": "和平区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 41.7950, "longitude": 123.4210},
+  {"name": "大连医科大学附属第一医院", "address": "辽宁省大连市西岗区中山路222号", "province": "辽宁", "city": "大连", "district": "西岗区", "level": "三甲", "tags": "综合医院,医保定点,教学医院", "latitude": 38.9160, "longitude": 121.6310},
+
+  {"name": "吉林大学第一医院", "address": "吉林省长春市朝阳区新民大街71号", "province": "吉林", "city": "长春", "district": "朝阳区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 43.8670, "longitude": 125.3200},
+  {"name": "哈尔滨医科大学附属第一医院", "address": "黑龙江省哈尔滨市南岗区邮政街23号", "province": "黑龙江", "city": "哈尔滨", "district": "南岗区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 45.7530, "longitude": 126.6340},
+
+  {"name": "西安交通大学第一附属医院", "address": "陕西省西安市雁塔区雁塔西路277号", "province": "陕西", "city": "西安", "district": "雁塔区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 34.2370, "longitude": 108.9430},
+  {"name": "西京医院", "address": "陕西省西安市新城区长乐西路127号", "province": "陕西", "city": "西安", "district": "新城区", "level": "三甲", "tags": "综合医院,教学医院,全国重点专科,器官移植", "latitude": 34.2690, "longitude": 108.9850},
+  {"name": "陕西省人民医院", "address": "陕西省西安市碑林区友谊西路256号", "province": "陕西", "city": "西安", "district": "碑林区", "level": "三甲", "tags": "综合医院,医保定点,教学医院", "latitude": 34.2480, "longitude": 108.9200},
+
+  {"name": "重庆医科大学附属第一医院", "address": "重庆市渝中区袁家岗友谊路1号", "province": "重庆", "city": "重庆", "district": "渝中区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 29.5330, "longitude": 106.5130},
+  {"name": "重庆西南医院", "address": "重庆市沙坪坝区高滩岩正街30号", "province": "重庆", "city": "重庆", "district": "沙坪坝区", "level": "三甲", "tags": "综合医院,教学医院,全国重点专科", "latitude": 29.5470, "longitude": 106.4320},
+
+  {"name": "天津医科大学总医院", "address": "天津市和平区鞍山道154号", "province": "天津", "city": "天津", "district": "和平区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 39.1180, "longitude": 117.1950},
+  {"name": "天津市第一中心医院", "address": "天津市南开区复康路24号", "province": "天津", "city": "天津", "district": "南开区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,器官移植", "latitude": 39.1140, "longitude": 117.1540},
+
+  {"name": "河南省人民医院", "address": "河南省郑州市金水区纬五路7号", "province": "河南", "city": "郑州", "district": "金水区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科,急救中心", "latitude": 34.7670, "longitude": 113.6720},
+  {"name": "郑州大学第一附属医院", "address": "河南省郑州市二七区建设东路1号", "province": "河南", "city": "郑州", "district": "二七区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科,器官移植", "latitude": 34.7450, "longitude": 113.6630},
+
+  {"name": "安徽医科大学第一附属医院", "address": "安徽省合肥市蜀山区绩溪路218号", "province": "安徽", "city": "合肥", "district": "蜀山区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 31.8530, "longitude": 117.2600},
+  {"name": "安徽省立医院", "address": "安徽省合肥市庐阳区庐江路9号", "province": "安徽", "city": "合肥", "district": "庐阳区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,急救中心", "latitude": 31.8610, "longitude": 117.2780},
+
+  {"name": "福建医科大学附属第一医院", "address": "福建省福州市台江区茶中路20号", "province": "福建", "city": "福州", "district": "台江区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 26.0680, "longitude": 119.3050},
+  {"name": "厦门大学附属第一医院", "address": "福建省厦门市思明区上古街10号", "province": "福建", "city": "厦门", "district": "思明区", "level": "三甲", "tags": "综合医院,医保定点,教学医院", "latitude": 24.4590, "longitude": 118.0780},
+
+  {"name": "南昌大学第一附属医院", "address": "江西省南昌市东湖区永外正街17号", "province": "江西", "city": "南昌", "district": "东湖区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 28.6870, "longitude": 115.8950},
+
+  {"name": "广西医科大学第一附属医院", "address": "广西南宁市青秀区双拥路6号", "province": "广西", "city": "南宁", "district": "青秀区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 22.8230, "longitude": 108.3560},
+
+  {"name": "云南省第一人民医院", "address": "云南省昆明市西山区金碧路157号", "province": "云南", "city": "昆明", "district": "西山区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 25.0280, "longitude": 102.7090},
+
+  {"name": "贵州医科大学附属医院", "address": "贵州省贵阳市云岩区贵医街28号", "province": "贵州", "city": "贵阳", "district": "云岩区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 26.6390, "longitude": 106.6940},
+
+  {"name": "兰州大学第一医院", "address": "甘肃省兰州市城关区东岗西路11号", "province": "甘肃", "city": "兰州", "district": "城关区", "level": "三甲", "tags": "综合医院,医保定点,教学医院", "latitude": 36.0520, "longitude": 103.8570},
+
+  {"name": "海南省人民医院", "address": "海南省海口市龙华区秀英区秀华路19号", "province": "海南", "city": "海口", "district": "龙华区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,急救中心", "latitude": 20.0060, "longitude": 110.3210},
+
+  {"name": "内蒙古医科大学附属医院", "address": "内蒙古呼和浩特市回民区通道北路1号", "province": "内蒙古", "city": "呼和浩特", "district": "回民区", "level": "三甲", "tags": "综合医院,医保定点,教学医院", "latitude": 40.8190, "longitude": 111.6680},
+
+  {"name": "新疆医科大学第一附属医院", "address": "新疆乌鲁木齐市新市区鲤鱼山南路137号", "province": "新疆", "city": "乌鲁木齐", "district": "新市区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 43.8290, "longitude": 87.5710},
+
+  {"name": "宁夏医科大学总医院", "address": "宁夏银川市兴庆区胜利街804号", "province": "宁夏", "city": "银川", "district": "兴庆区", "level": "三甲", "tags": "综合医院,医保定点,教学医院", "latitude": 38.4830, "longitude": 106.2780},
+
+  {"name": "青海大学附属医院", "address": "青海省西宁市城西区同仁路29号", "province": "青海", "city": "西宁", "district": "城西区", "level": "三甲", "tags": "综合医院,医保定点,教学医院", "latitude": 36.6170, "longitude": 101.7650},
+
+  {"name": "西藏自治区人民医院", "address": "西藏拉萨市城关区林廓北路18号", "province": "西藏", "city": "拉萨", "district": "城关区", "level": "三甲", "tags": "综合医院,医保定点", "latitude": 29.6560, "longitude": 91.1180},
+
+  {"name": "河北医科大学第二医院", "address": "河北省石家庄市新华区和平西路215号", "province": "河北", "city": "石家庄", "district": "新华区", "level": "三甲", "tags": "综合医院,医保定点,教学医院,全国重点专科", "latitude": 38.0670, "longitude": 114.4730},
+
+  {"name": "山西医科大学第一医院", "address": "山西省太原市迎泽区解放南路85号", "province": "山西", "city": "太原", "district": "迎泽区", "level": "三甲", "tags": "综合医院,医保定点,教学医院", "latitude": 37.8570, "longitude": 112.5730}
 ]
