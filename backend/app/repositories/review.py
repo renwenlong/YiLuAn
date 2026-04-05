@@ -38,3 +38,8 @@ class ReviewRepository(BaseRepository[Review]):
         )
         result = await self.session.execute(stmt)
         return float(result.scalar() or 0.0)
+
+    async def count_by_companion(self, companion_id: UUID) -> int:
+        stmt = select(func.count()).where(Review.companion_id == companion_id)
+        result = await self.session.execute(stmt)
+        return result.scalar() or 0

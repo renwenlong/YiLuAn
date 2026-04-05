@@ -8,7 +8,12 @@ class TestCompanionProfile:
     async def test_apply_companion_success(self, no_role_client):
         resp = await no_role_client.post(
             "/api/v1/companions/apply",
-            json={"real_name": "陈医生", "service_area": "朝阳区", "bio": "资深陪诊"},
+            json={
+                "real_name": "陈医生",
+                "service_area": "朝阳区",
+                "service_types": "全程陪诊",
+                "bio": "资深陪诊",
+            },
         )
         assert resp.status_code == 201
         data = resp.json()
@@ -19,11 +24,11 @@ class TestCompanionProfile:
     async def test_apply_companion_duplicate(self, no_role_client):
         await no_role_client.post(
             "/api/v1/companions/apply",
-            json={"real_name": "陈医生"},
+            json={"real_name": "陈医生", "service_types": "全程陪诊"},
         )
         resp = await no_role_client.post(
             "/api/v1/companions/apply",
-            json={"real_name": "陈医生"},
+            json={"real_name": "陈医生", "service_types": "全程陪诊"},
         )
         assert resp.status_code == 409
 
