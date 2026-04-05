@@ -52,6 +52,20 @@ function sendOTP(phone) {
   })
 }
 
+function verifyOTP(phone, code) {
+  return request({
+    url: 'auth/verify-otp',
+    method: 'POST',
+    data: { phone, code },
+    auth: false,
+  }).then(data => {
+    setAccessToken(data.access_token)
+    setRefreshToken(data.refresh_token)
+    store.setState({ isAuthenticated: true, user: data.user })
+    return data.user
+  })
+}
+
 function bindPhone(phone, code) {
   return request({
     url: 'auth/bind-phone',
@@ -67,4 +81,4 @@ function logout() {
   wx.reLaunch({ url: '/pages/login/index' })
 }
 
-module.exports = { wechatLogin, refreshToken, sendOTP, bindPhone, logout }
+module.exports = { wechatLogin, refreshToken, sendOTP, verifyOTP, bindPhone, logout }

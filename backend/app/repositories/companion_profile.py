@@ -1,7 +1,7 @@
 from typing import Sequence
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.companion_profile import CompanionProfile, VerificationStatus
@@ -22,6 +22,7 @@ class CompanionProfileRepository(BaseRepository[CompanionProfile]):
         *,
         area: str | None = None,
         service_type: str | None = None,
+        hospital_id: str | None = None,
         skip: int = 0,
         limit: int = 20,
     ) -> Sequence[CompanionProfile]:
@@ -31,7 +32,11 @@ class CompanionProfileRepository(BaseRepository[CompanionProfile]):
         if area:
             stmt = stmt.where(CompanionProfile.service_area.contains(area))
         if service_type:
-            stmt = stmt.where(CompanionProfile.service_types.contains(service_type))
+            padded = func.concat(literal(","), CompanionProfile.service_types, literal(","))
+            stmt = stmt.where(padded.contains("," + service_type + ","))
+        if hospital_id:
+            h_padded = func.concat(literal(","), CompanionProfile.service_hospitals, literal(","))
+            stmt = stmt.where(h_padded.contains("," + hospital_id + ","))
         stmt = stmt.offset(skip).limit(limit)
         result = await self.session.execute(stmt)
         return result.scalars().all()

@@ -7,6 +7,7 @@ function getCompanions(params = {}) {
   if (params.page_size) queryParts.push('page_size=' + params.page_size)
   if (params.area) queryParts.push('area=' + params.area)
   if (params.service_type) queryParts.push('service_type=' + params.service_type)
+  if (params.hospital_id) queryParts.push('hospital_id=' + params.hospital_id)
   if (queryParts.length > 0) url += '?' + queryParts.join('&')
   return request({ url, method: 'GET' })
 }

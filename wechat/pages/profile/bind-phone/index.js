@@ -12,7 +12,14 @@ Page({
     code: '',
     countdown: 0,
     sending: false,
-    binding: false
+    binding: false,
+    redirect: ''
+  },
+
+  onLoad: function (options) {
+    if (options && options.redirect) {
+      this.setData({ redirect: decodeURIComponent(options.redirect) })
+    }
   },
 
   onPhoneInput: function (e) {
@@ -70,7 +77,11 @@ Page({
         store.setState({ user: user })
         wx.showToast({ title: '绑定成功', icon: 'success' })
         setTimeout(function () {
-          wx.navigateBack()
+          if (self.data.redirect) {
+            wx.redirectTo({ url: self.data.redirect })
+          } else {
+            wx.navigateBack()
+          }
         }, 1500)
       })
       .catch(function () {

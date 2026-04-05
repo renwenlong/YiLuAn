@@ -1,193 +1,112 @@
-<loading-overlay wx:if="{{loading}}" />
-
 <view class="page-container">
-  <!-- Step Indicator (dynamic) -->
-  <view class="step-indicator">
-    <block wx:for="{{stepLabels}}" wx:key="num">
-      <view class="step-item {{step >= item.num ? 'active' : ''}}">
-        <view class="step-number">{{item.num}}</view>
-        <text class="step-label">{{item.label}}</text>
-      </view>
-      <view class="step-line {{step > item.num ? 'active' : ''}}" wx:if="{{index < stepLabels.length - 1}}"></view>
-    </block>
-  </view>
-
-  <!-- Panel: Service Type (only in 4-step mode) -->
-  <view class="step-content" wx:if="{{panel === 'service'}}">
-    <view class="section-title">选择服务类型</view>
-    <view class="service-type-list">
-      <view
-        class="service-type-btn {{serviceType === item.value ? 'selected' : ''}}"
-        wx:for="{{serviceTypesList}}"
-        wx:key="value"
-        data-type="{{item.value}}"
-        bindtap="onServiceTypeSelect"
-      >
-        <view class="service-type-main">
-          <text class="service-type-name">{{item.label}}</text>
-          <text class="service-type-price">¥{{item.price}}</text>
-        </view>
-      </view>
-    </view>
-    <view class="step-actions">
-      <button class="btn-primary" bindtap="nextStep">下一步</button>
+  <!-- 已选服务 -->
+  <view class="info-section">
+    <text class="section-label">服务类型</text>
+    <view class="info-card">
+      <text class="info-name">{{serviceTypeName}}</text>
+      <text class="info-price">¥{{servicePrice}}</text>
     </view>
   </view>
 
-  <!-- Panel: Hospital -->
-  <view class="step-content" wx:if="{{panel === 'hospital'}}">
-    <view class="section-title">选择医院</view>
-
-    <!-- Recent hospitals -->
-    <view class="recent-hospitals" wx:if="{{recentHospitals.length > 0}}">
-      <text class="recent-label">最近就诊</text>
-      <view class="recent-tags">
-        <view
-          class="recent-tag {{hospital === item.id ? 'selected' : ''}}"
-          wx:for="{{recentHospitals}}"
-          wx:key="id"
-          data-id="{{item.id}}"
-          data-name="{{item.name}}"
-          bindtap="onHospitalSelect"
-        >{{item.name}}</view>
-      </view>
+  <!-- 已选医院 -->
+  <view class="info-section">
+    <text class="section-label">就诊医院</text>
+    <view class="info-card">
+      <text class="info-name">{{hospitalName}}</text>
     </view>
+  </view>
 
-    <!-- Cascading filters -->
-    <view class="filter-form">
-      <view class="form-group">
-        <text class="form-label">省份</text>
-        <picker mode="selector" range="{{filterProvinces}}" value="{{provinceIndex}}" bindchange="onProvinceChange">
-          <view class="picker-value {{selectedProvince ? '' : 'placeholder'}}">{{selectedProvince || '请选择省份'}}</view>
-        </picker>
+  <!-- 指定陪诊师 -->
+  <view class="info-section">
+    <view class="section-header">
+      <text class="section-label">指定陪诊师</text>
+      <text class="change-btn" bindtap="onChangeCompanion">重新选择</text>
+    </view>
+    <view class="companion-info-card" wx:if="{{companion}}">
+      <view class="avatar-placeholder">
+        <text class="avatar-text">{{companion.name[0]}}</text>
       </view>
-      <view class="form-group">
-        <text class="form-label">城市</text>
-        <picker mode="selector" range="{{filterCities}}" value="{{cityIndex}}" bindchange="onCityChange" disabled="{{!selectedProvince}}">
-          <view class="picker-value {{selectedCity ? '' : 'placeholder'}}">{{selectedCity || '请先选择省份'}}</view>
-        </picker>
-      </view>
-      <view class="form-group">
-        <text class="form-label">区县</text>
-        <picker mode="selector" range="{{filterDistricts}}" value="{{districtIndex}}" bindchange="onDistrictChange" disabled="{{!selectedCity}}">
-          <view class="picker-value {{selectedDistrict ? '' : 'placeholder'}}">{{selectedDistrict || '请先选择城市'}}</view>
-        </picker>
-      </view>
-      <view class="form-row">
-        <view class="form-group form-group-half">
-          <text class="form-label">等级</text>
-          <picker mode="selector" range="{{filterLevels}}" value="{{levelIndex}}" bindchange="onLevelChange">
-            <view class="picker-value {{selectedLevel ? '' : 'placeholder'}}">{{selectedLevel || '不限'}}</view>
-          </picker>
-        </view>
-        <view class="form-group form-group-half">
-          <text class="form-label">特色</text>
-          <picker mode="selector" range="{{filterTags}}" value="{{tagIndex}}" bindchange="onTagChange">
-            <view class="picker-value {{selectedTag ? '' : 'placeholder'}}">{{selectedTag || '不限'}}</view>
-          </picker>
+      <view class="companion-detail">
+        <text class="companion-name">{{companion.name}}</text>
+        <view class="companion-meta">
+          <text class="meta-item">★ {{companion.rating}}</text>
+          <text class="meta-item">已完成 {{companion.completed_orders}} 单</text>
         </view>
       </view>
     </view>
+    <view class="info-card placeholder" wx:else>
+      <text class="info-name placeholder-text">加载中...</text>
+    </view>
+  </view>
 
-    <!-- Hospital list -->
-    <view class="hospital-list" wx:if="{{hospitals.length > 0 || selectedProvince}}">
-      <text class="form-label" wx:if="{{hospitals.length > 0}}" style="margin-bottom: 16rpx;">共 {{hospitals.length}} 家医院</text>
+  <!-- 预约日期 -->
+  <view class="info-section">
+    <text class="section-label">预约日期</text>
+    <picker mode="date" value="{{date}}" bindchange="onDateChange">
+      <view class="picker-value">{{date || '请选择日期'}}</view>
+    </picker>
+  </view>
+
+  <!-- 预约时间 -->
+  <view class="info-section">
+    <text class="section-label">预约时间</text>
+    <picker mode="time" value="{{time}}" bindchange="onTimeChange">
+      <view class="picker-value">{{time || '请选择时间'}}</view>
+    </picker>
+  </view>
+
+  <!-- 备注 -->
+  <view class="info-section">
+    <text class="section-label">备注（可选）</text>
+    <textarea class="form-textarea" placeholder="请描述您的需求，如科室、症状等" value="{{notes}}" bindinput="onNotesInput" maxlength="200" />
+  </view>
+
+  <!-- 提交按钮 -->
+  <view class="submit-area">
+    <button class="submit-btn" bindtap="onSubmit" loading="{{loading}}">确认下单 ¥{{servicePrice}}</button>
+  </view>
+</view>
+
+<!-- 陪诊师选择弹窗 -->
+<view class="modal-mask" wx:if="{{showCompanionPicker}}" bindtap="onCloseCompanionPicker">
+  <view class="modal-content" catchtap>
+    <view class="modal-header">
+      <text class="modal-title">选择陪诊师</text>
+      <text class="modal-close" bindtap="onCloseCompanionPicker">✕</text>
+    </view>
+    <view class="modal-body">
+      <view class="loading-hint" wx:if="{{loadingCompanions}}">
+        <text>加载中...</text>
+      </view>
       <view
-        class="hospital-item {{hospital === item.id ? 'selected' : ''}}"
-        wx:for="{{hospitals}}"
+        class="companion-option {{companionId === item.id ? 'active' : ''}}"
+        wx:for="{{companionList}}"
         wx:key="id"
         data-id="{{item.id}}"
-        data-name="{{item.name}}"
-        bindtap="onHospitalSelect"
+        bindtap="onSelectCompanion"
       >
-        <view class="hospital-header">
-          <text class="hospital-name">{{item.name}}</text>
-          <text class="hospital-level" wx:if="{{item.level}}">{{item.level}}</text>
+        <view class="avatar-placeholder small">
+          <text class="avatar-text">{{item.name[0]}}</text>
         </view>
-        <text class="hospital-address">{{item.address}}</text>
+        <view class="companion-option-info">
+          <view class="companion-option-header">
+            <text class="companion-option-name">{{item.name}}</text>
+            <text class="verified-badge" wx:if="{{item.verified}}">已认证</text>
+          </view>
+          <view class="companion-option-stats">
+            <text class="stat-item">★ {{item.rating}}</text>
+            <text class="stat-item">已完成 {{item.completed_orders}} 单</text>
+          </view>
+          <text class="companion-option-bio" wx:if="{{item.bio}}">{{item.bio}}</text>
+          <view class="companion-option-tags" wx:if="{{item.service_areas.length > 0}}">
+            <text class="area-tag" wx:for="{{item.service_areas}}" wx:for-item="area" wx:key="*this">{{area}}</text>
+          </view>
+        </view>
+        <text class="companion-option-check" wx:if="{{companionId === item.id}}">✓</text>
       </view>
-      <view class="empty-tip" wx:if="{{hospitals.length === 0 && selectedProvince}}">
-        <text>当前筛选条件下暂无医院</text>
+      <view class="empty-hint" wx:if="{{!loadingCompanions && companionList.length === 0}}">
+        <text>暂无匹配的陪诊师</text>
       </view>
-    </view>
-    <view class="empty-tip" wx:if="{{!selectedProvince && recentHospitals.length === 0}}">
-      <text>请选择省份开始筛选医院</text>
-    </view>
-
-    <view class="step-actions">
-      <button class="btn-secondary" bindtap="prevStep">上一步</button>
-      <button class="btn-primary" bindtap="nextStep">下一步</button>
-    </view>
-  </view>
-
-  <!-- Panel: Date & Time -->
-  <view class="step-content" wx:if="{{panel === 'datetime'}}">
-    <view class="section-title">选择日期和时间</view>
-    <view class="form-group">
-      <text class="form-label">日期</text>
-      <picker mode="date" value="{{date}}" bindchange="onDateChange">
-        <view class="picker-value">{{date || '请选择日期'}}</view>
-      </picker>
-    </view>
-    <view class="form-group">
-      <text class="form-label">时间</text>
-      <picker mode="time" value="{{time}}" bindchange="onTimeChange">
-        <view class="picker-value">{{time || '请选择时间'}}</view>
-      </picker>
-    </view>
-    <view class="form-group">
-      <text class="form-label">备注（可选）</text>
-      <textarea
-        class="form-textarea"
-        placeholder="请描述您的需求，如科室、症状等"
-        value="{{notes}}"
-        bindinput="onNotesInput"
-        maxlength="200"
-      />
-    </view>
-    <view class="step-actions">
-      <button class="btn-secondary" bindtap="prevStep">上一步</button>
-      <button class="btn-primary" bindtap="nextStep">下一步</button>
-    </view>
-  </view>
-
-  <!-- Panel: Confirm -->
-  <view class="step-content" wx:if="{{panel === 'confirm'}}">
-    <view class="section-title">确认订单信息</view>
-    <view class="summary-card">
-      <view class="summary-row">
-        <text class="summary-label">服务类型</text>
-        <text class="summary-value">{{serviceTypeName}}</text>
-      </view>
-      <view class="summary-row">
-        <text class="summary-label">医院</text>
-        <text class="summary-value">{{hospitalName}}</text>
-      </view>
-      <view class="summary-row">
-        <text class="summary-label">日期</text>
-        <text class="summary-value">{{date}}</text>
-      </view>
-      <view class="summary-row">
-        <text class="summary-label">时间</text>
-        <text class="summary-value">{{time}}</text>
-      </view>
-      <view class="summary-row" wx:if="{{companionName}}">
-        <text class="summary-label">指定陪诊师</text>
-        <text class="summary-value">{{companionName}}</text>
-      </view>
-      <view class="summary-row" wx:if="{{notes}}">
-        <text class="summary-label">备注</text>
-        <text class="summary-value summary-notes">{{notes}}</text>
-      </view>
-      <view class="summary-row summary-price-row">
-        <text class="summary-label">费用</text>
-        <text class="summary-price">¥{{servicePrice}}</text>
-      </view>
-    </view>
-
-    <view class="step-actions">
-      <button class="btn-secondary" bindtap="prevStep">上一步</button>
-      <button class="btn-primary" bindtap="onSubmit" loading="{{loading}}">确认下单</button>
     </view>
   </view>
 </view>

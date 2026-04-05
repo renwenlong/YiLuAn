@@ -1,0 +1,175 @@
+<view class="setup-page">
+  <view class="page-header">
+    <text class="title">陪诊师注册</text>
+    <text class="subtitle">完善您的资料，开始接单</text>
+  </view>
+
+  <view class="form-section">
+    <!-- 真实姓名 -->
+    <view class="form-group">
+      <text class="form-label">真实姓名 <text class="required">*</text></text>
+      <input
+        class="form-input"
+        placeholder="请输入您的真实姓名"
+        maxlength="20"
+        value="{{realName}}"
+        data-field="realName"
+        bindinput="onInputChange"
+      />
+    </view>
+
+    <!-- 手机号 -->
+    <view class="form-group">
+      <text class="form-label">手机号 <text class="required">*</text></text>
+      <block wx:if="{{phoneBound}}">
+        <view class="phone-bound-row">
+          <text class="phone-bound-text">{{phone}}</text>
+          <text class="phone-bound-tag">已验证</text>
+        </view>
+      </block>
+      <block wx:else>
+        <view class="phone-row">
+          <input
+            class="form-input phone-input"
+            type="number"
+            maxlength="11"
+            placeholder="请输入手机号"
+            value="{{phone}}"
+            bindinput="onPhoneInput"
+          />
+          <button
+            class="otp-btn"
+            disabled="{{sendingOTP || countdown > 0}}"
+            bindtap="onSendOTP"
+          >
+            {{countdown > 0 ? countdown + 's' : '获取验证码'}}
+          </button>
+        </view>
+        <view class="code-row">
+          <input
+            class="form-input code-input"
+            type="number"
+            maxlength="6"
+            placeholder="请输入6位验证码"
+            value="{{code}}"
+            bindinput="onCodeInput"
+          />
+          <button
+            class="verify-btn"
+            disabled="{{bindingPhone}}"
+            bindtap="onBindPhone"
+          >
+            {{bindingPhone ? '验证中...' : '验证'}}
+          </button>
+        </view>
+      </block>
+    </view>
+
+    <!-- 服务类型 -->
+    <view class="form-group">
+      <text class="form-label">服务类型 <text class="required">*</text></text>
+      <text class="form-hint-text">请选择您可提供的服务类型（可多选）</text>
+      <view class="tag-select-list">
+        <view
+          class="tag-select-item {{serviceTypeMap[item.key] ? 'selected' : ''}}"
+          wx:for="{{serviceTypeList}}"
+          wx:key="key"
+          data-key="{{item.key}}"
+          bindtap="onServiceTypeToggle"
+        >
+          <text class="tag-select-name">{{item.label}}</text>
+          <text class="tag-select-check" wx:if="{{serviceTypeMap[item.key]}}">✓</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 个人简介 -->
+    <view class="form-group">
+      <text class="form-label">个人简介</text>
+      <textarea
+        class="form-textarea"
+        placeholder="介绍一下自己，让患者更了解您"
+        value="{{bio}}"
+        data-field="bio"
+        bindinput="onInputChange"
+        maxlength="500"
+      />
+    </view>
+
+    <!-- 服务医院 -->
+    <view class="form-group">
+      <text class="form-label">服务医院{{city && city !== '定位中...' ? '（' + city + '）' : ''}} <text class="recommend">推荐</text></text>
+      <text class="form-hint-text">选择您熟悉的医院，方便患者匹配</text>
+
+      <!-- 搜索框 -->
+      <view class="search-bar">
+        <input
+          class="search-input"
+          placeholder="搜索医院名称"
+          value="{{hospitalKeyword}}"
+          bindinput="onHospitalSearch"
+        />
+      </view>
+
+      <!-- 筛选条件 (picker下拉框) -->
+      <view class="filter-section" wx:if="{{allDistricts.length > 1 || allLevels.length > 1 || allTags.length > 1}}">
+        <view class="filter-row">
+          <picker wx:if="{{allDistricts.length > 1}}" mode="selector" range="{{allDistricts}}" value="{{districtIndex}}" bindchange="onFilterDistrictChange" class="filter-picker-wrap">
+            <view class="filter-picker">
+              <text class="filter-picker-text">{{districtIndex === 0 ? '区县' : allDistricts[districtIndex]}}</text>
+              <text class="filter-picker-arrow">▼</text>
+            </view>
+          </picker>
+          <picker wx:if="{{allLevels.length > 1}}" mode="selector" range="{{allLevels}}" value="{{levelIndex}}" bindchange="onFilterLevelChange" class="filter-picker-wrap">
+            <view class="filter-picker">
+              <text class="filter-picker-text">{{levelIndex === 0 ? '资质' : allLevels[levelIndex]}}</text>
+              <text class="filter-picker-arrow">▼</text>
+            </view>
+          </picker>
+          <picker wx:if="{{allTags.length > 1}}" mode="selector" range="{{allTags}}" value="{{tagIndex}}" bindchange="onFilterTagChange" class="filter-picker-wrap">
+            <view class="filter-picker">
+              <text class="filter-picker-text">{{tagIndex === 0 ? '专科' : allTags[tagIndex]}}</text>
+              <text class="filter-picker-arrow">▼</text>
+            </view>
+          </picker>
+        </view>
+      </view>
+
+      <!-- 医院列表 -->
+      <text class="form-hint" wx:if="{{loadingHospitals}}">加载中...</text>
+      <view class="hospital-select-list" wx:if="{{!loadingHospitals && allHospitals.length > 0}}">
+        <view
+          class="hospital-select-item {{hospitalIdMap[item.id] ? 'selected' : ''}}"
+          wx:for="{{allHospitals}}"
+          wx:key="id"
+          data-id="{{item.id}}"
+          bindtap="onHospitalToggle"
+        >
+          <view class="hospital-info">
+            <text class="hospital-select-name">{{item.name}}</text>
+            <view class="hospital-meta">
+              <text class="hospital-meta-text" wx:if="{{item.level}}">{{item.level}}</text>
+              <text class="hospital-meta-text" wx:if="{{item.district}}">{{item.district}}</text>
+            </view>
+          </view>
+          <text class="hospital-select-check" wx:if="{{hospitalIdMap[item.id]}}">✓</text>
+        </view>
+      </view>
+      <text class="form-hint" wx:if="{{!loadingHospitals && allHospitals.length === 0 && city && city !== '定位中...'}}">暂无医院数据</text>
+      <text class="form-hint" wx:if="{{!loadingHospitals && !city}}">定位失败，无法加载医院列表</text>
+
+      <!-- 已选计数 -->
+      <text class="selected-count" wx:if="{{selectedHospitalIds.length > 0}}">已选 {{selectedHospitalIds.length}} 家医院</text>
+    </view>
+  </view>
+
+  <view class="btn-section">
+    <button class="btn-submit" bindtap="onSubmit" disabled="{{saving}}">
+      {{saving ? '提交中...' : '完成注册'}}
+    </button>
+  </view>
+
+  <view class="loading-mask" wx:if="{{saving}}">
+    <view class="loading-spinner"></view>
+  </view>
+</view>

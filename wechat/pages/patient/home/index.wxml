@@ -1,4 +1,44 @@
 <view class="patient-home">
+  <!-- 定位 + 搜索医院 -->
+  <view class="section">
+    <view class="section-header">
+      <text class="section-title">选择医院</text>
+      <text class="section-clear" wx:if="{{selectedHospital}}" bindtap="onClearHospital">清除选择</text>
+      <view class="location-bar" wx:else bindtap="onCityTap">
+        <text class="location-icon">📍</text>
+        <text class="location-city">{{city || '定位中...'}}</text>
+      </view>
+    </view>
+    <!-- 未选中：搜索栏 + 完整列表 -->
+    <block wx:if="{{!selectedHospital}}">
+      <view class="search-bar">
+        <input class="search-input" placeholder="搜索医院名称" value="{{hospitalKeyword}}" bindinput="onHospitalSearch" confirm-type="search" />
+      </view>
+      <view class="hospital-list" wx:if="{{hospitals.length > 0}}">
+        <view class="hospital-card" wx:for="{{hospitals}}" wx:key="id" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onHospitalTap">
+          <view class="hospital-info">
+            <text class="hospital-name">{{item.name}}</text>
+            <text class="hospital-meta">{{item.level}}{{item.level && item.district ? ' · ' : ''}}{{item.district}}</text>
+          </view>
+        </view>
+      </view>
+      <view class="empty-hint" wx:if="{{hospitals.length === 0 && city}}">
+        <text>暂无匹配医院</text>
+      </view>
+    </block>
+    <!-- 已选中：只展示选中的医院 -->
+    <block wx:else>
+      <view class="hospital-list">
+        <view class="hospital-card active" data-id="{{selectedHospital.id}}" data-name="{{selectedHospital.name}}" bindtap="onHospitalTap">
+          <view class="hospital-info">
+            <text class="hospital-name">{{selectedHospital.name}}</text>
+          </view>
+          <text class="hospital-check">✓</text>
+        </view>
+      </view>
+    </block>
+  </view>
+
   <!-- 选择服务 -->
   <view class="section">
     <view class="section-header">
@@ -21,7 +61,7 @@
   <!-- 推荐陪诊师 -->
   <view class="section">
     <view class="section-header">
-      <text class="section-title">{{selectedService ? '匹配陪诊师' : '推荐陪诊师'}}</text>
+      <text class="section-title">{{selectedHospital ? '匹配陪诊师 · ' + selectedHospital.name : (selectedService ? '匹配陪诊师' : '推荐陪诊师')}}</text>
     </view>
 
     <view class="companion-list" wx:if="{{companions.length > 0}}">
@@ -43,11 +83,45 @@
     <view class="loading-hint" wx:if="{{loadingCompanions}}">
       <text>加载中...</text>
     </view>
-  </view>
 
-  <!-- 快速下单浮动按钮 -->
-  <view class="quick-order-bar" wx:if="{{selectedService}}">
-    <view class="quick-order-btn" bindtap="onQuickOrder">立即下单</view>
+    <view class="load-more" wx:if="{{!loadingCompanions && companions.length > 0 && hasMore}}" bindtap="onLoadMore">
+      <text class="load-more-text" wx:if="{{!loadingMore}}">查看更多</text>
+      <text class="load-more-text" wx:else>加载中...</text>
+    </view>
+
+    <view class="no-more-hint" wx:if="{{!loadingCompanions && companions.length > 0 && !hasMore}}">
+      <text>— 已展示全部 —</text>
+    </view>
+  </view>
+</view>
+
+<!-- 城市选择弹窗 -->
+<view class="city-modal-mask" wx:if="{{showCityPicker}}" bindtap="onCloseCityPicker">
+  <view class="city-modal" catchtap>
+    <view class="city-modal-header">
+      <text class="city-modal-title">选择城市</text>
+      <text class="city-modal-close" bindtap="onCloseCityPicker">✕</text>
+    </view>
+    <view class="city-modal-body">
+      <view class="city-option city-option-locate" bindtap="onAutoLocate">
+        <text class="city-option-icon">📍</text>
+        <text class="city-option-text">自动定位</text>
+        <text class="city-option-hint" wx:if="{{locating}}">定位中...</text>
+      </view>
+      <view class="city-list-title" wx:if="{{allCities.length > 0}}">
+        <text>可选城市</text>
+      </view>
+      <view
+        class="city-option {{city === item ? 'active' : ''}}"
+        wx:for="{{allCities}}"
+        wx:key="*this"
+        data-city="{{item}}"
+        bindtap="onSelectCity"
+      >
+        <text class="city-option-text">{{item}}</text>
+        <text class="city-option-check" wx:if="{{city === item}}">✓</text>
+      </view>
+    </view>
   </view>
 </view>
 

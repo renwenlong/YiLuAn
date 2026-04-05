@@ -1,6 +1,4 @@
 {
   "navigationBarTitleText": "创建订单",
-  "usingComponents": {
-    "loading-overlay": "/components/loading-overlay/index"
-  }
+  "usingComponents": {}
 }

@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.hospital import Hospital
 from app.models.order import Order, OrderStatus
 from app.repositories.base import BaseRepository
 
@@ -99,7 +100,7 @@ class OrderRepository(BaseRepository[Order]):
         return float(result.scalar_one())
 
     async def list_available(
-        self, *, skip: int = 0, limit: int = 20, date: str | None = None
+        self, *, skip: int = 0, limit: int = 20, date: str | None = None, city: str | None = None
     ) -> tuple[Sequence[Order], int]:
         stmt = select(Order).where(Order.status == OrderStatus.created)
         count_stmt = (
@@ -110,6 +111,13 @@ class OrderRepository(BaseRepository[Order]):
         if date:
             stmt = stmt.where(Order.appointment_date == date)
             count_stmt = count_stmt.where(Order.appointment_date == date)
+        if city:
+            stmt = stmt.join(Hospital, Order.hospital_id == Hospital.id).where(
+                Hospital.city == city
+            )
+            count_stmt = count_stmt.join(
+                Hospital, Order.hospital_id == Hospital.id
+            ).where(Hospital.city == city)
         total_result = await self.session.execute(count_stmt)
         total = total_result.scalar_one()
         stmt = stmt.order_by(Order.created_at.desc()).offset(skip).limit(limit)
