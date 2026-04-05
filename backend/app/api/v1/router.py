@@ -9,6 +9,7 @@ from app.api.v1.orders import router as orders_router
 from app.api.v1.patients import router as patients_router
 from app.api.v1.reviews import router as reviews_router
 from app.api.v1.users import router as users_router
+from app.api.v1.wallet import router as wallet_router
 from app.api.v1.ws import router as ws_router
 
 api_v1_router = APIRouter()
@@ -28,4 +29,5 @@ api_v1_router.include_router(orders_router)
 api_v1_router.include_router(reviews_router)
 api_v1_router.include_router(chats_router)
 api_v1_router.include_router(notifications_router)
+api_v1_router.include_router(wallet_router)
 api_v1_router.include_router(ws_router)

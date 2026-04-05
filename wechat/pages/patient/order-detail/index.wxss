@@ -64,6 +64,21 @@
   font-weight: bold;
 }
 
+.info-value.payment-unpaid {
+  color: #e53935;
+  font-weight: bold;
+}
+
+.info-value.payment-paid {
+  color: #4CAF50;
+  font-weight: bold;
+}
+
+.info-value.payment-refunded {
+  color: #FF9800;
+  font-weight: bold;
+}
+
 /* Companion Card */
 .companion-card {
   display: flex;

@@ -391,14 +391,11 @@ class TestPayment:
         order = await seed_order(user.id, hospital.id)
         # Pay first
         await authenticated_client.post(f"/api/v1/orders/{order.id}/pay")
-        # Cancel
+        # Cancel — should auto-refund
         await authenticated_client.post(f"/api/v1/orders/{order.id}/cancel")
-        # Refund
+        # Manual refund should fail (already refunded by auto-refund)
         resp = await authenticated_client.post(f"/api/v1/orders/{order.id}/refund")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["payment_type"] == "refund"
-        assert data["amount"] == 299.0
+        assert resp.status_code == 400
 
     async def test_refund_not_cancelled(
         self, authenticated_client, seed_hospital, seed_order
@@ -429,3 +426,111 @@ class TestPayment:
         order = await seed_order(patient.id, hospital.id)
         resp = await companion_client.post(f"/api/v1/orders/{order.id}/pay")
         assert resp.status_code == 403
+
+    async def test_cancel_auto_refunds(
+        self, authenticated_client, seed_hospital, seed_order
+    ):
+        user = authenticated_client._test_user
+        hospital = await seed_hospital()
+        order = await seed_order(user.id, hospital.id)
+        # Pay
+        await authenticated_client.post(f"/api/v1/orders/{order.id}/pay")
+        # Cancel — should auto-refund
+        resp = await authenticated_client.post(f"/api/v1/orders/{order.id}/cancel")
+        assert resp.status_code == 200
+        # Verify order shows refunded payment status
+        resp = await authenticated_client.get(f"/api/v1/orders/{order.id}")
+        assert resp.status_code == 200
+        assert resp.json()["payment_status"] == "refunded"
+
+    async def test_cancel_no_payment_no_refund(
+        self, authenticated_client, seed_hospital, seed_order
+    ):
+        user = authenticated_client._test_user
+        hospital = await seed_hospital()
+        order = await seed_order(user.id, hospital.id)
+        # Cancel without paying — no auto-refund
+        resp = await authenticated_client.post(f"/api/v1/orders/{order.id}/cancel")
+        assert resp.status_code == 200
+
+    async def test_payment_status_unpaid(
+        self, authenticated_client, seed_hospital, seed_order
+    ):
+        user = authenticated_client._test_user
+        hospital = await seed_hospital()
+        order = await seed_order(user.id, hospital.id)
+        resp = await authenticated_client.get(f"/api/v1/orders/{order.id}")
+        assert resp.status_code == 200
+        assert resp.json()["payment_status"] == "unpaid"
+
+    async def test_payment_status_paid(
+        self, authenticated_client, seed_hospital, seed_order
+    ):
+        user = authenticated_client._test_user
+        hospital = await seed_hospital()
+        order = await seed_order(user.id, hospital.id)
+        await authenticated_client.post(f"/api/v1/orders/{order.id}/pay")
+        resp = await authenticated_client.get(f"/api/v1/orders/{order.id}")
+        assert resp.status_code == 200
+        assert resp.json()["payment_status"] == "paid"
+
+    async def test_payment_status_in_list(
+        self, authenticated_client, seed_hospital, seed_order
+    ):
+        user = authenticated_client._test_user
+        hospital = await seed_hospital()
+        await seed_order(user.id, hospital.id)
+        resp = await authenticated_client.get("/api/v1/orders")
+        assert resp.status_code == 200
+        items = resp.json()["items"]
+        assert len(items) > 0
+        assert "payment_status" in items[0]
+
+
+@pytest.mark.asyncio
+class TestWallet:
+    async def test_wallet_summary_patient(self, authenticated_client):
+        resp = await authenticated_client.get("/api/v1/wallet")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "balance" in data
+        assert data["balance"] == 0.0
+
+    async def test_wallet_transactions_empty(self, authenticated_client):
+        resp = await authenticated_client.get("/api/v1/wallet/transactions")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["items"] == []
+        assert data["total"] == 0
+
+    async def test_wallet_transactions_after_payment(
+        self, authenticated_client, seed_hospital, seed_order
+    ):
+        user = authenticated_client._test_user
+        hospital = await seed_hospital()
+        order = await seed_order(user.id, hospital.id)
+        await authenticated_client.post(f"/api/v1/orders/{order.id}/pay")
+        resp = await authenticated_client.get("/api/v1/wallet/transactions")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 1
+        assert data["items"][0]["payment_type"] == "pay"
+        assert data["items"][0]["amount"] == 299.0
+
+    async def test_wallet_summary_companion(
+        self, companion_client, seed_hospital, seed_order, seed_user
+    ):
+        companion = companion_client._test_user
+        patient = await seed_user(phone="13500135020")
+        hospital = await seed_hospital()
+        await seed_order(
+            patient.id,
+            hospital.id,
+            companion_id=companion.id,
+            status=OrderStatus.completed,
+        )
+        resp = await companion_client.get("/api/v1/wallet")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["balance"] == 299.0
+        assert data["total_income"] == 299.0

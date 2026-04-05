@@ -13,6 +13,11 @@ class OrderRepository(BaseRepository[Order]):
     def __init__(self, session: AsyncSession):
         super().__init__(Order, session)
 
+    async def get_by_id_for_update(self, order_id: UUID) -> Order | None:
+        stmt = select(Order).where(Order.id == order_id).with_for_update()
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def get_by_order_number(self, order_number: str) -> Order | None:
         stmt = select(Order).where(Order.order_number == order_number)
         result = await self.session.execute(stmt)

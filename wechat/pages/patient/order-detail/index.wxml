@@ -29,6 +29,10 @@
       <text class="info-label">费用</text>
       <text class="info-value price">{{order.formattedPrice}}</text>
     </view>
+    <view class="info-row">
+      <text class="info-label">支付状态</text>
+      <text class="info-value payment-{{paymentStatusClass}}">{{paymentStatusLabel}}</text>
+    </view>
     <view class="info-row" wx:if="{{order.description}}">
       <text class="info-label">备注</text>
       <text class="info-value">{{order.description}}</text>
@@ -69,8 +73,14 @@
 
   <!-- Action Buttons -->
   <view class="action-bar">
-    <!-- Created: can cancel -->
-    <block wx:if="{{order.status === 'created'}}">
+    <!-- Created & unpaid: pay + cancel -->
+    <block wx:if="{{order.status === 'created' && order.payment_status === 'unpaid'}}">
+      <button class="btn-primary" bindtap="onPay">立即支付 {{order.formattedPrice}}</button>
+      <button class="btn-danger" bindtap="onCancel">取消订单</button>
+    </block>
+
+    <!-- Created & paid: cancel only -->
+    <block wx:if="{{order.status === 'created' && order.payment_status === 'paid'}}">
       <button class="btn-danger" bindtap="onCancel">取消订单</button>
     </block>
 
