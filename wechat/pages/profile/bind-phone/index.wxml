@@ -33,7 +33,7 @@
     </view>
     <view class="btn-section">
       <button class="btn-bind" bindtap="onBind" disabled="{{binding}}">
-        {{binding ? '绑定中...' : '绑定手机号'}}
+        {{binding ? '提交中...' : '更换手机号'}}
       </button>
     </view>
   </view>
