@@ -21,12 +21,15 @@ async def list_companions(
     current_user: CurrentUser,
     area: str | None = Query(None),
     service_type: str | None = Query(None),
+    hospital_id: str | None = Query(None),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
     service = CompanionProfileService(session)
     skip = (page - 1) * page_size
-    return await service.list_companions(area=area, service_type=service_type, skip=skip, limit=page_size)
+    return await service.list_companions(
+        area=area, service_type=service_type, hospital_id=hospital_id, skip=skip, limit=page_size
+    )
 
 
 @router.get("/me/stats", response_model=CompanionStatsResponse)

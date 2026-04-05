@@ -5,6 +5,7 @@
     "pages/profile/setup/index",
     "pages/patient/home/index",
     "pages/companion/home/index",
+    "pages/companion/setup/index",
     "pages/companion/orders/index",
     "pages/companion/chat/index",
     "pages/companion/profile/index",

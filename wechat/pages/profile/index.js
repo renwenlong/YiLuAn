@@ -8,16 +8,25 @@ Page({
   },
 
   onLoad() {
-    const state = store.getState()
-    if (state && state.user) {
-      this.setData({ user: state.user })
-    }
+    this._refreshUser()
   },
 
   onShow() {
+    this._refreshUser()
+  },
+
+  _refreshUser() {
     const state = store.getState()
     if (state && state.user) {
-      this.setData({ user: state.user })
+      var u = state.user
+      this.setData({
+        user: {
+          name: u.display_name || u.name || '',
+          avatar: u.avatar_url || u.avatar || '',
+          phone: u.phone || '',
+          role: u.role || ''
+        }
+      })
     }
   },
 
@@ -34,9 +43,10 @@ Page({
             wx.hideLoading()
             var avatarUrl = data.avatar_url || data.avatar || data.url || ''
             if (avatarUrl) {
-              var user = Object.assign({}, this.data.user, { avatar: avatarUrl })
-              this.setData({ user: user })
-              store.setState({ user: user })
+              var s = store.getState()
+              var updated = Object.assign({}, s.user, { avatar_url: avatarUrl })
+              store.setState({ user: updated })
+              this._refreshUser()
             }
             wx.showToast({ title: '头像已更新', icon: 'success' })
           })

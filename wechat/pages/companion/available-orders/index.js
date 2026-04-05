@@ -61,8 +61,11 @@ Page({
     try {
       await orderAction(id, 'accept')
       wx.showToast({ title: '接单成功', icon: 'success' })
-      this.setData({ page: 1, orders: [], hasMore: true })
-      this.loadOrders()
+      setTimeout(() => {
+        wx.redirectTo({
+          url: `/pages/companion/order-detail/index?id=${id}`
+        })
+      }, 1000)
     } catch (err) {
       wx.showToast({ title: '接单失败', icon: 'none' })
     } finally {

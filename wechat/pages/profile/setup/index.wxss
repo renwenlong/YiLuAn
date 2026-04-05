@@ -92,25 +92,6 @@
   box-sizing: border-box;
 }
 
-.phone-toggle {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 24rpx 0;
-  margin-bottom: 16rpx;
-  border-top: 1rpx solid #E8E8E8;
-}
-
-.phone-toggle-text {
-  font-size: 28rpx;
-  color: #666666;
-}
-
-.phone-toggle-arrow {
-  font-size: 24rpx;
-  color: #999999;
-}
-
 .phone-row {
   display: flex;
   align-items: center;
@@ -124,8 +105,9 @@
 .otp-btn {
   width: 220rpx;
   height: 80rpx;
-  line-height: 80rpx;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background-color: #1890FF;
   color: #FFFFFF;
   font-size: 24rpx;
@@ -151,8 +133,9 @@
 .btn-submit {
   width: 100%;
   height: 88rpx;
-  line-height: 88rpx;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background-color: #1890FF;
   color: #FFFFFF;
   font-size: 32rpx;
