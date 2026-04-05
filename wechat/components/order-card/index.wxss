@@ -73,6 +73,12 @@
   font-weight: 600;
 }
 
+.pay-hint {
+  font-size: 24rpx;
+  color: #e53935;
+  font-weight: 600;
+}
+
 .order-desc {
   margin-top: 8rpx;
   padding: 12rpx 16rpx;

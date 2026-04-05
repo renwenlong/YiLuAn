@@ -1,19 +1,28 @@
-const { getOrderDetail, orderAction } = require('../../../services/order')
+const { getOrderDetail, orderAction, payOrder } = require('../../../services/order')
 const { getOrderReview } = require('../../../services/review')
 const store = require('../../../store/index')
 const { ORDER_STATUS, SERVICE_TYPES } = require('../../../utils/constants')
 const { formatPrice, formatDate } = require('../../../utils/format')
+
+const PAYMENT_STATUS_MAP = {
+  unpaid: '待支付',
+  paid: '已支付',
+  refunded: '已退款'
+}
 
 Page({
   data: {
     order: null,
     loading: true,
     statusList: ORDER_STATUS,
-    serviceLabel: ''
+    serviceLabel: '',
+    paymentStatusLabel: '',
+    paymentStatusClass: ''
   },
 
   onLoad(options) {
     this.orderId = options.id
+    this.needPay = options.need_pay === '1'
     this.loadOrder()
   },
 
@@ -38,6 +47,7 @@ Page({
         }
       }
 
+      var paymentStatus = order.payment_status || 'unpaid'
       this.setData({
         order: {
           ...order,
@@ -45,10 +55,43 @@ Page({
           formattedDate: formatDate(order.appointment_date),
           formattedPrice: order.price ? formatPrice(order.price) : ''
         },
-        serviceLabel: svc.label || order.service_type
+        serviceLabel: svc.label || order.service_type,
+        paymentStatusLabel: PAYMENT_STATUS_MAP[paymentStatus] || paymentStatus,
+        paymentStatusClass: paymentStatus
       })
+
+      // Auto-trigger payment prompt after order creation
+      if (this.needPay && paymentStatus === 'unpaid') {
+        this.needPay = false
+        this.onPay()
+      }
     } catch (err) {
       wx.showToast({ title: '加载失败', icon: 'none' })
+    } finally {
+      this.setData({ loading: false })
+    }
+  },
+
+  async onPay() {
+    var order = this.data.order
+    var priceText = order.formattedPrice || ('¥' + order.price)
+    const res = await wx.showModal({
+      title: '确认支付',
+      content: '支付 ' + priceText,
+      confirmText: '确认支付',
+      confirmColor: '#4CAF50'
+    })
+    if (!res.confirm) return
+
+    this.setData({ loading: true })
+    try {
+      await payOrder(this.orderId)
+      wx.showToast({ title: '支付成功', icon: 'success' })
+      this.loadOrder()
+    } catch (err) {
+      var msg = '支付失败'
+      if (err && err.data && err.data.detail) msg = err.data.detail
+      wx.showToast({ title: msg, icon: 'none' })
     } finally {
       this.setData({ loading: false })
     }

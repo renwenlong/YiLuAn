@@ -193,7 +193,7 @@ Page({
         wx.showToast({ title: '订单创建成功', icon: 'success' })
         setTimeout(function () {
           wx.redirectTo({
-            url: '/pages/patient/order-detail/index?id=' + order.id
+            url: '/pages/patient/order-detail/index?id=' + order.id + '&need_pay=1'
           })
         }, 1500)
       })

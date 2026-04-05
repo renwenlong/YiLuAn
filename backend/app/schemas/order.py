@@ -28,6 +28,7 @@ class OrderResponse(BaseModel):
     hospital_name: str | None = None
     companion_name: str | None = None
     patient_name: str | None = None
+    payment_status: str | None = None
     created_at: datetime
     updated_at: datetime
 
