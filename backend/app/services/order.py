@@ -91,6 +91,7 @@ class OrderService:
             and order.status != OrderStatus.created
         ):
             raise ForbiddenException("Not your order")
+        await self._fill_payment_status(order)
         return order
 
     async def list_orders(
@@ -118,18 +119,23 @@ class OrderService:
 
         if user.role == UserRole.companion:
             if order_status == OrderStatus.created:
-                return await self.order_repo.list_available(skip=skip, limit=page_size, date=date, city=city)
-            return await self.order_repo.list_by_companion(
+                items, total = await self.order_repo.list_available(skip=skip, limit=page_size, date=date, city=city)
+            else:
+                items, total = await self.order_repo.list_by_companion(
+                    user.id, status=order_status, status_list=status_list,
+                    date=date, skip=skip, limit=page_size,
+                )
+        else:
+            items, total = await self.order_repo.list_by_patient(
                 user.id, status=order_status, status_list=status_list,
                 date=date, skip=skip, limit=page_size,
             )
-        return await self.order_repo.list_by_patient(
-            user.id, status=order_status, status_list=status_list,
-            date=date, skip=skip, limit=page_size,
-        )
+        for item in items:
+            await self._fill_payment_status(item)
+        return items, total
 
     async def accept_order(self, order_id: uuid.UUID, user: User) -> Order:
-        order = await self._get_order_or_404(order_id)
+        order = await self._get_order_for_update_or_404(order_id)
         if user.role != UserRole.companion:
             raise ForbiddenException("Only companions can accept orders")
         self._validate_transition(order.status, OrderStatus.accepted)
@@ -150,7 +156,7 @@ class OrderService:
         return order
 
     async def start_order(self, order_id: uuid.UUID, user: User) -> Order:
-        order = await self._get_order_or_404(order_id)
+        order = await self._get_order_for_update_or_404(order_id)
         if order.companion_id != user.id:
             raise ForbiddenException("Not your order")
         self._validate_transition(order.status, OrderStatus.in_progress)
@@ -168,7 +174,7 @@ class OrderService:
         return order
 
     async def complete_order(self, order_id: uuid.UUID, user: User) -> Order:
-        order = await self._get_order_or_404(order_id)
+        order = await self._get_order_for_update_or_404(order_id)
         if order.companion_id != user.id:
             raise ForbiddenException("Not your order")
         self._validate_transition(order.status, OrderStatus.completed)
@@ -186,7 +192,7 @@ class OrderService:
         return order
 
     async def cancel_order(self, order_id: uuid.UUID, user: User) -> Order:
-        order = await self._get_order_or_404(order_id)
+        order = await self._get_order_for_update_or_404(order_id)
 
         if user.role == UserRole.patient:
             if order.patient_id != user.id:
@@ -203,6 +209,19 @@ class OrderService:
 
         order = await self.order_repo.update(order, {"status": new_status})
         await self._record_history(order.id, order.status, new_status, user.id)
+
+        # Auto-refund if already paid
+        existing_pay = await self.payment_repo.get_by_order_and_type(order_id, "pay")
+        if existing_pay:
+            refund = Payment(
+                order_id=order_id,
+                user_id=order.patient_id,
+                amount=order.price,
+                payment_type="refund",
+                status="success",
+            )
+            await self.payment_repo.create(refund)
+
         # Notify the other party about cancellation
         if user.role == UserRole.patient and order.companion_id:
             await self.notification_svc.notify_order_status_changed(
@@ -215,7 +234,7 @@ class OrderService:
         return order
 
     async def pay_order(self, order_id: uuid.UUID, user: User) -> Payment:
-        order = await self._get_order_or_404(order_id)
+        order = await self._get_order_for_update_or_404(order_id)
         if order.patient_id != user.id:
             raise ForbiddenException("Not your order")
         if order.status in (
@@ -224,8 +243,8 @@ class OrderService:
         ):
             raise BadRequestException("Cannot pay for a cancelled order")
 
-        existing = await self.payment_repo.get_by_order_id(order_id)
-        if existing and existing.payment_type == "pay":
+        existing = await self.payment_repo.get_by_order_and_type(order_id, "pay")
+        if existing:
             raise BadRequestException("Order already paid")
 
         payment = Payment(
@@ -238,7 +257,7 @@ class OrderService:
         return await self.payment_repo.create(payment)
 
     async def refund_order(self, order_id: uuid.UUID, user: User) -> Payment:
-        order = await self._get_order_or_404(order_id)
+        order = await self._get_order_for_update_or_404(order_id)
         if order.patient_id != user.id:
             raise ForbiddenException("Not your order")
         if order.status not in (
@@ -247,9 +266,13 @@ class OrderService:
         ):
             raise BadRequestException("Only cancelled orders can be refunded")
 
-        existing_pay = await self.payment_repo.get_by_order_id(order_id)
-        if not existing_pay or existing_pay.payment_type != "pay":
+        existing_pay = await self.payment_repo.get_by_order_and_type(order_id, "pay")
+        if not existing_pay:
             raise BadRequestException("Order has no payment to refund")
+
+        existing_refund = await self.payment_repo.get_by_order_and_type(order_id, "refund")
+        if existing_refund:
+            raise BadRequestException("Order already refunded")
 
         refund = Payment(
             order_id=order_id,
@@ -264,6 +287,12 @@ class OrderService:
 
     async def _get_order_or_404(self, order_id: uuid.UUID) -> Order:
         order = await self.order_repo.get_by_id(order_id)
+        if order is None:
+            raise NotFoundException("Order not found")
+        return order
+
+    async def _get_order_for_update_or_404(self, order_id: uuid.UUID) -> Order:
+        order = await self.order_repo.get_by_id_for_update(order_id)
         if order is None:
             raise NotFoundException("Order not found")
         return order
@@ -291,3 +320,12 @@ class OrderService:
             changed_by=changed_by,
         )
         await self.history_repo.create(record)
+
+    async def _fill_payment_status(self, order: Order) -> None:
+        payments = await self.payment_repo.list_by_order_id(order.id)
+        if any(p.payment_type == "refund" for p in payments):
+            order.payment_status = "refunded"
+        elif any(p.payment_type == "pay" for p in payments):
+            order.payment_status = "paid"
+        else:
+            order.payment_status = "unpaid"

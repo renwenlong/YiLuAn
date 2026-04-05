@@ -1,4 +1,5 @@
 var store = require('../../../store/index')
+var walletService = require('../../../services/wallet')
 
 Page({
   data: {
@@ -16,6 +17,38 @@ Page({
     var state = store.getState()
     var role = (state && state.user && state.user.role) || 'patient'
     this.setData({ role: role })
+    this.loadWallet()
+  },
+
+  onShow() {
+    this.loadWallet()
+  },
+
+  async loadWallet() {
+    try {
+      var summary = await walletService.getWalletSummary()
+      var txRes = await walletService.getTransactions()
+      var items = (txRes && txRes.items) || []
+      var role = this.data.role
+
+      this.setData({
+        balance: (summary.balance || 0).toFixed(2),
+        totalIncome: (summary.total_income || 0).toFixed(2),
+        withdrawn: (summary.withdrawn || 0).toFixed(2),
+        records: items.map(function (t) {
+          var isRefund = t.payment_type === 'refund'
+          return {
+            id: t.id,
+            title: isRefund ? '订单退款' : (role === 'companion' ? '服务收入' : '订单支付'),
+            time: t.created_at ? t.created_at.split('T')[0] : '',
+            amount: t.amount ? t.amount.toFixed(2) : '0.00',
+            type: isRefund ? 'income' : (role === 'companion' ? 'income' : 'expense')
+          }
+        })
+      })
+    } catch (e) {
+      console.error('加载钱包失败', e)
+    }
   },
 
   onSelectAmount(e) {
