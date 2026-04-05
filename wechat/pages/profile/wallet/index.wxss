@@ -13,6 +13,10 @@
   align-items: center;
 }
 
+.balance-card.companion-card {
+  background: linear-gradient(135deg, #FF6B35, #FFB347);
+}
+
 .balance-label {
   font-size: 28rpx;
   opacity: 0.8;
@@ -24,7 +28,7 @@
   font-weight: bold;
 }
 
-/* 充值区域 */
+/* 充值区域（患者端） */
 .recharge-section {
   background-color: #FFFFFF;
   margin: 20rpx 24rpx;
@@ -115,7 +119,63 @@
   border: none;
 }
 
-/* 消费明细 */
+/* 提现区域（陪诊师端） */
+.withdraw-section {
+  background-color: #FFFFFF;
+  margin: 20rpx 24rpx;
+  padding: 32rpx;
+  border-radius: 16rpx;
+}
+
+.withdraw-info {
+  margin-bottom: 32rpx;
+}
+
+.withdraw-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #F5F5F5;
+}
+
+.withdraw-row:last-child {
+  border-bottom: none;
+}
+
+.withdraw-label {
+  font-size: 28rpx;
+  color: #666666;
+}
+
+.withdraw-value {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #333333;
+}
+
+/* 提现按钮 */
+.withdraw-btn {
+  width: 100%;
+  height: 88rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+  background: linear-gradient(135deg, #FF6B35, #FFB347);
+  color: #FFFFFF;
+  font-size: 32rpx;
+  font-weight: 600;
+  border-radius: 44rpx;
+  border: none;
+}
+
+.withdraw-btn::after {
+  border: none;
+}
+
+/* 明细记录 */
 .record-section {
   background-color: #FFFFFF;
   margin: 20rpx 24rpx;

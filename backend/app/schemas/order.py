@@ -10,6 +10,7 @@ class CreateOrderRequest(BaseModel):
     appointment_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
     appointment_time: str = Field(..., pattern=r"^\d{2}:\d{2}$")
     description: str | None = None
+    companion_id: UUID | None = None
 
 
 class OrderResponse(BaseModel):

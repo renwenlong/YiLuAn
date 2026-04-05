@@ -3,12 +3,15 @@
   <view class="section">
     <view class="section-header">
       <text class="section-title">选择服务</text>
+      <text class="section-hint" wx:if="{{!selectedService}}">点击选择服务类型</text>
+      <text class="section-clear" wx:if="{{selectedService}}" bindtap="onServiceTap" data-type="{{selectedService}}">清除筛选</text>
     </view>
     <view class="service-grid">
       <service-card
         wx:for="{{serviceTypes}}"
         wx:key="key"
         type="{{item.key}}"
+        active="{{selectedService === item.key}}"
         data-type="{{item.key}}"
         bindtap="onServiceTap"
       />
@@ -18,20 +21,33 @@
   <!-- 推荐陪诊师 -->
   <view class="section">
     <view class="section-header">
-      <text class="section-title">推荐陪诊师</text>
+      <text class="section-title">{{selectedService ? '匹配陪诊师' : '推荐陪诊师'}}</text>
     </view>
-    <view class="companion-list">
+
+    <view class="companion-list" wx:if="{{companions.length > 0}}">
       <companion-card
         wx:for="{{companions}}"
         wx:key="id"
         companion="{{item}}"
+        showBook="{{!!selectedService}}"
         data-id="{{item.id}}"
         bindtap="onCompanionTap"
+        bindbook="onBookCompanion"
       />
     </view>
-    <view class="empty-hint" wx:if="{{companions.length === 0}}">
-      <text>暂无推荐陪诊师</text>
+
+    <view class="empty-hint" wx:if="{{companions.length === 0 && !loadingCompanions}}">
+      <text>{{selectedService ? '暂无匹配的陪诊师' : '暂无推荐陪诊师'}}</text>
     </view>
+
+    <view class="loading-hint" wx:if="{{loadingCompanions}}">
+      <text>加载中...</text>
+    </view>
+  </view>
+
+  <!-- 快速下单浮动按钮 -->
+  <view class="quick-order-bar" wx:if="{{selectedService}}">
+    <view class="quick-order-btn" bindtap="onQuickOrder">立即下单</view>
   </view>
 </view>
 

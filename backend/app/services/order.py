@@ -18,6 +18,7 @@ from app.models.user import User, UserRole
 from app.repositories.hospital import HospitalRepository
 from app.repositories.order import OrderRepository
 from app.repositories.payment import PaymentRepository, OrderStatusHistoryRepository
+from app.repositories.companion_profile import CompanionProfileRepository
 from app.schemas.order import CreateOrderRequest
 from app.services.notification import NotificationService
 
@@ -34,6 +35,7 @@ class OrderService:
         self.hospital_repo = HospitalRepository(session)
         self.payment_repo = PaymentRepository(session)
         self.history_repo = OrderStatusHistoryRepository(session)
+        self.companion_repo = CompanionProfileRepository(session)
         self.notification_svc = NotificationService(session)
         self.session = session
 
@@ -47,9 +49,19 @@ class OrderService:
         service_type = ServiceType(data.service_type)
         price = SERVICE_PRICES[service_type]
 
+        companion_id = None
+        companion_name = None
+        if data.companion_id:
+            profile = await self.companion_repo.get_by_id(data.companion_id)
+            if profile is None or profile.verification_status.value != "verified":
+                raise BadRequestException("Companion not found or not verified")
+            companion_id = profile.user_id
+            companion_name = profile.real_name
+
         order = Order(
             order_number=generate_order_number(),
             patient_id=user.id,
+            companion_id=companion_id,
             hospital_id=data.hospital_id,
             service_type=service_type,
             status=OrderStatus.created,
@@ -58,6 +70,7 @@ class OrderService:
             description=data.description,
             price=price,
             hospital_name=hospital.name,
+            companion_name=companion_name,
             patient_name=user.display_name or user.phone,
         )
         order = await self.order_repo.create(order)

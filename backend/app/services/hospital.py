@@ -21,16 +21,36 @@ class HospitalService:
         self,
         *,
         keyword: str | None = None,
+        province: str | None = None,
+        city: str | None = None,
+        district: str | None = None,
+        level: str | None = None,
+        tag: str | None = None,
         skip: int = 0,
         limit: int = 20,
     ) -> tuple[Sequence[Hospital], int]:
-        return await self.repo.search(keyword=keyword, skip=skip, limit=limit)
+        return await self.repo.search(
+            keyword=keyword,
+            province=province,
+            city=city,
+            district=district,
+            level=level,
+            tag=tag,
+            skip=skip,
+            limit=limit,
+        )
 
     async def get_by_id(self, hospital_id: UUID) -> Hospital:
         hospital = await self.repo.get_by_id(hospital_id)
         if hospital is None:
             raise NotFoundException("Hospital not found")
         return hospital
+
+    async def get_filter_options(self, *, province: str | None = None, city: str | None = None) -> dict:
+        return await self.repo.get_filter_options(province=province, city=city)
+
+    async def find_nearest_region(self, *, latitude: float, longitude: float) -> dict | None:
+        return await self.repo.find_nearest_region(latitude=latitude, longitude=longitude)
 
     async def seed_hospitals(self) -> int:
         if not SEED_FILE.exists():
@@ -42,7 +62,14 @@ class HospitalService:
         count = 0
         for item in hospitals_data:
             existing, _ = await self.repo.search(keyword=item["name"], skip=0, limit=1)
-            if not existing:
+            if existing:
+                # Update existing hospital with new fields
+                h = existing[0]
+                for key, val in item.items():
+                    if key != "id" and hasattr(h, key):
+                        setattr(h, key, val)
+                count += 1
+            else:
                 hospital = Hospital(**item)
                 await self.repo.create(hospital)
                 count += 1

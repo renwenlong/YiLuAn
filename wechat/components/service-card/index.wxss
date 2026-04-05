@@ -1,11 +1,19 @@
 .service-card {
   display: flex;
   align-items: center;
-  padding: 24rpx;
+  justify-content: space-between;
+  padding: 28rpx 32rpx;
   background: #fff;
   border-radius: 16rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
-  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+  border: 2rpx solid transparent;
+  transition: all 0.2s;
+}
+
+.service-card.active {
+  border-color: #1890FF;
+  background: #E6F7FF;
+  box-shadow: 0 4rpx 16rpx rgba(24, 144, 255, 0.15);
 }
 
 .service-info {
@@ -18,11 +26,25 @@
   font-size: 32rpx;
   font-weight: 600;
   color: #333;
-  margin-bottom: 8rpx;
+  margin-bottom: 4rpx;
+}
+
+.service-card.active .service-label {
+  color: #1890FF;
+}
+
+.service-desc {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.service-card.active .service-desc {
+  color: #69C0FF;
 }
 
 .service-price {
   font-size: 36rpx;
   font-weight: 700;
-  color: #ff6b35;
+  color: #FF6B35;
+  flex-shrink: 0;
 }

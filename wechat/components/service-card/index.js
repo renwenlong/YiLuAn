@@ -5,6 +5,10 @@ Component({
     type: {
       type: String,
       value: ''
+    },
+    active: {
+      type: Boolean,
+      value: false
     }
   },
 

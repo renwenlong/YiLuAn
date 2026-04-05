@@ -23,16 +23,26 @@
   color: #333333;
 }
 
+.section-hint {
+  font-size: 24rpx;
+  color: #999;
+}
+
+.section-clear {
+  font-size: 24rpx;
+  color: #1890FF;
+}
+
 .service-grid {
   display: flex;
   flex-direction: column;
-  gap: 20rpx;
+  gap: 16rpx;
 }
 
 .companion-list {
   display: flex;
   flex-direction: column;
-  gap: 20rpx;
+  gap: 16rpx;
 }
 
 .empty-hint {
@@ -40,4 +50,32 @@
   padding: 60rpx 0;
   color: #999999;
   font-size: 28rpx;
+}
+
+.loading-hint {
+  text-align: center;
+  padding: 40rpx 0;
+  color: #1890FF;
+  font-size: 28rpx;
+}
+
+/* 快速下单浮动按钮 */
+.quick-order-bar {
+  position: fixed;
+  bottom: 140rpx;
+  left: 0;
+  right: 0;
+  padding: 16rpx 32rpx;
+  z-index: 100;
+}
+
+.quick-order-btn {
+  background: linear-gradient(135deg, #1890FF, #096DD9);
+  color: #ffffff;
+  text-align: center;
+  font-size: 32rpx;
+  font-weight: 600;
+  padding: 24rpx 0;
+  border-radius: 48rpx;
+  box-shadow: 0 6rpx 20rpx rgba(24, 144, 255, 0.4);
 }
