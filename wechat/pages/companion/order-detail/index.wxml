@@ -79,9 +79,9 @@
       <button class="btn-primary" bindtap="onAccept">接受订单</button>
     </block>
 
-    <!-- Accepted: start + chat -->
+    <!-- Accepted: request start + chat -->
     <block wx:if="{{order.status === 'accepted'}}">
-      <button class="btn-primary" bindtap="onStart">开始服务</button>
+      <button class="btn-primary" bindtap="onStart">通知患者开始服务</button>
       <button class="btn-secondary" bindtap="onChat">联系患者</button>
     </block>
 

@@ -44,7 +44,9 @@
 }
 
 .otp-btn {
-  width: 220rpx;
+  width: auto !important;
+  min-width: 0 !important;
+  margin: 0 !important;
   height: 80rpx;
   display: flex;
   align-items: center;
@@ -55,7 +57,8 @@
   border-radius: 8rpx;
   border: none;
   flex-shrink: 0;
-  padding: 0;
+  padding: 0 24rpx !important;
+  white-space: nowrap;
 }
 
 .otp-btn[disabled] {

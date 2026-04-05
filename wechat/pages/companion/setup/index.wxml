@@ -83,6 +83,20 @@
       </view>
     </view>
 
+    <!-- 认证资质 -->
+    <view class="form-group">
+      <text class="form-label">认证资质 <text class="recommend">选填</text></text>
+      <textarea
+        class="form-textarea form-textarea-sm"
+        placeholder="请输入资质证书信息，如护士证、健康管理师证等"
+        value="{{certifications}}"
+        data-field="certifications"
+        bindinput="onInputChange"
+        maxlength="500"
+        auto-height
+      />
+    </view>
+
     <!-- 个人简介 -->
     <view class="form-group">
       <text class="form-label">个人简介</text>
@@ -94,6 +108,26 @@
         bindinput="onInputChange"
         maxlength="500"
       />
+    </view>
+
+    <!-- 服务区域 -->
+    <view class="form-group">
+      <text class="form-label">服务区域{{city && city !== '定位中...' ? '（' + city + '）' : ''}} <text class="recommend">推荐</text></text>
+      <text class="form-hint-text">选择您服务的区域（可多选）</text>
+      <text class="form-hint" wx:if="{{serviceDistricts.length === 0 && !locating}}">暂无区域数据</text>
+      <text class="form-hint" wx:if="{{locating}}">定位中...</text>
+      <view class="district-select-list" wx:if="{{serviceDistricts.length > 0}}">
+        <view
+          class="district-select-item {{districtMap[item] ? 'selected' : ''}}"
+          wx:for="{{serviceDistricts}}"
+          wx:key="*this"
+          data-name="{{item}}"
+          bindtap="onDistrictToggle"
+        >
+          <text class="district-select-name">{{item}}</text>
+          <text class="district-select-check" wx:if="{{districtMap[item]}}">✓</text>
+        </view>
+      </view>
     </view>
 
     <!-- 服务医院 -->

@@ -38,18 +38,18 @@ Page({
     })
     this.setData({ serviceTypes: types })
 
+    // Pre-load used companions (no city dependency)
+    this._loadUsedCompanions()
+
     // Try store city first, otherwise auto-locate
+    // Both paths end by calling _onCityReady which loads hospitals + companions together
     var state = store.getState()
     if (state && state.city) {
       this.setData({ city: state.city })
-      this._fetchHospitals()
+      this._onCityReady()
     } else {
       this._autoLocate()
     }
-
-    this._loadUsedCompanions().then(function () {
-      self.fetchCompanions()
-    })
   },
 
   onShow() {
@@ -57,7 +57,13 @@ Page({
     if (state && state.city && state.city !== this.data.city) {
       this.setData({ city: state.city })
       this._fetchHospitals()
+      this.fetchCompanions()
     }
+  },
+
+  _onCityReady() {
+    this._fetchHospitals()
+    this.fetchCompanions()
   },
 
   _autoLocate() {
@@ -78,22 +84,22 @@ Page({
                 } else {
                   self.setData({ city: '未设置', locating: false })
                 }
-                self._fetchHospitals()
+                self._onCityReady()
               })
               .catch(function () {
                 self.setData({ city: '未设置', locating: false })
-                self._fetchHospitals()
+                self._onCityReady()
               })
           },
           fail: function () {
             self.setData({ city: '未设置', locating: false })
-            self._fetchHospitals()
+            self._onCityReady()
           }
         })
       },
       fail: function () {
         self.setData({ city: '未设置', locating: false })
-        self._fetchHospitals()
+        self._onCityReady()
       }
     })
   },
@@ -118,10 +124,18 @@ Page({
             id: h.id,
             name: h.name,
             level: h.level || '',
-            district: h.district || ''
+            district: h.district || '',
+            city: h.city || ''
           }
         })
         self.setData({ hospitals: list })
+        // When location failed, infer city from hospital results to keep companions in sync
+        if (!validCity && list.length > 0 && list[0].city) {
+          var inferredCity = list[0].city
+          self.setData({ city: inferredCity })
+          store.setState({ city: inferredCity })
+          self.fetchCompanions()
+        }
       })
       .catch(function () {
         self.setData({ hospitals: [] })
@@ -189,6 +203,7 @@ Page({
                   self.setData({ city: city, showCityPicker: false, locating: false })
                   store.setState({ city: city })
                   self._fetchHospitals()
+                  self.fetchCompanions()
                   wx.showToast({ title: '已定位到' + city, icon: 'none' })
                 } else {
                   self.setData({ locating: false })
@@ -215,9 +230,10 @@ Page({
 
   onSelectCity(e) {
     var city = e.currentTarget.dataset.city
-    this.setData({ city: city, showCityPicker: false })
+    this.setData({ city: city, showCityPicker: false, selectedHospital: null })
     store.setState({ city: city })
     this._fetchHospitals()
+    this.fetchCompanions()
     wx.showToast({ title: '已选择' + city, icon: 'none' })
   },
 
@@ -309,6 +325,10 @@ Page({
 
     var page = append ? this._page + 1 : 1
     var params = { page: page, page_size: pageSize }
+    var validCity = self.data.city && self.data.city !== '未设置' && self.data.city !== '定位中...'
+    if (validCity) {
+      params.city = self.data.city
+    }
     if (serviceType) {
       params.service_type = serviceType
     }

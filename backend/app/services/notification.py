@@ -68,6 +68,20 @@ class NotificationService:
             reference_id=str(order.id),
         )
 
+    async def notify_start_service_request(
+        self,
+        order,
+        companion_name: str,
+        recipient_id: uuid.UUID,
+    ) -> Notification:
+        return await self.create_notification(
+            user_id=recipient_id,
+            type=NotificationType.start_service_request,
+            title="陪诊师请求开始服务",
+            body=f"陪诊师 {companion_name} 请求开始服务，请确认",
+            reference_id=str(order.id),
+        )
+
     async def notify_new_message(
         self,
         order_id: uuid.UUID,

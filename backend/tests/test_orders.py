@@ -305,6 +305,135 @@ class TestOrderStateMachine:
         resp = await authenticated_client.post(f"/api/v1/orders/{order.id}/accept")
         assert resp.status_code == 403
 
+    async def test_request_start_by_companion(
+        self, companion_client, seed_hospital, seed_order, seed_user
+    ):
+        """Companion can request start — no status change, just notification."""
+        patient = await seed_user(phone="13500135040")
+        companion = companion_client._test_user
+        hospital = await seed_hospital()
+        order = await seed_order(
+            patient.id,
+            hospital.id,
+            companion_id=companion.id,
+            status=OrderStatus.accepted,
+        )
+        resp = await companion_client.post(
+            f"/api/v1/orders/{order.id}/request-start"
+        )
+        assert resp.status_code == 200
+        # Status should stay accepted (notification only)
+        assert resp.json()["status"] == "accepted"
+
+    async def test_request_start_wrong_companion(
+        self, companion_client, seed_hospital, seed_order, seed_user
+    ):
+        """Only the assigned companion can request start."""
+        patient = await seed_user(phone="13500135041")
+        other_companion = await seed_user(phone="13500135042", role="companion")
+        hospital = await seed_hospital()
+        order = await seed_order(
+            patient.id,
+            hospital.id,
+            companion_id=other_companion.id,
+            status=OrderStatus.accepted,
+        )
+        resp = await companion_client.post(
+            f"/api/v1/orders/{order.id}/request-start"
+        )
+        assert resp.status_code == 403
+
+    async def test_request_start_wrong_status(
+        self, companion_client, seed_hospital, seed_order, seed_user
+    ):
+        """Cannot request start when order is not accepted."""
+        patient = await seed_user(phone="13500135043")
+        companion = companion_client._test_user
+        hospital = await seed_hospital()
+        order = await seed_order(
+            patient.id,
+            hospital.id,
+            companion_id=companion.id,
+            status=OrderStatus.in_progress,
+        )
+        resp = await companion_client.post(
+            f"/api/v1/orders/{order.id}/request-start"
+        )
+        assert resp.status_code == 400
+
+    async def test_confirm_start_by_patient(
+        self, authenticated_client, seed_hospital, seed_order, seed_user
+    ):
+        """Patient confirms start — order transitions accepted → in_progress."""
+        user = authenticated_client._test_user
+        companion = await seed_user(phone="13500135044", role="companion")
+        hospital = await seed_hospital()
+        order = await seed_order(
+            user.id,
+            hospital.id,
+            companion_id=companion.id,
+            status=OrderStatus.accepted,
+        )
+        resp = await authenticated_client.post(
+            f"/api/v1/orders/{order.id}/confirm-start"
+        )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "in_progress"
+
+    async def test_confirm_start_wrong_patient(
+        self, authenticated_client, seed_hospital, seed_order, seed_user
+    ):
+        """Only the order's patient can confirm start."""
+        other_patient = await seed_user(phone="13500135045")
+        companion = await seed_user(phone="13500135046", role="companion")
+        hospital = await seed_hospital()
+        order = await seed_order(
+            other_patient.id,
+            hospital.id,
+            companion_id=companion.id,
+            status=OrderStatus.accepted,
+        )
+        resp = await authenticated_client.post(
+            f"/api/v1/orders/{order.id}/confirm-start"
+        )
+        assert resp.status_code == 403
+
+    async def test_confirm_start_wrong_status(
+        self, authenticated_client, seed_hospital, seed_order, seed_user
+    ):
+        """Cannot confirm start when order is not accepted."""
+        user = authenticated_client._test_user
+        companion = await seed_user(phone="13500135047", role="companion")
+        hospital = await seed_hospital()
+        order = await seed_order(
+            user.id,
+            hospital.id,
+            companion_id=companion.id,
+            status=OrderStatus.created,
+        )
+        resp = await authenticated_client.post(
+            f"/api/v1/orders/{order.id}/confirm-start"
+        )
+        assert resp.status_code == 400
+
+    async def test_patient_cannot_request_start(
+        self, authenticated_client, seed_hospital, seed_order, seed_user
+    ):
+        """Patient cannot call request-start (companion-only action)."""
+        user = authenticated_client._test_user
+        companion = await seed_user(phone="13500135048", role="companion")
+        hospital = await seed_hospital()
+        order = await seed_order(
+            user.id,
+            hospital.id,
+            companion_id=companion.id,
+            status=OrderStatus.accepted,
+        )
+        resp = await authenticated_client.post(
+            f"/api/v1/orders/{order.id}/request-start"
+        )
+        assert resp.status_code == 403
+
     async def test_full_lifecycle(
         self, authenticated_client, seed_hospital, seed_user
     ):
@@ -342,6 +471,67 @@ class TestOrderStateMachine:
         assert resp.json()["status"] == "in_progress"
         # Complete
         resp = await authenticated_client.post(f"/api/v1/orders/{order_id}/complete")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "completed"
+
+        # Restore patient token
+        authenticated_client.headers["Authorization"] = saved_auth
+
+    async def test_full_lifecycle_with_confirm_start(
+        self, authenticated_client, seed_hospital, seed_user
+    ):
+        """Full lifecycle using request-start + confirm-start flow."""
+        hospital = await seed_hospital()
+        from app.core.security import create_access_token
+
+        # Create order as patient
+        resp = await authenticated_client.post(
+            "/api/v1/orders",
+            json={
+                "service_type": "full_accompany",
+                "hospital_id": str(hospital.id),
+                "appointment_date": "2026-06-01",
+                "appointment_time": "11:00",
+            },
+        )
+        assert resp.status_code == 201
+        order_id = resp.json()["id"]
+
+        # Switch to companion
+        companion = await seed_user(phone="13500135098", role="companion")
+        companion_token = create_access_token(
+            {"sub": str(companion.id), "role": "companion"}
+        )
+        saved_auth = authenticated_client.headers.get("Authorization")
+        authenticated_client.headers["Authorization"] = f"Bearer {companion_token}"
+
+        # Accept
+        resp = await authenticated_client.post(f"/api/v1/orders/{order_id}/accept")
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "accepted"
+
+        # Companion requests start — status stays accepted
+        resp = await authenticated_client.post(
+            f"/api/v1/orders/{order_id}/request-start"
+        )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "accepted"
+
+        # Switch back to patient
+        authenticated_client.headers["Authorization"] = saved_auth
+
+        # Patient confirms start — status becomes in_progress
+        resp = await authenticated_client.post(
+            f"/api/v1/orders/{order_id}/confirm-start"
+        )
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "in_progress"
+
+        # Switch to companion for completion
+        authenticated_client.headers["Authorization"] = f"Bearer {companion_token}"
+        resp = await authenticated_client.post(
+            f"/api/v1/orders/{order_id}/complete"
+        )
         assert resp.status_code == 200
         assert resp.json()["status"] == "completed"
 

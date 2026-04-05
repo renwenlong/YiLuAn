@@ -98,6 +98,29 @@ Page({
     }
   },
 
+  async onConfirmStart() {
+    const res = await wx.showModal({
+      title: '确认开始服务',
+      content: '确认后服务正式开始，如需取消将退还50%费用',
+      confirmText: '确认开始',
+      confirmColor: '#4CAF50'
+    })
+    if (!res.confirm) return
+
+    this.setData({ loading: true })
+    try {
+      await orderAction(this.orderId, 'confirm-start')
+      wx.showToast({ title: '服务已开始', icon: 'success' })
+      this.loadOrder()
+    } catch (err) {
+      var msg = '操作失败'
+      if (err && err.data && err.data.detail) msg = err.data.detail
+      wx.showToast({ title: msg, icon: 'none' })
+    } finally {
+      this.setData({ loading: false })
+    }
+  },
+
   async onCancel() {
     var order = this.data.order
     var content = '确定要取消该订单吗？'

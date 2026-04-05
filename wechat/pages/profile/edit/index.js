@@ -1,5 +1,5 @@
 const { getPatientProfile, updatePatientProfile } = require('../../../services/user')
-const { updateCompanionProfile } = require('../../../services/companion')
+const { updateCompanionProfile, getMyProfile } = require('../../../services/companion')
 const { getHospitals, getHospitalFilters } = require('../../../services/hospital')
 const { SERVICE_TYPES } = require('../../../utils/constants')
 const store = require('../../../store/index')
@@ -10,6 +10,7 @@ Page({
     emergency_contact: '',
     emergency_phone: '',
     medical_notes: '',
+    certifications: '',
     bio: '',
     service_area: '',
     // service types
@@ -76,37 +77,74 @@ Page({
         })
     } else if (role === 'companion') {
       var state = store.getState()
-      var user = (state && state.user) || {}
-      var hospitalIds = user.service_hospitals ? user.service_hospitals.split(',').filter(Boolean) : []
-      var districts = user.service_area ? user.service_area.split('、').filter(Boolean) : []
-      var serviceTypes = user.service_types ? user.service_types.split(',').filter(Boolean) : []
       var city = (state && state.city) || '北京'
-      var stMap = {}
-      for (var i = 0; i < serviceTypes.length; i++) {
-        stMap[serviceTypes[i]] = true
-      }
-      var hMap = {}
-      for (var j = 0; j < hospitalIds.length; j++) {
-        hMap[hospitalIds[j]] = true
-      }
-      var dMap = {}
-      for (var k = 0; k < districts.length; k++) {
-        dMap[districts[k]] = true
-      }
-      this.setData({
-        bio: user.bio || '',
-        service_area: user.service_area || '',
-        selectedHospitalIds: hospitalIds,
-        hospitalIdMap: hMap,
-        selectedDistricts: districts,
-        districtMap: dMap,
-        selectedServiceTypes: serviceTypes,
-        serviceTypeMap: stMap,
-        city: city,
-        loading: false
-      })
-      this._loadFilters()
-      this._loadHospitals()
+      getMyProfile()
+        .then((profile) => {
+          var hospitalIds = profile.service_hospitals ? profile.service_hospitals.split(',').filter(Boolean) : []
+          var districts = profile.service_area ? profile.service_area.split('、').filter(Boolean) : []
+          var serviceTypes = profile.service_types ? profile.service_types.split(',').filter(Boolean) : []
+          var stMap = {}
+          for (var i = 0; i < serviceTypes.length; i++) {
+            stMap[serviceTypes[i]] = true
+          }
+          var hMap = {}
+          for (var j = 0; j < hospitalIds.length; j++) {
+            hMap[hospitalIds[j]] = true
+          }
+          var dMap = {}
+          for (var k = 0; k < districts.length; k++) {
+            dMap[districts[k]] = true
+          }
+          this.setData({
+            certifications: profile.certifications || '',
+            bio: profile.bio || '',
+            service_area: profile.service_area || '',
+            selectedHospitalIds: hospitalIds,
+            hospitalIdMap: hMap,
+            selectedDistricts: districts,
+            districtMap: dMap,
+            selectedServiceTypes: serviceTypes,
+            serviceTypeMap: stMap,
+            city: city,
+            loading: false
+          })
+          this._loadFilters()
+          this._loadHospitals()
+        })
+        .catch(() => {
+          // Fallback to store data if API fails
+          var user = ((state && state.user) || {})
+          var hospitalIds = user.service_hospitals ? user.service_hospitals.split(',').filter(Boolean) : []
+          var districts = user.service_area ? user.service_area.split('、').filter(Boolean) : []
+          var serviceTypes = user.service_types ? user.service_types.split(',').filter(Boolean) : []
+          var stMap = {}
+          for (var i = 0; i < serviceTypes.length; i++) {
+            stMap[serviceTypes[i]] = true
+          }
+          var hMap = {}
+          for (var j = 0; j < hospitalIds.length; j++) {
+            hMap[hospitalIds[j]] = true
+          }
+          var dMap = {}
+          for (var k = 0; k < districts.length; k++) {
+            dMap[districts[k]] = true
+          }
+          this.setData({
+            certifications: user.certifications || '',
+            bio: user.bio || '',
+            service_area: user.service_area || '',
+            selectedHospitalIds: hospitalIds,
+            hospitalIdMap: hMap,
+            selectedDistricts: districts,
+            districtMap: dMap,
+            selectedServiceTypes: serviceTypes,
+            serviceTypeMap: stMap,
+            city: city,
+            loading: false
+          })
+          this._loadFilters()
+          this._loadHospitals()
+        })
     } else {
       this.setData({ loading: false })
     }
@@ -273,6 +311,7 @@ Page({
         return
       }
       var companionData = {
+        certifications: this.data.certifications,
         bio: this.data.bio,
         service_area: this.data.selectedDistricts.join('、'),
         service_types: this.data.selectedServiceTypes.join(','),
@@ -282,16 +321,29 @@ Page({
         .then((data) => {
           this.setData({ saving: false })
           var state = store.getState()
-          var user = Object.assign({}, state.user, data)
+          // Only merge companion-specific fields into user, avoid overwriting user.id
+          var companionFields = {
+            certifications: data.certifications,
+            bio: data.bio,
+            service_area: data.service_area,
+            service_types: data.service_types,
+            service_hospitals: data.service_hospitals,
+            service_city: data.service_city
+          }
+          var user = Object.assign({}, state.user, companionFields)
           store.setState({ user: user })
           wx.showToast({ title: '保存成功', icon: 'success' })
           setTimeout(function() {
             wx.navigateBack()
           }, 1500)
         })
-        .catch(() => {
+        .catch((err) => {
           this.setData({ saving: false })
-          wx.showToast({ title: '保存失败', icon: 'none' })
+          var msg = '保存失败'
+          if (err && err.data && err.data.detail) {
+            msg = typeof err.data.detail === 'string' ? err.data.detail : '保存失败，请重试'
+          }
+          wx.showToast({ title: msg, icon: 'none' })
         })
     }
   }
