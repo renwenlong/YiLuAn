@@ -43,7 +43,8 @@ Page({
           ...order,
           review: review,
           formattedDate: formatDate(order.appointment_date),
-          formattedPrice: order.price ? formatPrice(order.price) : ''
+          formattedPrice: order.price ? formatPrice(order.price) : '',
+          timelineIndex: order.timeline_index
         },
         serviceLabel: svc.label || order.service_type
       })
