@@ -56,6 +56,11 @@
   font-weight: 600;
 }
 
+.companion-rating.no-rating {
+  color: #bfbfbf;
+  font-weight: normal;
+}
+
 .companion-meta {
   margin-bottom: 12rpx;
 }

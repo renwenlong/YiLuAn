@@ -22,19 +22,29 @@ Page({
       ])
       var companion = {
         id: rawCompanion.id,
-        name: rawCompanion.name || rawCompanion.user_name || '',
-        avatar: rawCompanion.avatar || rawCompanion.user_avatar || '',
+        name: rawCompanion.real_name || rawCompanion.display_name || '',
+        avatar: rawCompanion.avatar || '',
         bio: rawCompanion.bio || '',
-        rating: rawCompanion.avg_rating || rawCompanion.rating || 0,
-        completedOrders: rawCompanion.total_orders || rawCompanion.completedOrders || 0,
-        serviceArea: rawCompanion.service_area || rawCompanion.serviceArea || '',
+        rating: rawCompanion.avg_rating ? parseFloat(rawCompanion.avg_rating.toFixed(1)) : 0,
+        completedOrders: rawCompanion.total_orders || 0,
+        serviceArea: rawCompanion.service_area || '',
         experience: rawCompanion.experience || '',
-        serviceAreas: rawCompanion.service_areas || rawCompanion.serviceAreas || [],
-        is_verified: rawCompanion.is_verified || false
+        serviceAreas: rawCompanion.service_area ? rawCompanion.service_area.split('、') : [],
+        is_verified: rawCompanion.verification_status === 'verified'
       }
+      var rawReviews = (reviewsRes && reviewsRes.items) || []
+      var reviews = rawReviews.map(function (r) {
+        return {
+          id: r.id,
+          rating: r.rating,
+          content: r.content,
+          userName: r.patient_name || '匿名用户',
+          date: r.created_at ? r.created_at.split('T')[0] : ''
+        }
+      })
       this.setData({
         companion: companion,
-        reviews: reviewsRes.list || reviewsRes || []
+        reviews: reviews
       })
     } catch (err) {
       wx.showToast({ title: '加载失败', icon: 'none' })

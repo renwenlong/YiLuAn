@@ -55,7 +55,8 @@
 
 .order-footer {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   border-top: 1rpx solid #f0f0f0;
   padding-top: 16rpx;
 }
@@ -64,6 +65,12 @@
   font-size: 36rpx;
   font-weight: 700;
   color: #ff6b35;
+}
+
+.review-hint {
+  font-size: 24rpx;
+  color: #faad14;
+  font-weight: 600;
 }
 
 .order-desc {

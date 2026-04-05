@@ -24,5 +24,6 @@
   </view>
   <view class="order-footer">
     <text class="order-price">¥{{order.price}}</text>
+    <text class="review-hint" wx:if="{{order.status === 'completed'}}">待评价</text>
   </view>
 </view>
