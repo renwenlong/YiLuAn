@@ -73,6 +73,12 @@
   font-weight: 600;
 }
 
+.reviewed-hint {
+  font-size: 24rpx;
+  color: #4CAF50;
+  font-weight: 600;
+}
+
 .pay-hint {
   font-size: 24rpx;
   color: #e53935;

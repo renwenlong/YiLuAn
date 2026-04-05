@@ -58,6 +58,20 @@
     </view>
   </view>
 
+  <!-- Review Section (if reviewed) -->
+  <view class="detail-section" wx:if="{{order.review}}">
+    <view class="section-title">患者评价</view>
+    <view class="review-card">
+      <rating-stars value="{{order.review.rating}}" readonly="{{true}}" />
+      <text class="review-content">{{order.review.content}}</text>
+      <text class="review-author">— {{order.review.patient_name}}</text>
+    </view>
+  </view>
+
+  <view class="review-pending-hint" wx:if="{{order.status === 'completed' && !order.review}}">
+    <text class="pending-text">等待患者评价</text>
+  </view>
+
   <!-- Action Buttons -->
   <view class="action-bar">
     <!-- Created: accept -->
