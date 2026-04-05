@@ -32,7 +32,7 @@ Page({
           stats: {
             openOrders: data.open_orders || 0,
             totalEarnings: data.total_earnings || 0,
-            rating: data.avg_rating || 0
+            rating: data.avg_rating != null ? data.avg_rating : 0
           }
         })
       })

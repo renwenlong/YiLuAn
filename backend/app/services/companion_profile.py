@@ -8,6 +8,7 @@ from app.models.companion_profile import CompanionProfile
 from app.models.user import User, UserRole
 from app.repositories.companion_profile import CompanionProfileRepository
 from app.repositories.order import OrderRepository
+from app.repositories.review import ReviewRepository
 from app.repositories.user import UserRepository
 from app.schemas.companion import ApplyCompanionRequest, UpdateCompanionProfileRequest
 
@@ -17,6 +18,7 @@ class CompanionProfileService:
         self.repo = CompanionProfileRepository(session)
         self.user_repo = UserRepository(session)
         self.order_repo = OrderRepository(session)
+        self.review_repo = ReviewRepository(session)
         self.session = session
 
     async def apply(self, user: User, data: ApplyCompanionRequest) -> CompanionProfile:
@@ -77,11 +79,13 @@ class CompanionProfileService:
         if not user.has_role(UserRole.companion):
             raise ForbiddenException("Only companions can view stats")
         profile = await self.repo.get_by_user_id(user.id)
-        avg_rating = 0.0
-        total_orders = 0
         if profile:
             avg_rating = profile.avg_rating
             total_orders = profile.total_orders
+        else:
+            # Fallback: query reviews directly for companions without profile
+            avg_rating = await self.review_repo.get_companion_avg_rating(user.id)
+            total_orders = await self.review_repo.count_by_companion(user.id)
 
         open_orders = await self.order_repo.count_open_by_companion(user.id)
         total_earnings = await self.order_repo.sum_earnings_by_companion(user.id)

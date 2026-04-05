@@ -52,10 +52,10 @@ class ReviewService:
         # Transition order to reviewed
         await self.order_repo.update(order, {"status": OrderStatus.reviewed})
 
-        # Update companion avg_rating
+        # Update companion avg_rating on profile (create profile if missing)
         profile = await self.companion_repo.get_by_user_id(order.companion_id)
+        avg = await self.review_repo.get_companion_avg_rating(order.companion_id)
         if profile:
-            avg = await self.review_repo.get_companion_avg_rating(order.companion_id)
             await self.companion_repo.update(
                 profile,
                 {
@@ -63,6 +63,23 @@ class ReviewService:
                     "total_orders": profile.total_orders + 1,
                 },
             )
+        else:
+            # Companion registered without profile — create a minimal one
+            companion_user = await self.order_repo.session.get(User, order.companion_id)
+            fallback_name = (
+                companion_user.display_name or companion_user.phone
+                if companion_user
+                else "未知"
+            )
+            from app.models.companion_profile import CompanionProfile
+
+            new_profile = CompanionProfile(
+                user_id=order.companion_id,
+                real_name=fallback_name,
+                avg_rating=avg,
+                total_orders=1,
+            )
+            await self.companion_repo.create(new_profile)
 
         # Notify companion about the review
         await self.notification_svc.notify_review_received(

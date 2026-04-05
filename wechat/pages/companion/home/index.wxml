@@ -12,7 +12,7 @@
     </view>
     <view class="stat-divider"></view>
     <view class="stat-item">
-      <text class="stat-value">{{stats.rating || '-'}}</text>
+      <text class="stat-value">{{stats.rating != null ? stats.rating : '-'}}</text>
       <text class="stat-label">评分</text>
     </view>
   </view>
