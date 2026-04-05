@@ -6,7 +6,8 @@
     <view class="companion-info">
       <view class="companion-header">
         <text class="companion-name">{{companion.name}}</text>
-        <text class="companion-rating">★ {{companion.rating}}</text>
+        <text class="companion-rating" wx:if="{{companion.rating > 0}}">★ {{companion.rating}}</text>
+        <text class="companion-rating no-rating" wx:else>暂无评分</text>
       </view>
       <view class="companion-meta">
         <text class="meta-item">已完成 {{companion.completed_orders}} 单</text>

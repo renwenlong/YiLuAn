@@ -14,9 +14,12 @@
       <text wx:if="{{companion.is_verified}}" class="verified-badge">已认证</text>
       <text wx:else class="unverified-badge">未认证</text>
     </view>
-    <view class="profile-rating">
+    <view class="profile-rating" wx:if="{{companion.rating > 0}}">
       <rating-stars value="{{companion.rating}}" readonly="{{true}}" />
       <text class="rating-text">{{companion.rating}}分</text>
+    </view>
+    <view class="profile-rating" wx:else>
+      <text class="rating-text no-rating-text">暂无评分</text>
     </view>
   </view>
 
