@@ -23,6 +23,7 @@ class CompanionListResponse(BaseModel):
     user_id: UUID
     real_name: str
     service_area: str | None = None
+    service_types: str | None = None
     bio: str | None = None
     avg_rating: float = 0.0
     total_orders: int = 0

@@ -21,6 +21,7 @@ class CompanionProfileRepository(BaseRepository[CompanionProfile]):
         self,
         *,
         area: str | None = None,
+        service_type: str | None = None,
         skip: int = 0,
         limit: int = 20,
     ) -> Sequence[CompanionProfile]:
@@ -29,6 +30,8 @@ class CompanionProfileRepository(BaseRepository[CompanionProfile]):
         )
         if area:
             stmt = stmt.where(CompanionProfile.service_area.contains(area))
+        if service_type:
+            stmt = stmt.where(CompanionProfile.service_types.contains(service_type))
         stmt = stmt.offset(skip).limit(limit)
         result = await self.session.execute(stmt)
         return result.scalars().all()

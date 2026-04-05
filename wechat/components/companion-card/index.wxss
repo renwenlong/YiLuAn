@@ -4,8 +4,14 @@
   padding: 24rpx;
   background: #fff;
   border-radius: 16rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
-  margin-bottom: 20rpx;
+  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+}
+
+.card-main {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  overflow: hidden;
 }
 
 .avatar-placeholder {
@@ -71,4 +77,19 @@
   background: #e6f7ff;
   padding: 4rpx 12rpx;
   border-radius: 8rpx;
+}
+
+.card-action {
+  flex-shrink: 0;
+  margin-left: 20rpx;
+}
+
+.book-btn {
+  display: inline-block;
+  padding: 12rpx 32rpx;
+  background: linear-gradient(135deg, #1890FF, #36CFC9);
+  color: #fff;
+  font-size: 26rpx;
+  font-weight: 600;
+  border-radius: 32rpx;
 }

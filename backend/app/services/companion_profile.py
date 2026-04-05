@@ -62,10 +62,11 @@ class CompanionProfileService:
         self,
         *,
         area: str | None = None,
+        service_type: str | None = None,
         skip: int = 0,
         limit: int = 20,
     ) -> Sequence[CompanionProfile]:
-        return await self.repo.search(area=area, skip=skip, limit=limit)
+        return await self.repo.search(area=area, service_type=service_type, skip=skip, limit=limit)
 
     async def get_stats(self, user: User) -> dict:
         if not user.has_role(UserRole.companion):

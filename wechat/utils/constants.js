@@ -1,7 +1,7 @@
 const SERVICE_TYPES = {
-  full_accompany: { label: '全程陪诊', price: 299, icon: 'full' },
-  half_accompany: { label: '半程陪诊', price: 199, icon: 'half' },
-  errand: { label: '代办跑腿', price: 149, icon: 'errand' },
+  full_accompany: { label: '全程陪诊', price: 299, icon: 'full', desc: '挂号、候诊、就诊、取药全流程陪同' },
+  half_accompany: { label: '半程陪诊', price: 199, icon: 'half', desc: '陪同就诊或取报告，按需半程服务' },
+  errand: { label: '代办跑腿', price: 149, icon: 'errand', desc: '代取报告、代挂号、代取药等跑腿服务' },
 }
 
 const ORDER_STATUS = {
