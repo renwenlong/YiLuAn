@@ -13,6 +13,7 @@
 .status-header.status-accepted { background-color: #2196F3; }
 .status-header.status-in_progress { background-color: #4CAF50; }
 .status-header.status-completed { background-color: #9E9E9E; }
+.status-header.status-reviewed { background-color: #4CAF50; }
 .status-header.status-cancelled { background-color: #F44336; }
 
 .status-text {
@@ -179,4 +180,38 @@
   color: #666;
   border-radius: 16rpx;
   padding: 0;
+}
+
+/* Review Card */
+.review-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.review-content {
+  font-size: 28rpx;
+  color: #666;
+  line-height: 1.6;
+}
+
+.review-author {
+  font-size: 24rpx;
+  color: #999;
+  text-align: right;
+}
+
+/* Review Pending Hint */
+.review-pending-hint {
+  margin: 24rpx;
+  padding: 32rpx;
+  background-color: #fffbe6;
+  border-radius: 16rpx;
+  text-align: center;
+  border: 1rpx solid #ffe58f;
+}
+
+.pending-text {
+  font-size: 28rpx;
+  color: #faad14;
 }

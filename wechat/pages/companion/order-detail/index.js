@@ -1,4 +1,5 @@
 const { getOrderDetail, orderAction } = require('../../../services/order')
+const { getOrderReview } = require('../../../services/review')
 const store = require('../../../store/index')
 const { ORDER_STATUS, SERVICE_TYPES } = require('../../../utils/constants')
 const { formatPrice, formatDate } = require('../../../utils/format')
@@ -27,9 +28,20 @@ Page({
     try {
       const order = await getOrderDetail(this.orderId)
       const svc = SERVICE_TYPES[order.service_type] || {}
+
+      var review = null
+      if (order.status === 'reviewed' || order.status === 'completed') {
+        try {
+          review = await getOrderReview(this.orderId)
+        } catch (e) {
+          // 404 = no review yet
+        }
+      }
+
       this.setData({
         order: {
           ...order,
+          review: review,
           formattedDate: formatDate(order.appointment_date),
           formattedPrice: order.price ? formatPrice(order.price) : ''
         },
