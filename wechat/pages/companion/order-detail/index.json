@@ -1,6 +1,7 @@
 {
   "navigationBarTitleText": "订单详情",
   "usingComponents": {
-    "loading-overlay": "/components/loading-overlay/index"
+    "loading-overlay": "/components/loading-overlay/index",
+    "rating-stars": "/components/rating-stars/index"
   }
 }

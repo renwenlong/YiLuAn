@@ -26,5 +26,6 @@
     <text class="order-price">¥{{order.price}}</text>
     <text class="pay-hint" wx:if="{{order.status === 'created' && order.payment_status === 'unpaid'}}">待支付</text>
     <text class="review-hint" wx:if="{{order.status === 'completed'}}">待评价</text>
+    <text class="reviewed-hint" wx:if="{{order.status === 'reviewed'}}">已评价</text>
   </view>
 </view>
