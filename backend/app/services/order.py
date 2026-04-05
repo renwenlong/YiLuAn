@@ -126,6 +126,13 @@ class OrderService:
                 OrderStatus.completed,
                 OrderStatus.reviewed,
             ]
+        # Virtual status: "in_progress" includes accepted orders
+        elif status == "in_progress":
+            order_status = None
+            status_list = [
+                OrderStatus.accepted,
+                OrderStatus.in_progress,
+            ]
         else:
             order_status = OrderStatus(status) if status else None
             status_list = None
