@@ -7,6 +7,7 @@ from app.exceptions import ConflictException, ForbiddenException, NotFoundExcept
 from app.models.companion_profile import CompanionProfile
 from app.models.user import User, UserRole
 from app.repositories.companion_profile import CompanionProfileRepository
+from app.repositories.hospital import HospitalRepository
 from app.repositories.order import OrderRepository
 from app.repositories.review import ReviewRepository
 from app.repositories.user import UserRepository
@@ -19,6 +20,7 @@ class CompanionProfileService:
         self.user_repo = UserRepository(session)
         self.order_repo = OrderRepository(session)
         self.review_repo = ReviewRepository(session)
+        self.hospital_repo = HospitalRepository(session)
         self.session = session
 
     async def apply(self, user: User, data: ApplyCompanionRequest) -> CompanionProfile:
@@ -34,6 +36,7 @@ class CompanionProfileService:
             service_area=data.service_area,
             service_types=data.service_types,
             service_hospitals=data.service_hospitals,
+            service_city=data.service_city,
             bio=data.bio,
         )
         profile = await self.repo.create(profile)
@@ -46,11 +49,19 @@ class CompanionProfileService:
         return profile
 
     async def update_profile(
-        self, user_id: UUID, data: UpdateCompanionProfileRequest
+        self, user_id: UUID, data: UpdateCompanionProfileRequest, display_name: str | None = None
     ) -> CompanionProfile:
         profile = await self.repo.get_by_user_id(user_id)
         if profile is None:
-            raise NotFoundException("Companion profile not found")
+            # Auto-create profile for users with companion role but no profile record
+            real_name = display_name or "未填写"
+            update_data = data.model_dump(exclude_unset=True)
+            profile = CompanionProfile(
+                user_id=user_id,
+                real_name=real_name,
+                **{k: v for k, v in update_data.items() if v is not None},
+            )
+            return await self.repo.create(profile)
         update_data = data.model_dump(exclude_unset=True)
         if not update_data:
             return profile
@@ -62,17 +73,38 @@ class CompanionProfileService:
             raise NotFoundException("Companion not found")
         return profile
 
+    async def get_detail_by_user(self, user_id: UUID, display_name: str | None = None) -> CompanionProfile:
+        profile = await self.repo.get_by_user_id(user_id)
+        if profile is None:
+            # Auto-create profile for users with companion role but no profile record
+            real_name = display_name or "未填写"
+            profile = CompanionProfile(user_id=user_id, real_name=real_name)
+            return await self.repo.create(profile)
+        return profile
+
     async def list_companions(
         self,
         *,
         area: str | None = None,
+        city: str | None = None,
         service_type: str | None = None,
         hospital_id: str | None = None,
         skip: int = 0,
         limit: int = 20,
     ) -> Sequence[CompanionProfile]:
+        hospital_district: str | None = None
+        if hospital_id:
+            hospital = await self.hospital_repo.get_by_id(UUID(hospital_id))
+            if hospital and hospital.district:
+                hospital_district = hospital.district
         return await self.repo.search(
-            area=area, service_type=service_type, hospital_id=hospital_id, skip=skip, limit=limit
+            area=area,
+            city=city,
+            service_type=service_type,
+            hospital_id=hospital_id,
+            hospital_district=hospital_district,
+            skip=skip,
+            limit=limit,
         )
 
     async def get_stats(self, user: User) -> dict:

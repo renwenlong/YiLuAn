@@ -56,9 +56,14 @@ Page({
   },
 
   async onAccept() {
+    var order = this.data.order
+    var content = '确定要接受该订单吗？'
+    if (order && order.payment_status === 'unpaid') {
+      content = '患者暂未支付，是否仍要接单？'
+    }
     const res = await wx.showModal({
       title: '确认接单',
-      content: '确定要接受该订单吗？',
+      content: content,
       confirmText: '确认',
       confirmColor: '#4CAF50'
     })
@@ -78,18 +83,17 @@ Page({
 
   async onStart() {
     const res = await wx.showModal({
-      title: '开始服务',
-      content: '确认开始为患者提供陪诊服务？',
-      confirmText: '确认',
+      title: '通知患者',
+      content: '将通知患者确认开始服务，患者确认后服务正式开始',
+      confirmText: '确认通知',
       confirmColor: '#4CAF50'
     })
     if (!res.confirm) return
 
     this.setData({ loading: true })
     try {
-      await orderAction(this.orderId, 'start')
-      wx.showToast({ title: '服务已开始', icon: 'success' })
-      this.loadOrder()
+      await orderAction(this.orderId, 'request-start')
+      wx.showToast({ title: '已通知患者，等待确认', icon: 'success' })
     } catch (err) {
       wx.showToast({ title: '操作失败', icon: 'none' })
     } finally {

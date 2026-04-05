@@ -86,7 +86,8 @@
 
     <!-- Accepted / In Progress: can chat + cancel -->
     <block wx:if="{{order.status === 'accepted'}}">
-      <button class="btn-primary" bindtap="onChat">联系陪诊师</button>
+      <button class="btn-primary" bindtap="onConfirmStart">确认开始服务</button>
+      <button class="btn-secondary" bindtap="onChat">联系陪诊师</button>
       <button class="btn-danger" bindtap="onCancel">取消订单</button>
     </block>
     <block wx:if="{{order.status === 'in_progress'}}">

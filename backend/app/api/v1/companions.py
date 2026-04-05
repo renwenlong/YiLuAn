@@ -20,6 +20,7 @@ async def list_companions(
     session: DBSession,
     current_user: CurrentUser,
     area: str | None = Query(None),
+    city: str | None = Query(None),
     service_type: str | None = Query(None),
     hospital_id: str | None = Query(None),
     page: int = Query(1, ge=1),
@@ -28,8 +29,17 @@ async def list_companions(
     service = CompanionProfileService(session)
     skip = (page - 1) * page_size
     return await service.list_companions(
-        area=area, service_type=service_type, hospital_id=hospital_id, skip=skip, limit=page_size
+        area=area, city=city, service_type=service_type, hospital_id=hospital_id, skip=skip, limit=page_size
     )
+
+
+@router.get("/me", response_model=CompanionDetailResponse)
+async def get_my_profile(
+    session: DBSession,
+    current_user: CurrentUser,
+):
+    service = CompanionProfileService(session)
+    return await service.get_detail_by_user(current_user.id, display_name=current_user.display_name)
 
 
 @router.get("/me/stats", response_model=CompanionStatsResponse)
@@ -68,4 +78,4 @@ async def update_companion_profile(
     session: DBSession,
 ):
     service = CompanionProfileService(session)
-    return await service.update_profile(current_user.id, body)
+    return await service.update_profile(current_user.id, body, display_name=current_user.display_name)

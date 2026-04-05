@@ -16,7 +16,7 @@ class TestHospitals:
         resp = await client.post("/api/v1/hospitals/seed")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["seeded"] == 97
+        assert data["seeded"] == 111
 
     async def test_search_hospitals_keyword(self, client, seed_hospital):
         await seed_hospital(name="北京协和医院")
@@ -58,4 +58,4 @@ class TestHospitals:
         await client.post("/api/v1/hospitals/seed")
         resp = await client.post("/api/v1/hospitals/seed")
         data = resp.json()
-        assert data["seeded"] == 97
+        assert data["seeded"] == 111
