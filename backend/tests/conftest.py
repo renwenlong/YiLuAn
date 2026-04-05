@@ -15,6 +15,7 @@ from app.models.hospital import Hospital
 from app.models.notification import Notification, NotificationType
 from app.models.order import Order, OrderStatus, ServiceType
 from app.models.patient_profile import PatientProfile
+from app.models.payment import Payment
 from app.models.review import Review
 from app.models.user import User, UserRole
 
@@ -248,6 +249,32 @@ def seed_order():
             await session.commit()
             await session.refresh(order)
             return order
+
+    return _seed
+
+
+@pytest.fixture
+def seed_payment():
+    async def _seed(
+        order_id: uuid.UUID,
+        user_id: uuid.UUID,
+        *,
+        amount: float = 299.0,
+        payment_type: str = "pay",
+        status: str = "success",
+    ) -> Payment:
+        async with test_session_factory() as session:
+            payment = Payment(
+                order_id=order_id,
+                user_id=user_id,
+                amount=amount,
+                payment_type=payment_type,
+                status=status,
+            )
+            session.add(payment)
+            await session.commit()
+            await session.refresh(payment)
+            return payment
 
     return _seed
 

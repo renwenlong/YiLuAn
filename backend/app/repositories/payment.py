@@ -13,6 +13,17 @@ class OrderStatusHistoryRepository(BaseRepository[OrderStatusHistory]):
     def __init__(self, session: AsyncSession):
         super().__init__(OrderStatusHistory, session)
 
+    async def list_by_order_id(
+        self, order_id: UUID
+    ) -> Sequence[OrderStatusHistory]:
+        stmt = (
+            select(OrderStatusHistory)
+            .where(OrderStatusHistory.order_id == order_id)
+            .order_by(OrderStatusHistory.created_at.asc())
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
 
 class PaymentRepository(BaseRepository[Payment]):
     def __init__(self, session: AsyncSession):

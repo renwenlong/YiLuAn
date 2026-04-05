@@ -53,7 +53,8 @@ Page({
           ...order,
           review: review,
           formattedDate: formatDate(order.appointment_date),
-          formattedPrice: order.price ? formatPrice(order.price) : ''
+          formattedPrice: order.price ? formatPrice(order.price) : '',
+          timelineIndex: order.timeline_index
         },
         serviceLabel: svc.label || order.service_type,
         paymentStatusLabel: PAYMENT_STATUS_MAP[paymentStatus] || paymentStatus,
@@ -98,9 +99,37 @@ Page({
   },
 
   async onCancel() {
+    var order = this.data.order
+    var content = '确定要取消该订单吗？'
+    if (order.payment_status === 'paid') {
+      content = '取消后将全额退款，确定要取消吗？'
+    }
     const res = await wx.showModal({
       title: '确认取消',
-      content: '确定要取消该订单吗？',
+      content: content,
+      confirmText: '确认取消',
+      confirmColor: '#e53935'
+    })
+    if (!res.confirm) return
+
+    this.setData({ loading: true })
+    try {
+      await orderAction(this.orderId, 'cancel')
+      wx.showToast({ title: '已取消', icon: 'success' })
+      this.loadOrder()
+    } catch (err) {
+      wx.showToast({ title: '操作失败', icon: 'none' })
+    } finally {
+      this.setData({ loading: false })
+    }
+  },
+
+  async onCancelInProgress() {
+    var order = this.data.order
+    var content = '服务已开始，取消将退还50%费用，确定要取消吗？'
+    const res = await wx.showModal({
+      title: '确认取消',
+      content: content,
       confirmText: '确认取消',
       confirmColor: '#e53935'
     })

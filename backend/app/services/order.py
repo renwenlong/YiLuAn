@@ -42,6 +42,11 @@ class OrderService:
     async def create_order(
         self, user: User, data: CreateOrderRequest
     ) -> Order:
+        # Check if patient has unpaid orders
+        has_unpaid = await self.order_repo.has_unpaid_orders(user.id)
+        if has_unpaid:
+            raise BadRequestException("您有未支付的订单，请先完成支付后再下单")
+
         hospital = await self.hospital_repo.get_by_id(data.hospital_id)
         if hospital is None:
             raise NotFoundException("Hospital not found")
@@ -92,6 +97,7 @@ class OrderService:
         ):
             raise ForbiddenException("Not your order")
         await self._fill_payment_status(order)
+        await self._fill_timeline(order)
         return order
 
     async def list_orders(
@@ -214,16 +220,21 @@ class OrderService:
 
         self._validate_transition(order.status, new_status)
 
+        old_status = order.status
         order = await self.order_repo.update(order, {"status": new_status})
-        await self._record_history(order.id, order.status, new_status, user.id)
+        await self._record_history(order.id, old_status, new_status, user.id)
 
-        # Auto-refund if already paid
+        # Auto-refund if already paid — staged refund based on old status
         existing_pay = await self.payment_repo.get_by_order_and_type(order_id, "pay")
         if existing_pay:
+            if old_status in (OrderStatus.created, OrderStatus.accepted):
+                refund_amount = order.price  # 100% refund
+            else:
+                refund_amount = round(order.price * 0.5, 2)  # 50% refund
             refund = Payment(
                 order_id=order_id,
                 user_id=order.patient_id,
-                amount=order.price,
+                amount=refund_amount,
                 payment_type="refund",
                 status="success",
             )
@@ -336,3 +347,23 @@ class OrderService:
             order.payment_status = "paid"
         else:
             order.payment_status = "unpaid"
+
+    STATUS_LABELS = {
+        "created": "订单已创建",
+        "accepted": "陪诊师已接单",
+        "in_progress": "服务进行中",
+        "completed": "服务已完成",
+        "reviewed": "已评价",
+        "cancelled_by_patient": "患者已取消",
+        "cancelled_by_companion": "陪诊师已取消",
+    }
+
+    async def _fill_timeline(self, order: Order) -> None:
+        history = await self.history_repo.list_by_order_id(order.id)
+        timeline = []
+        for h in history:
+            label = self.STATUS_LABELS.get(h.to_status, h.to_status)
+            ts = h.created_at.strftime("%Y-%m-%d %H:%M") if h.created_at else ""
+            timeline.append({"title": label, "time": ts})
+        order.timeline = timeline
+        order.timeline_index = len(timeline) - 1 if timeline else -1
