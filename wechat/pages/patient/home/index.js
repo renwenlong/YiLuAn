@@ -269,7 +269,7 @@ Page({
       return {
         id: item.id,
         name: item.real_name || item.display_name || '',
-        rating: item.avg_rating || 0,
+        rating: item.avg_rating ? parseFloat(item.avg_rating.toFixed(1)) : 0,
         completed_orders: item.total_orders || 0,
         service_areas: item.service_area ? item.service_area.split('、') : []
       }
