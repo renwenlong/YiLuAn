@@ -548,9 +548,9 @@ class TestPayment:
         resp = await authenticated_client.post(f"/api/v1/orders/{order.id}/pay")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["payment_type"] == "pay"
-        assert data["amount"] == 299.0
-        assert data["status"] == "success"
+        assert data["provider"] == "mock"
+        assert data["mock_success"] is True
+        assert data["payment_id"] is not None
 
     async def test_pay_order_duplicate(
         self, authenticated_client, seed_hospital, seed_order

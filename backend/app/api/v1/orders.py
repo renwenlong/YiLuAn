@@ -114,14 +114,21 @@ async def cancel_order(
     return await service.cancel_order(order_id, current_user)
 
 
-@router.post("/{order_id}/pay", response_model=PaymentResponse)
+@router.post("/{order_id}/pay")
 async def pay_order(
     order_id: UUID,
     current_user: CurrentUser,
     session: DBSession,
 ):
     service = OrderService(session)
-    return await service.pay_order(order_id, current_user)
+    result = await service.pay_order(order_id, current_user)
+    return {
+        "payment_id": str(result.payment_id),
+        "provider": result.provider,
+        "prepay_id": result.prepay_id,
+        "sign_params": result.sign_params,
+        "mock_success": result.mock_success,
+    }
 
 
 @router.post("/{order_id}/refund", response_model=PaymentResponse)
