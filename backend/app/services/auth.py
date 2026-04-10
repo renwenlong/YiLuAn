@@ -12,6 +12,7 @@ from app.models.user import User
 from app.repositories.user import UserRepository
 from app.schemas.auth import RefreshTokenResponse, TokenResponse, UserResponse
 from app.services.wechat import WeChatAPIClient
+from app.services.sms import get_sms_provider
 
 
 OTP_TTL = 300
@@ -38,6 +39,11 @@ class AuthService:
 
         if settings.sms_provider == "mock":
             print(f"[DEV] OTP for {phone}: {code}")
+        else:
+            sms = get_sms_provider()
+            success = await sms.send(phone, code)
+            if not success:
+                raise BadRequestException("短信发送失败，请稍后重试")
 
     async def verify_otp(self, phone: str, code: str) -> TokenResponse:
         otp_key = f"otp:{phone}"

@@ -147,3 +147,27 @@ class OrderRepository(BaseRepository[Order]):
         )
         result = await self.session.execute(stmt)
         return result.scalar_one() > 0
+
+    async def list_all(
+        self,
+        *,
+        status: OrderStatus | None = None,
+        skip: int = 0,
+        limit: int = 20,
+    ) -> tuple[Sequence[Order], int]:
+        """Admin: list all orders with optional status filter."""
+        where_clause = []
+        if status:
+            where_clause.append(Order.status == status)
+
+        count_stmt = select(func.count()).select_from(Order)
+        if where_clause:
+            count_stmt = count_stmt.where(*where_clause)
+        total = (await self.session.execute(count_stmt)).scalar_one()
+
+        stmt = select(Order)
+        if where_clause:
+            stmt = stmt.where(*where_clause)
+        stmt = stmt.order_by(Order.created_at.desc()).offset(skip).limit(limit)
+        result = await self.session.execute(stmt)
+        return result.scalars().all(), total
