@@ -27,6 +27,19 @@
 - **影响范围**：排期、资源投入、上线节奏
 - **状态**：执行中
 
+### D-003 支付架构重构方案
+- **参与角色**：Arch / Backend
+- **背景**：原 pay_order 直接在 OrderService 内创建 Payment 记录，硬编码 status="success"，无法对接真实支付。
+- **候选方案**：
+  A. 在 OrderService 内直接调用微信支付
+  B. 抽出独立 PaymentService，支付领域入口
+  C. 引入第三方聚合支付
+- **决策**：方案 B。
+- **原因**：OrderService 已 450+ 行，支付/退款/回调是独立领域，应该分离；mock 要保留给测试环境。
+- **已完成**：Phase 1 — PaymentService 骨架 + mock provider + 回调端点 + Payment 模型扩展
+- **待完成**：Phase 2 — 微信支付 v3 SDK 真实接入（需商户凭证）
+- **状态**：Phase 1 已完成，已提交 `50a9042`
+
 ---
 
 ## 决策记录模板
