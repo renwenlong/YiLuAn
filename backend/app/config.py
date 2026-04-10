@@ -35,7 +35,12 @@ class Settings(BaseSettings):
     wechat_app_secret: str = ""
 
     # SMS
-    sms_provider: str = "mock"
+    sms_provider: str = "mock"  # mock / aliyun / tencent
+    sms_access_key: str = ""
+    sms_access_secret: str = ""
+    sms_sign_name: str = ""
+    sms_template_code: str = ""
+    sms_sdk_app_id: str = ""  # Tencent Cloud only
 
     # Payment
     payment_provider: str = "mock"  # mock / wechat

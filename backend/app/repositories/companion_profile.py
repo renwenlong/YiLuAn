@@ -56,3 +56,19 @@ class CompanionProfileRepository(BaseRepository[CompanionProfile]):
         stmt = stmt.offset(skip).limit(limit)
         result = await self.session.execute(stmt)
         return result.scalars().all()
+
+    async def list_by_status(
+        self,
+        status: VerificationStatus,
+        *,
+        skip: int = 0,
+        limit: int = 20,
+    ) -> Sequence[CompanionProfile]:
+        stmt = (
+            select(CompanionProfile)
+            .where(CompanionProfile.verification_status == status)
+            .offset(skip)
+            .limit(limit)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
