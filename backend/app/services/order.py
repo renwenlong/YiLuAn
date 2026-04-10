@@ -21,6 +21,7 @@ from app.repositories.payment import PaymentRepository, OrderStatusHistoryReposi
 from app.repositories.companion_profile import CompanionProfileRepository
 from app.schemas.order import CreateOrderRequest
 from app.services.notification import NotificationService
+from app.services.payment_service import PaymentService, PrepayResult
 
 
 def generate_order_number() -> str:
@@ -37,6 +38,7 @@ class OrderService:
         self.history_repo = OrderStatusHistoryRepository(session)
         self.companion_repo = CompanionProfileRepository(session)
         self.notification_svc = NotificationService(session)
+        self.payment_svc = PaymentService(session)
         self.session = session
 
     async def create_order(
@@ -269,19 +271,20 @@ class OrderService:
 
         # Auto-refund if already paid — staged refund based on old status
         existing_pay = await self.payment_repo.get_by_order_and_type(order_id, "pay")
-        if existing_pay:
+        if existing_pay and existing_pay.status == "success":
             if old_status in (OrderStatus.created, OrderStatus.accepted):
                 refund_amount = order.price  # 100% refund
             else:
                 refund_amount = round(order.price * 0.5, 2)  # 50% refund
-            refund = Payment(
-                order_id=order_id,
-                user_id=order.patient_id,
-                amount=refund_amount,
-                payment_type="refund",
-                status="success",
-            )
-            await self.payment_repo.create(refund)
+            try:
+                await self.payment_svc.create_refund(
+                    order_id=order_id,
+                    user_id=order.patient_id,
+                    original_amount=order.price,
+                    refund_amount=refund_amount,
+                )
+            except BadRequestException:
+                pass  # Already refunded, ignore
 
         # Notify the other party about cancellation
         if user.role == UserRole.patient and order.companion_id:
@@ -294,7 +297,7 @@ class OrderService:
             )
         return order
 
-    async def pay_order(self, order_id: uuid.UUID, user: User) -> Payment:
+    async def pay_order(self, order_id: uuid.UUID, user: User) -> PrepayResult:
         order = await self._get_order_for_update_or_404(order_id)
         if order.patient_id != user.id:
             raise ForbiddenException("Not your order")
@@ -304,18 +307,15 @@ class OrderService:
         ):
             raise BadRequestException("Cannot pay for a cancelled order")
 
-        existing = await self.payment_repo.get_by_order_and_type(order_id, "pay")
-        if existing:
-            raise BadRequestException("Order already paid")
-
-        payment = Payment(
-            order_id=order_id,
+        result = await self.payment_svc.create_prepay(
+            order_id=order.id,
+            order_number=order.order_number,
             user_id=user.id,
             amount=order.price,
-            payment_type="pay",
-            status="success",
+            description=f"医路安陪诊服务-{order.order_number}",
+            openid=getattr(user, "wechat_openid", None),
         )
-        return await self.payment_repo.create(payment)
+        return result
 
     async def refund_order(self, order_id: uuid.UUID, user: User) -> Payment:
         order = await self._get_order_for_update_or_404(order_id)
@@ -327,22 +327,17 @@ class OrderService:
         ):
             raise BadRequestException("Only cancelled orders can be refunded")
 
-        existing_pay = await self.payment_repo.get_by_order_and_type(order_id, "pay")
-        if not existing_pay:
-            raise BadRequestException("Order has no payment to refund")
-
-        existing_refund = await self.payment_repo.get_by_order_and_type(order_id, "refund")
-        if existing_refund:
-            raise BadRequestException("Order already refunded")
-
-        refund = Payment(
+        result = await self.payment_svc.create_refund(
             order_id=order_id,
             user_id=user.id,
-            amount=order.price,
-            payment_type="refund",
-            status="success",
+            original_amount=order.price,
+            refund_amount=order.price,
         )
-        return await self.payment_repo.create(refund)
+        # Return the Payment record for API response compatibility
+        payment = await self.payment_repo.get_by_order_and_type(order_id, "refund")
+        if payment is None:
+            raise BadRequestException("Refund record not found")
+        return payment
 
     # --- helpers ---
 

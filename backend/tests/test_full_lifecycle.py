@@ -66,9 +66,8 @@ class TestFullOrderLifecycle:
         resp = await authenticated_client.post(f"/api/v1/orders/{order_id}/pay")
         assert resp.status_code == 200
         pay_data = resp.json()
-        assert pay_data["payment_type"] == "pay"
-        assert pay_data["amount"] == 299.0
-        assert pay_data["status"] == "success"
+        assert pay_data["provider"] == "mock"
+        assert pay_data["mock_success"] is True
 
         # Verify payment_status = paid
         resp = await authenticated_client.get(f"/api/v1/orders/{order_id}")
@@ -253,9 +252,8 @@ class TestStage2_Payment:
         resp = await authenticated_client.post(f"/api/v1/orders/{order['id']}/pay")
         assert resp.status_code == 200
         data = resp.json()
-        assert data["payment_type"] == "pay"
-        assert data["amount"] == 299.0
-        assert data["status"] == "success"
+        assert data["provider"] == "mock"
+        assert data["mock_success"] is True
 
     async def test_pay_duplicate_rejected(self, authenticated_client, seed_hospital):
         hospital = await seed_hospital()
