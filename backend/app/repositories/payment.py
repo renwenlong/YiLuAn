@@ -68,3 +68,8 @@ class PaymentRepository(BaseRepository[Payment]):
         )
         result = await self.session.execute(stmt)
         return result.scalars().all(), total
+
+    async def get_by_trade_no(self, trade_no: str) -> Payment | None:
+        stmt = select(Payment).where(Payment.trade_no == trade_no).limit(1)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()

@@ -37,6 +37,14 @@ class Settings(BaseSettings):
     # SMS
     sms_provider: str = "mock"
 
+    # Payment
+    payment_provider: str = "mock"  # mock / wechat
+    wechat_pay_mch_id: str = ""  # 微信支付商户号
+    wechat_pay_api_key_v3: str = ""  # v3 API 密钥
+    wechat_pay_cert_serial: str = ""  # 证书序列号
+    wechat_pay_private_key_path: str = ""  # 商户私钥路径
+    wechat_pay_notify_url: str = ""  # 回调通知 URL
+
     # CORS
     cors_origins: list[str] = ["*"]
 

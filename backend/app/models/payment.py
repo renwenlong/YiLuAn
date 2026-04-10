@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Float, String, UniqueConstraint, Uuid
+from sqlalchemy import DateTime, Float, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -27,8 +27,20 @@ class Payment(Base):
         String(20), nullable=False
     )  # "pay" or "refund"
     status: Mapped[str] = mapped_column(
-        String(20), default="success", nullable=False
-    )  # mock: always success
+        String(20), default="pending", nullable=False
+    )  # pending / success / failed
+    trade_no: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, index=True
+    )  # WeChat transaction id or mock id
+    prepay_id: Mapped[str | None] = mapped_column(
+        String(128), nullable=True
+    )  # WeChat prepay session id
+    refund_id: Mapped[str | None] = mapped_column(
+        String(64), nullable=True
+    )  # Refund tracking number
+    callback_raw: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )  # Raw callback body for audit
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
