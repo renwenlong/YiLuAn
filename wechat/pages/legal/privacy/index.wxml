@@ -1,0 +1,103 @@
+<view class="legal-page">
+  <view class="legal-title">医路安隐私政策</view>
+  <view class="legal-meta">更新日期：2026年4月10日　生效日期：2026年4月10日</view>
+
+  <view class="legal-section">
+    <view class="section-title">一、引言</view>
+    <view class="section-body">"医路安"（以下简称"我们"）重视您的隐私保护。本政策说明我们如何收集、使用、存储和保护您的个人信息。请在使用前仔细阅读。</view>
+  </view>
+
+  <view class="legal-section">
+    <view class="section-title">二、我们收集的信息</view>
+    <view class="subsection-title">2.1 您主动提供的信息</view>
+    <view class="section-body">
+      <view class="list-item">注册信息：手机号码</view>
+      <view class="list-item">微信授权信息：微信昵称、头像（仅在您授权时）</view>
+      <view class="list-item">个人资料：姓名、性别、出生日期（用于服务匹配）</view>
+      <view class="list-item">就诊信息：预约医院、就诊时间、病情描述（用于订单服务）</view>
+      <view class="list-item">陪诊师认证信息：真实姓名、身份证号、资质证明（仅陪诊师）</view>
+    </view>
+    <view class="subsection-title">2.2 自动收集的信息</view>
+    <view class="section-body">
+      <view class="list-item">设备信息：设备型号、操作系统版本</view>
+      <view class="list-item">日志信息：访问时间、操作记录（用于安全审计）</view>
+    </view>
+    <view class="subsection-title">2.3 我们不收集的信息</view>
+    <view class="section-body">
+      <view class="list-item">我们不收集您的通讯录、位置信息（除非您主动开启）</view>
+      <view class="list-item">我们不读取您的短信、通话记录</view>
+      <view class="list-item">我们不收集您的相册内容（除您主动上传头像外）</view>
+    </view>
+  </view>
+
+  <view class="legal-section">
+    <view class="section-title">三、信息使用目的</view>
+    <view class="section-body">我们收集的信息仅用于以下目的：</view>
+    <view class="section-body">
+      <view class="list-item">1. 提供服务：处理订单、匹配陪诊师、发送服务通知</view>
+      <view class="list-item">2. 账号管理：注册、登录、身份验证</view>
+      <view class="list-item">3. 安全保障：风控、反欺诈、纠纷处理</view>
+      <view class="list-item">4. 服务改进：统计分析（匿名化处理）</view>
+      <view class="list-item">5. 客户服务：响应咨询和投诉</view>
+    </view>
+  </view>
+
+  <view class="legal-section">
+    <view class="section-title">四、信息共享</view>
+    <view class="section-body">我们不会将您的个人信息出售给第三方。以下情况除外：</view>
+    <view class="section-body">
+      <view class="list-item">1. 服务必要共享：与您匹配的陪诊师/患者可查看必要的联系信息</view>
+      <view class="list-item">2. 支付处理：向微信支付提供必要的交易信息</view>
+      <view class="list-item">3. 法律要求：应司法机关、监管部门的合法要求</view>
+      <view class="list-item">4. 安全保护：保护平台、用户或公众的合法权益</view>
+    </view>
+  </view>
+
+  <view class="legal-section">
+    <view class="section-title">五、信息存储与安全</view>
+    <view class="section-body">
+      <view class="list-item">1. 存储地点：您的信息存储在中国境内的服务器上。</view>
+      <view class="list-item">2. 存储期限：账号有效期内保存；账号注销后，我们将在30天内删除或匿名化处理。</view>
+      <view class="list-item">3. 安全措施：数据传输全程HTTPS加密；数据库访问权限严格控制；敏感信息加密存储；定期安全审计。</view>
+    </view>
+  </view>
+
+  <view class="legal-section">
+    <view class="section-title">六、您的权利</view>
+    <view class="section-body">您对自己的个人信息享有以下权利：</view>
+    <view class="section-body">
+      <view class="list-item">1. 查看：在"个人资料"页面查看您的信息</view>
+      <view class="list-item">2. 更正：随时修改您的个人资料</view>
+      <view class="list-item">3. 删除：您可以申请删除账号及相关数据</view>
+      <view class="list-item">4. 撤回授权：您可以在系统设置中撤回微信授权</view>
+      <view class="list-item">5. 注销账号：联系客服申请注销，我们将在15个工作日内处理</view>
+    </view>
+  </view>
+
+  <view class="legal-section">
+    <view class="section-title">七、未成年人保护</view>
+    <view class="section-body">本平台不面向14周岁以下未成年人提供服务。如我们发现未成年人未经家长同意注册使用，将主动删除相关信息。</view>
+  </view>
+
+  <view class="legal-section">
+    <view class="section-title">八、Cookie和类似技术</view>
+    <view class="section-body">小程序和iOS应用不使用浏览器Cookie。我们使用本地存储保存登录凭证，您可以通过清除应用数据清除这些信息。</view>
+  </view>
+
+  <view class="legal-section">
+    <view class="section-title">九、隐私政策更新</view>
+    <view class="section-body">我们可能适时修订本政策。重大变更将通过应用内通知或弹窗告知。继续使用即视为同意修订后的政策。</view>
+  </view>
+
+  <view class="legal-section">
+    <view class="section-title">十、联系我们</view>
+    <view class="section-body">如有隐私相关问题或行使您的权利，请通过以下方式联系：</view>
+    <view class="section-body">
+      <view class="list-item">客服邮箱：privacy@yiluan.com</view>
+      <view class="list-item">在线客服：平台内"我的 → 联系客服"</view>
+      <view class="list-item">响应时间：15个工作日内</view>
+    </view>
+  </view>
+
+  <view class="legal-footer">本隐私政策适用于医路安微信小程序和iOS应用。</view>
+</view>

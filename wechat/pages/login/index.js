@@ -9,7 +9,8 @@ Page({
     phone: '',
     code: '',
     sendingOTP: false,
-    countdown: 0
+    countdown: 0,
+    agreed: false
   },
 
   onLoad() {
@@ -36,6 +37,10 @@ Page({
 
   // ---- 微信登录 ----
   onLogin() {
+    if (!this.data.agreed) {
+      wx.showToast({ title: '请先同意用户协议和隐私政策', icon: 'none' })
+      return
+    }
     if (this.data.loading) return
     this.setData({ loading: true })
 
@@ -95,6 +100,10 @@ Page({
   },
 
   onPhoneLogin() {
+    if (!this.data.agreed) {
+      wx.showToast({ title: '请先同意用户协议和隐私政策', icon: 'none' })
+      return
+    }
     var phone = this.data.phone.trim()
     if (!validate.isValidPhone(phone)) {
       wx.showToast({ title: '请输入正确的手机号', icon: 'none' })
@@ -126,6 +135,19 @@ Page({
   // ---- 切换登录方式 ----
   onSwitchLoginMode() {
     this.setData({ showPhoneLogin: !this.data.showPhoneLogin })
+  },
+
+  // ---- 协议勾选 ----
+  onToggleAgreement() {
+    this.setData({ agreed: !this.data.agreed })
+  },
+
+  onOpenTerms() {
+    wx.navigateTo({ url: '/pages/legal/terms/index' })
+  },
+
+  onOpenPrivacy() {
+    wx.navigateTo({ url: '/pages/legal/privacy/index' })
   },
 
   // ---- 登录后路由 ----

@@ -500,15 +500,12 @@ class PaymentService:
         refund_number = f"R{uuid.uuid4().hex[:16].upper()}"
         is_mock = isinstance(self.provider, MockPaymentProvider)
 
-        if not is_mock:
-            result = await self.provider.create_refund(
-                trade_no=original_pay.trade_no or "",
-                refund_id=refund_number,
-                total_yuan=original_amount,
-                refund_yuan=refund_amount,
-            )
-        else:
-            result = {"refund_id": refund_number, "status": "success"}
+        result = await self.provider.create_refund(
+            trade_no=original_pay.trade_no or "",
+            refund_id=refund_number,
+            total_yuan=original_amount,
+            refund_yuan=refund_amount,
+        )
 
         refund = Payment(
             order_id=order_id,
