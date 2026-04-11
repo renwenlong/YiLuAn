@@ -168,6 +168,20 @@ async def companion_client(client, seed_user) -> AsyncClient:
 
 
 @pytest.fixture
+async def admin_client(client, seed_user) -> AsyncClient:
+    """Client authenticated as an admin user."""
+    async with test_session_factory() as session:
+        user = User(phone="13600136000", roles="admin,patient", is_active=True)
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+    token = create_access_token({"sub": str(user.id), "role": "admin"})
+    client.headers["Authorization"] = f"Bearer {token}"
+    client._test_user = user  # type: ignore[attr-defined]
+    return client
+
+
+@pytest.fixture
 def seed_patient_profile():
     async def _seed(user_id: uuid.UUID, **kwargs) -> PatientProfile:
         async with test_session_factory() as session:
