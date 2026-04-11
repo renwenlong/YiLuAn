@@ -43,10 +43,11 @@ class User(Base):
         nullable=False,
     )
 
-    def has_role(self, r: UserRole) -> bool:
+    def has_role(self, r: "UserRole | str") -> bool:
         if not self.roles:
             return False
-        return r.value in self.roles.split(",")
+        val = r.value if isinstance(r, UserRole) else r
+        return val in self.roles.split(",")
 
     def get_roles(self) -> list[str]:
         if not self.roles:

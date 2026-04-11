@@ -25,8 +25,11 @@
     "pages/profile/wallet/index",
     "pages/profile/settings/index",
     "pages/profile/about/index",
-    "pages/notification/index"
+    "pages/notification/index",
+    "pages/legal/privacy/index",
+    "pages/legal/terms/index"
   ],
+  "__usePrivacyCheck__": true,
   "window": {
     "navigationBarTitleText": "医路安",
     "navigationBarBackgroundColor": "#1890FF",
