@@ -66,6 +66,21 @@
       <view class="switch-login" bindtap="onSwitchLoginMode">
         <text class="switch-login-text">{{showPhoneLogin ? '微信一键登录' : '手机号登录'}}</text>
       </view>
+
+      <!-- 协议勾选 -->
+      <view class="agreement-section">
+        <view class="agreement-checkbox" bindtap="onToggleAgreement">
+          <view class="checkbox-icon {{agreed ? 'checked' : ''}}">
+            <text wx:if="{{agreed}}" class="check-mark">✓</text>
+          </view>
+          <view class="agreement-text">
+            <text>我已阅读并同意</text>
+            <text class="agreement-link" catchtap="onOpenTerms">《用户协议》</text>
+            <text>和</text>
+            <text class="agreement-link" catchtap="onOpenPrivacy">《隐私政策》</text>
+          </view>
+        </view>
+      </view>
     </view>
   </view>
 </view>

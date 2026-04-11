@@ -25,6 +25,10 @@ azure-storage-blob==12.24.0
 # HTTP client (for APNs etc)
 httpx==0.28.1
 
+# SMS SDKs
+alibabacloud-dysmsapi20170525>=3.0.0
+tencentcloud-sdk-python-sms>=3.0.0
+
 # Rate limiting
 slowapi==0.1.9
 
