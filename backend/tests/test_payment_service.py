@@ -6,6 +6,12 @@ import pytest
 from httpx import AsyncClient
 
 from app.models.order import OrderStatus
+from app.services.payment_service import (
+    MockPaymentProvider,
+    PaymentProvider,
+    PaymentService,
+    RefundResult,
+)
 
 
 @pytest.mark.asyncio
@@ -144,3 +150,111 @@ class TestPaymentCallback:
         assert resp.status_code == 200
         data = resp.json()
         assert data["code"] == "SUCCESS"
+
+
+# =============================================================================
+# verify_callback boundary tests
+# =============================================================================
+
+
+@pytest.mark.asyncio
+class TestVerifyCallbackBoundary:
+    """Edge cases for verify_callback via the callback endpoint."""
+
+    async def test_callback_empty_body(self, authenticated_client: AsyncClient):
+        """Empty body should still return 200 (endpoint never returns non-200)."""
+        resp = await authenticated_client.post(
+            "/api/v1/payments/wechat/callback",
+            content=b"",
+            headers={"content-type": "application/json"},
+        )
+        assert resp.status_code == 200
+
+    async def test_callback_non_json_body(self, authenticated_client: AsyncClient):
+        """Non-JSON body should still return 200 (graceful handling)."""
+        resp = await authenticated_client.post(
+            "/api/v1/payments/wechat/callback",
+            content=b"this is not json at all!",
+            headers={"content-type": "application/json"},
+        )
+        assert resp.status_code == 200
+
+    async def test_callback_valid_json_missing_fields(
+        self, authenticated_client: AsyncClient
+    ):
+        """Valid JSON missing required fields should still return 200."""
+        resp = await authenticated_client.post(
+            "/api/v1/payments/wechat/callback",
+            content=b'{"foo": "bar"}',
+            headers={"content-type": "application/json"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["code"] in ("SUCCESS", "FAIL")
+
+    async def test_refund_callback_empty_body(
+        self, authenticated_client: AsyncClient
+    ):
+        """Empty body on refund callback should still return 200."""
+        resp = await authenticated_client.post(
+            "/api/v1/payments/wechat/refund-callback",
+            content=b"",
+            headers={"content-type": "application/json"},
+        )
+        assert resp.status_code == 200
+
+
+# =============================================================================
+# MockPaymentProvider unit tests
+# =============================================================================
+
+
+@pytest.mark.asyncio
+class TestMockPaymentProvider:
+    """Direct tests for MockPaymentProvider."""
+
+    async def test_create_prepay(self):
+        """Mock prepay should return success with MOCK_ trade_no."""
+        provider = MockPaymentProvider()
+        result = await provider.create_prepay("YLA123", 299.0, "test")
+        assert result["status"] == "success"
+        assert result["trade_no"].startswith("MOCK_")
+        assert result["prepay_id"].startswith("mock_prepay_")
+
+    async def test_create_refund(self):
+        """Mock refund should return success with provided refund_id."""
+        provider = MockPaymentProvider()
+        result = await provider.create_refund("MOCK_ABC", "R123", 299.0, 149.5)
+        assert result["status"] == "success"
+        assert result["refund_id"] == "R123"
+
+    async def test_verify_callback(self):
+        """Mock verify_callback should return verified True."""
+        provider = MockPaymentProvider()
+        result = await provider.verify_callback({}, b'{"test": true}')
+        assert result["verified"] is True
+
+
+# =============================================================================
+# PaymentProvider base class
+# =============================================================================
+
+
+@pytest.mark.asyncio
+class TestPaymentProviderBase:
+    """Tests for PaymentProvider abstract base class."""
+
+    async def test_create_prepay_raises(self):
+        provider = PaymentProvider()
+        with pytest.raises(NotImplementedError):
+            await provider.create_prepay("YLA1", 100.0, "test")
+
+    async def test_create_refund_raises(self):
+        provider = PaymentProvider()
+        with pytest.raises(NotImplementedError):
+            await provider.create_refund("T1", "R1", 100.0, 50.0)
+
+    async def test_verify_callback_raises(self):
+        provider = PaymentProvider()
+        with pytest.raises(NotImplementedError):
+            await provider.verify_callback({}, b"")
