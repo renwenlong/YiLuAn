@@ -53,6 +53,45 @@
 
 ---
 
+## 2026-04-11
+
+### D-005 微信支付回调验签方案
+- **参与角色**：Arch / Backend
+- **背景**：微信支付 v3 回调需要验签以确保通知来源真实性。有两个实现路径：A. 使用 wechatpay-python 或 wechatpy 第三方库；B. 基于 cryptography 库手动实现 RSA-SHA256 验签。
+- **候选方案**：
+  A. 使用第三方 SDK（wechatpay-python / wechatpy）自带验签
+  B. 手动实现：cryptography 库解析证书 + RSA-SHA256 验签
+- **决策**：方案 B — 手动实现，基于 cryptography 库
+- **原因**：
+  1. 第三方 SDK 版本更新滞后，API v3 支持不完整
+  2. cryptography 已在依赖中（JWT 间接引用），无新增依赖
+  3. 验签逻辑仅数十行，手动实现可控性更强
+  4. 避免 SDK 抽象泄漏与版本锁定风险
+- **影响范围**：`app/services/payment/wechat_provider.py` 中 `verify_callback` 方法
+- **后续动作**：实现 verify_callback 并编写单元测试覆盖正常/篡改/过期场景
+- **状态**：已确认，待实现
+
+### D-006 生产配置安全策略
+- **参与角色**：Backend / Ops
+- **背景**：项目即将进入部署阶段，需确保生产环境不会因配置遗漏或错误导致安全事故。
+- **决策**：
+  1. 在 `config.py` 添加 `model_validator(mode='after')` 生产模式校验：
+     - `ENVIRONMENT=production` 时，`JWT_SECRET_KEY` 不能是开发默认值，否则拒绝启动
+     - `ENVIRONMENT=production` 时，`DEBUG` 必须为 `false`
+     - `ENVIRONMENT=production` + `PAYMENT_PROVIDER=wechat` 时，检查微信支付四项凭证完整性
+     - `ENVIRONMENT=production` + `SMS_PROVIDER!=mock` 时，检查 SMS 四项凭证完整性
+  2. 新增 `.env.example` 配置模板，标注所有配置项及中文说明
+  3. 新增 `/api/v1/health` 和 `/api/v1/readiness` 健康检查端点
+- **原因**：
+  1. 防止带着开发密钥部署生产，避免 JWT 被伪造
+  2. 防止生产环境开启 debug 暴露堆栈信息
+  3. 确保支付/短信等关键服务凭证齐全，避免运行时才发现配置缺失
+  4. 健康检查端点为 K8s / 负载均衡器提供存活/就绪探针
+- **影响范围**：`backend/app/config.py`、`backend/.env.example`、`backend/app/api/v1/health.py`
+- **状态**：已完成
+
+---
+
 ## 决策记录模板
 
 ### D-XXX 标题
