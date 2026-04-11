@@ -1,3 +1,4 @@
+from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -54,6 +55,57 @@ class Settings(BaseSettings):
     cors_origins: list[str] = ["*"]
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+
+    @model_validator(mode="after")
+    def validate_production_config(self):
+        if self.environment != "production":
+            return self
+
+        # JWT 密钥不能是开发默认值
+        if self.jwt_secret_key == "dev-secret-key-change-in-production":
+            raise ValueError(
+                "生产环境禁止使用默认 JWT 密钥，请设置 JWT_SECRET_KEY"
+            )
+
+        # 生产环境必须关闭 debug
+        if self.debug:
+            raise ValueError("生产环境必须设置 DEBUG=false")
+
+        # 微信支付凭证完整性检查
+        if self.payment_provider == "wechat":
+            missing = [
+                name
+                for name, val in [
+                    ("WECHAT_PAY_MCH_ID", self.wechat_pay_mch_id),
+                    ("WECHAT_PAY_API_KEY_V3", self.wechat_pay_api_key_v3),
+                    ("WECHAT_PAY_CERT_SERIAL", self.wechat_pay_cert_serial),
+                    ("WECHAT_PAY_PRIVATE_KEY_PATH", self.wechat_pay_private_key_path),
+                ]
+                if not val
+            ]
+            if missing:
+                raise ValueError(
+                    f"生产环境微信支付缺少凭证: {', '.join(missing)}"
+                )
+
+        # SMS 凭证完整性检查
+        if self.sms_provider != "mock":
+            missing = [
+                name
+                for name, val in [
+                    ("SMS_ACCESS_KEY", self.sms_access_key),
+                    ("SMS_ACCESS_SECRET", self.sms_access_secret),
+                    ("SMS_SIGN_NAME", self.sms_sign_name),
+                    ("SMS_TEMPLATE_CODE", self.sms_template_code),
+                ]
+                if not val
+            ]
+            if missing:
+                raise ValueError(
+                    f"生产环境 SMS ({self.sms_provider}) 缺少凭证: {', '.join(missing)}"
+                )
+
+        return self
 
 
 settings = Settings()
