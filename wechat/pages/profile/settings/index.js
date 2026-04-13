@@ -171,5 +171,9 @@ Page({
 
   onAbout: function () {
     wx.navigateTo({ url: '/pages/profile/about/index' })
+  },
+
+  onDeleteAccount: function () {
+    wx.navigateTo({ url: '/pages/settings/delete-account/index' })
   }
 })

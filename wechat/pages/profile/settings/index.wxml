@@ -36,6 +36,15 @@
     </view>
   </view>
 
+  <view class="settings-section settings-section-danger">
+    <view class="settings-item" bindtap="onDeleteAccount">
+      <text class="item-label item-label-danger">注销账号</text>
+      <view class="item-right">
+        <text class="item-arrow">></text>
+      </view>
+    </view>
+  </view>
+
   <!-- 城市选择弹窗 -->
   <view class="city-modal-mask" wx:if="{{showCityPicker}}" bindtap="onCloseCityPicker">
     <view class="city-modal" catchtap>

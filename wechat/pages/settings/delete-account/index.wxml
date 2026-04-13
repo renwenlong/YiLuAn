@@ -1,0 +1,80 @@
+<view class="delete-account-page">
+  <!-- 顶部警告区域 -->
+  <view class="warning-header">
+    <view class="warning-icon">⚠</view>
+    <text class="warning-title">注销账号</text>
+    <text class="warning-subtitle">此操作将永久删除您的账号数据</text>
+  </view>
+
+  <!-- 数据说明卡片 -->
+  <view class="data-card">
+    <text class="card-title">注销后以下数据将被清除</text>
+    <view class="data-list">
+      <view class="data-item">
+        <text class="data-dot">•</text>
+        <text class="data-text">订单记录及服务历史</text>
+      </view>
+      <view class="data-item">
+        <text class="data-dot">•</text>
+        <text class="data-text">个人资料及实名信息</text>
+      </view>
+      <view class="data-item">
+        <text class="data-dot">•</text>
+        <text class="data-text">钱包余额及交易记录</text>
+      </view>
+      <view class="data-item">
+        <text class="data-dot">•</text>
+        <text class="data-text">聊天记录及评价信息</text>
+      </view>
+      <view class="data-item">
+        <text class="data-dot">•</text>
+        <text class="data-text">陪诊师认证资料（如有）</text>
+      </view>
+    </view>
+    <view class="recovery-notice">
+      <text class="recovery-text">注销后 30 天内可联系客服恢复账号，超过 30 天数据将永久删除，不可找回。</text>
+    </view>
+  </view>
+
+  <!-- 验证码确认区域 -->
+  <view class="verify-section">
+    <text class="verify-title">验证手机号 {{phoneMask}}</text>
+    <view class="code-row">
+      <input
+        class="code-input"
+        type="number"
+        maxlength="6"
+        placeholder="请输入验证码"
+        bindinput="onCodeInput"
+        value="{{code}}"
+      />
+      <button
+        class="code-btn {{countdown > 0 ? 'code-btn-disabled' : ''}}"
+        disabled="{{countdown > 0}}"
+        bindtap="onSendCode"
+      >
+        {{countdown > 0 ? countdown + 's' : '获取验证码'}}
+      </button>
+    </view>
+  </view>
+
+  <!-- 确认复选框 -->
+  <view class="confirm-check" bindtap="onToggleConfirm">
+    <view class="checkbox {{confirmed ? 'checkbox-checked' : ''}}">
+      <text wx:if="{{confirmed}}" class="checkbox-icon">✓</text>
+    </view>
+    <text class="confirm-label">我已了解风险，确认注销账号</text>
+  </view>
+
+  <!-- 底部按钮区域 -->
+  <view class="btn-area">
+    <button
+      class="btn-delete {{canSubmit ? '' : 'btn-disabled'}}"
+      disabled="{{!canSubmit}}"
+      bindtap="onConfirmDelete"
+    >
+      确认注销
+    </button>
+    <button class="btn-cancel" bindtap="onCancel">取消</button>
+  </view>
+</view>

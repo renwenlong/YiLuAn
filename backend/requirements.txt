@@ -16,6 +16,9 @@ pydantic-settings==2.7.1
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 
+# Cryptography (explicit — used for WeChat Pay signature verification & AES-GCM decryption)
+cryptography>=43.0.0
+
 # Redis
 redis[hiredis]==5.2.1
 
