@@ -1,4 +1,5 @@
 from fastapi import APIRouter, UploadFile
+from fastapi.responses import JSONResponse
 
 from app.core.security import create_access_token, create_refresh_token
 from app.dependencies import CurrentUser, DBSession
@@ -59,4 +60,17 @@ async def switch_role(
         access_token=access_token,
         refresh_token=refresh_token,
         user=UserResponse.model_validate(user),
+    )
+
+
+@router.delete("/me")
+async def delete_account(
+    current_user: CurrentUser,
+    session: DBSession,
+):
+    service = UserService(session)
+    await service.delete_account(current_user)
+    return JSONResponse(
+        status_code=200,
+        content={"message": "Account deleted successfully"},
     )

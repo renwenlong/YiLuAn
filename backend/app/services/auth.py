@@ -64,6 +64,8 @@ class AuthService:
             user = User(phone=phone)
             user = await self.user_repo.create(user)
 
+        if user.is_deleted:
+            raise UnauthorizedException("Account has been deleted")
         if not user.is_active:
             raise UnauthorizedException("Account is disabled")
 
@@ -97,6 +99,8 @@ class AuthService:
         user = await self.user_repo.get_by_id(uid)
         if user is None:
             raise UnauthorizedException("User not found")
+        if user.is_deleted:
+            raise UnauthorizedException("Account has been deleted")
         if not user.is_active:
             raise UnauthorizedException("Account is disabled")
 
@@ -124,6 +128,8 @@ class AuthService:
             user = User(wechat_openid=openid, wechat_unionid=unionid)
             user = await self.user_repo.create(user)
 
+        if user.is_deleted:
+            raise UnauthorizedException("Account has been deleted")
         if not user.is_active:
             raise UnauthorizedException("Account is disabled")
 

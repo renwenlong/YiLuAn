@@ -92,6 +92,59 @@
 
 ---
 
+## 2026-04-13
+
+### D-007 微信支付回调验签与解密实现
+- **参与角色**：Backend
+- **背景**：D-005 决策确认采用手动 cryptography 方案实现微信支付 v3 回调验签。`verify_callback` 中 `_verify_signature` 和 `_decrypt_resource` 仅有 TODO 框架，需落地实现。
+- **决策**：
+  1. `_verify_signature`: 从 headers 提取 Wechatpay-Timestamp/Nonce/Signature/Serial，构造 `{timestamp}\n{nonce}\n{body}\n` 验签字符串，用微信平台公钥做 RSA-SHA256 (PKCS1v15) 验证
+  2. `_decrypt_resource`: 用 api_key_v3 (32 字节) 作为 AES-256-GCM 密钥，解密 resource.ciphertext (base64)，nonce 和 associated_data 作为 GCM 参数
+  3. 平台证书从本地 PEM 文件加载（路径通过 `WECHAT_PAY_PLATFORM_CERT_PATH` 配置），模块级 `_platform_cert_cache` 字典缓存，线程安全
+  4. mock 兼容：`_has_credentials=False` 时跳过验签直接解析 body，不影响现有 mock 测试
+- **原因**：
+  1. 延续 D-005 方案 B 决策，cryptography 已在依赖链中
+  2. 本地证书加载方案简单可靠，无需在线拉取证书
+  3. 缓存避免每次回调都读文件
+- **影响范围**：`backend/app/services/payment_service.py`、`backend/app/config.py`（新增 `wechat_pay_platform_cert_path`）、`backend/requirements.txt`
+- **测试覆盖**：新增 `tests/test_wechat_verify_callback.py`（9 个用例）：正常验签、签名篡改失败、缺少 header、AES-GCM 正常解密、密钥错误解密失败、mock 模式跳过、无凭证跳过、证书缓存验证
+- **状态**：已完成
+
+### D-008 /readiness 端点返回 503
+- **参与角色**：Backend / Ops
+- **背景**：`/readiness` 端点在数据库或 Redis 检查失败时仍返回 HTTP 200，导致 K8s 就绪探针误判服务可用。
+- **决策**：
+  1. `/readiness` 增加 Redis 连通性检查（SET + GET）
+  2. 数据库或 Redis 任一检查失败 → 返回 HTTP 503 + `{status: "not_ready", db: "ok"|"error", redis: "ok"|"error"}`
+  3. 全部通过 → HTTP 200 + `{status: "ready", db: "ok", redis: "ok"}`
+  4. `/health` 保持无状态快速响应（liveness probe），仅返回 200
+- **原因**：就绪探针必须准确反映后端依赖可用性，否则负载均衡器会将流量发往不可用实例
+- **影响范围**：`backend/app/api/v1/health.py`、`backend/tests/test_health.py`
+- **状态**：已完成
+
+### D-009 账号注销策略（软删除 + 脱敏）
+- **参与角色**：Arch / Backend
+- **背景**：用户需要注销账号的能力，需符合数据保护要求，同时保留业务数据可追溯性。
+- **候选方案**：
+  A. 硬删除 — 直接从数据库删除用户记录
+  B. 软删除 — 标记 deleted_at，保留记录
+  C. 软删除 + 延迟清除 + 脱敏（推荐）
+- **决策**：方案 C — 软删除 + 即时脱敏
+- **原因**：
+  1. 硬删除会导致订单等关联数据孤立，无法追溯
+  2. 纯软删除不满足隐私数据最小化要求
+  3. 软删除 + 脱敏兼顾数据完整性和隐私合规
+- **实现细节**：
+  1. User 模型新增 `deleted_at: Optional[datetime]` 字段和 `is_deleted` 属性
+  2. `DELETE /api/v1/users/me` 端点：验证身份 → 取消进行中订单 → 脱敏敏感字段 → 设置 deleted_at
+  3. 脱敏策略：手机号 → SHA256 哈希前16位，姓名 → '已注销用户'，微信 OpenID/UnionID/头像 → NULL
+  4. 设置 `is_active=False` 阻止后续登录
+  5. 已注销用户通过 token 或 OTP/微信登录时返回 401 "Account has been deleted"
+- **影响范围**：`app/models/user.py`、`app/services/user.py`、`app/api/v1/users.py`、`app/dependencies.py`、`app/services/auth.py`
+- **状态**：已完成
+
+---
+
 ## 决策记录模板
 
 ### D-XXX 标题

@@ -1,0 +1,212 @@
+.delete-account-page {
+  min-height: 100vh;
+  background-color: #F5F5F5;
+  padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
+}
+
+/* 顶部警告区域 */
+.warning-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60rpx 32rpx 40rpx;
+  background-color: #FFF2F0;
+}
+
+.warning-icon {
+  font-size: 72rpx;
+  margin-bottom: 16rpx;
+}
+
+.warning-title {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #FF4D4F;
+  margin-bottom: 12rpx;
+}
+
+.warning-subtitle {
+  font-size: 26rpx;
+  color: #999999;
+}
+
+/* 数据说明卡片 */
+.data-card {
+  margin: 24rpx 24rpx 0;
+  padding: 32rpx;
+  background-color: #FFFFFF;
+  border-radius: 12rpx;
+}
+
+.card-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333333;
+  margin-bottom: 24rpx;
+}
+
+.data-list {
+  margin-bottom: 24rpx;
+}
+
+.data-item {
+  display: flex;
+  align-items: flex-start;
+  padding: 10rpx 0;
+}
+
+.data-dot {
+  font-size: 28rpx;
+  color: #FF4D4F;
+  margin-right: 12rpx;
+  line-height: 40rpx;
+}
+
+.data-text {
+  font-size: 28rpx;
+  color: #666666;
+  line-height: 40rpx;
+}
+
+.recovery-notice {
+  padding: 20rpx;
+  background-color: #FFFBE6;
+  border-radius: 8rpx;
+  border-left: 6rpx solid #FAAD14;
+}
+
+.recovery-text {
+  font-size: 26rpx;
+  color: #8C6D1F;
+  line-height: 38rpx;
+}
+
+/* 验证码区域 */
+.verify-section {
+  margin: 24rpx 24rpx 0;
+  padding: 32rpx;
+  background-color: #FFFFFF;
+  border-radius: 12rpx;
+}
+
+.verify-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333333;
+  margin-bottom: 24rpx;
+}
+
+.code-row {
+  display: flex;
+  align-items: center;
+}
+
+.code-input {
+  flex: 1;
+  height: 80rpx;
+  border: 1rpx solid #D9D9D9;
+  border-radius: 8rpx;
+  padding: 0 24rpx;
+  font-size: 28rpx;
+  color: #333333;
+  margin-right: 16rpx;
+}
+
+.code-btn {
+  width: 220rpx;
+  height: 80rpx;
+  line-height: 80rpx;
+  text-align: center;
+  font-size: 26rpx;
+  color: #1890FF;
+  background-color: #FFFFFF;
+  border: 1rpx solid #1890FF;
+  border-radius: 8rpx;
+  padding: 0;
+}
+
+.code-btn-disabled {
+  color: #999999;
+  border-color: #D9D9D9;
+}
+
+/* 确认复选框 */
+.confirm-check {
+  display: flex;
+  align-items: center;
+  margin: 32rpx 24rpx 0;
+  padding: 24rpx 32rpx;
+  background-color: #FFFFFF;
+  border-radius: 12rpx;
+}
+
+.checkbox {
+  width: 36rpx;
+  height: 36rpx;
+  border: 2rpx solid #D9D9D9;
+  border-radius: 6rpx;
+  margin-right: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.checkbox-checked {
+  background-color: #FF4D4F;
+  border-color: #FF4D4F;
+}
+
+.checkbox-icon {
+  font-size: 24rpx;
+  color: #FFFFFF;
+}
+
+.confirm-label {
+  font-size: 28rpx;
+  color: #333333;
+}
+
+/* 底部按钮区域 */
+.btn-area {
+  margin: 40rpx 24rpx 0;
+}
+
+.btn-delete {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #FFFFFF;
+  background-color: #FF4D4F;
+  border-radius: 12rpx;
+  border: none;
+}
+
+.btn-delete::after {
+  border: none;
+}
+
+.btn-disabled {
+  background-color: #D9D9D9 !important;
+  color: #FFFFFF !important;
+}
+
+.btn-cancel {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  text-align: center;
+  font-size: 32rpx;
+  color: #666666;
+  background-color: #FFFFFF;
+  border-radius: 12rpx;
+  margin-top: 20rpx;
+  border: none;
+}
+
+.btn-cancel::after {
+  border: none;
+}

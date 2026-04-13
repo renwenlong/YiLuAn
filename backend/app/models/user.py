@@ -42,6 +42,13 @@ class User(Base):
         onupdate=lambda: datetime.now(timezone.utc),
         nullable=False,
     )
+    deleted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, default=None
+    )
+
+    @property
+    def is_deleted(self) -> bool:
+        return self.deleted_at is not None
 
     def has_role(self, r: "UserRole | str") -> bool:
         if not self.roles:

@@ -41,6 +41,8 @@ async def get_current_user(
     user = await repo.get_by_id(user_id)
     if user is None:
         raise UnauthorizedException("User not found")
+    if user.is_deleted:
+        raise UnauthorizedException("Account has been deleted")
     if not user.is_active:
         raise UnauthorizedException("Account is disabled")
     return user
