@@ -27,7 +27,8 @@
     "pages/profile/about/index",
     "pages/notification/index",
     "pages/legal/privacy/index",
-    "pages/legal/terms/index"
+    "pages/legal/terms/index",
+    "pages/settings/delete-account/index"
   ],
   "__usePrivacyCheck__": true,
   "window": {

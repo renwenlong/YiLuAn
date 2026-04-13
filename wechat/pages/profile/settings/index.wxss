@@ -142,3 +142,11 @@
   color: #999999;
   padding: 20rpx 0 8rpx;
 }
+
+.settings-section-danger {
+  margin-top: 40rpx;
+}
+
+.item-label-danger {
+  color: #FF4D4F;
+}

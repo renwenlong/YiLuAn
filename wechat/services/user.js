@@ -50,4 +50,8 @@ function switchRole(role) {
   return request({ url: 'users/me/switch-role', method: 'POST', data: { role } })
 }
 
-module.exports = { getMe, updateMe, getPatientProfile, updatePatientProfile, uploadAvatar, switchRole }
+function deleteAccount(code) {
+  return request({ url: 'users/me', method: 'DELETE', data: { code } })
+}
+
+module.exports = { getMe, updateMe, getPatientProfile, updatePatientProfile, uploadAvatar, switchRole, deleteAccount }

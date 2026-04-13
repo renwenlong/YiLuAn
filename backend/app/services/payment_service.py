@@ -10,7 +10,10 @@ Provider is selected by ``settings.payment_provider``.
 
 from __future__ import annotations
 
+import base64
+import json
 import logging
+import threading
 import uuid
 from dataclasses import dataclass
 from typing import Any
@@ -23,6 +26,14 @@ from app.models.payment import Payment
 from app.repositories.payment import PaymentRepository
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Platform certificate cache (module-level, thread-safe)
+# ---------------------------------------------------------------------------
+
+_platform_cert_cache: dict[str, Any] = {}
+_cert_cache_lock = threading.Lock()
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +148,7 @@ class WechatPaymentProvider(PaymentProvider):
         self.private_key_path = settings.wechat_pay_private_key_path
         self.notify_url = settings.wechat_pay_notify_url
         self.app_id = settings.wechat_app_id
+        self.platform_cert_path = settings.wechat_pay_platform_cert_path
         self._has_credentials = bool(self.mch_id and self.api_key_v3)
 
     async def create_prepay(
@@ -278,42 +290,156 @@ class WechatPaymentProvider(PaymentProvider):
         """Verify WeChat callback signature and decrypt payload."""
         if not self._has_credentials:
             # Mock mode: trust everything
-            import json
-
             try:
                 return json.loads(body)
             except Exception:
                 return {"verified": True, "raw": body.decode(errors="replace")}
 
         # --- Real signature verification ---
-        # 1. Extract Wechatpay-Timestamp, Wechatpay-Nonce, Wechatpay-Signature
-        # 2. Construct verification string
-        # 3. Verify with WeChat platform public key
-        # 4. Decrypt resource field with AES-256-GCM using api_key_v3
+        self._verify_signature(headers, body)
+
+        # --- Decrypt resource ---
+        payload = json.loads(body)
+        resource = payload.get("resource")
+        if resource:
+            decrypted = self._decrypt_resource(resource)
+            payload["resource"] = decrypted
+
+        return payload
+
+    # -- Signature verification -----------------------------------------------
+
+    def _verify_signature(self, headers: dict, body: bytes) -> None:
+        """
+        Verify WeChat Pay v3 callback RSA-SHA256 signature.
+
+        Raises BadRequestException on missing headers or invalid signature.
+        """
         timestamp = headers.get("wechatpay-timestamp", "")
         nonce = headers.get("wechatpay-nonce", "")
-        signature = headers.get("wechatpay-signature", "")
+        signature_b64 = headers.get("wechatpay-signature", "")
         serial = headers.get("wechatpay-serial", "")
 
+        if not all([timestamp, nonce, signature_b64, serial]):
+            missing = [
+                name
+                for name, val in [
+                    ("Wechatpay-Timestamp", timestamp),
+                    ("Wechatpay-Nonce", nonce),
+                    ("Wechatpay-Signature", signature_b64),
+                    ("Wechatpay-Serial", serial),
+                ]
+                if not val
+            ]
+            raise BadRequestException(
+                f"微信回调缺少必要 header: {', '.join(missing)}"
+            )
+
+        # Construct verification string: {timestamp}\n{nonce}\n{body}\n
         verify_str = f"{timestamp}\n{nonce}\n{body.decode()}\n"
 
-        # TODO: fetch WeChat platform certificate and verify signature
-        # TODO: decrypt resource.ciphertext with AES-256-GCM
-        logger.warning(
-            "WeChat callback signature verification not fully implemented. "
-            "serial=%s",
-            serial,
-        )
+        # Load platform certificate
+        public_key = self._load_platform_cert(serial)
 
-        import json
+        # Verify RSA-SHA256 signature
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.asymmetric import padding
 
-        return json.loads(body)
+        signature = base64.b64decode(signature_b64)
+
+        try:
+            public_key.verify(
+                signature,
+                verify_str.encode("utf-8"),
+                padding.PKCS1v15(),
+                hashes.SHA256(),
+            )
+        except Exception as e:
+            logger.warning("WeChat callback signature verification failed: %s", e)
+            raise BadRequestException("微信回调签名验证失败") from e
+
+    # -- AES-256-GCM decryption -----------------------------------------------
+
+    def _decrypt_resource(self, resource: dict) -> dict[str, Any]:
+        """
+        Decrypt callback resource using AES-256-GCM.
+
+        resource dict contains: ciphertext, nonce, associated_data
+        Key is the api_key_v3 (32-byte string used as 256-bit key).
+        """
+        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+        ciphertext_b64 = resource.get("ciphertext", "")
+        nonce = resource.get("nonce", "")
+        associated_data = resource.get("associated_data", "")
+
+        if not ciphertext_b64:
+            raise BadRequestException("微信回调 resource 缺少 ciphertext")
+
+        key = self.api_key_v3.encode("utf-8")
+        if len(key) != 32:
+            raise BadRequestException("api_key_v3 长度必须为 32 字节")
+
+        ciphertext = base64.b64decode(ciphertext_b64)
+        aesgcm = AESGCM(key)
+
+        try:
+            plaintext = aesgcm.decrypt(
+                nonce.encode("utf-8"),
+                ciphertext,
+                associated_data.encode("utf-8") if associated_data else None,
+            )
+        except Exception as e:
+            logger.warning("WeChat callback AES-GCM decryption failed: %s", e)
+            raise BadRequestException("微信回调解密失败") from e
+
+        return json.loads(plaintext)
+
+    # -- Platform certificate loading -----------------------------------------
+
+    def _load_platform_cert(self, serial: str) -> Any:
+        """
+        Load WeChat platform public key from local PEM certificate file.
+
+        Uses a module-level cache keyed by file path to avoid repeated disk I/O.
+        """
+        cert_path = self.platform_cert_path
+        if not cert_path:
+            raise BadRequestException(
+                "未配置微信平台证书路径 (WECHAT_PAY_PLATFORM_CERT_PATH)"
+            )
+
+        cache_key = f"{cert_path}:{serial}"
+
+        with _cert_cache_lock:
+            if cache_key in _platform_cert_cache:
+                return _platform_cert_cache[cache_key]
+
+        from cryptography import x509
+
+        try:
+            with open(cert_path, "rb") as f:
+                cert = x509.load_pem_x509_certificate(f.read())
+        except FileNotFoundError:
+            raise BadRequestException(
+                f"微信平台证书文件不存在: {cert_path}"
+            )
+        except Exception as e:
+            raise BadRequestException(
+                f"微信平台证书加载失败: {e}"
+            ) from e
+
+        public_key = cert.public_key()
+
+        with _cert_cache_lock:
+            _platform_cert_cache[cache_key] = public_key
+
+        return public_key
 
     def _build_auth_header(
         self, method: str, path: str, body: Any
     ) -> dict[str, str]:
         """Build WECHATPAY2-SHA256-RSA2048 Authorization header."""
-        import json
         import time as _time
 
         timestamp = str(int(_time.time()))
@@ -338,8 +464,6 @@ class WechatPaymentProvider(PaymentProvider):
 
     def _rsa_sign(self, message: str) -> str:
         """Sign message with merchant RSA private key."""
-        import base64
-
         if not self.private_key_path:
             return "mock_rsa_signature"
 

@@ -50,6 +50,7 @@ class Settings(BaseSettings):
     wechat_pay_cert_serial: str = ""  # 证书序列号
     wechat_pay_private_key_path: str = ""  # 商户私钥路径
     wechat_pay_notify_url: str = ""  # 回调通知 URL
+    wechat_pay_platform_cert_path: str = ""  # 微信平台证书路径（用于验签）
 
     # CORS
     cors_origins: list[str] = ["*"]
