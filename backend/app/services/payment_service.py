@@ -14,6 +14,7 @@ import base64
 import json
 import logging
 import threading
+import time
 import uuid
 from dataclasses import dataclass
 from typing import Any
@@ -334,6 +335,15 @@ class WechatPaymentProvider(PaymentProvider):
             raise BadRequestException(
                 f"微信回调缺少必要 header: {', '.join(missing)}"
             )
+
+        # Timestamp freshness check — reject callbacks older than 5 minutes
+        # to prevent replay attacks.
+        try:
+            ts = int(timestamp)
+        except (ValueError, TypeError):
+            raise BadRequestException("微信回调时间戳格式无效")
+        if abs(time.time() - ts) > 300:
+            raise BadRequestException("微信回调时间戳过期，可能为重放攻击")
 
         # Construct verification string: {timestamp}\n{nonce}\n{body}\n
         verify_str = f"{timestamp}\n{nonce}\n{body.decode()}\n"

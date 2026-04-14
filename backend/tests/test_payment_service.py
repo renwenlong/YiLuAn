@@ -2,15 +2,19 @@
 Payment Service tests — covers PaymentService with mock provider.
 """
 
+import time
+
 import pytest
 from httpx import AsyncClient
 
+from app.exceptions import BadRequestException
 from app.models.order import OrderStatus
 from app.services.payment_service import (
     MockPaymentProvider,
     PaymentProvider,
     PaymentService,
     RefundResult,
+    WechatPaymentProvider,
 )
 
 
@@ -258,3 +262,59 @@ class TestPaymentProviderBase:
         provider = PaymentProvider()
         with pytest.raises(NotImplementedError):
             await provider.verify_callback({}, b"")
+
+
+# =============================================================================
+# Timestamp replay protection tests
+# =============================================================================
+
+
+@pytest.mark.asyncio
+class TestTimestampReplayProtection:
+    """Tests for _verify_signature timestamp freshness check."""
+
+    def _make_provider(self) -> WechatPaymentProvider:
+        """Create a WechatPaymentProvider with fake credentials to bypass mock mode."""
+        provider = WechatPaymentProvider()
+        # Set credentials so _has_credentials is True and mock mode is skipped
+        provider._has_credentials = True
+        return provider
+
+    def _headers(self, timestamp: str) -> dict:
+        return {
+            "wechatpay-timestamp": timestamp,
+            "wechatpay-nonce": "test-nonce",
+            "wechatpay-signature": "dGVzdA==",  # base64("test")
+            "wechatpay-serial": "TEST_SERIAL",
+        }
+
+    async def test_fresh_timestamp_passes_check(self):
+        """Timestamp within 5 minutes should pass the freshness check.
+
+        The method will fail later at certificate loading, but if it gets past
+        the timestamp check that proves the replay protection accepted it.
+        """
+        provider = self._make_provider()
+        ts = str(int(time.time()))
+        with pytest.raises(BadRequestException) as exc_info:
+            provider._verify_signature(self._headers(ts), b'{"test": true}')
+        # Should fail on cert loading, NOT on timestamp — proves freshness check passed
+        assert "时间戳过期" not in str(exc_info.value.detail)
+        assert "重放" not in str(exc_info.value.detail)
+
+    async def test_expired_timestamp_rejected(self):
+        """Timestamp older than 5 minutes should be rejected as replay attack."""
+        provider = self._make_provider()
+        old_ts = str(int(time.time()) - 600)  # 10 minutes ago
+        with pytest.raises(BadRequestException) as exc_info:
+            provider._verify_signature(self._headers(old_ts), b'{"test": true}')
+        assert "时间戳过期" in str(exc_info.value.detail)
+
+    async def test_future_timestamp_rejected(self):
+        """Timestamp more than 5 minutes in the future should also be rejected."""
+        provider = self._make_provider()
+        future_ts = str(int(time.time()) + 600)  # 10 minutes in the future
+        with pytest.raises(BadRequestException) as exc_info:
+            provider._verify_signature(self._headers(future_ts), b'{"test": true}')
+        assert "时间戳过期" in str(exc_info.value.detail)
+

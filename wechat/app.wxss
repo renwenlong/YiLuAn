@@ -1,3 +1,5 @@
+@import './styles/variables.wxss';
+
 page {
   --primary-color: #1890FF;
   --success-color: #52C41A;
