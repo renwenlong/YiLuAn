@@ -1,4 +1,5 @@
 import hashlib
+import logging
 from datetime import datetime, timezone
 from uuid import UUID
 
@@ -8,12 +9,22 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.exceptions import BadRequestException, NotFoundException
 from app.models.order import Order, OrderStatus
 from app.models.user import User, UserRole
+from app.repositories.payment import PaymentRepository
 from app.repositories.user import UserRepository
 from app.schemas.user import UpdateUserRequest
+from app.services.payment_service import PaymentService
+
+logger = logging.getLogger(__name__)
 
 # Order statuses that count as "in progress" (cancellable on account deletion)
 _ACTIVE_ORDER_STATUSES = [
     OrderStatus.created,
+    OrderStatus.accepted,
+    OrderStatus.in_progress,
+]
+
+# Statuses that require a refund when cancelled during account deletion
+_REFUNDABLE_STATUSES = [
     OrderStatus.accepted,
     OrderStatus.in_progress,
 ]
@@ -76,14 +87,51 @@ class UserService:
         await self.user_repo.update(user, update_data)
 
     async def _cancel_active_orders(self, user_id: UUID) -> None:
-        """Cancel all active orders where user is patient or companion."""
+        """Cancel all active orders and trigger refunds per D-009.
+
+        - pending (created) orders → cancel (no refund needed)
+        - accepted orders → cancel + 100% refund
+        - in_progress orders → cancel + 50% refund
+        - completed/reviewed orders → untouched
+        """
         stmt = select(Order).where(
             Order.status.in_(_ACTIVE_ORDER_STATUSES),
             (Order.patient_id == user_id) | (Order.companion_id == user_id),
         )
         result = await self.session.execute(stmt)
         orders = result.scalars().all()
+
+        if not orders:
+            return
+
+        payment_svc = PaymentService(self.session)
+        payment_repo = PaymentRepository(self.session)
+
         for order in orders:
+            old_status = order.status
             order.status = OrderStatus.cancelled_by_patient
-        if orders:
-            await self.session.flush()
+
+            # Trigger refund for accepted/in_progress orders that have been paid
+            if old_status in _REFUNDABLE_STATUSES:
+                existing_pay = await payment_repo.get_by_order_and_type(
+                    order.id, "pay"
+                )
+                if existing_pay and existing_pay.status == "success":
+                    if old_status == OrderStatus.accepted:
+                        refund_amount = order.price  # 100% refund
+                    else:
+                        refund_amount = round(order.price * 0.5, 2)  # 50%
+                    try:
+                        await payment_svc.create_refund(
+                            order_id=order.id,
+                            user_id=order.patient_id,
+                            original_amount=order.price,
+                            refund_amount=refund_amount,
+                        )
+                    except BadRequestException:
+                        logger.warning(
+                            "Refund skipped for order %s (already refunded)",
+                            order.id,
+                        )
+
+        await self.session.flush()

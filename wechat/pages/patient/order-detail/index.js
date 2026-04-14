@@ -1,4 +1,4 @@
-const { getOrderDetail, orderAction, payOrder } = require('../../../services/order')
+const { getOrderDetail, orderAction, payOrder, requestWechatPayment } = require('../../../services/order')
 const { getOrderReview } = require('../../../services/review')
 const store = require('../../../store/index')
 const { ORDER_STATUS, SERVICE_TYPES } = require('../../../utils/constants')
@@ -86,13 +86,31 @@ Page({
 
     this.setData({ loading: true })
     try {
-      await payOrder(this.orderId)
-      wx.showToast({ title: '支付成功', icon: 'success' })
-      this.loadOrder()
+      // Step 1: Create prepay order on backend
+      var payResult = await payOrder(this.orderId)
+
+      // Step 2: Call wx.requestPayment (skipped for mock provider)
+      await requestWechatPayment(payResult)
+
+      // Step 3: Navigate to pay-result page on success
+      wx.redirectTo({
+        url: '/pages/patient/pay-result/index?status=success&order_id=' + this.orderId
+      })
     } catch (err) {
-      var msg = '支付失败'
-      if (err && err.data && err.data.detail) msg = err.data.detail
-      wx.showToast({ title: msg, icon: 'none' })
+      if (err && err.cancelled) {
+        // User cancelled payment
+        wx.redirectTo({
+          url: '/pages/patient/pay-result/index?status=cancel&order_id=' + this.orderId
+        })
+      } else {
+        // Payment failed
+        var msg = '支付失败'
+        if (err && err.data && err.data.detail) msg = err.data.detail
+        if (err && err.errMsg) msg = err.errMsg
+        wx.redirectTo({
+          url: '/pages/patient/pay-result/index?status=fail&order_id=' + this.orderId + '&msg=' + encodeURIComponent(msg)
+        })
+      }
     } finally {
       this.setData({ loading: false })
     }
