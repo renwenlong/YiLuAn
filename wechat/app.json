@@ -15,6 +15,7 @@
     "pages/profile/edit/index",
     "pages/patient/create-order/index",
     "pages/patient/order-detail/index",
+    "pages/patient/pay-result/index",
     "pages/companion/available-orders/index",
     "pages/companion/today-orders/index",
     "pages/companion/order-detail/index",

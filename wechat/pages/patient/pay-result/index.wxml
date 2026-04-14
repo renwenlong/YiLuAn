@@ -1,0 +1,34 @@
+<view class="result-page">
+  <!-- Success -->
+  <block wx:if="{{status === 'success'}}">
+    <view class="icon-circle success-bg">
+      <text class="icon-text">✓</text>
+    </view>
+    <text class="result-title">支付成功</text>
+    <text class="result-desc">您的订单已支付，请等待陪诊师接单</text>
+    <button class="btn-primary" bindtap="onViewOrder">查看订单</button>
+    <button class="btn-secondary" bindtap="onGoHome">返回首页</button>
+  </block>
+
+  <!-- Fail -->
+  <block wx:if="{{status === 'fail'}}">
+    <view class="icon-circle fail-bg">
+      <text class="icon-text">✗</text>
+    </view>
+    <text class="result-title">支付失败</text>
+    <text class="result-desc">{{errorMsg || '支付遇到问题，请重试'}}</text>
+    <button class="btn-primary" bindtap="onRetry">重新支付</button>
+    <button class="btn-secondary" bindtap="onViewOrder">查看订单</button>
+  </block>
+
+  <!-- Cancel -->
+  <block wx:if="{{status === 'cancel'}}">
+    <view class="icon-circle cancel-bg">
+      <text class="icon-text">!</text>
+    </view>
+    <text class="result-title">支付取消</text>
+    <text class="result-desc">您已取消支付，订单尚未完成</text>
+    <button class="btn-primary" bindtap="onRetry">重新支付</button>
+    <button class="btn-secondary" bindtap="onViewOrder">返回订单</button>
+  </block>
+</view>

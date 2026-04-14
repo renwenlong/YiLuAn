@@ -33,6 +33,10 @@ global.wx = {
   navigateTo: jest.fn(),
   navigateBack: jest.fn(),
   switchTab: jest.fn(),
+  redirectTo: jest.fn(),
+
+  // Payment
+  requestPayment: jest.fn(),
 
   // UI
   showToast: jest.fn(),
