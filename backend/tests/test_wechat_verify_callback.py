@@ -6,6 +6,7 @@ verification and AES-256-GCM decryption.
 import base64
 import json
 import datetime
+import time
 
 import pytest
 from cryptography import x509
@@ -125,7 +126,7 @@ class TestVerifySignature:
 
     async def test_valid_signature_passes(self, wechat_provider, rsa_key):
         """A correctly signed callback should be verified successfully."""
-        timestamp = "1688000000"
+        timestamp = str(int(time.time()))
         nonce = "testnonce123"
         body_dict = {"id": "evt_001", "event_type": "TRANSACTION.SUCCESS"}
         body_str = json.dumps(body_dict)
@@ -144,7 +145,7 @@ class TestVerifySignature:
 
     async def test_tampered_signature_fails(self, wechat_provider, rsa_key):
         """A tampered/invalid signature must raise BadRequestException."""
-        timestamp = "1688000000"
+        timestamp = str(int(time.time()))
         nonce = "testnonce123"
         body_str = '{"id": "evt_002"}'
 
@@ -166,7 +167,7 @@ class TestVerifySignature:
     async def test_missing_headers_fails(self, wechat_provider):
         """Missing required Wechatpay-* headers should raise BadRequestException."""
         headers = {
-            "wechatpay-timestamp": "1688000000",
+            "wechatpay-timestamp": str(int(time.time())),
             # missing nonce, signature, serial
         }
 
@@ -176,7 +177,7 @@ class TestVerifySignature:
     async def test_missing_single_header_reports_name(self, wechat_provider):
         """Error message should name the specific missing header."""
         headers = {
-            "wechatpay-timestamp": "1688000000",
+            "wechatpay-timestamp": str(int(time.time())),
             "wechatpay-nonce": "abc",
             "wechatpay-signature": "sig",
             # missing serial
@@ -209,7 +210,7 @@ class TestDecryptResource:
         body_str = json.dumps(body_dict)
 
         # Sign so _verify_signature passes
-        timestamp = "1688000000"
+        timestamp = str(int(time.time()))
         nonce_sig = "nonce_for_sig"
         sig = _sign_callback(rsa_key, timestamp, nonce_sig, body_str)
 
@@ -245,7 +246,7 @@ class TestDecryptResource:
         }
         body_str = json.dumps(body_dict)
 
-        timestamp = "1688000000"
+        timestamp = str(int(time.time()))
         nonce_sig = "signonceXYZ"
         sig = _sign_callback(rsa_key, timestamp, nonce_sig, body_str)
 
@@ -296,7 +297,7 @@ class TestCertificateCache:
         """After one successful verify, the cert should be in cache."""
         assert len(_platform_cert_cache) == 0
 
-        timestamp = "1688000000"
+        timestamp = str(int(time.time()))
         nonce = "cache_test_n"
         body_str = '{"id": "cache_test"}'
         sig = _sign_callback(rsa_key, timestamp, nonce, body_str)

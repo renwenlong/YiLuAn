@@ -11,10 +11,14 @@ Page({
     confirmed: false,
     canSubmit: false,
     countdown: 0,
-    submitting: false
+    submitting: false,
+    pressing: false,
+    pressCountdown: 3
   },
 
   _timer: null,
+  _pressTimer: null,
+  _pressInterval: null,
 
   onLoad: function () {
     var state = store.getState()
@@ -30,6 +34,7 @@ Page({
       clearInterval(this._timer)
       this._timer = null
     }
+    this._clearPress()
   },
 
   onCodeInput: function (e) {
@@ -76,21 +81,39 @@ Page({
       })
   },
 
-  onConfirmDelete: function () {
+  onPressStart: function () {
     var self = this
     if (!self.data.canSubmit || self.data.submitting) return
 
-    wx.showModal({
-      title: '最终确认',
-      content: '确定要注销账号吗？此操作不可撤销。',
-      confirmText: '注销',
-      confirmColor: '#FF4D4F',
-      success: function (res) {
-        if (res.confirm) {
-          self._doDelete()
-        }
+    self.setData({ pressing: true, pressCountdown: 3 })
+
+    self._pressInterval = setInterval(function () {
+      var next = self.data.pressCountdown - 1
+      if (next <= 0) {
+        self._clearPress()
+        self.setData({ pressing: false, pressCountdown: 3 })
+        self._doDelete()
+      } else {
+        self.setData({ pressCountdown: next })
       }
-    })
+    }, 1000)
+  },
+
+  onPressEnd: function () {
+    if (!this.data.pressing) return
+    this._clearPress()
+    this.setData({ pressing: false, pressCountdown: 3 })
+  },
+
+  _clearPress: function () {
+    if (this._pressTimer) {
+      clearTimeout(this._pressTimer)
+      this._pressTimer = null
+    }
+    if (this._pressInterval) {
+      clearInterval(this._pressInterval)
+      this._pressInterval = null
+    }
   },
 
   _doDelete: function () {

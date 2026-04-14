@@ -68,13 +68,21 @@
 
   <!-- 底部按钮区域 -->
   <view class="btn-area">
-    <button
-      class="btn-delete {{canSubmit ? '' : 'btn-disabled'}}"
-      disabled="{{!canSubmit}}"
-      bindtap="onConfirmDelete"
-    >
-      确认注销
-    </button>
+    <view class="long-press-wrapper">
+      <button
+        class="btn-delete {{canSubmit ? (pressing ? 'btn-pressing' : '') : 'btn-disabled'}}"
+        disabled="{{!canSubmit}}"
+        bindtouchstart="onPressStart"
+        bindtouchend="onPressEnd"
+        bindtouchcancel="onPressEnd"
+      >
+        {{pressing ? pressCountdown : '长按 3 秒确认注销'}}
+      </button>
+      <!-- 长按进度条 -->
+      <view class="press-progress" wx:if="{{pressing}}">
+        <view class="press-progress-bar" style="animation-duration: 3s;"></view>
+      </view>
+    </view>
     <button class="btn-cancel" bindtap="onCancel">取消</button>
   </view>
 </view>

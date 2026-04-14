@@ -1,0 +1,53 @@
+/* ============================================
+ * 医路安 (YiLuAn) 全局设计 Token
+ * ============================================ */
+
+page {
+  /* ---- 品牌色 ---- */
+  --color-primary: #1890FF;
+  --color-primary-light: #E6F7FF;
+  --color-secondary: #722ED1;
+  --color-success: #52C41A;
+  --color-warning: #FAAD14;
+  --color-danger: #FF4D4F;
+
+  /* ---- 文字色 ---- */
+  --color-text-primary: #333333;
+  --color-text-secondary: #666666;
+  --color-text-hint: #999999;
+  --color-text-white: #FFFFFF;
+
+  /* ---- 背景色 ---- */
+  --color-bg-page: #F5F5F5;
+  --color-bg-card: #FFFFFF;
+  --color-bg-mask: rgba(0, 0, 0, 0.5);
+
+  /* ---- 边框色 ---- */
+  --color-border: #E8E8E8;
+  --color-border-light: #F0F0F0;
+  --color-border-input: #D9D9D9;
+
+  /* ---- 字号体系 ---- */
+  --font-size-title: 32rpx;
+  --font-size-body: 28rpx;
+  --font-size-aux: 24rpx;
+  --font-size-small: 20rpx;
+
+  /* ---- 间距规范 ---- */
+  --spacing-xs: 8rpx;
+  --spacing-sm: 16rpx;
+  --spacing-md: 24rpx;
+  --spacing-lg: 32rpx;
+  --spacing-xl: 48rpx;
+
+  /* ---- 圆角 ---- */
+  --radius-sm: 8rpx;
+  --radius-md: 16rpx;
+  --radius-lg: 24rpx;
+  --radius-full: 9999rpx;
+
+  /* ---- 阴影 ---- */
+  --shadow-sm: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8rpx 24rpx rgba(0, 0, 0, 0.12);
+}

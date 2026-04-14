@@ -172,6 +172,12 @@
   margin: 40rpx 24rpx 0;
 }
 
+.long-press-wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: 12rpx;
+}
+
 .btn-delete {
   width: 100%;
   height: 88rpx;
@@ -183,15 +189,45 @@
   background-color: #FF4D4F;
   border-radius: 12rpx;
   border: none;
+  position: relative;
+  z-index: 1;
+  transition: background-color 0.2s ease;
 }
 
 .btn-delete::after {
   border: none;
 }
 
+.btn-pressing {
+  background-color: #CF1322;
+}
+
 .btn-disabled {
   background-color: #D9D9D9 !important;
   color: #FFFFFF !important;
+}
+
+/* 长按进度条 */
+.press-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 6rpx;
+  background-color: rgba(0, 0, 0, 0.1);
+  z-index: 2;
+}
+
+.press-progress-bar {
+  height: 100%;
+  background-color: #FFFFFF;
+  width: 0%;
+  animation: pressFill 3s linear forwards;
+}
+
+@keyframes pressFill {
+  from { width: 0%; }
+  to { width: 100%; }
 }
 
 .btn-cancel {
