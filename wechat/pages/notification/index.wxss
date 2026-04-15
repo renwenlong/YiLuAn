@@ -1,6 +1,6 @@
 .notification-page {
   min-height: 100vh;
-  background-color: #F5F5F5;
+  background-color: var(--color-bg-page);
 }
 
 .header-bar {
@@ -8,29 +8,29 @@
   align-items: center;
   justify-content: space-between;
   padding: 20rpx 32rpx;
-  background-color: #FFFFFF;
-  border-bottom: 1rpx solid #F0F0F0;
+  background-color: var(--color-bg-card);
+  border-bottom: 1rpx solid var(--color-border-light);
 }
 
 .unread-text {
   font-size: 28rpx;
-  color: #FF4D4F;
+  color: var(--color-danger);
 }
 
 .mark-all-btn {
   font-size: 28rpx;
-  color: #1890FF;
+  color: var(--color-primary);
 }
 
 .notification-list {
-  background-color: #FFFFFF;
+  background-color: var(--color-bg-card);
 }
 
 .notification-item {
   display: flex;
   align-items: flex-start;
   padding: 24rpx 32rpx;
-  border-bottom: 1rpx solid #F0F0F0;
+  border-bottom: 1rpx solid var(--color-border-light);
 }
 
 .notification-item.read {
@@ -38,7 +38,7 @@
 }
 
 .notification-item:active {
-  background-color: #F5F5F5;
+  background-color: var(--color-bg-page);
 }
 
 .notif-icon {
@@ -56,7 +56,7 @@
   width: 16rpx;
   height: 16rpx;
   border-radius: 50%;
-  background-color: #FF4D4F;
+  background-color: var(--color-danger);
 }
 
 .notif-content {
@@ -67,13 +67,13 @@
 .notif-title {
   font-size: 30rpx;
   font-weight: 500;
-  color: #333333;
+  color: var(--color-text-primary);
   margin-bottom: 8rpx;
 }
 
 .notif-body {
   font-size: 26rpx;
-  color: #999999;
+  color: var(--color-text-hint);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -88,13 +88,13 @@
 
 .empty-text {
   font-size: 30rpx;
-  color: #999999;
+  color: var(--color-text-hint);
 }
 
 .loading-state {
   display: flex;
   justify-content: center;
   padding: 40rpx;
-  color: #999999;
+  color: var(--color-text-hint);
   font-size: 26rpx;
 }

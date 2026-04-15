@@ -48,12 +48,14 @@ async def test_readiness_all_healthy(client):
 @pytest.mark.asyncio
 async def test_readiness_db_failure(client):
     """DB check fails → 503 + db=error."""
-    mock_factory = AsyncMock()
-    mock_ctx = AsyncMock()
-    mock_ctx.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
-    mock_factory.return_value = mock_ctx
+    from contextlib import asynccontextmanager
 
-    with patch("app.api.v1.health.async_session", mock_factory):
+    @asynccontextmanager
+    async def broken_session():
+        raise Exception("DB down")
+        yield  # noqa: unreachable – required for generator syntax
+
+    with patch("app.api.v1.health.async_session", broken_session):
         response = await client.get("/api/v1/readiness")
     assert response.status_code == 503
     data = response.json()
@@ -86,10 +88,12 @@ async def test_readiness_redis_failure(client, fake_redis):
 @pytest.mark.asyncio
 async def test_readiness_both_fail(client, fake_redis):
     """Both DB and Redis fail → 503 + both=error."""
-    mock_factory = AsyncMock()
-    mock_ctx = AsyncMock()
-    mock_ctx.__aenter__ = AsyncMock(side_effect=Exception("DB down"))
-    mock_factory.return_value = mock_ctx
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def broken_session():
+        raise Exception("DB down")
+        yield  # noqa: unreachable – required for generator syntax
 
     async def broken_set(*args, **kwargs):
         raise ConnectionError("Redis down")
@@ -97,7 +101,7 @@ async def test_readiness_both_fail(client, fake_redis):
     original_set = fake_redis.set
     fake_redis.set = broken_set
     try:
-        with patch("app.api.v1.health.async_session", mock_factory):
+        with patch("app.api.v1.health.async_session", broken_session):
             response = await client.get("/api/v1/readiness")
         assert response.status_code == 503
         data = response.json()
