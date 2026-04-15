@@ -32,6 +32,11 @@ struct ProfileView: View {
                     NavigationLink("消息通知") {
                         NotificationListView()
                     }
+                    NavigationLink {
+                        SettingsView()
+                    } label: {
+                        Label("设置", systemImage: "gearshape")
+                    }
                 }
 
                 // Sign out
