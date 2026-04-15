@@ -1,0 +1,225 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+
+env:
+  ACR_NAME: yiluanacr
+  IMAGE_NAME: yiluan-backend
+  RESOURCE_GROUP: yiluan-rg
+
+jobs:
+  # ──────────────────────────────────────
+  # 1. 运行测试（门禁）
+  # ──────────────────────────────────────
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          pip install pytest pytest-asyncio aiosqlite
+
+      - name: Run backend tests
+        run: cd backend && python -m pytest tests/ -v
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run wechat tests
+        run: cd wechat && npm install && npm test
+
+  # ──────────────────────────────────────
+  # 2. 构建并推送镜像到 ACR
+  # ──────────────────────────────────────
+  build-push:
+    name: Build & Push to ACR
+    runs-on: ubuntu-latest
+    needs: test
+    outputs:
+      image-tag: ${{ steps.meta.outputs.tags }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate version tag
+        id: version
+        run: |
+          VERSION=$(date +%Y%m%d)-${GITHUB_SHA::8}
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Login to ACR
+        uses: azure/docker-login@v2
+        with:
+          login-server: ${{ env.ACR_NAME }}.azurecr.io
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          push: true
+          tags: |
+            ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}
+            ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:latest
+
+      - name: Docker meta
+        id: meta
+        run: |
+          echo "tags=${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}" >> "$GITHUB_OUTPUT"
+
+  # ──────────────────────────────────────
+  # 3. 数据库迁移（Staging）
+  # ──────────────────────────────────────
+  migrate-staging:
+    name: DB Migration (Staging)
+    runs-on: ubuntu-latest
+    needs: build-push
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Run Alembic migrations
+        env:
+          DATABASE_URL: ${{ secrets.STAGING_DATABASE_URL }}
+        run: cd backend && alembic upgrade head
+
+  # ──────────────────────────────────────
+  # 4. 部署到 Staging（自动）
+  # ──────────────────────────────────────
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [build-push, migrate-staging]
+    environment:
+      name: staging
+      url: https://yiluan-api-staging.${{ env.ACR_NAME }}.azurecontainerapps.io
+    steps:
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Container Apps (Staging)
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          containerAppName: yiluan-api-staging
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          imageToDeploy: ${{ needs.build-push.outputs.image-tag }}
+
+      - name: Wait for deployment
+        run: sleep 30
+
+      - name: Health check
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            https://yiluan-api-staging.${{ env.ACR_NAME }}.azurecontainerapps.io/health)
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Health check failed (HTTP $STATUS)"
+            exit 1
+          fi
+          echo "✅ Staging health check passed"
+
+      - name: Readiness check
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            https://yiluan-api-staging.${{ env.ACR_NAME }}.azurecontainerapps.io/api/v1/readiness)
+          if [ "$STATUS" != "200" ]; then
+            echo "⚠️ Readiness check returned HTTP $STATUS (DB/Redis may not be ready)"
+          else
+            echo "✅ Staging readiness check passed"
+          fi
+
+  # ──────────────────────────────────────
+  # 5. 部署到 Production（手动审批）
+  # ──────────────────────────────────────
+  migrate-production:
+    name: DB Migration (Production)
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event.inputs.environment == 'production')
+    environment: production  # ← GitHub Environment Protection Rules 触发审批
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Run Alembic migrations
+        env:
+          DATABASE_URL: ${{ secrets.PRODUCTION_DATABASE_URL }}
+        run: cd backend && alembic upgrade head
+
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: [build-push, migrate-production]
+    environment:
+      name: production
+      url: https://yiluan-api.${{ env.ACR_NAME }}.azurecontainerapps.io
+    steps:
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Container Apps (Production)
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          containerAppName: yiluan-api
+          resourceGroup: ${{ env.RESOURCE_GROUP }}
+          imageToDeploy: ${{ needs.build-push.outputs.image-tag }}
+
+      - name: Wait for deployment
+        run: sleep 30
+
+      - name: Health check
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            https://yiluan-api.${{ env.ACR_NAME }}.azurecontainerapps.io/health)
+          if [ "$STATUS" != "200" ]; then
+            echo "❌ Production health check failed (HTTP $STATUS)"
+            exit 1
+          fi
+          echo "✅ Production health check passed"
+
+      - name: Readiness check
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            https://yiluan-api.${{ env.ACR_NAME }}.azurecontainerapps.io/api/v1/readiness)
+          if [ "$STATUS" != "200" ]; then
+            echo "⚠️ Production readiness check returned HTTP $STATUS"
+          else
+            echo "✅ Production readiness check passed"
+          fi

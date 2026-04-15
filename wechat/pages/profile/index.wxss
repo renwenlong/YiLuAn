@@ -1,12 +1,12 @@
 .profile-page {
   min-height: 100vh;
-  background-color: #F5F5F5;
+  background-color: var(--color-bg-page);
   padding-bottom: 120rpx;
 }
 
 /* User Info Section */
 .user-section {
-  background-color: #FFFFFF;
+  background-color: var(--color-bg-card);
   padding: 48rpx 32rpx;
   margin-bottom: 20rpx;
 }
@@ -32,7 +32,7 @@
   width: 120rpx;
   height: 120rpx;
   border-radius: 50%;
-  background-color: #1890FF;
+  background-color: var(--color-primary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -40,7 +40,7 @@
 
 .avatar-placeholder text {
   font-size: 44rpx;
-  color: #FFFFFF;
+  color: var(--color-text-white);
   font-weight: 600;
 }
 
@@ -59,7 +59,7 @@
 
 .avatar-edit-hint text {
   font-size: 20rpx;
-  color: #FFFFFF;
+  color: var(--color-text-white);
 }
 
 .user-detail {
@@ -75,7 +75,7 @@
 .user-name {
   font-size: 36rpx;
   font-weight: 600;
-  color: #333333;
+  color: var(--color-text-primary);
 }
 
 .role-badge {
@@ -86,13 +86,13 @@
 }
 
 .patient-badge {
-  background-color: #E6F7FF;
-  color: #1890FF;
+  background-color: var(--color-primary-light);
+  color: var(--color-primary);
 }
 
 .companion-badge {
   background-color: #F6FFED;
-  color: #52C41A;
+  color: var(--color-success);
 }
 
 
@@ -103,11 +103,11 @@
 
 .phone-text {
   font-size: 28rpx;
-  color: #999999;
+  color: var(--color-text-hint);
 }
 
 .phone-text.unbind {
-  color: #FAAD14;
+  color: var(--color-warning);
 }
 
 .bind-phone {
@@ -117,13 +117,13 @@
 
 .bind-btn {
   font-size: 24rpx;
-  color: #1890FF;
+  color: var(--color-primary);
   margin-left: 12rpx;
 }
 
 /* Menu List */
 .menu-section {
-  background-color: #FFFFFF;
+  background-color: var(--color-bg-card);
   margin-bottom: 20rpx;
 }
 
@@ -131,7 +131,7 @@
   display: flex;
   align-items: center;
   padding: 32rpx;
-  border-bottom: 1rpx solid #F0F0F0;
+  border-bottom: 1rpx solid var(--color-border-light);
 }
 
 .menu-item:last-child {
@@ -139,13 +139,13 @@
 }
 
 .menu-item:active {
-  background-color: #F5F5F5;
+  background-color: var(--color-bg-page);
 }
 
 .menu-text {
   flex: 1;
   font-size: 30rpx;
-  color: #333333;
+  color: var(--color-text-primary);
 }
 
 .menu-arrow {
@@ -164,8 +164,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #FFFFFF;
-  color: #FF4D4F;
+  background-color: var(--color-bg-card);
+  color: var(--color-danger);
   font-size: 30rpx;
   border-radius: 12rpx;
   border: none;
