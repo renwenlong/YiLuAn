@@ -1,8 +1,9 @@
 name: Deploy
 
 on:
-  push:
-    branches: [main]
+  # push 触发暂时禁用，等 Azure ACR 配置完成后再启用
+  # push:
+  #   branches: [main]
   workflow_dispatch:
     inputs:
       environment:
