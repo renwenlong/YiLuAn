@@ -78,4 +78,17 @@ class AuthViewModel: ObservableObject {
         isAuthenticated = false
         currentUser = nil
     }
+
+    func switchRole(to role: UserRole) async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        do {
+            let body = SwitchRoleRequest(role: role.rawValue)
+            currentUser = try await APIClient.shared.request(.switchRole, body: body)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
 }
