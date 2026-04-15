@@ -8,6 +8,9 @@ struct OrderDetailView: View {
     @State private var showCancelAlert = false
     @State private var showActionAlert = false
     @State private var pendingAction = ""
+    @State private var paymentResult: PaymentStatus?
+    @State private var paymentErrorMessage: String?
+    @State private var showPaymentResult = false
 
     var body: some View {
         Group {
@@ -50,6 +53,17 @@ struct OrderDetailView: View {
             }
         } message: {
             Text(actionMessage)
+        }
+        .sheet(isPresented: $showPaymentResult) {
+            if let result = paymentResult {
+                NavigationStack {
+                    PaymentResultView(
+                        status: result,
+                        orderId: orderId,
+                        errorMessage: paymentErrorMessage
+                    )
+                }
+            }
         }
     }
 
@@ -128,7 +142,15 @@ struct OrderDetailView: View {
 
             if order.status == .created {
                 Button {
-                    Task { await viewModel.payOrder(id: order.id) }
+                    Task {
+                        if let _ = await viewModel.payOrder(id: order.id) {
+                            paymentResult = .success
+                        } else {
+                            paymentResult = .fail
+                            paymentErrorMessage = viewModel.errorMessage
+                        }
+                        showPaymentResult = true
+                    }
                 } label: {
                     Text("立即支付")
                         .frame(maxWidth: .infinity)

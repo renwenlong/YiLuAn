@@ -25,6 +25,7 @@ struct APIEndpoint {
     // MARK: - Users
     static let me = APIEndpoint(path: "users/me", method: .get, requiresAuth: true)
     static let updateMe = APIEndpoint(path: "users/me", method: .put, requiresAuth: true)
+    static let deleteAccount = APIEndpoint(path: "users/me", method: .delete, requiresAuth: true)
     static let uploadAvatar = APIEndpoint(path: "users/me/avatar", method: .post, requiresAuth: true)
 
     // MARK: - Patient Profile
