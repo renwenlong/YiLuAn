@@ -4,6 +4,15 @@ struct SettingsView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @StateObject private var viewModel = SettingsViewModel()
     @State private var showClearCacheAlert = false
+    @State private var showRoleSwitchAlert = false
+
+    private var currentRole: UserRole? {
+        authViewModel.currentUser?.role
+    }
+
+    private var switchTargetRole: UserRole {
+        currentRole == .patient ? .companion : .patient
+    }
 
     var body: some View {
         List {
@@ -28,6 +37,20 @@ struct SettingsView: View {
                 }
                 .contentShape(Rectangle())
                 .onTapGesture { showClearCacheAlert = true }
+            }
+
+            Section("角色") {
+                Button {
+                    showRoleSwitchAlert = true
+                } label: {
+                    HStack {
+                        Label("切换为\(switchTargetRole == .patient ? "患者" : "陪诊师")", systemImage: "arrow.left.arrow.right")
+                        Spacer()
+                        Text(currentRole == .patient ? "当前：患者" : "当前：陪诊师")
+                            .font(.dsCaption)
+                            .foregroundStyle(Color.textHint)
+                    }
+                }
             }
 
             Section("关于") {
@@ -56,6 +79,14 @@ struct SettingsView: View {
             Button("清除", role: .destructive) { viewModel.clearCache() }
         } message: {
             Text("确定要清除缓存吗？当前缓存大小：\(viewModel.cacheSize)")
+        }
+        .alert("切换角色", isPresented: $showRoleSwitchAlert) {
+            Button("取消", role: .cancel) {}
+            Button("切换") {
+                Task { await authViewModel.switchRole(to: switchTargetRole) }
+            }
+        } message: {
+            Text("确定要切换为\(switchTargetRole == .patient ? "患者" : "陪诊师")身份吗？")
         }
     }
 }

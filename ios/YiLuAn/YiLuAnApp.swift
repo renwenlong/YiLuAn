@@ -11,6 +11,9 @@ struct YiLuAnApp: App {
                     if authViewModel.currentUser?.role == nil {
                         RoleSelectionView()
                             .environmentObject(authViewModel)
+                    } else if authViewModel.currentUser?.displayName == nil || authViewModel.currentUser?.displayName?.isEmpty == true {
+                        ProfileSetupView()
+                            .environmentObject(authViewModel)
                     } else {
                         MainTabView()
                             .environmentObject(authViewModel)

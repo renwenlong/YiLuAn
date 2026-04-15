@@ -21,11 +21,13 @@ struct APIEndpoint {
     static let sendOTP = APIEndpoint(path: "auth/send-otp", method: .post, requiresAuth: false)
     static let verifyOTP = APIEndpoint(path: "auth/verify-otp", method: .post, requiresAuth: false)
     static let refreshToken = APIEndpoint(path: "auth/refresh", method: .post, requiresAuth: false)
+    static let bindPhone = APIEndpoint(path: "auth/bind-phone", method: .post, requiresAuth: true)
 
     // MARK: - Users
     static let me = APIEndpoint(path: "users/me", method: .get, requiresAuth: true)
     static let updateMe = APIEndpoint(path: "users/me", method: .put, requiresAuth: true)
     static let deleteAccount = APIEndpoint(path: "users/me", method: .delete, requiresAuth: true)
+    static let switchRole = APIEndpoint(path: "users/me/switch-role", method: .post, requiresAuth: true)
     static let uploadAvatar = APIEndpoint(path: "users/me/avatar", method: .post, requiresAuth: true)
 
     // MARK: - Patient Profile
@@ -94,4 +96,8 @@ struct APIEndpoint {
     static func hospital(id: String) -> APIEndpoint {
         APIEndpoint(path: "hospitals/\(id)", method: .get, requiresAuth: false)
     }
+
+    // MARK: - Wallet
+    static let wallet = APIEndpoint(path: "wallet", method: .get, requiresAuth: true)
+    static let walletTransactions = APIEndpoint(path: "wallet/transactions", method: .get, requiresAuth: true)
 }
