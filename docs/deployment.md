@@ -400,3 +400,214 @@ steps:
 | `main` | Push | Staging → (手动审批) → Production |
 | `develop` | Push | 仅运行测试 |
 | `feature/*` | PR | 仅运行测试 |
+
+## 11. CD 自动化流水线
+
+完整的 CD 流水线定义在 `.github/workflows/deploy.yml`，流程如下：
+
+```
+git push main
+    │
+    ▼
+┌──────────┐   ┌──────────────┐   ┌─────────────────┐   ┌───────────────────┐
+│  Tests   │──▶│ Build & Push │──▶│ Deploy Staging  │──▶│ Deploy Production│
+│ (门禁)   │   │  to ACR      │   │ (自动)          │   │ (手动审批)       │
+└──────────┘   └──────────────┘   └─────────────────┘   └───────────────────┘
+                                    ↓ 含DB迁移             ↓ 含DB迁移
+                                    ↓ 含健康检查           ↓ 含健康检查
+```
+
+### 11.1 流水线阶段说明
+
+| 阶段 | 触发条件 | 动作 |
+|------|---------|------|
+| **test** | 每次 push main | 运行后端 pytest + 前端 jest |
+| **build-push** | test 通过 | 构建 Docker 镜像，推送到 ACR（tag: YYYYMMDD-commit8） |
+| **migrate-staging** | build-push 完成 | 对 Staging DB 执行 `alembic upgrade head` |
+| **deploy-staging** | 迁移完成 | 更新 Staging Container App，健康检查 |
+| **migrate-production** | Staging 部署成功 + 人工审批 | 对 Production DB 执行迁移 |
+| **deploy-production** | 迁移完成 | 更新 Production Container App，健康检查 |
+
+### 11.2 所需 GitHub Secrets
+
+| Secret | 用途 |
+|--------|------|
+| `ACR_USERNAME` | Azure Container Registry 用户名 |
+| `ACR_PASSWORD` | ACR 密码 |
+| `AZURE_CREDENTIALS` | Azure Service Principal JSON（用于 az login） |
+| `STAGING_DATABASE_URL` | Staging PostgreSQL 连接串 |
+| `PRODUCTION_DATABASE_URL` | Production PostgreSQL 连接串 |
+
+### 11.3 GitHub Environment Protection Rules
+
+在 GitHub 仓库设置中配置：
+
+- **staging** 环境：无保护规则（自动部署）
+- **production** 环境：
+  - ✅ Required reviewers（至少 1 人审批）
+  - ✅ Wait timer: 0 分钟（审批后立即执行）
+
+## 12. 灾备方案
+
+### 12.1 数据库备份策略
+
+| 类型 | 频率 | 保留期 | 方式 |
+|------|------|--------|------|
+| 自动备份 | 每日 | 35 天 | Azure PostgreSQL 内置（默认启用） |
+| 事务日志备份 | 持续 | 同上 | Azure 自动管理，支持时间点恢复 (PITR) |
+| 手动快照 | 重大发版前 | 90 天 | `az postgres flexible-server backup create` |
+
+```bash
+# 创建手动备份
+az postgres flexible-server backup create \
+  --resource-group yiluan-rg \
+  --name yiluan-db \
+  --backup-name pre-release-$(date +%Y%m%d)
+
+# 时间点恢复（回滚到指定时间）
+az postgres flexible-server restore \
+  --resource-group yiluan-rg \
+  --name yiluan-db-restore \
+  --source-server yiluan-db \
+  --restore-time "2026-04-15T10:00:00Z"
+```
+
+### 12.2 Redis 备份
+
+| 策略 | 说明 |
+|------|------|
+| RDB 持久化 | Azure Cache for Redis 默认每小时快照 |
+| 数据丢失影响 | 低 — Redis 仅用于缓存和临时数据（readiness_check、rate_limit 等），丢失后自动重建 |
+
+### 12.3 镜像版本管理
+
+- ACR 保留最近 30 个版本 tag
+- 每个 tag 格式：`YYYYMMDD-<commit-sha-8>`
+- `latest` 始终指向最新构建
+
+## 13. 日志收集
+
+### 13.1 Azure Monitor 配置
+
+```bash
+# 创建 Log Analytics Workspace
+az monitor log-analytics workspace create \
+  --resource-group yiluan-rg \
+  --workspace-name yiluan-logs \
+  --location eastasia \
+  --retention-in-days 90
+
+# 关联到 Container Apps 环境
+az containerapp env update \
+  --name yiluan-env \
+  --resource-group yiluan-rg \
+  --logs-workspace-id <workspace-id> \
+  --logs-workspace-key <workspace-key>
+```
+
+### 13.2 日志查询示例（KQL）
+
+```kusto
+// 最近1小时的错误日志
+ContainerAppConsoleLogs_CL
+| where TimeGenerated > ago(1h)
+| where Log_s contains "ERROR" or Log_s contains "Exception"
+| order by TimeGenerated desc
+| take 50
+
+// API 响应时间分布
+ContainerAppConsoleLogs_CL
+| where TimeGenerated > ago(24h)
+| where Log_s matches regex "\\d+ms"
+| summarize avg(extract("(\\d+)ms", 1, Log_s, typeof(real))),
+           percentile(extract("(\\d+)ms", 1, Log_s, typeof(real)), 95)
+  by bin(TimeGenerated, 5m)
+```
+
+### 13.3 应用日志格式
+
+后端使用 Python `logging` + JSON 格式化输出：
+
+```python
+# 建议在 app/main.py 配置
+import logging, json_logging
+json_logging.init_fastapi(enable_json=True)
+```
+
+## 14. 告警规则
+
+### 14.1 推荐告警
+
+| 指标 | 阈值 | 严重级别 | 动作 |
+|------|------|----------|------|
+| HTTP 5xx 错误率 | > 5% (5分钟窗口) | P1 Critical | 邮件 + 短信通知 |
+| 平均响应时间 | > 2s (5分钟窗口) | P2 Warning | 邮件通知 |
+| CPU 使用率 | > 80% (10分钟窗口) | P2 Warning | 触发自动扩容 |
+| 内存使用率 | > 85% (10分钟窗口) | P2 Warning | 邮件通知 |
+| 数据库连接池耗尽 | active > 90% max | P1 Critical | 邮件 + 短信通知 |
+| Redis 连接失败 | 连续 3 次 | P1 Critical | 邮件通知 |
+| 健康检查失败 | /readiness 返回 503 | P1 Critical | 自动重启实例 |
+
+### 14.2 Azure Alert Rule 配置示例
+
+```bash
+# 创建 Action Group
+az monitor action-group create \
+  --resource-group yiluan-rg \
+  --name yiluan-alerts \
+  --short-name yiluan \
+  --email-receivers name=ops email=ops@yiluan.com
+
+# 创建 5xx 错误率告警
+az monitor metrics alert create \
+  --resource-group yiluan-rg \
+  --name high-error-rate \
+  --scopes <container-app-resource-id> \
+  --condition "avg Requests where StatusCodeClass == 5xx > 5" \
+  --window-size 5m \
+  --evaluation-frequency 1m \
+  --severity 1 \
+  --action yiluan-alerts
+```
+
+## 15. 回滚流程
+
+### 15.1 应用回滚（Container Apps）
+
+```bash
+# 查看历史 revision
+az containerapp revision list \
+  --name yiluan-api \
+  --resource-group yiluan-rg \
+  --output table
+
+# 激活之前的 revision（蓝绿切换）
+az containerapp ingress traffic set \
+  --name yiluan-api \
+  --resource-group yiluan-rg \
+  --revision-weight <previous-revision>=100
+
+# 或直接部署指定版本的镜像
+az containerapp update \
+  --name yiluan-api \
+  --resource-group yiluan-rg \
+  --image yiluanacr.azurecr.io/yiluan-backend:20260414-5689685f
+```
+
+### 15.2 数据库回滚
+
+```bash
+# Alembic 降级（回退一个版本）
+cd backend && alembic downgrade -1
+
+# 如果迁移不可逆，使用时间点恢复（见 12.1 灾备方案）
+```
+
+### 15.3 回滚决策矩阵
+
+| 场景 | 回滚方式 | 预估耗时 |
+|------|---------|----------|
+| 新版本 API 报错 | revision 流量切换 | < 2 分钟 |
+| 数据库迁移有误 | alembic downgrade | 5-10 分钟 |
+| 数据损坏 | PostgreSQL PITR 时间点恢复 | 15-30 分钟 |
+| 全面故障 | 恢复到最后已知良好 revision + DB PITR | 30-60 分钟 |

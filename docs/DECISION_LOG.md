@@ -145,6 +145,83 @@
 
 ---
 
+## 2026-04-14
+
+### D-010 注销时活跃订单分级处理
+- **参与角色**：Arch / Backend / QA
+- **背景**：D-009 确定了账号注销策略（软删除 + 脱敏），但未定义注销时如何处理用户仍在进行中的订单。用户可能同时以患者和陪诊师身份持有活跃订单。
+- **候选方案**：
+  A. 拒绝注销 — 存在活跃订单时阻止注销
+  B. 全部取消 — 统一取消并全额退款
+  C. 分级处理 — 根据订单状态采用不同策略
+- **决策**：方案 C — 分级处理
+- **原因**：
+  1. 方案 A 用户体验差，用户无法自主完成注销
+  2. 方案 B 对已在进行中（陪诊师已出发）的订单不公平
+  3. 分级处理兼顾公平性和用户权益
+- **实现细节**：
+  1. `pending (created)` → 直接取消，无退款（未被接单，无损失）
+  2. `accepted` → 取消 + 100% 全额退款（已接单但未开始服务）
+  3. `in_progress` → 取消 + 50% 退款（服务已部分完成）
+  4. `completed / reviewed` → 不处理（保留历史记录）
+  5. 双向查询：同时检查 `patient_id` 和 `companion_id`
+  6. 退款通过 `PaymentService.create_refund()` 复用已有流程
+  7. `BadRequestException` 静默处理重复退款（幂等保护）
+  8. 全部在同一数据库事务中执行，失败则整体回滚
+- **影响范围**：`app/services/user.py`（`_cancel_active_orders` 方法）
+- **测试覆盖**：`tests/test_account_deletion_orders.py`（6 个用例：各状态处理、双角色查询、无订单场景、重复退款幂等）
+- **落地提交**：`5689685`
+- **状态**：已完成
+
+### D-011 支付回调时间戳防重放（5分钟窗口）
+- **参与角色**：Arch / Backend
+- **背景**：D-007 实现了回调验签和解密，但未防御重放攻击。攻击者可截获合法回调通知并重复发送，导致订单状态被多次修改。
+- **候选方案**：
+  A. 仅依赖签名验证（不防重放）
+  B. 基于数据库去重（记录已处理的 nonce）
+  C. 时间戳窗口检查（简单有效）
+  D. 时间戳 + nonce 去重（最严格）
+- **决策**：方案 C — 时间戳窗口检查，5分钟有效期
+- **原因**：
+  1. 方案 A 不防重放，有安全风险
+  2. 方案 B 需要额外数据库表，增加复杂性
+  3. 方案 C 实现简单（约 10 行代码），微信官方也建议做时间戳验证
+  4. 5 分钟窗口兼顾网络延迟容忍和安全性
+  5. 后续如有更高安全需求可升级到方案 D
+- **实现细节**：
+  1. 从回调 headers 获取 `Wechatpay-Timestamp`
+  2. 计算 `abs(current_time - callback_time)`
+  3. 超过 300 秒（5分钟）则拒绝，返回错误
+- **影响范围**：`app/services/payment_service.py`（`verify_callback` 方法）
+- **测试覆盖**：`tests/test_payment_service.py`（sign_params 格式验证 + 防重放 + 过期拒绝，3 个用例）
+- **落地提交**：`fc5717a`
+- **状态**：已完成
+
+### D-012 PyJWT 迁移（python-jose → PyJWT 2.9.0）
+- **参与角色**：Backend / Arch
+- **背景**：项目原使用 `python-jose[cryptography]` 进行 JWT 编解码，但该库已停止维护（最后更新 2021 年），每次 import 会触发 `DeprecationWarning`，累计导致测试报告中出现 329 个 warnings。
+- **候选方案**：
+  A. 继续使用 python-jose，忽略 warnings
+  B. 迁移到 PyJWT（活跃维护，Python JWT 社区标准）
+  C. 迁移到 authlib
+- **决策**：方案 B — 迁移到 PyJWT 2.9.0
+- **原因**：
+  1. python-jose 已弃用，存在潜在安全风险
+  2. PyJWT 是 Python JWT 领域最活跃的库，社区支持好
+  3. API 几乎兼容，迁移成本极低（`jose.jwt` → `jwt`）
+  4. 迁移后 DeprecationWarning 329 → 0
+  5. authlib 功能过重，项目只需 JWT 编解码
+- **实现细节**：
+  1. `requirements.txt`: `python-jose[cryptography]` → `PyJWT>=2.9.0`
+  2. `app/core/security.py`: `from jose import jwt` → `import jwt`
+  3. 测试 mock 路径更新
+  4. 验证所有 303 个后端测试通过，warnings 从 ~322 降到 3（仅剩 SQLAlchemy collection warnings）
+- **影响范围**：`backend/requirements.txt`、`backend/app/core/security.py`、`backend/tests/test_auth.py`
+- **落地提交**：`fc5717a`
+- **状态**：已完成
+
+---
+
 ## 决策记录模板
 
 ### D-XXX 标题
