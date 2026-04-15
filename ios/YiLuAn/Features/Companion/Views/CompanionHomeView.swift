@@ -10,10 +10,13 @@ struct CompanionHomeView: View {
                 VStack(spacing: 20) {
                     // Stats summary
                     HStack(spacing: 20) {
-                        statCard(
-                            title: "今日订单",
-                            value: "\(profileViewModel.stats?.todayOrders ?? 0)"
-                        )
+                        NavigationLink(destination: TodayOrdersView()) {
+                            statCard(
+                                title: "今日订单",
+                                value: "\(profileViewModel.stats?.todayOrders ?? 0)"
+                            )
+                        }
+                        .buttonStyle(.plain)
                         statCard(
                             title: "评分",
                             value: profileViewModel.stats.map {

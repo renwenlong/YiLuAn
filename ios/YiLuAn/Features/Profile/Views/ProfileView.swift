@@ -3,6 +3,10 @@ import SwiftUI
 struct ProfileView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
 
+    private var isCompanion: Bool {
+        authViewModel.currentUser?.role == .companion
+    }
+
     var body: some View {
         NavigationStack {
             List {
@@ -24,11 +28,26 @@ struct ProfileView: View {
                     .padding(.vertical, 4)
                 }
 
-                // Settings
-                Section("设置") {
+                // Profile & account
+                Section("账号") {
                     NavigationLink("个人资料") {
                         ProfileEditView()
                     }
+                    if isCompanion {
+                        NavigationLink("陪诊师主页") {
+                            CompanionSelfProfileView()
+                        }
+                    }
+                    NavigationLink("绑定手机号") {
+                        BindPhoneView()
+                    }
+                    NavigationLink("我的钱包") {
+                        WalletView()
+                    }
+                }
+
+                // Features
+                Section("功能") {
                     NavigationLink("消息通知") {
                         NotificationListView()
                     }
@@ -36,6 +55,11 @@ struct ProfileView: View {
                         SettingsView()
                     } label: {
                         Label("设置", systemImage: "gearshape")
+                    }
+                    NavigationLink {
+                        AboutView()
+                    } label: {
+                        Label("关于我们", systemImage: "info.circle")
                     }
                 }
 

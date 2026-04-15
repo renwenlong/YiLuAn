@@ -4,6 +4,7 @@ struct LoginView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @State private var phone = ""
     @State private var showOTPInput = false
+    @State private var agreedToTerms = false
 
     var body: some View {
         NavigationStack {
@@ -45,11 +46,11 @@ struct LoginView: View {
                         Text("获取验证码")
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(phone.count == 11 ? Color.blue : Color.gray)
+                            .background(phone.count == 11 && agreedToTerms ? Color.blue : Color.gray)
                             .foregroundStyle(.white)
                             .cornerRadius(12)
                     }
-                    .disabled(phone.count != 11 || authViewModel.isLoading)
+                    .disabled(phone.count != 11 || authViewModel.isLoading || !agreedToTerms)
 
                     if let error = authViewModel.errorMessage {
                         Text(error)
@@ -60,7 +61,36 @@ struct LoginView: View {
                 .padding(.horizontal)
 
                 Spacer()
-                Spacer()
+
+                // Privacy agreement
+                VStack(spacing: 8) {
+                    HStack(alignment: .top, spacing: 8) {
+                        Button {
+                            agreedToTerms.toggle()
+                        } label: {
+                            Image(systemName: agreedToTerms ? "checkmark.circle.fill" : "circle")
+                                .foregroundStyle(agreedToTerms ? Color.brand : Color.textHint)
+                        }
+
+                        Text("我已阅读并同意")
+                            .font(.dsCaption)
+                            .foregroundStyle(Color.textSecondary)
+                        +
+                        Text("《用户协议》")
+                            .font(.dsCaption)
+                            .foregroundStyle(Color.brand)
+                        +
+                        Text("和")
+                            .font(.dsCaption)
+                            .foregroundStyle(Color.textSecondary)
+                        +
+                        Text("《隐私政策》")
+                            .font(.dsCaption)
+                            .foregroundStyle(Color.brand)
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 32)
             }
             .navigationTitle("")
             .navigationDestination(isPresented: $showOTPInput) {
