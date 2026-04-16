@@ -57,6 +57,22 @@
   background: linear-gradient(135deg, #FF4D4F 0%, #FF7875 100%);
 }
 
+.status-header.status-rejected_by_companion {
+  background: linear-gradient(135deg, #FF4D4F 0%, #FF7875 100%);
+}
+
+.status-header.status-expired {
+  background: linear-gradient(135deg, #8C8C8C 0%, #BFBFBF 100%);
+}
+
+.status-subtitle {
+  font-size: var(--font-size-caption);
+  opacity: 0.85;
+  margin-top: var(--spacing-xs);
+  position: relative;
+  z-index: 1;
+}
+
 .status-icon {
   font-size: 56rpx;
   margin-bottom: var(--spacing-sm);

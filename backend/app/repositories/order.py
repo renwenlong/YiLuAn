@@ -1,5 +1,6 @@
 from typing import Sequence
 from uuid import UUID
+from datetime import datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -129,6 +130,16 @@ class OrderRepository(BaseRepository[Order]):
         stmt = stmt.order_by(Order.created_at.desc()).offset(skip).limit(limit)
         result = await self.session.execute(stmt)
         return result.scalars().all(), total
+
+    async def list_expired(self, now: datetime) -> Sequence[Order]:
+        """Find orders that are created and past their expires_at time."""
+        stmt = select(Order).where(
+            Order.status == OrderStatus.created,
+            Order.expires_at.isnot(None),
+            Order.expires_at <= now,
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
 
     async def has_unpaid_orders(self, patient_id: UUID) -> bool:
         """Check if patient has any created orders without a pay record."""

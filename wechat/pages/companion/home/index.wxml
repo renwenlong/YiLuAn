@@ -1,4 +1,10 @@
 <view class="companion-home">
+  <!-- Notification Badge -->
+  <view class="notification-bar" wx:if="{{unreadCount > 0}}" bindtap="onNotificationTap">
+    <text class="notification-text">您有 {{unreadCount}} 条未读通知</text>
+    <text class="notification-link">查看</text>
+  </view>
+
   <!-- 数据统计 -->
   <view class="stats-row">
     <view class="stat-item" bindtap="onOpenOrdersTap">

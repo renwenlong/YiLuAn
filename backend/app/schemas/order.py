@@ -34,6 +34,7 @@ class OrderResponse(BaseModel):
     companion_name: str | None = None
     patient_name: str | None = None
     payment_status: str | None = None
+    expires_at: datetime | None = None
     timeline: list[TimelineItem] | None = None
     timeline_index: int | None = None
     created_at: datetime

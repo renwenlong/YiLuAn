@@ -1,10 +1,17 @@
 import uuid
+from typing import Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.notification import Notification, NotificationType
 from app.models.user import User
 from app.repositories.notification import NotificationRepository
+
+SERVICE_TYPE_LABELS = {
+    "full_accompany": "全程陪诊",
+    "half_accompany": "半程陪诊",
+    "errand": "代办跑腿",
+}
 
 
 class NotificationService:
@@ -109,4 +116,68 @@ class NotificationService:
             title="收到新评价",
             body=f"{patient_name} 给了您 {rating} 星评价",
             reference_id=str(order_id),
+        )
+
+    async def notify_new_order(
+        self,
+        order,
+        companion_id: uuid.UUID,
+    ) -> Notification:
+        type_label = SERVICE_TYPE_LABELS.get(
+            order.service_type.value if hasattr(order.service_type, "value") else order.service_type,
+            "陪诊",
+        )
+        return await self.create_notification(
+            user_id=companion_id,
+            type=NotificationType.new_order,
+            title="🔔 新订单来啦",
+            body=f"{order.patient_name}预约了{order.appointment_date} {order.appointment_time}在{order.hospital_name}的{type_label}服务，请尽快查看并接单",
+            reference_id=str(order.id),
+        )
+
+    async def notify_new_order_broadcast(
+        self,
+        order,
+        companion_ids: Sequence[uuid.UUID],
+    ) -> list[Notification]:
+        type_label = SERVICE_TYPE_LABELS.get(
+            order.service_type.value if hasattr(order.service_type, "value") else order.service_type,
+            "陪诊",
+        )
+        notifications = []
+        for cid in companion_ids:
+            n = await self.create_notification(
+                user_id=cid,
+                type=NotificationType.new_order,
+                title="🔔 附近有新订单",
+                body=f"有患者预约了{order.appointment_date} {order.appointment_time}在{order.hospital_name}的{type_label}服务，快来抢单吧",
+                reference_id=str(order.id),
+            )
+            notifications.append(n)
+        return notifications
+
+    async def notify_order_rejected(
+        self,
+        order,
+        recipient_id: uuid.UUID,
+    ) -> Notification:
+        return await self.create_notification(
+            user_id=recipient_id,
+            type=NotificationType.order_status_changed,
+            title="📋 订单需要重新安排",
+            body="陪诊师暂时无法为您服务，建议重新选择陪诊师",
+            reference_id=str(order.id),
+        )
+
+    async def notify_order_expired(
+        self,
+        order,
+        recipient_id: uuid.UUID,
+    ) -> Notification:
+        return await self.create_notification(
+            user_id=recipient_id,
+            type=NotificationType.order_status_changed,
+            title="⏰ 订单已自动取消",
+            body=f"您的订单因超时未被接单已自动取消，款项将原路退回",
+            reference_id=str(order.id),
         )

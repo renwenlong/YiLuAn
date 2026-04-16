@@ -80,15 +80,17 @@
 
   <!-- Action Buttons -->
   <view class="action-bar">
-    <!-- Created: accept -->
+    <!-- Created: accept + reject (if assigned to this companion) -->
     <block wx:if="{{order.status === 'created'}}">
       <button class="btn-primary" bindtap="onAccept">接受订单</button>
+      <button class="btn-reject" wx:if="{{order.companion_id}}" bindtap="onReject">无法接单</button>
     </block>
 
-    <!-- Accepted: request start + chat -->
+    <!-- Accepted: request start + chat + cancel -->
     <block wx:if="{{order.status === 'accepted'}}">
       <button class="btn-primary" bindtap="onStart">通知患者开始服务</button>
       <button class="btn-secondary" bindtap="onChat">联系患者</button>
+      <button class="btn-reject" bindtap="onCancelAccepted">取消订单</button>
     </block>
 
     <!-- In Progress: complete + chat -->

@@ -104,6 +104,16 @@ async def complete_order(
     return await service.complete_order(order_id, current_user)
 
 
+@router.post("/{order_id}/reject", response_model=OrderResponse, summary="拒绝订单", description="陪诊师拒绝指定订单，已支付订单将自动退款。")
+async def reject_order(
+    order_id: UUID,
+    current_user: CurrentUser,
+    session: DBSession,
+):
+    service = OrderService(session)
+    return await service.reject_order(order_id, current_user)
+
+
 @router.post("/{order_id}/cancel", response_model=OrderResponse, summary="取消订单", description="取消指定订单，可在多个状态下操作，已支付订单将触发退款。")
 async def cancel_order(
     order_id: UUID,
@@ -139,3 +149,12 @@ async def refund_order(
 ):
     service = OrderService(session)
     return await service.refund_order(order_id, current_user)
+
+
+@router.post("/check-expired", summary="检查过期订单", description="扫描并自动取消超时未接单的订单，可由定时任务调用。")
+async def check_expired_orders(
+    session: DBSession,
+):
+    service = OrderService(session)
+    cancelled = await service.check_expired_orders()
+    return {"cancelled_count": len(cancelled), "cancelled_order_ids": [str(o.id) for o in cancelled]}
