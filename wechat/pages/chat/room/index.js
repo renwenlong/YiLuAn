@@ -1,4 +1,5 @@
 const { getChatMessages } = require('../../../services/chat')
+const { getOrderDetail, orderAction } = require('../../../services/order')
 const ws = require('../../../services/websocket')
 const store = require('../../../store/index')
 
@@ -8,7 +9,8 @@ Page({
     inputValue: '',
     orderId: '',
     scrollIntoView: '',
-    currentUserId: ''
+    currentUserId: '',
+    orderStatus: ''
   },
 
   onLoad(options) {
@@ -18,11 +20,19 @@ Page({
       currentUserId: user.id || ''
     })
     this.loadHistory()
+    this.loadOrderStatus()
     this.connectWebSocket()
   },
 
   onUnload() {
     ws.disconnect()
+  },
+
+  async loadOrderStatus() {
+    try {
+      const order = await getOrderDetail(this.data.orderId)
+      this.setData({ orderStatus: order.status || '' })
+    } catch (err) {}
   },
 
   async loadHistory() {
@@ -40,7 +50,6 @@ Page({
     ws.connect({
       orderId: this.data.orderId,
       onMessage: (msg) => {
-        // Skip own messages (already added optimistically in onSend)
         if (msg.sender_id === this.data.currentUserId) return
         this.setData({
           messages: [...this.data.messages, msg]
@@ -62,10 +71,8 @@ Page({
     const content = inputValue.trim()
     if (!content) return
 
-    // Send to WebSocket — backend only needs content and type
     ws.send({ content, type: 'text' })
 
-    // Optimistic local display using snake_case to match backend/chat-bubble
     const message = {
       id: Date.now().toString(),
       order_id: orderId,
@@ -80,6 +87,29 @@ Page({
       inputValue: ''
     })
     this.scrollToBottom()
+  },
+
+  onViewOrder() {
+    wx.navigateTo({
+      url: '/pages/patient/order-detail/index?id=' + this.data.orderId
+    })
+  },
+
+  onAcceptOrder() {
+    var self = this
+    wx.showModal({
+      title: '确认接单',
+      content: '确定接受此订单吗？',
+      success: function (res) {
+        if (!res.confirm) return
+        orderAction(self.data.orderId, 'accept').then(function () {
+          wx.showToast({ title: '已接单', icon: 'success' })
+          self.setData({ orderStatus: 'accepted' })
+        }).catch(function () {
+          wx.showToast({ title: '接单失败', icon: 'none' })
+        })
+      }
+    })
   },
 
   scrollToBottom() {

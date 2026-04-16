@@ -17,6 +17,8 @@ from app.models.order import (
 from app.models.order_status_history import OrderStatusHistory
 from app.models.payment import Payment
 from app.models.user import User, UserRole
+from app.models.chat_message import ChatMessage, MessageType
+from app.repositories.chat_message import ChatMessageRepository
 from app.repositories.hospital import HospitalRepository
 from app.repositories.order import OrderRepository
 from app.repositories.payment import PaymentRepository, OrderStatusHistoryRepository
@@ -44,6 +46,7 @@ class OrderService:
         self.companion_repo = CompanionProfileRepository(session)
         self.notification_svc = NotificationService(session)
         self.payment_svc = PaymentService(session)
+        self.chat_repo = ChatMessageRepository(session)
         self.session = session
 
     async def create_order(
@@ -339,6 +342,15 @@ class OrderService:
                 await self.notification_svc.notify_new_order_broadcast(
                     order, companion_ids
                 )
+
+        # Create system chat message so companions see this order in chat list
+        system_msg = ChatMessage(
+            order_id=order.id,
+            sender_id=user.id,
+            type=MessageType.system,
+            content="您有一个新的陪诊订单，请查看详情并尽快接单",
+        )
+        await self.chat_repo.create(system_msg)
 
         return result
 

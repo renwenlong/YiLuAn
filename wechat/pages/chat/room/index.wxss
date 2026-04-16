@@ -21,6 +21,38 @@
   height: 24rpx;
 }
 
+/* Quick Actions Bar */
+.quick-actions {
+  display: flex;
+  gap: 16rpx;
+  padding: 16rpx 24rpx;
+  background-color: #FFF8E6;
+  border-top: 1rpx solid #FFE4A0;
+}
+
+.action-btn {
+  flex: 1;
+  height: 72rpx;
+  line-height: 72rpx;
+  font-size: 26rpx;
+  font-weight: 500;
+  border-radius: 12rpx;
+  padding: 0;
+  text-align: center;
+}
+
+.action-btn-outline {
+  background-color: #FFFFFF;
+  color: #666;
+  border: 1rpx solid #DCDCDC;
+}
+
+.action-btn-primary {
+  background: var(--gradient-primary, #1890FF);
+  color: #FFFFFF;
+  border: none;
+}
+
 /* Input Bar */
 .input-bar {
   display: flex;

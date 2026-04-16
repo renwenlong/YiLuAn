@@ -13,6 +13,27 @@
   align-items: flex-start;
 }
 
+/* System message — centered gray bubble */
+.system-message-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 24rpx;
+  padding: 0 48rpx;
+}
+
+.system-message {
+  background-color: rgba(0, 0, 0, 0.05);
+  border-radius: 12rpx;
+  padding: 12rpx 24rpx;
+  max-width: 80%;
+}
+
+.system-message-text {
+  font-size: 24rpx;
+  color: #999;
+  line-height: 1.5;
+}
+
 .sender-name {
   font-size: 22rpx;
   color: #999;

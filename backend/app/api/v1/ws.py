@@ -15,6 +15,69 @@ router = APIRouter()
 # Simple in-memory connection manager (single-instance; use Redis pub/sub for multi-instance)
 _connections: dict[str, list[WebSocket]] = {}
 
+# Global notification connections: user_id -> list[WebSocket]
+_notification_connections: dict[str, list[WebSocket]] = {}
+
+
+async def push_notification_to_user(user_id: UUID, notification_data: dict) -> None:
+    """Push a notification to a connected user via WebSocket."""
+    key = str(user_id)
+    for ws in _notification_connections.get(key, []):
+        try:
+            await ws.send_text(json.dumps(notification_data))
+        except Exception:
+            pass
+
+
+@router.websocket("/ws/notifications")
+async def websocket_notifications(websocket: WebSocket):
+    """Global notification WebSocket. Connect with ?token=<jwt>."""
+    token = websocket.query_params.get("token")
+    if not token:
+        await websocket.close(code=4001, reason="Missing token")
+        return
+
+    payload = decode_token(token)
+    if payload is None or payload.get("type") != "access":
+        await websocket.close(code=4001, reason="Invalid token")
+        return
+
+    user_id_str = payload.get("sub")
+    if not user_id_str:
+        await websocket.close(code=4001, reason="Invalid token")
+        return
+
+    try:
+        user_id = UUID(user_id_str)
+    except ValueError:
+        await websocket.close(code=4001, reason="Invalid token")
+        return
+
+    await websocket.accept()
+
+    key = str(user_id)
+    if key not in _notification_connections:
+        _notification_connections[key] = []
+    _notification_connections[key].append(websocket)
+
+    try:
+        while True:
+            raw = await websocket.receive_text()
+            data = json.loads(raw)
+            if data.get("type") == "ping":
+                await websocket.send_text(json.dumps({"type": "pong"}))
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        if key in _notification_connections:
+            _notification_connections[key] = [
+                ws for ws in _notification_connections[key] if ws != websocket
+            ]
+            if not _notification_connections[key]:
+                del _notification_connections[key]
+
 
 @router.websocket("/ws/chat/{order_id}")
 async def websocket_chat(websocket: WebSocket, order_id: UUID):

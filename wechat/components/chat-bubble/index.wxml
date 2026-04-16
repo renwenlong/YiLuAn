@@ -1,4 +1,9 @@
-<view class="chat-bubble-wrapper {{isMine ? 'mine' : 'other'}}">
+<view wx:if="{{message.type === 'system'}}" class="system-message-wrapper">
+  <view class="system-message">
+    <text class="system-message-text">{{message.content}}</text>
+  </view>
+</view>
+<view wx:else class="chat-bubble-wrapper {{isMine ? 'mine' : 'other'}}">
   <text class="sender-name" wx:if="{{!isMine}}">{{message.sender_name}}</text>
   <view class="bubble {{isMine ? 'bubble-mine' : 'bubble-other'}}">
     <text class="bubble-content">{{message.content}}</text>
