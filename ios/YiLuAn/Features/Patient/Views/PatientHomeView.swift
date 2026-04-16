@@ -6,17 +6,32 @@ struct PatientHomeView: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(spacing: 20) {
+                VStack(spacing: Spacing.xl) {
+                    // Hero header
+                    ZStack(alignment: .bottomLeading) {
+                        AppGradient.hero
+                            .frame(height: 140)
+                            .ignoresSafeArea(edges: .top)
+
+                        Text("找到您身边的\n专业陪诊师")
+                            .font(.dsH1)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, Spacing.xl)
+                            .padding(.bottom, Spacing.lg)
+                    }
+
                     // Service cards
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: Spacing.md) {
                         Text("选择服务")
-                            .font(.headline)
+                            .font(.dsTitle)
+                            .foregroundStyle(Color.textPrimary)
+                            .padding(.horizontal, Spacing.lg)
 
                         LazyVGrid(columns: [
                             GridItem(.flexible()),
                             GridItem(.flexible()),
                             GridItem(.flexible())
-                        ], spacing: 12) {
+                        ], spacing: Spacing.md) {
                             ForEach(ServiceType.allCases, id: \.rawValue) { service in
                                 NavigationLink {
                                     CreateOrderView()
@@ -26,33 +41,53 @@ struct PatientHomeView: View {
                                 .buttonStyle(.plain)
                             }
                         }
+                        .padding(.horizontal, Spacing.lg)
                     }
-                    .padding(.horizontal)
 
                     // Recommended companions
-                    VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: Spacing.md) {
                         HStack {
                             Text("推荐陪诊师")
-                                .font(.headline)
+                                .font(.dsTitle)
+                                .foregroundStyle(Color.textPrimary)
                             Spacer()
-                            NavigationLink("更多") {
+                            NavigationLink {
                                 CompanionListView()
                                     .navigationTitle("陪诊师列表")
+                            } label: {
+                                HStack(spacing: 4) {
+                                    Text("更多")
+                                        .font(.dsSubheadline)
+                                    Image(systemName: "chevron.right")
+                                        .font(.system(size: 10, weight: .semibold))
+                                }
+                                .foregroundStyle(Color.brand)
                             }
-                            .font(.subheadline)
                         }
-                        .padding(.horizontal)
+                        .padding(.horizontal, Spacing.lg)
 
                         if companionViewModel.isLoading && companionViewModel.companions.isEmpty {
-                            ProgressView()
-                                .frame(maxWidth: .infinity, minHeight: 100)
+                            HStack(spacing: Spacing.md) {
+                                ForEach(0..<3, id: \.self) { _ in
+                                    RoundedRectangle(cornerRadius: CornerRadius.lg)
+                                        .fill(Color.bgSkeleton.opacity(0.5))
+                                        .frame(width: 110, height: 140)
+                                }
+                            }
+                            .padding(.horizontal, Spacing.lg)
                         } else if companionViewModel.companions.isEmpty {
-                            Text("暂无推荐")
-                                .foregroundStyle(.secondary)
-                                .frame(maxWidth: .infinity, minHeight: 100)
+                            VStack(spacing: Spacing.sm) {
+                                Image(systemName: "person.2.slash")
+                                    .font(.system(size: 32))
+                                    .foregroundStyle(Color.textHint)
+                                Text("暂无推荐，稍后再来看看")
+                                    .font(.dsSubheadline)
+                                    .foregroundStyle(Color.textHint)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 100)
                         } else {
                             ScrollView(.horizontal, showsIndicators: false) {
-                                HStack(spacing: 12) {
+                                HStack(spacing: Spacing.md) {
                                     ForEach(companionViewModel.companions.prefix(5)) { companion in
                                         NavigationLink(
                                             destination: CompanionDetailView(companionId: companion.id)
@@ -62,13 +97,14 @@ struct PatientHomeView: View {
                                         .buttonStyle(.plain)
                                     }
                                 }
-                                .padding(.horizontal)
+                                .padding(.horizontal, Spacing.lg)
                             }
                         }
                     }
                 }
-                .padding(.top)
+                .padding(.bottom, 120)
             }
+            .background(Color.bgPage)
             .navigationTitle("医路安")
             .task {
                 await companionViewModel.loadCompanions()
@@ -77,21 +113,31 @@ struct PatientHomeView: View {
     }
 
     private func serviceCard(_ service: ServiceType) -> some View {
-        VStack(spacing: 8) {
-            Image(systemName: serviceIcon(service))
-                .font(.title2)
-                .foregroundStyle(.blue)
+        VStack(spacing: Spacing.sm) {
+            ZStack {
+                Circle()
+                    .fill(Color.brand.opacity(0.1))
+                    .frame(width: 44, height: 44)
+
+                Image(systemName: serviceIcon(service))
+                    .font(.system(size: 20))
+                    .foregroundStyle(Color.brand)
+            }
+
             Text(service.displayName)
-                .font(.caption)
-                .foregroundStyle(.primary)
+                .font(.dsSubheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(Color.textPrimary)
+
             Text("¥\(service.price as NSDecimalNumber)")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
+                .font(.dsSmall)
+                .foregroundStyle(Color.accent)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .padding(.vertical, Spacing.lg)
+        .background(Color.bgCard)
+        .cornerRadius(CornerRadius.lg)
+        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
     }
 
     private func serviceIcon(_ service: ServiceType) -> String {
@@ -103,7 +149,7 @@ struct PatientHomeView: View {
     }
 
     private func companionCard(_ companion: CompanionProfile) -> some View {
-        VStack(spacing: 8) {
+        VStack(spacing: Spacing.sm) {
             if let urlString = companion.avatarUrl, let url = URL(string: urlString) {
                 AsyncImage(url: url) { image in
                     image
@@ -114,29 +160,41 @@ struct PatientHomeView: View {
                 }
                 .frame(width: 56, height: 56)
                 .clipShape(Circle())
+                .overlay(Circle().stroke(.white, lineWidth: 2))
+                .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
             } else {
-                Image(systemName: "person.circle.fill")
-                    .font(.system(size: 44))
-                    .foregroundStyle(.gray)
-                    .frame(width: 56, height: 56)
+                ZStack {
+                    Circle()
+                        .fill(AppGradient.primary)
+                        .frame(width: 56, height: 56)
+
+                    Text(String(companion.displayName?.prefix(1) ?? companion.realName.prefix(1)))
+                        .font(.dsTitle)
+                        .foregroundStyle(.white)
+                }
+                .shadow(color: .brand.opacity(0.2), radius: 4, x: 0, y: 2)
             }
 
             Text(companion.displayName ?? companion.realName)
-                .font(.caption)
+                .font(.dsSubheadline)
+                .fontWeight(.medium)
+                .foregroundStyle(Color.textPrimary)
                 .lineLimit(1)
 
             HStack(spacing: 2) {
                 Image(systemName: "star.fill")
-                    .font(.caption2)
-                    .foregroundStyle(.orange)
+                    .font(.system(size: 10))
+                    .foregroundStyle(Color.warning)
                 Text(String(format: "%.1f", companion.avgRating))
-                    .font(.caption2)
+                    .font(.dsSmall)
+                    .foregroundStyle(Color.textSecondary)
             }
         }
-        .frame(width: 90)
-        .padding(.vertical, 12)
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .frame(width: 110)
+        .padding(.vertical, Spacing.md)
+        .background(Color.bgCard)
+        .cornerRadius(CornerRadius.lg)
+        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
     }
 }
 

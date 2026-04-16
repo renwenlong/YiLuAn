@@ -57,4 +57,27 @@ final class DesignSystemTests: XCTestCase {
         XCTAssertEqual(CornerRadius.lg, 12)
         XCTAssertEqual(CornerRadius.full, 9999)
     }
+
+    // MARK: - New Design System v2 Tests
+
+    func testNewColorTokens() {
+        // Verify new tokens exist and have correct hex values
+        let brandDark = Color(hex: 0x096DD9)
+        let uiColor = UIColor(brandDark)
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        uiColor.getRed(&r, green: &g, blue: &b, alpha: &a)
+        XCTAssertEqual(r, 0x09 / 255.0, accuracy: 0.01)
+        XCTAssertEqual(g, 0x6D / 255.0, accuracy: 0.01)
+        XCTAssertEqual(b, 0xD9 / 255.0, accuracy: 0.01)
+    }
+
+    func testNewSpacingValues() {
+        XCTAssertEqual(Spacing.xxs, 2)
+        XCTAssertEqual(Spacing.xxxl, 48)
+    }
+
+    func testNewCornerRadiusValues() {
+        XCTAssertEqual(CornerRadius.xs, 2)
+        XCTAssertEqual(CornerRadius.xl, 16)
+    }
 }

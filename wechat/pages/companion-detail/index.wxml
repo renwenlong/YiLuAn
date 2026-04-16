@@ -3,6 +3,7 @@
 <view class="page-container" wx:if="{{companion}}">
   <!-- Profile Header -->
   <view class="profile-header">
+    <view class="profile-header-decor"></view>
     <image
       class="profile-avatar"
       src="{{companion.avatar}}"
@@ -66,8 +67,9 @@
         <text class="review-date">{{item.date}}</text>
       </view>
     </view>
-    <view class="empty-reviews" wx:else>
-      <text>暂无评价</text>
+    <view class="empty-reviews">
+      <text class="empty-reviews-icon">💬</text>
+      <text>期待第一条评价</text>
     </view>
   </view>
 

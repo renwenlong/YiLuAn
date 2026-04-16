@@ -1,3 +1,5 @@
+/* Orders Page — Upgraded UI/UX */
+
 .orders-page {
   min-height: 100vh;
   background-color: var(--color-bg-page);
@@ -9,21 +11,24 @@
   white-space: nowrap;
   background-color: var(--color-bg-card);
   padding: 0 16rpx;
-  border-bottom: 1rpx solid var(--color-border-light);
+  border-bottom: none;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: var(--z-sticky, 10);
 }
 
 .tab-item {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 24rpx 32rpx;
-  font-size: 28rpx;
+  padding: 28rpx 32rpx;
+  font-size: 30rpx;
+  font-weight: 400;
   color: var(--color-text-secondary);
   position: relative;
   flex-shrink: 0;
+  transition: color var(--duration-fast, 0.2s);
 }
 
 .tab-active {
@@ -37,22 +42,24 @@
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 48rpx;
-  height: 4rpx;
-  background-color: var(--color-primary);
-  border-radius: 2rpx;
+  width: 60rpx;
+  height: 6rpx;
+  background: var(--gradient-primary);
+  border-radius: 3rpx;
+  transition: width var(--duration-normal, 0.3s) var(--ease-out, ease-out);
 }
 
 .order-list {
   display: flex;
   flex-direction: column;
-  gap: 20rpx;
-  padding: 24rpx;
+  gap: var(--spacing-lg, 24rpx);
+  padding: var(--spacing-lg, 24rpx);
 }
 
 .load-more {
   text-align: center;
-  padding: 32rpx 0;
+  padding: 36rpx 0;
   color: var(--color-text-hint);
   font-size: 26rpx;
+  letter-spacing: 1rpx;
 }

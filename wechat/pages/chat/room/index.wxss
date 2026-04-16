@@ -1,8 +1,10 @@
+/* Chat Room — Upgraded UI/UX */
+
 .chat-container {
   display: flex;
   flex-direction: column;
   height: 100vh;
-  background-color: #f0f0f0;
+  background-color: var(--color-bg-page, #F7F8FA);
 }
 
 /* Message List */
@@ -25,41 +27,51 @@
   align-items: center;
   gap: 16rpx;
   padding: 16rpx 24rpx;
-  background-color: #fff;
-  border-top: 1rpx solid #e0e0e0;
+  background-color: #FFFFFF;
+  box-shadow: 0 -2rpx 12rpx rgba(0, 0, 0, 0.04);
   padding-bottom: calc(16rpx + env(safe-area-inset-bottom));
 }
 
 .input-wrapper {
   flex: 1;
-  background-color: #f5f5f5;
-  border-radius: 36rpx;
-  padding: 0 24rpx;
+  background-color: var(--color-bg-input, #F7F8FA);
+  border-radius: var(--radius-full, 999rpx);
+  padding: 0 28rpx;
+  transition: box-shadow var(--duration-fast, 0.2s);
+}
+
+.input-wrapper:focus-within {
+  box-shadow: 0 0 0 3rpx rgba(24, 144, 255, 0.15);
 }
 
 .chat-input {
-  height: 72rpx;
+  height: 76rpx;
   font-size: 28rpx;
-  color: #333;
+  color: var(--color-text-primary, #333);
 }
 
 .send-btn {
-  width: 120rpx;
-  height: 72rpx;
-  line-height: 72rpx;
+  width: 128rpx;
+  height: 76rpx;
+  line-height: 76rpx;
   font-size: 28rpx;
-  background-color: #ccc;
-  color: #fff;
-  border-radius: 36rpx;
+  font-weight: 500;
+  background-color: var(--color-border-light, #E0E0E0);
+  color: #FFFFFF;
+  border-radius: var(--radius-full, 999rpx);
   padding: 0;
   flex-shrink: 0;
+  transition: background var(--duration-fast, 0.2s),
+              box-shadow var(--duration-fast, 0.2s);
 }
 
 .send-btn.active {
-  background-color: #4CAF50;
+  background: var(--gradient-primary);
+  box-shadow: var(--shadow-primary);
 }
 
 .send-btn[disabled] {
-  background-color: #ccc;
-  color: #fff;
+  background-color: var(--color-border-light, #E0E0E0);
+  color: #FFFFFF;
+  box-shadow: none;
 }

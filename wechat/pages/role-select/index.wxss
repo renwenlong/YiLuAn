@@ -1,3 +1,14 @@
+/* Role Select Page — Upgraded UI/UX */
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(60rpx); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 .role-select-page {
   min-height: 100vh;
   background-color: var(--color-bg-page);
@@ -12,7 +23,7 @@
 
 .title {
   display: block;
-  font-size: 44rpx;
+  font-size: var(--font-size-hero, 48rpx);
   font-weight: bold;
   color: var(--color-text-primary);
   margin-bottom: 16rpx;
@@ -35,36 +46,50 @@
   flex-direction: column;
   align-items: center;
   background-color: var(--color-bg-card);
-  border-radius: 24rpx;
+  border-radius: var(--radius-xl, 24rpx);
   padding: 60rpx 40rpx;
-  box-shadow: 0 4rpx 16rpx rgba(0, 0, 0, 0.06);
+  box-shadow: var(--shadow-card, 0 4rpx 16rpx rgba(0, 0, 0, 0.06));
+  border-left: 6rpx solid transparent;
+  transition: transform var(--duration-normal, 0.3s) var(--ease-out, ease-out),
+              box-shadow var(--duration-normal, 0.3s) var(--ease-out, ease-out);
+  animation: slideUp var(--duration-slow, 0.5s) var(--ease-out, ease-out) both;
+}
+
+.role-card:nth-child(1) {
+  border-left-color: var(--color-primary);
+  animation-delay: 0.05s;
+}
+
+.role-card:nth-child(2) {
+  border-left-color: var(--color-success, #52C41A);
+  animation-delay: 0.15s;
 }
 
 .role-card:active {
-  opacity: 0.85;
-  transform: scale(0.98);
+  transform: scale(0.96);
+  box-shadow: var(--shadow-card-elevated, 0 12rpx 40rpx rgba(0, 0, 0, 0.12));
 }
 
 .role-icon {
-  width: 120rpx;
-  height: 120rpx;
+  width: 140rpx;
+  height: 140rpx;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 24rpx;
+  margin-bottom: 28rpx;
 }
 
 .patient-icon {
-  background-color: rgba(24, 144, 255, 0.1);
+  background: linear-gradient(135deg, rgba(24, 144, 255, 0.1), rgba(54, 207, 201, 0.15));
 }
 
 .companion-icon {
-  background-color: rgba(82, 196, 26, 0.1);
+  background: linear-gradient(135deg, rgba(82, 196, 26, 0.1), rgba(115, 209, 61, 0.15));
 }
 
 .icon-text {
-  font-size: 44rpx;
+  font-size: 48rpx;
   font-weight: bold;
 }
 
@@ -73,7 +98,7 @@
 }
 
 .companion-icon .icon-text {
-  color: var(--color-success);
+  color: var(--color-success, #52C41A);
 }
 
 .role-name {
@@ -88,6 +113,7 @@
   color: var(--color-text-hint);
 }
 
+/* Loading Mask */
 .loading-mask {
   position: fixed;
   top: 0;
@@ -98,20 +124,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 999;
+  z-index: var(--z-modal, 999);
 }
 
 .loading-spinner {
   width: 80rpx;
   height: 80rpx;
-  border: 6rpx solid var(--color-bg-card);
+  border: 6rpx solid rgba(255, 255, 255, 0.3);
   border-top-color: var(--color-primary);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
 }
