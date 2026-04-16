@@ -7,7 +7,7 @@ from app.services.wallet import WalletService
 router = APIRouter(prefix="/wallet", tags=["wallet"])
 
 
-@router.get("")
+@router.get("", summary="获取钱包概览", description="获取当前用户的钱包余额和收支概览信息。")
 async def get_wallet_summary(
     current_user: CurrentUser,
     session: DBSession,
@@ -16,7 +16,7 @@ async def get_wallet_summary(
     return await service.get_summary(current_user)
 
 
-@router.get("/transactions")
+@router.get("/transactions", summary="获取交易记录", description="分页查询当前用户的钱包交易流水记录。")
 async def get_transactions(
     current_user: CurrentUser,
     session: DBSession,

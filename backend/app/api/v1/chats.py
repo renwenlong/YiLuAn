@@ -13,7 +13,7 @@ from app.services.chat import ChatService
 router = APIRouter(prefix="/chats", tags=["chats"])
 
 
-@router.get("/{order_id}/messages", response_model=ChatMessageListResponse)
+@router.get("/{order_id}/messages", response_model=ChatMessageListResponse, summary="获取聊天消息列表", description="分页查询指定订单的聊天消息记录。")
 async def list_messages(
     order_id: UUID,
     current_user: CurrentUser,
@@ -31,7 +31,7 @@ async def list_messages(
     )
 
 
-@router.post("/{order_id}/messages", response_model=ChatMessageResponse, status_code=201)
+@router.post("/{order_id}/messages", response_model=ChatMessageResponse, status_code=201, summary="发送聊天消息", description="在指定订单的聊天中发送一条新消息。")
 async def send_message(
     order_id: UUID,
     body: SendMessageRequest,
@@ -42,7 +42,7 @@ async def send_message(
     return await service.send_message(order_id, current_user, body)
 
 
-@router.post("/{order_id}/read")
+@router.post("/{order_id}/read", summary="标记消息已读", description="将指定订单聊天中的未读消息全部标记为已读。")
 async def mark_read(
     order_id: UUID,
     current_user: CurrentUser,
