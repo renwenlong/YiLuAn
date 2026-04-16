@@ -15,7 +15,7 @@ from app.services.companion_profile import CompanionProfileService
 router = APIRouter(prefix="/companions", tags=["companions"])
 
 
-@router.get("", response_model=list[CompanionListResponse])
+@router.get("", response_model=list[CompanionListResponse], summary="获取陪诊师列表", description="分页查询陪诊师列表，支持按区域、城市、服务类型、医院筛选。")
 async def list_companions(
     session: DBSession,
     current_user: CurrentUser,
@@ -33,7 +33,7 @@ async def list_companions(
     )
 
 
-@router.get("/me", response_model=CompanionDetailResponse)
+@router.get("/me", response_model=CompanionDetailResponse, summary="获取我的陪诊师档案", description="获取当前登录用户的陪诊师个人资料。")
 async def get_my_profile(
     session: DBSession,
     current_user: CurrentUser,
@@ -42,7 +42,7 @@ async def get_my_profile(
     return await service.get_detail_by_user(current_user.id, display_name=current_user.display_name)
 
 
-@router.get("/me/stats", response_model=CompanionStatsResponse)
+@router.get("/me/stats", response_model=CompanionStatsResponse, summary="获取陪诊师统计数据", description="获取当前陪诊师的接单量、评分、收入等统计信息。")
 async def get_companion_stats(
     session: DBSession,
     current_user: CurrentUser,
@@ -51,7 +51,7 @@ async def get_companion_stats(
     return await service.get_stats(current_user)
 
 
-@router.get("/{companion_id}", response_model=CompanionDetailResponse)
+@router.get("/{companion_id}", response_model=CompanionDetailResponse, summary="获取陪诊师详情", description="根据陪诊师ID获取其详细资料和服务信息。")
 async def get_companion(
     companion_id: UUID,
     session: DBSession,
@@ -61,7 +61,7 @@ async def get_companion(
     return await service.get_detail(companion_id)
 
 
-@router.post("/apply", response_model=CompanionDetailResponse, status_code=201)
+@router.post("/apply", response_model=CompanionDetailResponse, status_code=201, summary="申请成为陪诊师", description="用户提交陪诊师申请，填写服务区域、擅长科室等信息。")
 async def apply_companion(
     body: ApplyCompanionRequest,
     current_user: CurrentUser,
@@ -71,7 +71,7 @@ async def apply_companion(
     return await service.apply(current_user, body)
 
 
-@router.put("/me", response_model=CompanionDetailResponse)
+@router.put("/me", response_model=CompanionDetailResponse, summary="更新陪诊师档案", description="更新当前陪诊师的个人资料和服务信息。")
 async def update_companion_profile(
     body: UpdateCompanionProfileRequest,
     current_user: CurrentUser,

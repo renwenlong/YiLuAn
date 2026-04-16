@@ -9,12 +9,12 @@ from app.database import async_session
 router = APIRouter(tags=["health"])
 
 
-@router.get("/health")
+@router.get("/health", summary="健康检查", description="返回服务运行状态和当前时间戳。")
 async def health():
     return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
-@router.get("/readiness")
+@router.get("/readiness", summary="就绪检查", description="检查数据库和Redis连接状态，返回服务是否就绪。")
 async def readiness(request: Request):
     db_status = "ok"
     redis_status = "ok"
