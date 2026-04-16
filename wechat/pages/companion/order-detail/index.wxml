@@ -3,7 +3,13 @@
 <view class="page-container" wx:if="{{order}}">
   <!-- Status Header -->
   <view class="status-header status-{{order.status}}">
+    <view class="status-header-decor"></view>
     <text class="status-text">{{statusList[order.status].label || order.status}}</text>
+    <text class="status-subtitle" wx:if="{{order.status === 'created'}}">新订单，等待接单</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'accepted'}}">已接单，准备开始服务</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'in_progress'}}">服务进行中</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'completed'}}">服务已完成</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'cancelled'}}">订单已取消</text>
   </view>
 
   <!-- Order Info -->

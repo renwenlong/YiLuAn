@@ -24,7 +24,11 @@
   </view>
 
   <view class="empty-state" wx:if="{{notifications.length === 0 && !loading}}">
-    <text class="empty-text">暂无通知</text>
+    <view class="empty-state-icon-wrap">
+      <text class="empty-state-icon-text">🔔</text>
+    </view>
+    <text class="empty-title">暂无通知</text>
+    <text class="empty-desc">有新消息时会第一时间通知您</text>
   </view>
 
   <view class="loading-state" wx:if="{{loading}}">
