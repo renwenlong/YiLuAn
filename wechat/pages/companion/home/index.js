@@ -1,5 +1,6 @@
 const { getOrders } = require('../../../services/order')
 const { getCompanionStats } = require('../../../services/companion')
+const { getUnreadCount } = require('../../../services/notification')
 const store = require('../../../store/index')
 
 Page({
@@ -10,17 +11,30 @@ Page({
       rating: 0
     },
     pendingOrders: [],
-    pendingTotal: 0
+    pendingTotal: 0,
+    unreadCount: 0
   },
 
   onLoad() {
     this.fetchStats()
     this.fetchPendingOrders()
+    this.fetchUnreadCount()
   },
 
   onShow() {
     this.fetchStats()
     this.fetchPendingOrders()
+    this.fetchUnreadCount()
+  },
+
+  fetchUnreadCount() {
+    var self = this
+    getUnreadCount()
+      .then(function (res) {
+        var count = res.count || (res.data && res.data.count) || 0
+        self.setData({ unreadCount: count })
+      })
+      .catch(function () {})
   },
 
   fetchStats() {
@@ -75,6 +89,12 @@ Page({
     var id = e.currentTarget.dataset.id
     wx.navigateTo({
       url: '/pages/companion/order-detail/index?id=' + id
+    })
+  },
+
+  onNotificationTap() {
+    wx.navigateTo({
+      url: '/pages/profile/notifications/index'
     })
   }
 })

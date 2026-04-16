@@ -53,6 +53,22 @@
   background: linear-gradient(135deg, #F44336 0%, #E57373 100%);
 }
 
+.status-header.status-cancelled_by_patient {
+  background: linear-gradient(135deg, #F44336 0%, #E57373 100%);
+}
+
+.status-header.status-cancelled_by_companion {
+  background: linear-gradient(135deg, #F44336 0%, #E57373 100%);
+}
+
+.status-header.status-rejected_by_companion {
+  background: linear-gradient(135deg, #F44336 0%, #E57373 100%);
+}
+
+.status-header.status-expired {
+  background: linear-gradient(135deg, #9E9E9E 0%, #BDBDBD 100%);
+}
+
 .status-text {
   font-size: 40rpx;
   font-weight: 700;
@@ -295,4 +311,27 @@
 .btn-secondary:active {
   transform: scale(0.98);
   background-color: var(--color-border-light, #F0F0F0);
+}
+
+.btn-reject {
+  flex: 1;
+  height: 88rpx;
+  line-height: 88rpx;
+  font-size: var(--font-size-lg);
+  background: transparent;
+  color: var(--color-error, #E53935);
+  border: 2rpx solid var(--color-error, #E53935);
+  border-radius: var(--radius-lg);
+  padding: 0;
+  transition: transform var(--duration-fast, 200ms) var(--ease-out, ease-out),
+              background-color var(--duration-fast, 200ms) var(--ease-out, ease-out);
+}
+
+.btn-reject::after {
+  border: none;
+}
+
+.btn-reject:active {
+  transform: scale(0.98);
+  background-color: rgba(229, 57, 53, 0.08);
 }

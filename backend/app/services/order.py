@@ -1,7 +1,9 @@
 import time
 import uuid
+from datetime import datetime, timedelta, timezone
 from typing import Sequence
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import BadRequestException, ForbiddenException, NotFoundException
@@ -22,6 +24,9 @@ from app.repositories.companion_profile import CompanionProfileRepository
 from app.schemas.order import CreateOrderRequest
 from app.services.notification import NotificationService
 from app.services.payment_service import PaymentService, PrepayResult
+
+# Default: orders expire 4 hours after creation
+ORDER_EXPIRY_HOURS = 4
 
 
 def generate_order_number() -> str:
@@ -79,6 +84,7 @@ class OrderService:
             hospital_name=hospital.name,
             companion_name=companion_name,
             patient_name=user.display_name or user.phone,
+            expires_at=datetime.now(timezone.utc) + timedelta(hours=ORDER_EXPIRY_HOURS),
         )
         order = await self.order_repo.create(order)
 
@@ -120,6 +126,8 @@ class OrderService:
             status_list = [
                 OrderStatus.cancelled_by_patient,
                 OrderStatus.cancelled_by_companion,
+                OrderStatus.rejected_by_companion,
+                OrderStatus.expired,
             ]
         # Virtual status: "completed" includes reviewed orders
         elif status == "completed":
@@ -304,6 +312,8 @@ class OrderService:
         if order.status in (
             OrderStatus.cancelled_by_patient,
             OrderStatus.cancelled_by_companion,
+            OrderStatus.rejected_by_companion,
+            OrderStatus.expired,
         ):
             raise BadRequestException("Cannot pay for a cancelled order")
 
@@ -315,6 +325,21 @@ class OrderService:
             description=f"医路安陪诊服务-{order.order_number}",
             openid=getattr(user, "wechat_openid", None),
         )
+
+        # Notify companion(s) about the new paid order
+        if order.companion_id:
+            await self.notification_svc.notify_new_order(order, order.companion_id)
+        else:
+            # Broadcast to verified companions in the hospital area
+            companions = await self.companion_repo.search(
+                hospital_id=str(order.hospital_id), limit=50
+            )
+            companion_ids = [c.user_id for c in companions]
+            if companion_ids:
+                await self.notification_svc.notify_new_order_broadcast(
+                    order, companion_ids
+                )
+
         return result
 
     async def refund_order(self, order_id: uuid.UUID, user: User) -> Payment:
@@ -324,6 +349,8 @@ class OrderService:
         if order.status not in (
             OrderStatus.cancelled_by_patient,
             OrderStatus.cancelled_by_companion,
+            OrderStatus.rejected_by_companion,
+            OrderStatus.expired,
         ):
             raise BadRequestException("Only cancelled orders can be refunded")
 
@@ -338,6 +365,80 @@ class OrderService:
         if payment is None:
             raise BadRequestException("Refund record not found")
         return payment
+
+    # --- reject & expiry ---
+
+    async def reject_order(self, order_id: uuid.UUID, user: User) -> Order:
+        order = await self._get_order_for_update_or_404(order_id)
+        if user.role != UserRole.companion:
+            raise ForbiddenException("Only companions can reject orders")
+
+        if order.status != OrderStatus.created:
+            raise BadRequestException("Can only reject orders in created status")
+
+        # For broadcast orders (no companion_id), companion just skips it — no state change
+        if order.companion_id is None:
+            raise BadRequestException("广播订单无需拒绝，其他陪诊师仍可接单")
+
+        if order.companion_id != user.id:
+            raise ForbiddenException("Not your order")
+
+        self._validate_transition(order.status, OrderStatus.rejected_by_companion)
+
+        order = await self.order_repo.update(
+            order, {"status": OrderStatus.rejected_by_companion}
+        )
+        await self._record_history(
+            order.id, OrderStatus.created, OrderStatus.rejected_by_companion, user.id
+        )
+
+        # Auto-refund if paid
+        existing_pay = await self.payment_repo.get_by_order_and_type(order_id, "pay")
+        if existing_pay and existing_pay.status == "success":
+            try:
+                await self.payment_svc.create_refund(
+                    order_id=order_id,
+                    user_id=order.patient_id,
+                    original_amount=order.price,
+                    refund_amount=order.price,
+                )
+            except BadRequestException:
+                pass
+
+        # Notify patient
+        await self.notification_svc.notify_order_rejected(order, order.patient_id)
+        return order
+
+    async def check_expired_orders(self) -> list[Order]:
+        """Check for expired orders and cancel them. Returns list of cancelled orders."""
+        now = datetime.now(timezone.utc)
+        expired_orders = await self.order_repo.list_expired(now)
+        cancelled = []
+        for order in expired_orders:
+            order = await self.order_repo.update(
+                order, {"status": OrderStatus.expired}
+            )
+            await self._record_history(
+                order.id, OrderStatus.created, OrderStatus.expired, order.patient_id
+            )
+
+            # Auto-refund if paid
+            existing_pay = await self.payment_repo.get_by_order_and_type(order.id, "pay")
+            if existing_pay and existing_pay.status == "success":
+                try:
+                    await self.payment_svc.create_refund(
+                        order_id=order.id,
+                        user_id=order.patient_id,
+                        original_amount=order.price,
+                        refund_amount=order.price,
+                    )
+                except BadRequestException:
+                    pass
+
+            # Notify patient
+            await self.notification_svc.notify_order_expired(order, order.patient_id)
+            cancelled.append(order)
+        return cancelled
 
     # --- helpers ---
 
@@ -394,6 +495,8 @@ class OrderService:
         "reviewed": "已评价",
         "cancelled_by_patient": "患者已取消",
         "cancelled_by_companion": "陪诊师已取消",
+        "rejected_by_companion": "陪诊师已拒单",
+        "expired": "订单已过期",
     }
 
     # The standard progression used to build a synthetic timeline
@@ -422,6 +525,8 @@ class OrderService:
         is_cancelled = current in (
             OrderStatus.cancelled_by_patient,
             OrderStatus.cancelled_by_companion,
+            OrderStatus.rejected_by_companion,
+            OrderStatus.expired,
         )
 
         timeline = []

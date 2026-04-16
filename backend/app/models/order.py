@@ -1,6 +1,7 @@
 import enum
 import uuid
 from datetime import datetime, timezone
+from typing import Optional
 
 from sqlalchemy import DateTime, Enum, Float, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
@@ -29,6 +30,8 @@ class OrderStatus(str, enum.Enum):
     reviewed = "reviewed"
     cancelled_by_patient = "cancelled_by_patient"
     cancelled_by_companion = "cancelled_by_companion"
+    rejected_by_companion = "rejected_by_companion"
+    expired = "expired"
 
 
 # Valid state transitions: current_status -> set of allowed next statuses
@@ -36,6 +39,8 @@ ORDER_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     OrderStatus.created: {
         OrderStatus.accepted,
         OrderStatus.cancelled_by_patient,
+        OrderStatus.rejected_by_companion,
+        OrderStatus.expired,
     },
     OrderStatus.accepted: {
         OrderStatus.in_progress,
@@ -53,6 +58,8 @@ ORDER_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     OrderStatus.reviewed: set(),
     OrderStatus.cancelled_by_patient: set(),
     OrderStatus.cancelled_by_companion: set(),
+    OrderStatus.rejected_by_companion: set(),
+    OrderStatus.expired: set(),
 }
 
 
@@ -87,6 +94,9 @@ class Order(Base):
     hospital_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     companion_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     patient_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
