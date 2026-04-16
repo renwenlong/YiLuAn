@@ -51,7 +51,25 @@ class NotificationService:
             body=body,
             reference_id=reference_id,
         )
-        return await self.notification_repo.create(notification)
+        notification = await self.notification_repo.create(notification)
+
+        # Push real-time via WebSocket (best-effort, no await failure)
+        from app.api.v1.ws import push_notification_to_user
+
+        await push_notification_to_user(user_id, {
+            "type": "notification",
+            "data": {
+                "id": str(notification.id),
+                "notification_type": type.value,
+                "title": title,
+                "body": body,
+                "reference_id": reference_id,
+                "is_read": False,
+                "created_at": notification.created_at.isoformat() if notification.created_at else None,
+            },
+        })
+
+        return notification
 
     async def notify_order_status_changed(
         self,

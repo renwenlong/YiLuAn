@@ -20,6 +20,12 @@
     <view class="message-padding-bottom"></view>
   </scroll-view>
 
+  <!-- Quick Actions for pending orders (created = waiting for companion to accept) -->
+  <view class="quick-actions" wx:if="{{orderStatus === 'created'}}">
+    <button class="action-btn action-btn-outline" bindtap="onViewOrder">查看订单详情</button>
+    <button class="action-btn action-btn-primary" bindtap="onAcceptOrder">接受订单</button>
+  </view>
+
   <!-- Input Bar -->
   <view class="input-bar">
     <view class="input-wrapper">
