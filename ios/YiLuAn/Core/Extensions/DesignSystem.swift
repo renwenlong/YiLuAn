@@ -25,6 +25,10 @@ extension Color {
     // Borders
     static let border = Color(hex: 0xE8E8E8)
     static let borderLight = Color(hex: 0xF0F0F0)
+    static let borderInput = Color(hex: 0xD9D9D9)
+
+    // Mask
+    static let bgMask = Color.black.opacity(0.5)
 
     // Hex initializer
     init(hex: UInt, alpha: Double = 1.0) {
@@ -41,12 +45,12 @@ extension Color {
 // MARK: - Typography
 
 extension Font {
-    static let dsTitle = Font.system(size: 18, weight: .bold)
-    static let dsHeadline = Font.system(size: 16, weight: .semibold)
-    static let dsBody = Font.system(size: 15)
-    static let dsSubheadline = Font.system(size: 14)
+    static let dsTitle = Font.system(size: 16, weight: .bold)       // 32rpx
+    static let dsHeadline = Font.system(size: 15, weight: .semibold)
+    static let dsBody = Font.system(size: 14)                       // 28rpx
+    static let dsSubheadline = Font.system(size: 12)                // 24rpx
     static let dsCaption = Font.system(size: 12)
-    static let dsSmall = Font.system(size: 10)
+    static let dsSmall = Font.system(size: 10)                      // 20rpx
 }
 
 // MARK: - Spacing
