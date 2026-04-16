@@ -133,5 +133,49 @@ Page({
     if (order && order.patient && order.patient.phone) {
       wx.makePhoneCall({ phoneNumber: order.patient.phone })
     }
+  },
+
+  async onReject() {
+    const res = await wx.showModal({
+      title: '确认拒单',
+      content: '拒绝后订单将取消，已支付的款项将退还给患者。确定要拒绝吗？',
+      confirmText: '确认拒绝',
+      confirmColor: '#e53935'
+    })
+    if (!res.confirm) return
+
+    this.setData({ loading: true })
+    try {
+      await orderAction(this.orderId, 'reject')
+      wx.showToast({ title: '已拒绝', icon: 'success' })
+      this.loadOrder()
+    } catch (err) {
+      var msg = '操作失败'
+      if (err && err.data && err.data.detail) msg = err.data.detail
+      wx.showToast({ title: msg, icon: 'none' })
+    } finally {
+      this.setData({ loading: false })
+    }
+  },
+
+  async onCancelAccepted() {
+    const res = await wx.showModal({
+      title: '确认取消',
+      content: '取消后订单将退款给患者，确定要取消吗？',
+      confirmText: '确认取消',
+      confirmColor: '#e53935'
+    })
+    if (!res.confirm) return
+
+    this.setData({ loading: true })
+    try {
+      await orderAction(this.orderId, 'cancel')
+      wx.showToast({ title: '已取消', icon: 'success' })
+      this.loadOrder()
+    } catch (err) {
+      wx.showToast({ title: '操作失败', icon: 'none' })
+    } finally {
+      this.setData({ loading: false })
+    }
   }
 })

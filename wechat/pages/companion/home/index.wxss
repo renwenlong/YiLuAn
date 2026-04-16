@@ -6,6 +6,29 @@
   box-sizing: border-box;
 }
 
+/* Notification Bar */
+.notification-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(135deg, #FFF3E0 0%, #FFE0B2 100%);
+  border-radius: var(--radius-lg);
+  padding: 20rpx 28rpx;
+  margin-bottom: var(--spacing-md);
+}
+
+.notification-text {
+  font-size: var(--font-size-sm);
+  color: #E65100;
+  font-weight: 500;
+}
+
+.notification-link {
+  font-size: var(--font-size-sm);
+  color: var(--color-primary, #1890FF);
+  font-weight: 600;
+}
+
 /* Stats Row — Hero Gradient */
 .stats-row {
   display: flex;

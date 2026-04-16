@@ -6,11 +6,14 @@
     <view class="status-header-decor"></view>
     <text class="status-text">{{statusList[order.status].label || order.status}}</text>
     <text class="status-subtitle" wx:if="{{order.status === 'created' && order.payment_status === 'unpaid'}}">请尽快完成支付</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'created' && countdown}}">距订单自动取消还剩 {{countdown}}</text>
     <text class="status-subtitle" wx:elif="{{order.status === 'created'}}">等待陪诊师接单</text>
     <text class="status-subtitle" wx:elif="{{order.status === 'accepted'}}">陪诊师已接单，即将为您服务</text>
     <text class="status-subtitle" wx:elif="{{order.status === 'in_progress'}}">服务进行中，请保持联系</text>
     <text class="status-subtitle" wx:elif="{{order.status === 'completed'}}">服务已完成</text>
-    <text class="status-subtitle" wx:elif="{{order.status === 'cancelled'}}">订单已取消</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'rejected_by_companion'}}">陪诊师暂时无法为您服务，建议重新预约</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'expired'}}">订单因超时未接单已自动取消，款项将原路退回</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'cancelled_by_patient' || order.status === 'cancelled_by_companion'}}">订单已取消</text>
   </view>
 
   <!-- Order Info -->
@@ -106,6 +109,11 @@
     <block wx:if="{{order.status === 'completed' && !order.review}}">
       <button class="btn-primary" bindtap="onReview">写评价</button>
       <button class="btn-secondary" bindtap="onChat">联系陪诊师</button>
+    </block>
+
+    <!-- Rejected / Expired: reorder -->
+    <block wx:if="{{order.status === 'rejected_by_companion' || order.status === 'expired'}}">
+      <button class="btn-primary" bindtap="onReorder">重新下单</button>
     </block>
   </view>
 </view>

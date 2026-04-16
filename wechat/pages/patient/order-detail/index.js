@@ -17,7 +17,8 @@ Page({
     statusList: ORDER_STATUS,
     serviceLabel: '',
     paymentStatusLabel: '',
-    paymentStatusClass: ''
+    paymentStatusClass: '',
+    countdown: ''
   },
 
   onLoad(options) {
@@ -30,6 +31,46 @@ Page({
     if (this.orderId && !this.data.loading) {
       this.loadOrder()
     }
+  },
+
+  onHide() {
+    this._clearCountdown()
+  },
+
+  onUnload() {
+    this._clearCountdown()
+  },
+
+  _clearCountdown() {
+    if (this._countdownTimer) {
+      clearInterval(this._countdownTimer)
+      this._countdownTimer = null
+    }
+  },
+
+  _startCountdown(expiresAt) {
+    this._clearCountdown()
+    if (!expiresAt) return
+
+    var self = this
+    var expTime = new Date(expiresAt).getTime()
+
+    function update() {
+      var now = Date.now()
+      var diff = expTime - now
+      if (diff <= 0) {
+        self.setData({ countdown: '已超时' })
+        self._clearCountdown()
+        self.loadOrder()
+        return
+      }
+      var hours = Math.floor(diff / 3600000)
+      var minutes = Math.floor((diff % 3600000) / 60000)
+      self.setData({ countdown: hours + '小时' + minutes + '分钟' })
+    }
+
+    update()
+    this._countdownTimer = setInterval(update, 60000)
   },
 
   async loadOrder() {
@@ -60,6 +101,13 @@ Page({
         paymentStatusLabel: PAYMENT_STATUS_MAP[paymentStatus] || paymentStatus,
         paymentStatusClass: paymentStatus
       })
+
+      // Start countdown if order is created and has expires_at
+      if (order.status === 'created' && order.expires_at) {
+        this._startCountdown(order.expires_at)
+      } else {
+        this._clearCountdown()
+      }
 
       // Auto-trigger payment prompt after order creation
       if (this.needPay && paymentStatus === 'unpaid') {
@@ -205,5 +253,14 @@ Page({
     if (order && order.companion && order.companion.phone) {
       wx.makePhoneCall({ phoneNumber: order.companion.phone })
     }
+  },
+
+  onReorder() {
+    const { order } = this.data
+    if (!order) return
+    wx.navigateTo({
+      url: '/pages/patient/create-order/index?hospital_id=' + order.hospital_id +
+        '&service_type=' + order.service_type
+    })
   }
 })

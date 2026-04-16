@@ -12,6 +12,8 @@ const ORDER_STATUS = {
   reviewed: { label: '已评价', color: '#52C41A' },
   cancelled_by_patient: { label: '患者取消', color: '#FF4D4F' },
   cancelled_by_companion: { label: '陪诊师取消', color: '#FF4D4F' },
+  rejected_by_companion: { label: '陪诊师拒单', color: '#FF4D4F' },
+  expired: { label: '已过期', color: '#999999' },
 }
 
 const USER_ROLES = {
