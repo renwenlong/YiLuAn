@@ -3,7 +3,14 @@
 <view class="page-container" wx:if="{{order}}">
   <!-- Status Header -->
   <view class="status-header status-{{order.status}}">
+    <view class="status-header-decor"></view>
     <text class="status-text">{{statusList[order.status].label || order.status}}</text>
+    <text class="status-subtitle" wx:if="{{order.status === 'created' && order.payment_status === 'unpaid'}}">请尽快完成支付</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'created'}}">等待陪诊师接单</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'accepted'}}">陪诊师已接单，即将为您服务</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'in_progress'}}">服务进行中，请保持联系</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'completed'}}">服务已完成</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'cancelled'}}">订单已取消</text>
   </view>
 
   <!-- Order Info -->

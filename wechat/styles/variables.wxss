@@ -1,53 +1,110 @@
 /* ============================================
- * 医路安 (YiLuAn) 全局设计 Token
+ * 医路安 (YiLuAn) 全局设计 Token v2.0
+ * 专业可靠 · 温暖亲和 · 简洁高效
  * ============================================ */
 
 page {
   /* ---- 品牌色 ---- */
   --color-primary: #1890FF;
+  --color-primary-dark: #096DD9;
   --color-primary-light: #E6F7FF;
+  --color-primary-lighter: #BAE7FF;
   --color-secondary: #722ED1;
+  --color-accent: #FF7A45;
+
+  /* ---- 功能色 ---- */
   --color-success: #52C41A;
+  --color-success-light: #F6FFED;
   --color-warning: #FAAD14;
+  --color-warning-light: #FFFBE6;
   --color-danger: #FF4D4F;
+  --color-danger-light: #FFF2F0;
+  --color-info: #1890FF;
+  --color-info-light: #E6F7FF;
+
+  /* ---- 渐变色 ---- */
+  --gradient-primary: linear-gradient(135deg, #1890FF 0%, #36CFC9 100%);
+  --gradient-warm: linear-gradient(135deg, #FF7A45 0%, #FFAB76 100%);
+  --gradient-success: linear-gradient(135deg, #52C41A 0%, #73D13D 100%);
+  --gradient-hero: linear-gradient(180deg, #1890FF 0%, #E6F7FF 100%);
 
   /* ---- 文字色 ---- */
-  --color-text-primary: #333333;
-  --color-text-secondary: #666666;
-  --color-text-hint: #999999;
+  --color-text-primary: #1F2937;
+  --color-text-secondary: #6B7280;
+  --color-text-hint: #9CA3AF;
+  --color-text-disabled: #D1D5DB;
   --color-text-white: #FFFFFF;
+  --color-text-link: #1890FF;
 
   /* ---- 背景色 ---- */
-  --color-bg-page: #F5F5F5;
+  --color-bg-page: #F7F8FA;
   --color-bg-card: #FFFFFF;
-  --color-bg-mask: rgba(0, 0, 0, 0.5);
+  --color-bg-input: #F9FAFB;
+  --color-bg-hover: #F3F4F6;
+  --color-bg-mask: rgba(0, 0, 0, 0.45);
+  --color-bg-skeleton: #E5E7EB;
 
   /* ---- 边框色 ---- */
-  --color-border: #E8E8E8;
-  --color-border-light: #F0F0F0;
-  --color-border-input: #D9D9D9;
+  --color-border: #E5E7EB;
+  --color-border-light: #F3F4F6;
+  --color-border-input: #D1D5DB;
+  --color-border-focus: #1890FF;
 
   /* ---- 字号体系 ---- */
-  --font-size-title: 32rpx;
+  --font-size-hero: 48rpx;
+  --font-size-h1: 36rpx;
+  --font-size-h2: 32rpx;
   --font-size-body: 28rpx;
-  --font-size-aux: 24rpx;
+  --font-size-caption: 24rpx;
   --font-size-small: 20rpx;
+  /* 兼容旧变量 */
+  --font-size-title: 32rpx;
+  --font-size-aux: 24rpx;
 
-  /* ---- 间距规范 ---- */
+  /* ---- 行高 ---- */
+  --line-height-tight: 1.3;
+  --line-height-normal: 1.5;
+  --line-height-relaxed: 1.7;
+
+  /* ---- 间距规范 (8px grid) ---- */
+  --spacing-2xs: 4rpx;
   --spacing-xs: 8rpx;
   --spacing-sm: 16rpx;
   --spacing-md: 24rpx;
   --spacing-lg: 32rpx;
   --spacing-xl: 48rpx;
+  --spacing-2xl: 64rpx;
 
   /* ---- 圆角 ---- */
+  --radius-xs: 4rpx;
   --radius-sm: 8rpx;
-  --radius-md: 16rpx;
-  --radius-lg: 24rpx;
+  --radius-md: 12rpx;
+  --radius-lg: 16rpx;
+  --radius-xl: 24rpx;
   --radius-full: 9999rpx;
 
-  /* ---- 阴影 ---- */
-  --shadow-sm: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+  /* ---- 阴影层级 ---- */
+  --shadow-xs: 0 1rpx 4rpx rgba(0, 0, 0, 0.03);
+  --shadow-sm: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4rpx 16rpx rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 8rpx 24rpx rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8rpx 32rpx rgba(0, 0, 0, 0.12);
+  --shadow-xl: 0 16rpx 48rpx rgba(0, 0, 0, 0.16);
+  /* 品牌色阴影 */
+  --shadow-primary: 0 4rpx 16rpx rgba(24, 144, 255, 0.3);
+  --shadow-success: 0 4rpx 16rpx rgba(82, 196, 26, 0.3);
+  --shadow-danger: 0 4rpx 16rpx rgba(255, 77, 79, 0.3);
+
+  /* ---- 动画时长 ---- */
+  --duration-fast: 150ms;
+  --duration-normal: 300ms;
+  --duration-slow: 500ms;
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ---- Z-index 层级 ---- */
+  --z-sticky: 100;
+  --z-fixed: 200;
+  --z-modal: 300;
+  --z-toast: 400;
 }

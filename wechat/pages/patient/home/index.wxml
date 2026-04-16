@@ -23,7 +23,8 @@
         </view>
       </view>
       <view class="empty-hint" wx:if="{{hospitals.length === 0 && city}}">
-        <text>暂无匹配医院</text>
+        <text class="empty-hint-icon">🏥</text>
+        <text class="empty-hint-text">暂未找到相关医院，换个关键词试试吧</text>
       </view>
     </block>
     <!-- 已选中：只展示选中的医院 -->
@@ -77,7 +78,8 @@
     </view>
 
     <view class="empty-hint" wx:if="{{companions.length === 0 && !loadingCompanions}}">
-      <text>{{selectedService ? '暂无匹配的陪诊师' : '暂无推荐陪诊师'}}</text>
+      <text class="empty-hint-icon">👩‍⚕️</text>
+      <text class="empty-hint-text">{{selectedService ? '暂未找到匹配的陪诊师' : '暂无推荐陪诊师，稍后再来看看'}}</text>
     </view>
 
     <view class="loading-hint" wx:if="{{loadingCompanions}}">

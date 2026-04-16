@@ -1,83 +1,126 @@
+/* ============================================
+ * Patient Home — Upgraded UI v2.0
+ * ============================================ */
+
 .patient-home {
   min-height: 100vh;
-  background-color: #F5F5F5;
-  padding: 24rpx;
+  background-color: var(--color-bg-page);
+  padding: var(--spacing-md);
   padding-bottom: 140rpx;
   box-sizing: border-box;
 }
 
+/* ---- Search Hero Area ---- */
+.search-hero {
+  background: var(--gradient-hero);
+  margin: calc(-1 * var(--spacing-md));
+  margin-bottom: var(--spacing-lg);
+  padding: var(--spacing-xl) var(--spacing-md) var(--spacing-lg);
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+}
+
+/* ---- Section ---- */
 .section {
-  margin-bottom: 40rpx;
+  margin-bottom: var(--spacing-xl);
 }
 
 .section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24rpx;
+  margin-bottom: var(--spacing-md);
 }
 
 .section-title {
-  font-size: 34rpx;
+  font-size: var(--font-size-h1);
   font-weight: 600;
-  color: #333333;
+  color: var(--color-text-primary);
+  line-height: var(--line-height-tight);
 }
 
 .section-hint {
-  font-size: 24rpx;
-  color: #999;
+  font-size: var(--font-size-caption);
+  color: var(--color-text-hint);
 }
 
 .section-clear {
-  font-size: 24rpx;
-  color: #1890FF;
+  font-size: var(--font-size-caption);
+  color: var(--color-text-link);
+  transition: opacity var(--duration-fast) var(--ease-in-out);
 }
 
-/* 定位栏 */
+.section-clear:active {
+  opacity: 0.7;
+}
+
+/* ---- Location Bar ---- */
 .location-bar {
   display: flex;
   align-items: center;
-  gap: 6rpx;
+  gap: var(--spacing-xs);
 }
 
 .location-icon {
-  font-size: 28rpx;
+  font-size: var(--font-size-body);
 }
 
 .location-city {
-  font-size: 26rpx;
-  color: #1890FF;
+  font-size: var(--font-size-caption);
+  color: var(--color-primary);
+  font-weight: 500;
 }
 
-/* 搜索框 */
+/* ---- Search Bar ---- */
 .search-bar {
-  margin-bottom: 20rpx;
+  margin-bottom: var(--spacing-md);
 }
 
 .search-input {
-  background: #FFFFFF;
-  border-radius: 32rpx;
-  padding: 16rpx 28rpx;
-  font-size: 28rpx;
-  color: #333;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+  background: var(--color-bg-card);
+  border-radius: var(--radius-full);
+  padding: var(--spacing-sm) var(--spacing-lg);
+  font-size: var(--font-size-body);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-sm), inset 0 1rpx 4rpx rgba(0, 0, 0, 0.03);
+  transition: box-shadow var(--duration-normal) var(--ease-in-out),
+              border-color var(--duration-normal) var(--ease-in-out);
+  border: 2rpx solid transparent;
 }
 
-/* 医院列表 */
+.search-input-focus {
+  box-shadow: var(--shadow-md), inset 0 1rpx 4rpx rgba(0, 0, 0, 0.02);
+  border-color: var(--color-border-focus);
+}
+
+/* ---- Hospital List ---- */
 .hospital-list {
   display: flex;
   flex-direction: column;
-  gap: 12rpx;
+  gap: var(--spacing-sm);
 }
 
 .hospital-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: #FFFFFF;
-  border-radius: 16rpx;
-  padding: 24rpx;
-  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.04);
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-md);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--duration-fast) var(--ease-in-out),
+              box-shadow var(--duration-fast) var(--ease-in-out);
+  border-left: 4rpx solid transparent;
+}
+
+.hospital-card:active {
+  transform: scale(0.98);
+  box-shadow: var(--shadow-xs);
+}
+
+.hospital-card.active {
+  border-left-color: var(--color-primary);
+  background: var(--color-primary-light);
+  box-shadow: var(--shadow-md);
 }
 
 .hospital-info {
@@ -87,95 +130,121 @@
 
 .hospital-name {
   display: block;
-  font-size: 30rpx;
+  font-size: var(--font-size-h2);
   font-weight: 600;
-  color: #333333;
+  color: var(--color-text-primary);
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+  line-height: var(--line-height-tight);
 }
 
 .hospital-meta {
   display: block;
-  font-size: 24rpx;
-  color: #999999;
-  margin-top: 8rpx;
+  font-size: var(--font-size-caption);
+  color: var(--color-text-hint);
+  margin-top: var(--spacing-xs);
 }
 
 .hospital-arrow {
-  font-size: 28rpx;
-  color: #CCCCCC;
-  margin-left: 16rpx;
+  font-size: var(--font-size-body);
+  color: var(--color-text-disabled);
+  margin-left: var(--spacing-sm);
+  transition: transform var(--duration-fast) var(--ease-in-out);
 }
 
-.hospital-card.active {
-  border: 2rpx solid #1890FF;
-  background: #E6F7FF;
+.hospital-card:active .hospital-arrow {
+  transform: translateX(4rpx);
 }
 
 .hospital-check {
-  font-size: 32rpx;
-  color: #1890FF;
+  font-size: var(--font-size-h2);
+  color: var(--color-primary);
   font-weight: 600;
-  margin-left: 16rpx;
+  margin-left: var(--spacing-sm);
 }
 
+/* ---- Service Grid ---- */
 .service-grid {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 
+/* ---- Companion List ---- */
 .companion-list {
   display: flex;
   flex-direction: column;
-  gap: 16rpx;
+  gap: var(--spacing-sm);
 }
 
+/* ---- Empty & Loading Hints ---- */
 .empty-hint {
   text-align: center;
-  padding: 60rpx 0;
-  color: #999999;
-  font-size: 28rpx;
+  padding: var(--spacing-2xl) 0;
+  color: var(--color-text-hint);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-relaxed);
+}
+
+.empty-hint-icon {
+  display: block;
+  font-size: 80rpx;
+  opacity: 0.3;
+  margin-bottom: var(--spacing-sm);
 }
 
 .loading-hint {
   text-align: center;
-  padding: 40rpx 0;
-  color: #1890FF;
-  font-size: 28rpx;
+  padding: var(--spacing-lg) 0;
+  color: var(--color-primary);
+  font-size: var(--font-size-body);
+  animation: pulse 1.5s ease-in-out infinite;
 }
 
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* ---- Load More ---- */
 .load-more {
   text-align: center;
-  padding: 32rpx 0;
+  padding: var(--spacing-lg) 0;
 }
 
 .load-more-text {
   display: inline-block;
-  padding: 16rpx 48rpx;
-  font-size: 28rpx;
-  color: #1890FF;
-  border: 1rpx solid #1890FF;
-  border-radius: 32rpx;
+  padding: var(--spacing-sm) var(--spacing-xl);
+  font-size: var(--font-size-body);
+  color: var(--color-primary);
+  border: 2rpx solid var(--color-primary);
+  border-radius: var(--radius-full);
+  background: var(--color-bg-card);
+  transition: all var(--duration-fast) var(--ease-in-out);
+}
+
+.load-more-text:active {
+  background: var(--color-primary-light);
+  transform: scale(0.98);
 }
 
 .no-more-hint {
   text-align: center;
-  padding: 32rpx 0;
-  color: #CCCCCC;
-  font-size: 24rpx;
+  padding: var(--spacing-lg) 0;
+  color: var(--color-text-disabled);
+  font-size: var(--font-size-caption);
 }
 
-/* 城市选择弹窗 */
+/* ---- City Modal ---- */
 .city-modal-mask {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  z-index: 1000;
+  background: var(--color-bg-mask);
+  z-index: var(--z-modal);
   display: flex;
   align-items: flex-end;
 }
@@ -183,34 +252,48 @@
 .city-modal {
   width: 100%;
   max-height: 70vh;
-  background: #FFFFFF;
-  border-radius: 24rpx 24rpx 0 0;
+  background: var(--color-bg-card);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   display: flex;
   flex-direction: column;
+  animation: slideUp var(--duration-normal) var(--ease-spring);
+}
+
+.city-modal-handle {
+  width: 64rpx;
+  height: 8rpx;
+  background: var(--color-border);
+  border-radius: var(--radius-full);
+  margin: var(--spacing-sm) auto 0;
 }
 
 .city-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 32rpx;
-  border-bottom: 1rpx solid #F0F0F0;
+  padding: var(--spacing-lg);
+  border-bottom: 1rpx solid var(--color-border-light);
 }
 
 .city-modal-title {
-  font-size: 32rpx;
+  font-size: var(--font-size-h2);
   font-weight: 600;
-  color: #333333;
+  color: var(--color-text-primary);
 }
 
 .city-modal-close {
-  font-size: 36rpx;
-  color: #999999;
-  padding: 0 8rpx;
+  font-size: var(--font-size-h1);
+  color: var(--color-text-hint);
+  padding: 0 var(--spacing-xs);
+  transition: color var(--duration-fast) var(--ease-in-out);
+}
+
+.city-modal-close:active {
+  color: var(--color-text-secondary);
 }
 
 .city-modal-body {
-  padding: 16rpx 32rpx 48rpx;
+  padding: var(--spacing-sm) var(--spacing-lg) var(--spacing-xl);
   overflow-y: auto;
   max-height: 60vh;
 }
@@ -218,49 +301,56 @@
 .city-option {
   display: flex;
   align-items: center;
-  padding: 28rpx 16rpx;
-  border-bottom: 1rpx solid #F5F5F5;
+  padding: var(--spacing-md) var(--spacing-sm);
+  border-bottom: 1rpx solid var(--color-border-light);
+  border-radius: var(--radius-md);
+  transition: background var(--duration-fast) var(--ease-in-out);
 }
 
 .city-option:active {
-  background: #F5F5F5;
+  background: var(--color-bg-hover);
 }
 
 .city-option.active {
-  background: #E6F7FF;
+  background: var(--color-primary-light);
 }
 
 .city-option-locate {
-  background: #F0F5FF;
-  border-radius: 12rpx;
-  margin-bottom: 16rpx;
+  background: var(--color-primary-light);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--spacing-sm);
   border-bottom: none;
 }
 
 .city-option-icon {
-  font-size: 32rpx;
-  margin-right: 12rpx;
+  font-size: var(--font-size-h2);
+  margin-right: var(--spacing-sm);
 }
 
 .city-option-text {
-  font-size: 30rpx;
-  color: #333333;
+  font-size: var(--font-size-h2);
+  color: var(--color-text-primary);
   flex: 1;
 }
 
 .city-option-hint {
-  font-size: 26rpx;
-  color: #1890FF;
+  font-size: var(--font-size-caption);
+  color: var(--color-primary);
 }
 
 .city-option-check {
-  font-size: 32rpx;
-  color: #1890FF;
+  font-size: var(--font-size-h2);
+  color: var(--color-primary);
   font-weight: 600;
 }
 
 .city-list-title {
-  font-size: 26rpx;
-  color: #999999;
-  padding: 20rpx 0 8rpx;
+  font-size: var(--font-size-caption);
+  color: var(--color-text-hint);
+  padding: var(--spacing-md) 0 var(--spacing-xs);
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }

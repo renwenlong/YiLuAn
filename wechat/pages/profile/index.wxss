@@ -1,14 +1,16 @@
+/* Profile Page — Upgraded UI/UX */
+
 .profile-page {
   min-height: 100vh;
   background-color: var(--color-bg-page);
   padding-bottom: 120rpx;
 }
 
-/* User Info Section */
+/* User Info Section — Gradient Hero */
 .user-section {
-  background-color: var(--color-bg-card);
-  padding: 48rpx 32rpx;
-  margin-bottom: 20rpx;
+  background: var(--gradient-primary);
+  padding: 60rpx 32rpx 48rpx;
+  margin-bottom: 24rpx;
 }
 
 .user-info {
@@ -17,48 +19,53 @@
 }
 
 .user-avatar {
-  margin-right: 24rpx;
+  margin-right: 28rpx;
   flex-shrink: 0;
   position: relative;
 }
 
 .avatar-img {
-  width: 120rpx;
-  height: 120rpx;
+  width: 128rpx;
+  height: 128rpx;
   border-radius: 50%;
+  border: 6rpx solid rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.15);
 }
 
 .avatar-placeholder {
-  width: 120rpx;
-  height: 120rpx;
+  width: 128rpx;
+  height: 128rpx;
   border-radius: 50%;
-  background-color: var(--color-primary);
+  background: rgba(255, 255, 255, 0.25);
+  border: 6rpx solid rgba(255, 255, 255, 0.9);
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.15);
 }
 
 .avatar-placeholder text {
-  font-size: 44rpx;
+  font-size: 48rpx;
   color: var(--color-text-white);
   font-weight: 600;
 }
 
 .avatar-edit-hint {
   position: absolute;
-  bottom: 0;
-  right: 0;
-  width: 36rpx;
-  height: 36rpx;
+  bottom: 2rpx;
+  right: 2rpx;
+  width: 40rpx;
+  height: 40rpx;
   border-radius: 50%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: var(--color-primary);
+  border: 3rpx solid #fff;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .avatar-edit-hint text {
-  font-size: 20rpx;
+  font-size: 22rpx;
   color: var(--color-text-white);
 }
 
@@ -69,32 +76,34 @@
 .user-name-row {
   display: flex;
   align-items: center;
-  margin-bottom: 8rpx;
+  margin-bottom: 10rpx;
 }
 
 .user-name {
-  font-size: 36rpx;
-  font-weight: 600;
-  color: var(--color-text-primary);
+  font-size: 38rpx;
+  font-weight: 700;
+  color: #FFFFFF;
 }
 
 .role-badge {
   font-size: 20rpx;
-  padding: 4rpx 12rpx;
-  border-radius: 16rpx;
-  margin-left: 12rpx;
+  padding: 4rpx 14rpx;
+  border-radius: var(--radius-full, 999rpx);
+  margin-left: 14rpx;
+  background-color: rgba(255, 255, 255, 0.25);
+  color: #FFFFFF;
+  font-weight: 500;
 }
 
 .patient-badge {
-  background-color: var(--color-primary-light);
-  color: var(--color-primary);
+  background-color: rgba(255, 255, 255, 0.25);
+  color: #FFFFFF;
 }
 
 .companion-badge {
-  background-color: #F6FFED;
-  color: var(--color-success);
+  background-color: rgba(255, 255, 255, 0.25);
+  color: #FFFFFF;
 }
-
 
 .user-phone {
   display: flex;
@@ -103,11 +112,11 @@
 
 .phone-text {
   font-size: 28rpx;
-  color: var(--color-text-hint);
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .phone-text.unbind {
-  color: var(--color-warning);
+  color: var(--color-warning-light, #FFD666);
 }
 
 .bind-phone {
@@ -117,21 +126,27 @@
 
 .bind-btn {
   font-size: 24rpx;
-  color: var(--color-primary);
+  color: #FFFFFF;
   margin-left: 12rpx;
+  text-decoration: underline;
 }
 
-/* Menu List */
+/* Menu List — Card Elevated */
 .menu-section {
   background-color: var(--color-bg-card);
-  margin-bottom: 20rpx;
+  margin: 0 24rpx 24rpx;
+  border-radius: var(--radius-xl, 24rpx);
+  box-shadow: var(--shadow-card-elevated, 0 8rpx 32rpx rgba(0, 0, 0, 0.08));
+  overflow: hidden;
 }
 
 .menu-item {
   display: flex;
   align-items: center;
-  padding: 32rpx;
+  padding: 36rpx 32rpx;
+  min-height: 36rpx;
   border-bottom: 1rpx solid var(--color-border-light);
+  transition: background-color var(--duration-fast, 0.2s);
 }
 
 .menu-item:last-child {
@@ -149,26 +164,35 @@
 }
 
 .menu-arrow {
-  font-size: 28rpx;
-  color: #CCCCCC;
+  font-size: 24rpx;
+  color: #C4C4C4;
+  font-family: system-ui, sans-serif;
 }
 
-/* Logout */
+/* Logout — Danger Ghost */
 .logout-section {
-  padding: 40rpx 32rpx;
+  padding: 48rpx 24rpx;
 }
 
 .logout-btn {
   width: 100%;
-  height: 88rpx;
+  height: 92rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: var(--color-bg-card);
+  background-color: transparent;
   color: var(--color-danger);
   font-size: 30rpx;
-  border-radius: 12rpx;
-  border: none;
+  font-weight: 500;
+  border-radius: var(--radius-full, 999rpx);
+  border: 2rpx solid var(--color-danger);
+  transition: background-color var(--duration-fast, 0.2s),
+              color var(--duration-fast, 0.2s);
+}
+
+.logout-btn:active {
+  background-color: var(--color-danger);
+  color: #FFFFFF;
 }
 
 .logout-btn::after {

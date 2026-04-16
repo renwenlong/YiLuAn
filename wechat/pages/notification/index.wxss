@@ -1,3 +1,5 @@
+/* Notification Page — Upgraded UI/UX */
+
 .notification-page {
   min-height: 100vh;
   background-color: var(--color-bg-page);
@@ -7,34 +9,64 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20rpx 32rpx;
+  padding: 24rpx 32rpx;
   background-color: var(--color-bg-card);
-  border-bottom: 1rpx solid var(--color-border-light);
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky, 10);
 }
 
 .unread-text {
-  font-size: 28rpx;
-  color: var(--color-danger);
+  font-size: 26rpx;
+  color: var(--color-text-white);
+  background-color: var(--color-danger);
+  padding: 4rpx 16rpx;
+  border-radius: var(--radius-full, 999rpx);
+  font-weight: 500;
+  line-height: 1.5;
 }
 
 .mark-all-btn {
   font-size: 28rpx;
   color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 4rpx;
 }
 
 .notification-list {
-  background-color: var(--color-bg-card);
+  padding: 16rpx 24rpx;
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
 }
 
 .notification-item {
   display: flex;
   align-items: flex-start;
-  padding: 24rpx 32rpx;
-  border-bottom: 1rpx solid var(--color-border-light);
+  padding: 28rpx 24rpx;
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-lg, 16rpx);
+  box-shadow: var(--shadow-card, 0 2rpx 8rpx rgba(0, 0, 0, 0.04));
+  border-left: 6rpx solid var(--color-primary);
+  transition: background-color var(--duration-fast, 0.2s);
 }
 
 .notification-item.read {
-  opacity: 0.6;
+  border-left-color: transparent;
+}
+
+.notification-item.read .notif-title {
+  color: var(--color-text-hint);
+  font-weight: 400;
+}
+
+.notification-item.read .notif-body {
+  color: var(--color-text-disabled, #C4C4C4);
+}
+
+.notification-item.read .icon-dot {
+  visibility: hidden;
 }
 
 .notification-item:active {
@@ -56,7 +88,8 @@
   width: 16rpx;
   height: 16rpx;
   border-radius: 50%;
-  background-color: var(--color-danger);
+  background-color: var(--color-primary);
+  box-shadow: 0 0 0 4rpx rgba(24, 144, 255, 0.15);
 }
 
 .notif-content {
@@ -66,7 +99,7 @@
 
 .notif-title {
   font-size: 30rpx;
-  font-weight: 500;
+  font-weight: 600;
   color: var(--color-text-primary);
   margin-bottom: 8rpx;
 }
@@ -79,11 +112,28 @@
   white-space: nowrap;
 }
 
+/* Empty State */
 .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   padding-top: 200rpx;
+}
+
+.empty-icon {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
+  background-color: var(--color-bg-input, #F7F8FA);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 32rpx;
+}
+
+.empty-icon text {
+  font-size: 64rpx;
+  opacity: 0.4;
 }
 
 .empty-text {
