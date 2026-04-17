@@ -53,21 +53,32 @@ class NotificationService:
         )
         notification = await self.notification_repo.create(notification)
 
-        # Push real-time via WebSocket (best-effort, no await failure)
-        from app.api.v1.ws import push_notification_to_user
+        # Push real-time via WebSocket broker (D-019):
+        # - 本地投递 + Redis Pub/Sub 跨副本 fanout
+        # - broker 未启动（产生于启动失败 / 测试未走 lifespan）时退化为禁用模式
+        from app.ws.pubsub import get_current_broker, WsPubSubBroker
 
-        await push_notification_to_user(user_id, {
-            "type": "notification",
-            "data": {
-                "id": str(notification.id),
-                "notification_type": type.value,
-                "title": title,
-                "body": body,
-                "reference_id": reference_id,
-                "is_read": False,
-                "created_at": notification.created_at.isoformat() if notification.created_at else None,
+        broker = get_current_broker()
+        if broker is None:
+            # 降级：构造一个空转 broker（等价于旧实现里的"无连接就不推"）
+            broker = WsPubSubBroker(redis_client=None, enabled=False)
+            broker._started = True  # type: ignore[attr-defined]
+
+        await broker.push_to_user(
+            user_id,
+            {
+                "type": "notification",
+                "data": {
+                    "id": str(notification.id),
+                    "notification_type": type.value,
+                    "title": title,
+                    "body": body,
+                    "reference_id": reference_id,
+                    "is_read": False,
+                    "created_at": notification.created_at.isoformat() if notification.created_at else None,
+                },
             },
-        })
+        )
 
         return notification
 
