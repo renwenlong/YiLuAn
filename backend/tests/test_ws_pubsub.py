@@ -21,9 +21,13 @@ import pytest
 
 from app.ws.pubsub import (
     DEFAULT_CHANNEL,
+    DEFAULT_CHAT_CHANNEL,
     WsPubSubBroker,
     get_current_broker,
+    get_current_chat_broker,
+    start_ws_chat_pubsub,
     start_ws_pubsub,
+    stop_ws_chat_pubsub,
     stop_ws_pubsub,
 )
 
@@ -404,3 +408,255 @@ async def test_listen_loop_ignores_malformed_message():
     assert len(ws.sent) == 1
     assert json.loads(ws.sent[0]) == {"ok": 1}
     await broker.stop()
+
+
+
+
+# ===========================================================================
+# 聊天房间广播器（key_field="order_id"）测试
+# ===========================================================================
+
+
+@pytest.mark.asyncio
+async def test_chat_broker_disabled_mode_delivers_locally():
+    broker = WsPubSubBroker(
+        redis_client=None, enabled=False, key_field="order_id"
+    )
+    await broker.start()
+
+    ws = FakeWebSocket()
+    order_id = uuid.uuid4()
+    await broker.register(order_id, ws)
+
+    await broker.publish_to_room(order_id, {"content": "hello"})
+    assert len(ws.sent) == 1
+    assert json.loads(ws.sent[0]) == {"content": "hello"}
+    await broker.stop()
+
+
+@pytest.mark.asyncio
+async def test_chat_broker_room_isolation():
+    """同一 broker 内不同 order 的连接互不干扰。"""
+    broker = WsPubSubBroker(
+        redis_client=None, enabled=False, key_field="order_id"
+    )
+    await broker.start()
+
+    order_a = uuid.uuid4()
+    order_b = uuid.uuid4()
+    ws_a = FakeWebSocket()
+    ws_b = FakeWebSocket()
+    await broker.register(order_a, ws_a)
+    await broker.register(order_b, ws_b)
+
+    await broker.publish_to_room(order_a, {"room": "A"})
+    assert len(ws_a.sent) == 1
+    assert len(ws_b.sent) == 0
+    await broker.stop()
+
+
+@pytest.mark.asyncio
+async def test_chat_broker_cross_instance_fanout():
+    """双实例集成：A 实例发消息 → B 实例订阅到同一 order 的连接收到。"""
+    bus = FakeRedisBus()
+    broker_a = WsPubSubBroker(
+        redis_client=bus,
+        enabled=True,
+        instance_id="chat-A",
+        key_field="order_id",
+        channel=DEFAULT_CHAT_CHANNEL,
+    )
+    broker_b = WsPubSubBroker(
+        redis_client=bus,
+        enabled=True,
+        instance_id="chat-B",
+        key_field="order_id",
+        channel=DEFAULT_CHAT_CHANNEL,
+    )
+    await broker_a.start()
+    await broker_b.start()
+
+    order_id = uuid.uuid4()
+    ws_on_b = FakeWebSocket()
+    await broker_b.register(order_id, ws_on_b)
+
+    # A 实例上并无连接，但 publish 应透过 Redis 到 B
+    await broker_a.publish_to_room(order_id, {"msg": "cross"})
+
+    for _ in range(30):
+        await asyncio.sleep(0.01)
+        if ws_on_b.sent:
+            break
+
+    assert len(ws_on_b.sent) == 1
+    assert json.loads(ws_on_b.sent[0]) == {"msg": "cross"}
+
+    await broker_a.stop()
+    await broker_b.stop()
+
+
+@pytest.mark.asyncio
+async def test_chat_broker_cross_instance_both_rooms_and_isolation():
+    """双实例 + 双 order：只有同 order 的连接才收到对应消息，不串台。"""
+    bus = FakeRedisBus()
+    broker_a = WsPubSubBroker(
+        redis_client=bus,
+        enabled=True,
+        instance_id="chat-A",
+        key_field="order_id",
+        channel=DEFAULT_CHAT_CHANNEL,
+    )
+    broker_b = WsPubSubBroker(
+        redis_client=bus,
+        enabled=True,
+        instance_id="chat-B",
+        key_field="order_id",
+        channel=DEFAULT_CHAT_CHANNEL,
+    )
+    await broker_a.start()
+    await broker_b.start()
+
+    order_1 = uuid.uuid4()
+    order_2 = uuid.uuid4()
+    ws_1_on_a = FakeWebSocket()
+    ws_1_on_b = FakeWebSocket()
+    ws_2_on_b = FakeWebSocket()
+
+    await broker_a.register(order_1, ws_1_on_a)
+    await broker_b.register(order_1, ws_1_on_b)
+    await broker_b.register(order_2, ws_2_on_b)
+
+    await broker_a.publish_to_room(order_1, {"order": "1"})
+
+    for _ in range(30):
+        await asyncio.sleep(0.01)
+        if ws_1_on_b.sent:
+            break
+
+    assert len(ws_1_on_a.sent) == 1  # 本地
+    assert len(ws_1_on_b.sent) == 1  # pubsub fanout
+    assert len(ws_2_on_b.sent) == 0  # 不同订单不串
+
+    await broker_a.stop()
+    await broker_b.stop()
+
+
+@pytest.mark.asyncio
+async def test_chat_broker_self_echo_suppressed():
+    bus = FakeRedisBus()
+    broker = WsPubSubBroker(
+        redis_client=bus,
+        enabled=True,
+        instance_id="only",
+        key_field="order_id",
+        channel=DEFAULT_CHAT_CHANNEL,
+    )
+    await broker.start()
+
+    order_id = uuid.uuid4()
+    ws = FakeWebSocket()
+    await broker.register(order_id, ws)
+
+    await broker.publish_to_room(order_id, {"x": 1})
+    await asyncio.sleep(0.05)
+
+    assert len(ws.sent) == 1  # 没有自回显重复投递
+    await broker.stop()
+
+
+@pytest.mark.asyncio
+async def test_chat_broker_publish_failure_still_delivers_local():
+    class _Bus:
+        def __init__(self):
+            self._ps = MagicMock()
+            self._ps.subscribe = AsyncMock()
+            self._ps.unsubscribe = AsyncMock()
+            self._ps.close = AsyncMock()
+
+            async def _listen():
+                while True:
+                    await asyncio.sleep(3600)
+                    yield None
+
+            self._ps.listen = _listen
+
+        def pubsub(self):
+            return self._ps
+
+        async def publish(self, *a, **kw):
+            raise RuntimeError("publish down")
+
+    broker = WsPubSubBroker(
+        redis_client=_Bus(), enabled=True, key_field="order_id"
+    )
+    await broker.start()
+    order_id = uuid.uuid4()
+    ws = FakeWebSocket()
+    await broker.register(order_id, ws)
+    await broker.publish_to_room(order_id, {"k": 2})
+    assert len(ws.sent) == 1  # 本地成功
+    await broker.stop()
+
+
+@pytest.mark.asyncio
+async def test_chat_lifespan_helpers_set_and_clear_current_chat_broker():
+    class _App:
+        def __init__(self):
+            self.state = type("S", (), {})()
+            self.state.redis = None
+
+    app = _App()
+    broker = await start_ws_chat_pubsub(
+        app, enabled=False, channel=DEFAULT_CHAT_CHANNEL
+    )
+    assert get_current_chat_broker() is broker
+    assert app.state.ws_chat_broker is broker
+    assert broker.key_field == "order_id"
+
+    await stop_ws_chat_pubsub(app)
+    assert get_current_chat_broker() is None
+    assert app.state.ws_chat_broker is None
+
+
+@pytest.mark.asyncio
+async def test_notification_and_chat_brokers_coexist_on_same_bus():
+    """同一 Redis bus 上跑两个不同 channel 的 broker，互不串扰。"""
+    bus = FakeRedisBus()
+
+    noti = WsPubSubBroker(
+        redis_client=bus,
+        enabled=True,
+        instance_id="noti",
+        key_field="user_id",
+        channel=DEFAULT_CHANNEL,
+    )
+    chat = WsPubSubBroker(
+        redis_client=bus,
+        enabled=True,
+        instance_id="chat",
+        key_field="order_id",
+        channel=DEFAULT_CHAT_CHANNEL,
+    )
+    await noti.start()
+    await chat.start()
+
+    user_id = uuid.uuid4()
+    order_id = uuid.uuid4()
+    ws_noti = FakeWebSocket()
+    ws_chat = FakeWebSocket()
+
+    await noti.register(user_id, ws_noti)
+    await chat.register(order_id, ws_chat)
+
+    await noti.push_to_user(user_id, {"kind": "noti"})
+    await chat.publish_to_room(order_id, {"kind": "chat"})
+
+    await asyncio.sleep(0.05)
+
+    assert len(ws_noti.sent) == 1
+    assert json.loads(ws_noti.sent[0]) == {"kind": "noti"}
+    assert len(ws_chat.sent) == 1
+    assert json.loads(ws_chat.sent[0]) == {"kind": "chat"}
+
+    await noti.stop()
+    await chat.stop()

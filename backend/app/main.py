@@ -13,7 +13,12 @@ from app.core.logging import setup_logging
 from app.core.rate_limit import limiter
 from app.core.redis import init_redis
 from app.tasks.scheduler import shutdown_scheduler, start_scheduler
-from app.ws.pubsub import start_ws_pubsub, stop_ws_pubsub
+from app.ws.pubsub import (
+    start_ws_chat_pubsub,
+    start_ws_pubsub,
+    stop_ws_chat_pubsub,
+    stop_ws_pubsub,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +38,15 @@ async def lifespan(app: FastAPI):
         )
     except Exception as exc:  # pragma: no cover
         logger.exception("Failed to start ws pubsub broker: %s", exc)
+    # 聊天房间 Pub/Sub broker（D-019 Update）: 多副本聊天跨副本 fanout
+    try:
+        await start_ws_chat_pubsub(
+            app,
+            enabled=settings.ws_chat_pubsub_enabled,
+            channel=settings.ws_chat_pubsub_channel,
+        )
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Failed to start ws chat pubsub broker: %s", exc)
     # APScheduler (D-018): 开启后台定时任务（过期订单自动扫描）
     if settings.scheduler_enabled:
         try:
@@ -42,6 +56,7 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown
     await shutdown_scheduler()
+    await stop_ws_chat_pubsub(app)
     await stop_ws_pubsub(app)
     if app.state.redis:
         await app.state.redis.close()
