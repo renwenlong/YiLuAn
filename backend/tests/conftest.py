@@ -42,6 +42,9 @@ class FakeRedis:
     async def close(self) -> None:
         self._store.clear()
 
+    async def ping(self) -> bool:
+        return True
+
 
 # ---------------------------------------------------------------------------
 # Test Database (SQLite async in-memory)
