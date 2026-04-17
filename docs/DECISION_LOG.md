@@ -462,6 +462,39 @@
            └── publish → 其他副本 listen loop → 其他副本本地投递
   ```
 
+#### Update 2026-04-17 — 聊天通道 `/ws/chat/{order_id}` 也迁移到 Redis Pub/Sub
+- **背景**：D-019 首批只迁移了通知通道，聊天通道仍是单副本内存广播。多副本部署时同订单参与者若落在不同实例会丢消息。
+- **设计**：复用 `WsPubSubBroker`，通过泛化 `key_field`（user_id / order_id）一份实现跑两个 broker：
+  - 通知 broker：`key_field="user_id"`，`channel=yiluan:ws:notifications`
+  - 聊天 broker：`key_field="order_id"`，`channel=yiluan:ws:chat`
+  两个 broker 共享同一个 Redis 连接但使用独立 channel，互不干扰；listen loop / 自回显抑制 / 降级策略全部复用。
+- **新增入口**：
+  - `WsPubSubBroker.publish_to_room(order_id, payload)` — 聊天业务语义别名（内部仍是 `push_to_key`）
+  - `start_ws_chat_pubsub` / `stop_ws_chat_pubsub` / `get_current_chat_broker` / `get_ws_chat_broker_from_app`
+- **频道 & 消息体**：`yiluan:ws:chat`，envelope `{origin, order_id, payload: {id, order_id, sender_id, type, content, is_read, created_at}}`
+- **配置开关**（默认 True）：
+  - `WS_CHAT_PUBSUB_ENABLED`
+  - `WS_CHAT_PUBSUB_CHANNEL`（默认 `yiluan:ws:chat`）
+- **降级策略**：与通知通道完全一致 — Redis 不可用时 `start()` 不抛异常、退化为单机内存；`publish` 失败仅告警不影响本地投递
+- **API 契约**：前端 / iOS 零改动，WS 消息格式保持不变
+- **权限/心跳**：保持 D-017 行为 — 仅订单参与者可 join，ping/pong 心跳不变；新增 JSON 解析容错（脏数据不断连接）+ 消息长度上限 4000 字符（防大 payload）
+- **影响点**：
+  - `backend/app/ws/pubsub.py` — `WsPubSubBroker` 泛化 key_field + 新增 chat broker helpers
+  - `backend/app/api/v1/ws.py` — 聊天 endpoint 改用 chat broker.publish_to_room，移除进程内 `_connections` dict
+  - `backend/app/main.py` — lifespan 新增启动/停止 chat broker
+  - `backend/app/config.py` — 新增 `ws_chat_pubsub_*` 两项
+- **测试（追加 8 条，合计 20 条 ws_pubsub 测试）**：
+  1. 聊天 broker 单机模式投递
+  2. 同 broker 下不同 order 房间隔离
+  3. 双实例 fanout（核心用例）
+  4. 双实例 + 双 order 不串台
+  5. 自回显抑制
+  6. publish 失败不影响本地
+  7. lifespan helper (`start_ws_chat_pubsub` / `get_current_chat_broker`)
+  8. 通知 broker 与聊天 broker 同 bus 共存不串扰
+- **测试数变化**：backend 365 → 373（全绿）；wechat 133 / iOS 57；总 555 → 563
+- **回滚预案**：`WS_CHAT_PUBSUB_ENABLED=false` 即可退回单副本聊天广播；聊天在多副本下会出现之前的丢消息行为，但单副本部署完全不受影响
+
 ---
 
 ## 决策记录模板
