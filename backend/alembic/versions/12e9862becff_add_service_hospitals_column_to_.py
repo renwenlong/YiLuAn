@@ -18,8 +18,15 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column('companion_profiles', sa.Column('service_hospitals', sa.String(length=1000), nullable=True))
+    # 幂等: 另一条分支 (b4c5d6e7f8a9 -> c5d6e7f8a9b0) 也会在 merge 前
+    # 把 familiar_hospitals 改名为 service_hospitals, 故此处 add 需容错
+    op.execute(
+        "ALTER TABLE companion_profiles "
+        "ADD COLUMN IF NOT EXISTS service_hospitals VARCHAR(1000)"
+    )
 
 
 def downgrade() -> None:
-    op.drop_column('companion_profiles', 'service_hospitals')
+    op.execute(
+        "ALTER TABLE companion_profiles DROP COLUMN IF EXISTS service_hospitals"
+    )

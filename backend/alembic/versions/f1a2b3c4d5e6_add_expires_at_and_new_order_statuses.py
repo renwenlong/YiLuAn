@@ -18,7 +18,11 @@ depends_on = None
 
 def upgrade() -> None:
     op.add_column("orders", sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True))
+    # 新增两个 OrderStatus 枚举值, 需与模型同步
+    op.execute("ALTER TYPE orderstatus ADD VALUE IF NOT EXISTS 'rejected_by_companion'")
+    op.execute("ALTER TYPE orderstatus ADD VALUE IF NOT EXISTS 'expired'")
 
 
 def downgrade() -> None:
     op.drop_column("orders", "expires_at")
+    # PostgreSQL 不支持删除 enum 值, downgrade 不动 enum
