@@ -37,6 +37,7 @@
         bindconfirm="onSend"
         confirm-type="send"
         adjust-position="{{true}}"
+        maxlength="4000"
       />
     </view>
     <button
