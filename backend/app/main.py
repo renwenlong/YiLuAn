@@ -103,10 +103,19 @@ def create_app() -> FastAPI:
     # Routers
     app.include_router(api_v1_router, prefix="/api/v1")
 
-    # Health check
+    # Health check (liveness) — 进程活着即 200，不查依赖
     @app.get("/health")
     async def health_check():
         return {"status": "healthy", "version": settings.app_version}
+
+    # Readiness probe (root path, 对齐 ACA/K8s 默认探针惯例)
+    # 复用 app.api.v1.health 中的检查逻辑，避免逻辑分叉
+    from app.api.v1.health import _run_readiness_checks, _readiness_response
+
+    @app.get("/readiness")
+    async def readiness_root(request: Request):
+        all_ok, checks = await _run_readiness_checks(request)
+        return _readiness_response(all_ok, checks)
 
     return app
 
