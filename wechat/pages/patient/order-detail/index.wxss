@@ -372,3 +372,15 @@
   background: var(--color-danger-light);
   transform: scale(0.98);
 }
+
+/* D-020 \u4f34\u884c\uff1a\u5012\u8ba1\u65f6 <30 \u5206\u949f\u53d8\u7ea2\u63d0\u9192 */
+.countdown-text { font-weight: 600; }
+.countdown-urgent {
+  color: #e53935;
+  animation: countdown-pulse 1.2s ease-in-out infinite;
+}
+@keyframes countdown-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
