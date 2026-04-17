@@ -1,4 +1,5 @@
 import asyncio
+import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -12,7 +13,17 @@ from app.database import Base
 from app.models import *  # noqa: F401, F403
 
 config = context.config
-config.set_main_option("sqlalchemy.url", settings.database_url)
+
+# URL resolution priority:
+#   1. Explicit env var ALEMBIC_DATABASE_URL (takes precedence, useful for CI/smoke)
+#   2. DATABASE_URL env var (standard 12-factor)
+#   3. settings.database_url (pydantic-settings, default)
+_db_url = (
+    os.environ.get("ALEMBIC_DATABASE_URL")
+    or os.environ.get("DATABASE_URL")
+    or settings.database_url
+)
+config.set_main_option("sqlalchemy.url", _db_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
