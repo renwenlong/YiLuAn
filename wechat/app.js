@@ -3,19 +3,22 @@ const { getAccessToken, isTokenExpired } = require('./utils/token')
 const { getMe } = require('./services/user')
 const { logout } = require('./services/auth')
 const notificationWs = require('./services/notificationWs')
+const { syncTabBarBadge } = require('./utils/badge')
 
-// 全局通知订阅者列表，页面可通过 getApp().subscribeNotification(cb) 注册
+// 全局通知订阅者列表
 const _notificationSubscribers = []
 
 function _dispatchNotification(data) {
   // 简易的全局未读角标 badge 计数（系统通知 / 新订单 / 新消息）
+  var nextUnread = 0
   try {
     const state = store.getState ? store.getState() : {}
-    const unread = (state.unreadCount || 0) + 1
-    store.setState({ unreadCount: unread, lastNotification: data })
+    nextUnread = (state.unreadCount || 0) + 1
+    store.setState({ unreadCount: nextUnread, lastNotification: data })
   } catch (e) {
     // ignore
   }
+  syncTabBarBadge(nextUnread)
   _notificationSubscribers.forEach(function (cb) {
     try {
       cb(data)
@@ -68,6 +71,31 @@ App({
       // ignore
     }
     this.globalData.notificationWsConnected = false
+  },
+
+  /**
+   * 页面进入消息列表时调用：清空未读 + 移除 TabBar 角标。
+   */
+  clearUnreadBadge() {
+    try {
+      store.setState({ unreadCount: 0 })
+    } catch (e) {
+      // ignore
+    }
+    syncTabBarBadge(0)
+  },
+
+  /**
+   * 手动设置未读并联动角标。主要用于测试 / REST 初始化。
+   */
+  setUnreadBadge(count) {
+    var n = Math.max(0, parseInt(count, 10) || 0)
+    try {
+      store.setState({ unreadCount: n })
+    } catch (e) {
+      // ignore
+    }
+    syncTabBarBadge(n)
   },
 
   onLaunch() {
