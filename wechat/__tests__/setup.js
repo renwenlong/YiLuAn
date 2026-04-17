@@ -45,6 +45,10 @@ global.wx = {
   showModal: jest.fn(),
   chooseImage: jest.fn(),
   previewImage: jest.fn(),
+
+  // TabBar
+  setTabBarBadge: jest.fn(),
+  removeTabBarBadge: jest.fn(),
 }
 
 // __wxConfig mock
