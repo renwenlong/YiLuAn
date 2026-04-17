@@ -67,35 +67,17 @@
   前端在下单 / 接单前调 `wx.requestSubscribeMessage`。
 - **优先级**：P2（产品可感知；但依赖外部审批）
 
-## TD-OPS-01 /readiness 端点缺失
-
-- **描述**：当前后端只有 `/health` 和 `/api/v1/health`，缺少标准的 `/readiness` 就绪探针。
-  ACA / K8s 的就绪探针需要区分 liveness（进程活着）和 readiness（依赖就绪：DB、Redis
-  可访问）。当前健康端点只做了 liveness，依赖任何一个挂了仍会返回 200。
-- **缓解方案建议**：新增 `GET /readiness`，检查：
-  - PG 连接：`SELECT 1`
-  - Redis 连接：`PING`
-  - （可选）关键 broker 订阅是否活跃
-  任一失败返回 503，便于负载均衡剔除。
-- **优先级**：P1（生产部署前必做；ACA/K8s 部署依赖）
-
-## TD-CI-01 测试轨道与生产迁移脱钩
-
-- **描述**：pytest 走 SQLite 内存库 + `Base.metadata.create_all()`，绕过 alembic；
-  生产/Docker 用 PostgreSQL + alembic upgrade head。2026-04-17 发现今天新增的
-  payments 4 列（trade_no/prepay_id/refund_id/callback_raw）和 orderstatus 两个
-  枚举值（rejected_by_companion / expired）从未写入 alembic 迁移，model 改了但
-  迁移脱钩，测试全绿却导致 Docker 部署时灌 seed 报 enum 错 + column 缺失错。
-  最后用 revision b7c8d9e0f1a2 补齐（见 docs/MIGRATION_AUDIT_2026-04-17.md）。
-- **根因**：测试环境与生产 schema 不同源。
-- **缓解方案建议**：
-  1. CI 新增一个 **PG-alembic smoke job**：起 PG 容器 → `alembic upgrade head` →
-     跑 `pytest -k smoke` 针对关键 CRUD 路径（阻止 model/迁移脱钩再次发生）
-  2. 开发者本地新增 model 字段/枚举值时的 checklist：必须同步生成 alembic 迁移
-     （autogenerate 对 enum 支持弱，关键 enum 改动手写）
-  3. 增加 `alembic check` 到 pre-commit（检测 model 与迁移不一致）
-- **优先级**：P1（生产部署前必做；否则会再次发生今天的事故）
-
 ---
 
 每条技术债被解决后，请更新 DECISION_LOG.md 对应 D-xxx 小节并从本文件删除。
+
+## 已解决的技术债
+
+- **TD-OPS-01 `/readiness` 端点缺失** — 2026-04-17 解决，见 D-021。
+  根路径 `/readiness` + `/api/v1/readiness` 双挂载；DB(SELECT 1) + Redis(PING)
+  健康检查，失败 503 含错误摘要；`/health` 保持纯 liveness 不查依赖。
+- **TD-CI-01 测试轨道与生产迁移脱钩** — 2026-04-17 解决，见 D-022。
+  新增 `backend/tests/smoke/test_pg_alembic_smoke.py`（真 PG，5 tests）+
+  `.github/workflows/ci-smoke.yml`（services: postgres15/redis7）+
+  `.pre-commit-config.yaml`（`alembic check` hook via scripts/alembic_check_hook.py）+
+  `alembic/env.py` 支持 `ALEMBIC_DATABASE_URL` / `DATABASE_URL` env override。
