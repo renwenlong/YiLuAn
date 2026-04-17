@@ -15,6 +15,7 @@ import logging
 from typing import Any
 
 from app.config import settings
+from app.core.pii import mask_phone
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,8 @@ class MockSMSProvider(SMSProvider):
     """Prints OTP to console. For development and testing only."""
 
     async def send(self, phone: str, code: str) -> bool:
-        logger.info("[MOCK SMS] OTP for %s: %s", phone, code)
+        logger.info("[MOCK SMS] OTP for %s: ******", mask_phone(phone))
+        # DEV 屏幕打印保留明文以方便本地联调；生产用真实提供商不会走到这里
         print(f"[DEV] OTP for {phone}: {code}")
         return True
 
@@ -111,11 +113,12 @@ class AliyunSMSProvider(SMSProvider):
 
             data = resp.json()
             if data.get("Code") == "OK":
-                logger.info("SMS sent to %s via Aliyun", phone)
+                logger.info("SMS sent to %s via Aliyun", mask_phone(phone))
                 return True
             else:
                 logger.error(
-                    "Aliyun SMS failed: %s %s",
+                    "Aliyun SMS failed for %s: %s %s",
+                    mask_phone(phone),
                     data.get("Code"),
                     data.get("Message"),
                 )
@@ -226,10 +229,12 @@ class TencentSMSProvider(SMSProvider):
                 .get("Code", "")
             )
             if send_status == "Ok":
-                logger.info("SMS sent to %s via Tencent", phone)
+                logger.info("SMS sent to %s via Tencent", mask_phone(phone))
                 return True
             else:
-                logger.error("Tencent SMS failed: %s", data)
+                logger.error(
+                    "Tencent SMS failed for %s: %s", mask_phone(phone), data
+                )
                 return False
 
         except Exception as e:
