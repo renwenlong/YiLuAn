@@ -12,6 +12,7 @@ from app.config import settings
 from app.core.logging import setup_logging
 from app.core.rate_limit import limiter
 from app.core.redis import init_redis
+from app.tasks.scheduler import shutdown_scheduler, start_scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +23,15 @@ async def lifespan(app: FastAPI):
     setup_logging()
     logger.info("Starting %s v%s", settings.app_name, settings.app_version)
     app.state.redis = init_redis()
+    # APScheduler (D-018): 开启后台定时任务（过期订单自动扫描）
+    if settings.scheduler_enabled:
+        try:
+            start_scheduler(app)
+        except Exception as exc:  # pragma: no cover - 不阻塞启动
+            logger.exception("Failed to start scheduler: %s", exc)
     yield
     # Shutdown
+    await shutdown_scheduler()
     if app.state.redis:
         await app.state.redis.close()
     logger.info("Shutdown complete")

@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: list[str] = ["*"]
 
+    # Scheduler (D-018)
+    scheduler_enabled: bool = True  # 生产开启；测试/CLI 可关闭
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
     @model_validator(mode="after")
