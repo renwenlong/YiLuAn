@@ -1,4 +1,4 @@
-const { getChatMessages } = require('../../../services/chat')
+const { getChatMessages, markRead } = require('../../../services/chat')
 const { getOrderDetail, orderAction } = require('../../../services/order')
 const ws = require('../../../services/websocket')
 const store = require('../../../store/index')
@@ -22,10 +22,19 @@ Page({
     this.loadHistory()
     this.loadOrderStatus()
     this.connectWebSocket()
+    this.markMessagesRead()
   },
 
   onUnload() {
     ws.disconnect()
+  },
+
+  async markMessagesRead() {
+    // 打开聊天页时，自动将本订单的未读消息标为已读，
+    // 保证未读角标和列表红点及时清零。失败不阻断主流程。
+    try {
+      await markRead(this.data.orderId)
+    } catch (err) {}
   },
 
   async loadOrderStatus() {

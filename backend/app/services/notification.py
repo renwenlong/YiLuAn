@@ -88,12 +88,17 @@ class NotificationService:
         new_status: str,
         recipient_id: uuid.UUID,
     ) -> Notification:
+        # 覆盖所有 OrderStatus，并支持同义的多种文案（如 created：待接单）
         status_labels = {
+            "created": "待接单",
             "accepted": "已接单",
             "in_progress": "服务中",
             "completed": "已完成",
-            "cancelled_by_patient": "已取消",
-            "cancelled_by_companion": "已取消",
+            "reviewed": "已评价",
+            "cancelled_by_patient": "已取消（用户取消）",
+            "cancelled_by_companion": "已取消（陪诊师取消）",
+            "rejected_by_companion": "陪诊师已拒单",
+            "expired": "订单已超时取消",
         }
         label = status_labels.get(new_status, new_status)
         return await self.create_notification(
