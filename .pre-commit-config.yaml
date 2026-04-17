@@ -1,0 +1,15 @@
+# Pre-commit hooks for YiLuAn
+# Install: pip install pre-commit && pre-commit install
+#
+# alembic-check: model vs migration drift guard
+#   使用 throwaway SQLite 文件：先 upgrade head 再 check（不需要 PG）
+#   env.py 通过 ALEMBIC_DATABASE_URL 切换
+repos:
+  - repo: local
+    hooks:
+      - id: alembic-check
+        name: alembic check (model vs migration drift)
+        entry: python scripts/alembic_check_hook.py
+        language: system
+        pass_filenames: false
+        files: ^backend/(app/models/|alembic/versions/|alembic/env\.py)

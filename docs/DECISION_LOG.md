@@ -530,3 +530,58 @@
 - 新增 docs/scheduler.md：调度任务清单、开关、多副本 advisory lock、故障排查、扩展模板。
 - 触发原因：D-018 advisory lock 落地后缺少面向运维 / 新任务开发者的单一入口文档，本次补齐。
 
+
+
+---
+
+### D-021 (2026-04-17) /readiness 就绪探针 + /health 纯 liveness
+
+- **上下文**：TD-OPS-01。当前 `/health` 和 `/api/v1/health` 都是纯 liveness，生产部署（ACA / K8s）需要区分 liveness 和 readiness：进程活着 vs 依赖就绪。
+- **决策**：新增 `GET /readiness`，挂在两个位置：
+  1. 根路径 `/readiness`（对齐 ACA / K8s 默认探针惯例）
+  2. `/api/v1/readiness`（对齐现有 API 前缀，便于内部使用）
+  检查项：
+  - DB：通过现有 `async_session` 执行 `SELECT 1`
+  - Redis：调用 `app.state.redis.ping()` + `set/get` 回读（兼容 mock 注入异常的测试路径）
+  返回格式：
+  - 成功：200 `{"status":"ready","checks":{"db":"ok","redis":"ok"}}`（保留 `db`/`redis` 扁平字段向后兼容）
+  - 任一失败：503 `{"status":"not_ready","checks":{"db":"error: <class>: <msg>","redis":"ok"}}`
+- **放弃方案**：把 readiness 内嵌到 `/health`（会破坏 liveness 语义，导致 K8s 误杀容器）
+- **实现文件**：
+  - `backend/app/api/v1/health.py`：`_run_readiness_checks` + `_readiness_response` 可复用函数
+  - `backend/app/main.py`：根路径 `/readiness` 复用 v1 health 里的函数
+- **测试**：`backend/tests/test_health.py` 从 8 → 9，新增根路径两个 case + 错误消息包含 `error:` 前缀断言；fake_redis 添加 `ping()` 方法
+- **curl 验证**（Docker 容器内）：
+  - `/health` → 200 `{"status":"healthy","version":"0.1.0"}`
+  - `/api/v1/health` → 200 `{"status":"ok","timestamp":...}`
+  - `/readiness` → 200 `{"status":"ready","checks":{"db":"ok","redis":"ok"},...}`
+  - `/api/v1/readiness` → 200 同上
+  - 停 db 容器：`/readiness` → 503 `{"status":"not_ready","checks":{"db":"error: InterfaceError: ... connection is closed","redis":"ok"},"db":"error","redis":"ok"}`
+- **影响**：后端测试 392 → 394。`/health` 保持不查依赖，K8s livenessProbe 不会因 DB/Redis 抖动误杀容器。
+- **关联**：TD-OPS-01（此次清除）。
+
+### D-022 (2026-04-17) PG-alembic smoke CI + alembic check pre-commit
+
+- **上下文**：TD-CI-01。pytest 主路径走 SQLite 内存 + `Base.metadata.create_all()`，绕过 alembic；生产 Docker 用 PG + `alembic upgrade head`。2026-04-17 曝光 payments 4 列 + orderstatus 2 个枚举值 model 改了但迁移脱钩，测试全绿却 Docker 部署失败（见 docs/MIGRATION_AUDIT_2026-04-17.md）。
+- **决策**：三层防护同时上：
+  1. **Smoke tests（真 PG）**：新增 `backend/tests/smoke/test_pg_alembic_smoke.py`，5 个 test：
+     - `test_alembic_upgrade_head_no_error`：module autouse fixture 对真 PG 跑 `alembic upgrade head`，+ 显式查 `alembic_version` 非空
+     - `test_order_status_enum_has_9_values`：`enum_range(NULL::orderstatus)` 必须 == `{created, accepted, in_progress, completed, reviewed, cancelled_by_patient, cancelled_by_companion, rejected_by_companion, expired}`
+     - `test_payments_has_wechat_columns`：`information_schema.columns` 含 `trade_no / prepay_id / refund_id / callback_raw`
+     - `test_crud_user_order_payment_roundtrip`：user → hospital → order(rejected_by_companion) → order(expired) → payment(含全 wechat 列)，readback 校验
+     - `test_alembic_check_no_drift`：`alembic check` 返回 0，无 drift
+     标记 `@pytest.mark.smoke`；`pyproject.toml` 默认 `addopts = "-m 'not smoke'"`，显式 `pytest -m smoke` 启用。
+  2. **GitHub Actions**：新增 `.github/workflows/ci-smoke.yml`，2 jobs：
+     - `unit-tests`：现有 SQLite 路径 pytest
+     - `smoke-pg`：services: postgres:15-alpine + redis:7-alpine → `alembic upgrade head` → `alembic check` → `pytest -m smoke`
+  3. **pre-commit**：`.pre-commit-config.yaml` + `scripts/alembic_check_hook.py`。hook 对本地 PG（默认 docker-compose db）跑 `alembic check`；PG 不可达时优雅跳过（exit 0）并提示，CI 会兜底强制。
+  4. **env.py 改造**：`backend/alembic/env.py` 支持 `ALEMBIC_DATABASE_URL` / `DATABASE_URL` env 覆盖，CI / smoke / pre-commit 可按需切换 URL。
+- **放弃方案**：
+  - SQLite 跑 alembic check：SQLite 不支持 `ALTER CONSTRAINT`，`d6e7f8a9b0c1_add_payment_unique_constraint` 迁移直接炸（batch mode 侵入太大）；改用真 PG。
+  - 把 smoke 合并进 `test.yml`：保持独立 workflow 便于维护（smoke 偏慢，触发模式不同）。
+- **本地验证**：
+  - `pytest -q` → 394 passed, 5 deselected
+  - `pytest -m smoke -q` → 5 passed, 394 deselected（对 docker-compose db）
+  - `python scripts/alembic_check_hook.py` → `No new upgrade operations detected`
+- **关联**：TD-CI-01（此次清除）、D-020 / D-019（迁移审计工作的延续）。
+

@@ -1,0 +1,92 @@
+name: CI Smoke (PG + Alembic)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit-tests:
+    name: Unit tests (SQLite path)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          pip install pytest pytest-asyncio aiosqlite
+
+      - name: Run unit tests (non-smoke)
+        working-directory: backend
+        run: python -m pytest -q
+
+  smoke-pg:
+    name: Smoke tests (real Postgres + alembic)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: yiluan
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/yiluan
+      ALEMBIC_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/yiluan
+      SMOKE_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/yiluan
+      REDIS_URL: redis://localhost:6379/0
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          pip install -r backend/requirements.txt
+          pip install pytest pytest-asyncio
+
+      - name: Wait for Postgres
+        run: |
+          for i in {1..30}; do
+            pg_isready -h localhost -p 5432 -U postgres && break
+            echo "waiting for postgres... ($i)"
+            sleep 2
+          done
+
+      - name: Alembic upgrade head
+        working-directory: backend
+        run: python -m alembic upgrade head
+
+      - name: Alembic check (no drift)
+        working-directory: backend
+        run: python -m alembic check
+
+      - name: Run smoke tests
+        working-directory: backend
+        run: python -m pytest -m smoke -q
