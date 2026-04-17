@@ -222,6 +222,169 @@
 
 ---
 
+## 2026-04-15
+
+### D-013 CD 自动化骨架（暂禁用自动触发）
+- **参与角色**：Ops / Backend / Arch
+- **背景**：Sprint 进入部署准备阶段，需要 GitHub Actions Deploy workflow 骨架，但 Azure ACR/ACA 尚未完成配置，贸然开启自动推送会失败刷屏。
+- **候选方案**：
+  A. 先写 deploy workflow 但保持手动触发（workflow_dispatch）
+  B. 等 ACR 完全就绪再一起写
+  C. 写好后立即开启 push/tag 自动触发
+- **决策**：方案 A — 骨架先行，`on: workflow_dispatch` + 注释掉的 `on: push/tags`
+- **原因**：
+  1. 骨架对齐 Dockerfile / ACR 镜像命名等约定，避免后期返工
+  2. 手动触发便于单次验证，不产生无效告警
+  3. ACR 凭证到位后只需 uncomment 自动触发段即可启用
+- **影响范围**：`.github/workflows/deploy.yml`、`docs/deployment.md`
+- **后续动作**：B-04（Azure ACR 创建）完成后恢复 push 自动触发
+- **落地提交**：`2a51adb`（禁用 Deploy 自动触发）+ `dc38ef1` 批次
+- **状态**：执行中（等 ACR）
+
+### D-014 iOS 端功能对齐 + XCTest 测试覆盖策略
+- **参与角色**：iOS / QA / Arch
+- **背景**：iOS 端长期落后于小程序，MVP 阶段需要补齐用户旅程并建立基础测试。macOS CI runner 暂未到位，无法跑 XCTest。
+- **候选方案**：
+  A. 等 macOS runner 再补测试
+  B. 本地可跑的 XCTest + 暂不接 CI
+  C. 用 iOS 快照测试框架（SnapshotTesting 等）
+- **决策**：方案 B — 先在本地 XCTest 建立 57 条用例覆盖主要旅程，CI 接入延后到 macOS runner 就位
+- **原因**：
+  1. 测试覆盖比 CI 接入更紧迫——先保证有断言，再谈自动化
+  2. SwiftUI + XCTest 是苹果原生方案，无额外依赖
+  3. 57 条覆盖登录/订单/聊天/钱包/评价等关键路径，达到与小程序的可比线
+- **影响范围**：`ios/YiLuAnTests/*`、`PROJECT_STATUS.md`
+- **落地提交**：`49d6ead`（23 用例首批）+ `bf046db`（+34 用例，补齐至 57）
+- **遗留 TD**：TD-03 iOS CI 接入（需 macOS runner 或 self-hosted）
+- **状态**：功能对齐 + 本地测试已完成；CI 接入待办
+
+### D-015 iOS / 小程序 token 刷新与 API 文档统一
+- **参与角色**：Frontend / iOS / Backend
+- **背景**：前端（小程序 + iOS）刷新 token 逻辑各写一份，行为不一致；Swagger 文档注释残缺。
+- **决策**：
+  1. 统一由 `refreshToken` 服务层封装：access 过期前 60s 触发；失败直接 logout
+  2. iOS 侧 `NetworkClient` 中间件化，同一套拦截
+  3. 所有 `@router.*` 装饰器补齐 `summary` / `description`，Swagger /docs 中文可读
+- **影响范围**：`wechat/services/api.js`、`ios/YiLuAn/Services/NetworkClient.swift`、`backend/app/api/v1/*`
+- **落地提交**：`a54049f`
+- **状态**：已完成
+
+---
+
+## 2026-04-16
+
+### D-016 订单状态机扩展：`rejected_by_companion` + `expired`
+- **参与角色**：Backend / Arch / PM / Frontend
+- **背景**：原状态机只允许 `created → accepted / cancelled_by_patient`，实际业务中陪诊师需要「拒单」能力，长时间无人接单的订单也应自动过期，否则订单流会挂死。
+- **候选方案**：
+  A. 复用 `cancelled_by_companion`（不区分主动/被动）
+  B. 新增 `rejected_by_companion` + `expired` 两个独立状态
+  C. 用一个通用的 `cancelled` + 在 metadata 中记录原因
+- **决策**：方案 B — 新增两个独立终态
+- **原因**：
+  1. 语义清晰：拒单影响陪诊师接单率，自动过期不影响；统计/风控需要区分
+  2. 状态机约束更严格：`rejected_by_companion` 只能从 `created` 转入，避免误操作
+  3. 对前端/运营后台展示更友好（不同文案、不同 icon）
+- **实现细节**：
+  1. 新增 `OrderStatus.rejected_by_companion` / `OrderStatus.expired`
+  2. `ORDER_TRANSITIONS` 明确允许 `created → {rejected_by_companion, expired}`；两者均为终态
+  3. `Order` 增加 `expires_at: datetime`，默认 `created_at + ORDER_EXPIRY_HOURS`（4h）
+  4. `POST /orders/{id}/reject`：陪诊师权限校验 + 仅 created 可用 + 自动退款 + 通知患者
+  5. `POST /orders/check-expired`：被动 API 扫描；后续接入定时器（见 D-018）
+  6. 通知链路：`notify_order_rejected` / `notify_order_expired` 走新的实时推送通道
+- **影响范围**：`backend/app/models/order.py`、`services/order.py`、`api/v1/orders.py`、alembic migration、小程序 `companion/order-detail` + `patient/order-detail`
+- **落地提交**：`24e437a`（+802/-26，20 文件）
+- **测试**：`test_order_notifications_reject_expiry.py` 12 条用例
+- **状态**：已完成
+
+### D-017 实时通知 + 聊天融合（WebSocket 推送 + 订单自动建会话）
+- **参与角色**：Backend / Frontend / Design
+- **背景**：订单状态变化（新单/接单/拒单/过期/消息）需要实时触达用户，同时用户期待「下单即可聊天」的连贯体验。
+- **候选方案**：
+  A. 纯轮询（patient 客户端定时拉列表）
+  B. 服务端推送通知 + 聊天走独立通道
+  C. 通知 WebSocket + 订单创建时自动创建 ChatMessage 占位，统一在聊天页承载系统通知
+- **决策**：方案 C — 通知 WebSocket + 聊天/通知融合
+- **原因**：
+  1. 轮询浪费流量且延迟高
+  2. 用户对「订单」和「消息」认知是连续的——分两个入口反而割裂
+  3. 服务端只需一个 WebSocket 通道（`/ws/notifications`）+ 现有聊天表，无新实体
+- **实现细节**：
+  1. 新增 `/api/v1/ws/notifications` 端点：JWT 鉴权 + ping/pong 心跳 + 进程内 `_notification_connections: dict[str, list[WebSocket]]`
+  2. `create_notification` 同步调用 `push_notification_to_user`（best-effort）
+  3. `OrderService.create_order` 在创建订单后生成 `ChatMessage(type=system, content="订单已创建...")`
+  4. 前端：`notificationWs.js`（81 行）——自动重连（指数退避 1→30s，最多 5 次）+ 30s 心跳；chat-bubble 组件新增 `system` 类型样式
+  5. 聊天列表显示「新订单」徽标 + 未读数
+- **遗留风险**：
+  1. 单进程内存模式——多副本部署时推送只能到达同一实例的连接 → 记录为 D-019（TD-06）
+  2. 连接断开清理依赖 WebSocket `finally` 块；极端情况可能残留
+- **影响范围**：`backend/app/api/v1/ws.py`（+63）、`services/notification.py` / `order.py`、小程序聊天/通知相关页面
+- **落地提交**：`05aa228`（+331/-27，11 文件）
+- **状态**：已完成
+
+---
+
+## 2026-04-17
+
+### D-018 过期订单自动扫描：APScheduler 集成 FastAPI
+- **参与角色**：Backend / Arch / Ops
+- **背景**：D-016 引入 `expired` 状态后，`check_expired_orders` 仅作为被动 API 存在，必须有定时驱动才真正生效。架构师晨会标记为 P0 合并项。
+- **候选方案**：
+  A. APScheduler 内嵌 FastAPI 进程（`AsyncIOScheduler`）
+  B. Celery Beat + worker（独立进程）
+  C. 系统 cron / Azure Timer Trigger 定期 POST `/orders/check-expired`
+  D. 客户端触发（查询订单时顺带检查）
+- **决策**：方案 A — APScheduler 内嵌
+- **原因**：
+  1. MVP 规模下任务简单、体积小，单独起 Celery 部署成本过高
+  2. `AsyncIOScheduler` 与 FastAPI 事件循环无缝对接，无需额外进程协调
+  3. 方案 C 依赖外部服务健康度（cron 机器挂了就没人扫），内嵌更可控
+  4. 方案 D 不可控（用户长时间不访问订单就永不过期）
+  5. 未来若任务量增大，可平滑迁移到 Celery Beat（任务函数已抽离）
+- **实现细节**：
+  1. `app/tasks/scheduler.py`：`create_scheduler` + `start_scheduler` + `shutdown_scheduler`
+  2. 任务 `scan_expired_orders_job` 每 **60 秒**扫描一次（兼顾响应性和 DB 压力）
+  3. 任务内复用 `OrderService.check_expired_orders`，保持业务逻辑单一入口
+  4. `AsyncIOScheduler` 配置：`coalesce=True`、`max_instances=1`、`misfire_grace_time=30s`
+  5. FastAPI lifespan 注册 start/shutdown；`SCHEDULER_ENABLED=false` 可关闭（CLI/测试场景）
+- **多副本部署**：
+  - 使用 Redis `SET NX EX` 作为 **best-effort** 分布式锁（key: `yiluan:scheduler:expired-orders:lock`，TTL=50s）
+  - Redis 不可用时退化为本实例执行（日志告警），不阻塞业务
+  - 严格互斥（Redlock / PG advisory lock）作为后续改进项，当前 MVP 单副本足够
+- **影响范围**：`backend/app/tasks/scheduler.py`（新）、`main.py` lifespan、`config.py` 新增 `scheduler_enabled`、`requirements.txt` 引入 `APScheduler>=3.10`
+- **测试**：`tests/test_scheduler.py` 7 条用例（正常扫描 / 无过期订单 / 异常容错 / 分布式锁跳过 / 锁退化 / 调度器注册）
+- **落地提交**：`91d79f0`
+- **状态**：已完成
+
+### D-019 WebSocket 多副本可扩展性技术债（预留）
+- **参与角色**：Arch / Backend / Ops
+- **背景**：D-017 的 `_notification_connections` 是进程内 dict，本次**暂不实现**分布式；架构师要求登记为显式技术债，说明现状、风险、迁移路径和触发时机。
+- **现状**：
+  - WebSocket 连接状态仅存在于单进程内存
+  - 单实例部署（当前 ACA 默认）无问题
+  - 即便连接落在实例 A，`create_notification` 也会尝试向所有实例内的该用户连接推送——但只有实例 A 的 dict 里有
+- **风险（按严重度）**：
+  1. **高**：横向扩容到 2+ 副本后，跨副本通知丢失率 ≈ `1 - 1/N`，用户可能收不到新订单推送
+  2. **中**：蓝绿/滚动发布期间旧实例已关闭但客户端尚未重连，短暂推送丢失
+  3. **低**：单实例 OOM 时所有连接一次性失联（已由客户端自动重连覆盖）
+- **候选迁移方案**：
+  A. **Redis Pub/Sub**：每个实例订阅同一个频道，推送写频道后所有实例 fanout 到本地连接（推荐）
+  B. **消息队列（NATS / Kafka）**：更重，过度设计
+  C. **粘性会话（sticky session）+ 按用户 hash 路由**：依赖 LB 能力，ACA 支持有限
+- **倾向方案**：A（Redis Pub/Sub）
+  - 复用现有 Redis（已部署）
+  - 实现增量小：`NotificationService.push_notification_to_user` 内部改为 Redis `PUBLISH`，新增订阅 worker 把频道消息 fanout 到本地 dict
+  - 兼容现有 API，零客户端改动
+- **触发时机（必须迁移的信号）**：
+  - 任一：ACA 扩容到 ≥2 副本；或 DAU > 1000 需要负载均衡；或观测到跨实例通知丢失
+  - 估算：上线 2~4 周内
+- **影响面**：`backend/app/api/v1/ws.py`、`services/notification.py`；无数据库 schema 变更
+- **工作量估算**：1~1.5 人日（含测试）
+- **对应 TD 编号**：TD-06 / A-13
+- **状态**：已登记，待触发后执行
+
+---
+
 ## 决策记录模板
 
 ### D-XXX 标题
