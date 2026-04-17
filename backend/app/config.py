@@ -58,6 +58,11 @@ class Settings(BaseSettings):
     # Scheduler (D-018)
     scheduler_enabled: bool = True  # 生产开启；测试/CLI 可关闭
 
+    # WebSocket 同用户最大并发连接数 (D-020)
+    # 超限时「踢最老」：关闭该用户最早建立的那条连接，放新连接进来。
+    # 默认 3：手机 + Pad + 桌面；0 表示不限制（调试用）。
+    ws_max_connections_per_user: int = 3
+
     # WebSocket Pub/Sub (D-019)
     ws_pubsub_enabled: bool = True  # 生产多副本必开；本地/测试可关
     ws_pubsub_channel: str = "yiluan:ws:notifications"

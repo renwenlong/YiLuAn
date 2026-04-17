@@ -3,6 +3,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
+from app.config import settings
 from app.core.security import decode_token
 from app.database import async_session
 from app.models.chat_message import ChatMessage, MessageType
@@ -92,7 +93,18 @@ async def websocket_notifications(websocket: WebSocket):
     await websocket.accept()
 
     broker = _get_or_create_broker(websocket.app)
-    await broker.register(user_id, websocket)
+    # D-020：同用户并发连接数上限 → 超限踢最老。Pub/Sub 架构下本地表限制即可，
+    # 其他副本的连接独立计数（多副本场景用户实际上限 ≈ N × replicas，可接受）。
+    cap = settings.ws_max_connections_per_user
+    if cap and cap > 0:
+        evicted = await broker.register_with_cap(user_id, websocket, cap)
+        for old_ws in evicted:
+            try:
+                await old_ws.close(code=4008, reason="Replaced by newer connection")
+            except Exception:
+                pass
+    else:
+        await broker.register(user_id, websocket)
 
     try:
         while True:

@@ -168,6 +168,32 @@ class WsPubSubBroker:
         async with self._lock:
             self._local.setdefault(k, []).append(websocket)
 
+    async def register_with_cap(
+        self,
+        key: UUID | str,
+        websocket: WebSocket,
+        max_connections: int,
+    ) -> list[WebSocket]:
+        """Register 与「踢最老」策略绑定。
+
+        D-020：同一 key 连接数超过 ``max_connections`` 时，挤掉最早的连接（以 list
+        顶部为旧）。返回被挤下的 WebSocket 列表（调用方负责 close）。
+
+        - ``max_connections <= 0``：等价于普通 register（不限制）。
+        - 同一 key 存在多个行→交给调用方串行 close，避免占用锁 await。
+        """
+        k = str(key)
+        to_evict: list[WebSocket] = []
+        async with self._lock:
+            conns = self._local.setdefault(k, [])
+            conns.append(websocket)
+            if max_connections and len(conns) > max_connections:
+                # 踢最老的（list[0]）直到基数下降到限制
+                overflow = len(conns) - max_connections
+                to_evict = conns[:overflow]
+                self._local[k] = conns[overflow:]
+        return to_evict
+
     async def unregister(self, key: UUID | str, websocket: WebSocket) -> None:
         k = str(key)
         async with self._lock:
