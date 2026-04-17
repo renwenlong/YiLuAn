@@ -9,24 +9,43 @@ from app.models.chat_message import ChatMessage, MessageType
 from app.repositories.chat_message import ChatMessageRepository
 from app.repositories.order import OrderRepository
 from app.repositories.user import UserRepository
+from app.ws.pubsub import WsPubSubBroker, get_ws_broker_from_app
 
 router = APIRouter()
 
-# Simple in-memory connection manager (single-instance; use Redis pub/sub for multi-instance)
+# Chat room connections remain in-process（每房间都是 order 维度，无跨副本需求：
+# 聊天 WS 通过订单 id 路由，后续如果要多副本也可以复用 broker 的模式，这里先保持
+# 现状以缩小 D-019 改动面）。
 _connections: dict[str, list[WebSocket]] = {}
 
-# Global notification connections: user_id -> list[WebSocket]
-_notification_connections: dict[str, list[WebSocket]] = {}
+
+# ---------------------------------------------------------------------------
+# Fallback broker：启动失败或未开启时使用（单机内存模式），确保业务总是有 broker 可用
+# ---------------------------------------------------------------------------
+_fallback_broker: WsPubSubBroker | None = None
 
 
-async def push_notification_to_user(user_id: UUID, notification_data: dict) -> None:
-    """Push a notification to a connected user via WebSocket."""
-    key = str(user_id)
-    for ws in _notification_connections.get(key, []):
-        try:
-            await ws.send_text(json.dumps(notification_data))
-        except Exception:
-            pass
+def _get_or_create_broker(app) -> WsPubSubBroker:
+    broker = get_ws_broker_from_app(app)
+    if broker is not None:
+        return broker
+    # lifespan 未启动（例如测试场景通过 ASGITransport 不走 startup）→ 退化为进程内 broker
+    global _fallback_broker
+    if _fallback_broker is None:
+        _fallback_broker = WsPubSubBroker(redis_client=None, enabled=False)
+        # 无 Redis，start() 立即进入单机模式；为避免 await，这里不 start，直接标记
+        _fallback_broker._started = True  # type: ignore[attr-defined]
+    return _fallback_broker
+
+
+async def push_notification_to_user(app, user_id: UUID, notification_data: dict) -> None:
+    """Push a notification to a connected user via WebSocket broker.
+
+    Kept as a module-level helper so NotificationService 可以用统一入口；
+    broker 内部处理本地投递 + Redis Pub/Sub 跨副本 fanout。
+    """
+    broker = _get_or_create_broker(app)
+    await broker.push_to_user(user_id, notification_data)
 
 
 @router.websocket("/ws/notifications")
@@ -55,10 +74,8 @@ async def websocket_notifications(websocket: WebSocket):
 
     await websocket.accept()
 
-    key = str(user_id)
-    if key not in _notification_connections:
-        _notification_connections[key] = []
-    _notification_connections[key].append(websocket)
+    broker = _get_or_create_broker(websocket.app)
+    await broker.register(user_id, websocket)
 
     try:
         while True:
@@ -71,12 +88,7 @@ async def websocket_notifications(websocket: WebSocket):
     except Exception:
         pass
     finally:
-        if key in _notification_connections:
-            _notification_connections[key] = [
-                ws for ws in _notification_connections[key] if ws != websocket
-            ]
-            if not _notification_connections[key]:
-                del _notification_connections[key]
+        await broker.unregister(user_id, websocket)
 
 
 @router.websocket("/ws/chat/{order_id}")
