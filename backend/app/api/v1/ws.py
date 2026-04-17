@@ -9,20 +9,22 @@ from app.models.chat_message import ChatMessage, MessageType
 from app.repositories.chat_message import ChatMessageRepository
 from app.repositories.order import OrderRepository
 from app.repositories.user import UserRepository
-from app.ws.pubsub import WsPubSubBroker, get_ws_broker_from_app
+from app.ws.pubsub import (
+    WsPubSubBroker,
+    get_ws_broker_from_app,
+    get_ws_chat_broker_from_app,
+)
 
 router = APIRouter()
-
-# Chat room connections remain in-process（每房间都是 order 维度，无跨副本需求：
-# 聊天 WS 通过订单 id 路由，后续如果要多副本也可以复用 broker 的模式，这里先保持
-# 现状以缩小 D-019 改动面）。
-_connections: dict[str, list[WebSocket]] = {}
 
 
 # ---------------------------------------------------------------------------
 # Fallback broker：启动失败或未开启时使用（单机内存模式），确保业务总是有 broker 可用
 # ---------------------------------------------------------------------------
+# 通知广播 fallback（user_id 维度）
 _fallback_broker: WsPubSubBroker | None = None
+# 聊天房间 fallback（order_id 维度）
+_fallback_chat_broker: WsPubSubBroker | None = None
 
 
 def _get_or_create_broker(app) -> WsPubSubBroker:
@@ -32,10 +34,25 @@ def _get_or_create_broker(app) -> WsPubSubBroker:
     # lifespan 未启动（例如测试场景通过 ASGITransport 不走 startup）→ 退化为进程内 broker
     global _fallback_broker
     if _fallback_broker is None:
-        _fallback_broker = WsPubSubBroker(redis_client=None, enabled=False)
+        _fallback_broker = WsPubSubBroker(
+            redis_client=None, enabled=False, key_field="user_id"
+        )
         # 无 Redis，start() 立即进入单机模式；为避免 await，这里不 start，直接标记
         _fallback_broker._started = True  # type: ignore[attr-defined]
     return _fallback_broker
+
+
+def _get_or_create_chat_broker(app) -> WsPubSubBroker:
+    broker = get_ws_chat_broker_from_app(app)
+    if broker is not None:
+        return broker
+    global _fallback_chat_broker
+    if _fallback_chat_broker is None:
+        _fallback_chat_broker = WsPubSubBroker(
+            redis_client=None, enabled=False, key_field="order_id"
+        )
+        _fallback_chat_broker._started = True  # type: ignore[attr-defined]
+    return _fallback_chat_broker
 
 
 async def push_notification_to_user(app, user_id: UUID, notification_data: dict) -> None:
@@ -80,7 +97,11 @@ async def websocket_notifications(websocket: WebSocket):
     try:
         while True:
             raw = await websocket.receive_text()
-            data = json.loads(raw)
+            try:
+                data = json.loads(raw)
+            except (TypeError, ValueError):
+                # 非法 JSON 直接忽略，避免单条脏消息把连接打掉
+                continue
             if data.get("type") == "ping":
                 await websocket.send_text(json.dumps({"type": "pong"}))
     except WebSocketDisconnect:
@@ -93,6 +114,7 @@ async def websocket_notifications(websocket: WebSocket):
 
 @router.websocket("/ws/chat/{order_id}")
 async def websocket_chat(websocket: WebSocket, order_id: UUID):
+    """Order-scoped chat WebSocket. 按订单分房间；Redis Pub/Sub fanout 到多副本。"""
     # Authenticate via query param
     token = websocket.query_params.get("token")
     if not token:
@@ -134,26 +156,35 @@ async def websocket_chat(websocket: WebSocket, order_id: UUID):
 
     await websocket.accept()
 
-    room_key = str(order_id)
-    if room_key not in _connections:
-        _connections[room_key] = []
-    _connections[room_key].append(websocket)
+    chat_broker = _get_or_create_chat_broker(websocket.app)
+    await chat_broker.register(order_id, websocket)
 
     try:
         while True:
             raw = await websocket.receive_text()
-            data = json.loads(raw)
+            try:
+                data = json.loads(raw)
+            except (TypeError, ValueError):
+                # 非法 JSON：忽略一条，不断连接
+                continue
 
             # Handle heartbeat
             if data.get("type") == "ping":
                 await websocket.send_text(json.dumps({"type": "pong"}))
                 continue
 
-            content = data.get("content", "").strip()
+            content = (data.get("content") or "").strip()
             if not content:
                 continue
 
-            msg_type = MessageType(data.get("type", "text"))
+            # 消息体长度上限：防止大 payload 压垮连接 / DB
+            if len(content) > 4000:
+                content = content[:4000]
+
+            try:
+                msg_type = MessageType(data.get("type", "text"))
+            except ValueError:
+                msg_type = MessageType.text
 
             # Persist message
             async with async_session() as session:
@@ -167,7 +198,7 @@ async def websocket_chat(websocket: WebSocket, order_id: UUID):
                 message = await chat_repo.create(message)
                 await session.commit()
 
-                broadcast_data = json.dumps({
+                broadcast_payload = {
                     "id": str(message.id),
                     "order_id": str(order_id),
                     "sender_id": str(user_id),
@@ -175,23 +206,14 @@ async def websocket_chat(websocket: WebSocket, order_id: UUID):
                     "content": content,
                     "is_read": False,
                     "created_at": message.created_at.isoformat(),
-                })
+                }
 
-            # Broadcast to all connections in the room
-            for ws in _connections.get(room_key, []):
-                try:
-                    await ws.send_text(broadcast_data)
-                except Exception:
-                    pass
+            # Broadcast via pubsub broker：本地 + Redis fanout 到其他副本
+            await chat_broker.publish_to_room(order_id, broadcast_payload)
 
     except WebSocketDisconnect:
         pass
     except Exception:
         pass
     finally:
-        if room_key in _connections:
-            _connections[room_key] = [
-                ws for ws in _connections[room_key] if ws != websocket
-            ]
-            if not _connections[room_key]:
-                del _connections[room_key]
+        await chat_broker.unregister(order_id, websocket)

@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     ws_pubsub_enabled: bool = True  # 生产多副本必开；本地/测试可关
     ws_pubsub_channel: str = "yiluan:ws:notifications"
 
+    # WebSocket 聊天 Pub/Sub (D-019 Update / 聊天通道迁移)
+    ws_chat_pubsub_enabled: bool = True  # 生产多副本必开；本地/测试可关
+    ws_chat_pubsub_channel: str = "yiluan:ws:chat"
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
     @model_validator(mode="after")
