@@ -24,15 +24,16 @@ class ChatMessage(Base):
         Uuid(as_uuid=True), ForeignKey("orders.id"), nullable=False, index=True
     )
     sender_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False
+        Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )
     type: Mapped[MessageType] = mapped_column(
         Enum(MessageType), nullable=False, default=MessageType.text
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
+        index=True,
     )
