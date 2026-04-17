@@ -58,6 +58,10 @@ class Settings(BaseSettings):
     # Scheduler (D-018)
     scheduler_enabled: bool = True  # 生产开启；测试/CLI 可关闭
 
+    # WebSocket Pub/Sub (D-019)
+    ws_pubsub_enabled: bool = True  # 生产多副本必开；本地/测试可关
+    ws_pubsub_channel: str = "yiluan:ws:notifications"
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
     @model_validator(mode="after")

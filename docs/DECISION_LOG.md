@@ -411,7 +411,56 @@
 - **影响面**：`backend/app/api/v1/ws.py`、`services/notification.py`；无数据库 schema 变更
 - **工作量估算**：1~1.5 人日（含测试）
 - **对应 TD 编号**：TD-06 / A-13
-- **状态**：已登记，待触发后执行
+- **状态**：已落地（2026-04-17，见下方 Update）
+
+#### Update 2026-04-17 — Redis Pub/Sub broker 落地
+- **实现方案**：方案 A（Redis Pub/Sub）
+- **新模块**：`backend/app/ws/pubsub.py` — `WsPubSubBroker`
+  1. 每副本启动时 `start()` 订阅统一频道（默认 `yiluan:ws:notifications`，可配 `WS_PUBSUB_CHANNEL`），生成一个监听协程 `_listen_loop`
+  2. 本副本维护 `_local: dict[user_id, list[WebSocket]]`
+  3. `push_to_user(user_id, payload)` 同时：① 本地投递 `_deliver_local` ② `redis.publish(channel, {origin, user_id, payload})`
+  4. listen loop 收到消息时：若 `origin == self.instance_id` → 跳过（避免自回显）；否则 → 投递本地
+  5. `instance_id` 由 `pid + uuid4` 生成，首次启动稳定在本进程生命周期内
+- **开关 & 配置**：
+  - `WS_PUBSUB_ENABLED`（默认 True）：为 False 时完全跳过 Pub/Sub，退回单机模式（本地开发/测试适用）
+  - `WS_PUBSUB_CHANNEL`（默认 `yiluan:ws:notifications`）：多环境隔离可改
+- **降级策略**：
+  1. `redis_client=None` 或 `enabled=False` → 单机模式
+  2. `subscribe()` 异常 → `start()` 不抛，记录告警日志，退化为单机模式
+  3. `publish()` 运行中异常 → 日志告警，不影响本地投递（best-effort）
+  4. 单个 WS 发送异常 → 仅该连接丢失，不阐闭全局 broker
+- **高级改造点**：
+  - `backend/app/api/v1/ws.py`：订阅/注销转为 `broker.register/unregister`，push helper 保留向后兼容签名，内部改调 broker
+  - `backend/app/services/notification.py`：`create_notification` 用 `get_current_broker()` 取用全局 broker；未启动时（测试未走 lifespan 的情形）使用临时禁用 broker（无副作用）
+  - `backend/app/main.py` lifespan：新增 `start_ws_pubsub` / `stop_ws_pubsub`
+  - `backend/app/config.py`：新增 `ws_pubsub_enabled` / `ws_pubsub_channel`
+  - 聊天 WebSocket（`/ws/chat/{order_id}`）仍维持单机内存广播：聚焦优先级；后续按需一并迁移（框架已就绪）
+- **测试（`backend/tests/test_ws_pubsub.py`，12 条）**：
+  1. 单机模式（enabled=False）本地投递
+  2. 无 Redis（redis=None）降级投递
+  3. 启用模式本地投递 + publish
+  4. 自回显抑制（同 instance_id 不再重复投递）
+  5. **多实例集成**：A 推送 → B 的 WS 收到（核心用例）
+  6. 用户同时连在 A/B 两实例：两处均收到（本地 + pubsub）
+  7. register/unregister 计数
+  8. 单 WS send_text 失败不影响其他
+  9. Redis 订阅失败 → `start()` 不抛异常，降级单机
+  10. publish 失败 → 本地仍成功
+  11. lifespan helper：`start_ws_pubsub` / `get_current_broker` / `stop_ws_pubsub` 语义
+  12. listen loop 容错：忽略 非-JSON / 缺字段消息，仅投递合法消息
+- **测试数变化**：backend 353 → 365（全绿）；总 555
+- **压测数据**：本封未做微服务集群级别的压测（需要真实 Redis + 多副本），已登记为后续用户验收时验证项
+- **回滚预案**：`WS_PUBSUB_ENABLED=false` 可立即关闭 Pub/Sub，退化单副本内存广播；业务行为与升级前一致（同实例连接的用户仍能收到通知、跨实例则丢失，与 D-017 原行为一致）。极端情况可 `git revert` 本次 commit 直接回到 D-017 单副本模式。
+- **最终架构**：
+  ```
+  [客户端 WS] ──连接──▶ 副本A broker (_local) ◀──▶ Redis Pub/Sub ◀──▶ 副本B broker (_local) ◀──连接── [客户端 WS]
+                                                           (fanout 到所有 broker，每 broker 再投递到本地连接)
+  NotificationService.create_notification
+    ├── DB 写入
+    └── broker.push_to_user
+           ├── 本地直送
+           └── publish → 其他副本 listen loop → 其他副本本地投递
+  ```
 
 ---
 
