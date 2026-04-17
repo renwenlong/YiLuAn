@@ -354,7 +354,37 @@
 - **影响范围**：`backend/app/tasks/scheduler.py`（新）、`main.py` lifespan、`config.py` 新增 `scheduler_enabled`、`requirements.txt` 引入 `APScheduler>=3.10`
 - **测试**：`tests/test_scheduler.py` 7 条用例（正常扫描 / 无过期订单 / 异常容错 / 分布式锁跳过 / 锁退化 / 调度器注册）
 - **落地提交**：`91d79f0`
-- **状态**：已完成
+- **状态**：已完成（**2026-04-17 升级至生产级 PG advisory lock**，见下方 Update）
+
+#### Update 2026-04-17 — 升级为 PostgreSQL advisory lock（生产级）
+- **变更动机**：MVP 阶段 `SET NX EX` 为 best-effort 锁，存在两类风险：
+  1. Redis 时钟漂移 / TTL 比任务长 → 跨副本可能出现并发扫描（重复取消过期订单）
+  2. Redis 故障时退化为"全实例独立执行"，多副本会撞车
+  这两者在 ACA 扩容后会成为真实事故源，必须在扩容前彻底解决。
+- **候选方案评估**：
+  - A. **PostgreSQL advisory lock**：强一致、由 DB 原生保证；客户端崩溃时锁随连接释放，不会僵死；无新增依赖（已强依赖 PG）
+  - B. Redlock（redis-py 或 pottery）：需要 3+ Redis 节点才算真 Redlock，单节点 Redis 并不比 SET NX EX 更强；Azure Cache for Redis 单副本部署不满足
+  - C. ZooKeeper / etcd：过度设计，引入新组件运维成本
+- **决策**：方案 A — PostgreSQL advisory lock
+- **实现（`backend/app/core/distributed_lock.py`）**：
+  1. `PostgresAdvisoryLock(session, key)` 异步上下文管理器：进入时 `SELECT pg_try_advisory_lock(bigint)`，退出时 `pg_advisory_unlock(bigint)`；`key` → 稳定 sha1 前 8 字节映射为 signed int64
+  2. `RedisNXLock(redis, key, ttl)`：保留原 `SET NX EX` 语义，作为**非 PG 环境（本地/测试/降级）**回退
+  3. `acquire_scheduler_lock(session, redis_client, key, ttl)` 工厂：按 `session.get_bind().dialect.name` 自动选择
+- **同连接保证（PG advisory 关键约束）**：`scan_expired_orders_job` 先 `async with async_session()` 建立单一 session，然后在**同一 session 内**加锁、执行 `check_expired_orders`、commit、unlock。session 生命周期内不会归还连接池，确保 lock/work/unlock 在同一物理连接上。
+- **异常安全**：
+  1. `PostgresAdvisoryLock.__aenter__` 出错 → 视为"未获取"，跳过本轮（不阻塞业务）
+  2. 业务代码抛异常 → `__aexit__` 仍会执行 unlock（上下文管理器语义）
+  3. 连接断开 → PG 原生自动释放锁
+- **兼容性**：
+  - `SCHEDULER_ENABLED` 开关保持不变
+  - 旧 `_try_acquire_lock` 保留为 `[DEPRECATED]` helper（向后兼容），新代码统一使用 `acquire_scheduler_lock`
+  - SQLite 测试环境自动降级为 `RedisNXLock`，无需改动现有测试行为
+- **测试新增（共 14 条，累计 21 条）**：`lock_key_to_bigint` 稳定性 / PG 锁获取成功 / PG 锁被他人持有跳过 / PG 锁异常降级 / PG 锁业务异常仍 unlock / Redis 锁四种语义 / 工厂方言选择 3 条 / 端到端 PG 路径（dialect mock + execute patch）2 条
+- **测试数变化**：scheduler 模块 7 → 21 条；backend 总计 339 → 353（全绿）
+- **收益**：
+  1. 多副本真正去重（DB 强一致），消除"时钟漂移/TTL 过短"事故面
+  2. 无需额外组件，部署拓扑不变
+  3. 连接断开自动释放，免 TTL 调参烦恼
 
 ### D-019 WebSocket 多副本可扩展性技术债（预留）
 - **参与角色**：Arch / Backend / Ops
