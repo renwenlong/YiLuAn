@@ -3,6 +3,7 @@ const { getOrderReview } = require('../../../services/review')
 const store = require('../../../store/index')
 const { ORDER_STATUS, SERVICE_TYPES } = require('../../../utils/constants')
 const { formatPrice, formatDate } = require('../../../utils/format')
+const { isCountdownUrgent } = require('../../../utils/countdown')
 
 const PAYMENT_STATUS_MAP = {
   unpaid: '待支付',
@@ -18,7 +19,8 @@ Page({
     serviceLabel: '',
     paymentStatusLabel: '',
     paymentStatusClass: '',
-    countdown: ''
+    countdown: '',
+    countdownUrgent: false
   },
 
   onLoad(options) {
@@ -59,14 +61,17 @@ Page({
       var now = Date.now()
       var diff = expTime - now
       if (diff <= 0) {
-        self.setData({ countdown: '已超时' })
+        self.setData({ countdown: '已超时', countdownUrgent: false })
         self._clearCountdown()
         self.loadOrder()
         return
       }
       var hours = Math.floor(diff / 3600000)
       var minutes = Math.floor((diff % 3600000) / 60000)
-      self.setData({ countdown: hours + '小时' + minutes + '分钟' })
+      self.setData({
+        countdown: hours + '小时' + minutes + '分钟',
+        countdownUrgent: isCountdownUrgent(diff)
+      })
     }
 
     update()

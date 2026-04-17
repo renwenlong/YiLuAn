@@ -6,7 +6,7 @@
     <view class="status-header-decor"></view>
     <text class="status-text">{{statusList[order.status].label || order.status}}</text>
     <text class="status-subtitle" wx:if="{{order.status === 'created' && order.payment_status === 'unpaid'}}">请尽快完成支付</text>
-    <text class="status-subtitle" wx:elif="{{order.status === 'created' && countdown}}">距订单自动取消还剩 {{countdown}}</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'created' && countdown}}">距订单自动取消还剩 <text class="countdown-text {{countdownUrgent ? 'countdown-urgent' : ''}}">{{countdown}}</text></text>
     <text class="status-subtitle" wx:elif="{{order.status === 'created'}}">等待陪诊师接单</text>
     <text class="status-subtitle" wx:elif="{{order.status === 'accepted'}}">陪诊师已接单，即将为您服务</text>
     <text class="status-subtitle" wx:elif="{{order.status === 'in_progress'}}">服务进行中，请保持联系</text>
