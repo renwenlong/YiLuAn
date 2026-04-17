@@ -508,3 +508,25 @@
 - **影响范围**：
 - **后续动作**：
 - **状态**：待执行 / 执行中 / 已完成 / 已废弃
+
+---
+
+### D-020 WebSocket 同用户并发连接数限制（踢最老）
+
+- **背景**：D-019 Pub/Sub 多副本架构落地后，理论上同一 user_id 可以无限挂连接（多设备/异常客户端）。本地 _local dict 里 list 无上限，存在被攻击 / 泄漏隐患。
+- **决策**：每副本本地维度对单个 user_id 的连接数做软限制（默认 3），超限时关闭最老的一条（list[0]），接入新连接。
+- **关键点**：
+  1. 只在通知 WS（/ws/notifications）做限制——broker key_field=user_id；聊天 WS 的 key 是 order_id（订单参与者硬上限 2 人，无需限流）。
+  2. 策略选「踢最老」而非「拒新连接」——多设备登录场景用户总是期望「最近的设备能用」，拒新连接会让用户一脸懵。
+  3. 只在本地表生效；Pub/Sub 架构下实际上限 ≈ N × replicas，仍可接受。
+  4. 关闭老连接用 close code=4008，reason=Replaced by newer connection，便于客户端识别。
+- **配置**：WS_MAX_CONNECTIONS_PER_USER=3；设 0 表示不限制。
+- **实现**：WsPubSubBroker.register_with_cap(key, ws, max_connections) 原子返回需要踢的 WS 列表，endpoint 调用方负责 close。测试覆盖：范围内正常 / 踢最老 / 0=不限 / 批量溢出。
+- **回滚**：设 WS_MAX_CONNECTIONS_PER_USER=0 或代码侧走普通 register()。
+- **相关**：D-017（WS 通知基础设施）、D-019（Pub/Sub 多副本）。
+
+### D-019 Update（2026-04-17）APScheduler 部署文档
+
+- 新增 docs/scheduler.md：调度任务清单、开关、多副本 advisory lock、故障排查、扩展模板。
+- 触发原因：D-018 advisory lock 落地后缺少面向运维 / 新任务开发者的单一入口文档，本次补齐。
+
