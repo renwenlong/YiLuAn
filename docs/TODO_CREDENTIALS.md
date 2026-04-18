@@ -29,6 +29,30 @@
 - [ ] 短信签名
 - [ ] 短信模板 ID
 
+### 阿里云 SMS（P0-2 追加，2026-04-18）
+
+下列字段是 `AliyunSMSProvider` 切换到 `settings.sms_provider="aliyun"` 后正常工作所需的**全部**配置项。
+环境变量名与 `app.config.Settings` 中的字段对应。也可通过常量
+`app.services.providers.sms.aliyun.REQUIRED_PRODUCTION_SETTINGS` 程序化获取。
+
+| 环境变量 | settings 字段 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| `SMS_ACCESS_KEY` | `sms_access_key` | `""` | 阿里云 RAM 子账号 AccessKey ID（最小权限：仅 Dysmsapi） |
+| `SMS_ACCESS_SECRET` | `sms_access_secret` | `""` | 阿里云 AccessKey Secret，写入 Azure Key Vault |
+| `SMS_REGION` | `sms_region` | `cn-hangzhou` | Dysmsapi 区域 |
+| `SMS_SIGN_NAME` | `sms_sign_name` | `""` | 已审核通过的短信签名（如「医路安」） |
+| `SMS_TEMPLATE_CODE` | `sms_template_code` | `""` | OTP 模板 ID（如 `SMS_123456789`） |
+| `SMS_NOTIFY_TEMPLATE_CODE` | `sms_notify_template_code` | `""` | 通用通知（订单状态、提醒）模板 ID |
+| `SMS_RATE_LIMIT_PER_MINUTE` | `sms_rate_limit_per_minute` | `1` | 单号 60 秒内最多发送条数 |
+| `SMS_RATE_LIMIT_PER_HOUR` | `sms_rate_limit_per_hour` | `5` | 单号 1 小时内最多发送条数 |
+
+切换步骤：
+1. 上述字段全部填入生产环境（推荐 Azure Key Vault + 容器环境变量挂载）。
+2. 设置 `SMS_PROVIDER=aliyun`。
+3. `Settings` 自带启动期校验（见 `config.py`，`validate_production_config`）：缺任一字段会在进程启动失败，不会出现 silent fallback。
+4. **当前 `AliyunSMSProvider` 仍是占位实现**：`send_otp` / `send_notification` 会抛 `NotImplementedError` 并把 `REQUIRED_PRODUCTION_SETTINGS` 列表写入 ERROR 日志（手机号已脱敏）。激活前必须实现真实 Dysmsapi HMAC-SHA1 调用 + 结构化错误映射（见模块底部 TODO）。
+5. 部署后跑回归冒烟：登录 → 收 OTP → 验证。注意验证 60s + 1h 限频在 Redis 集群中跨副本生效。
+
 ## 生产环境（P0）
 - [ ] Azure 订阅 / 资源组
 - [ ] 域名（已备案）

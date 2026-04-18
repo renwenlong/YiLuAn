@@ -12,11 +12,15 @@ from app.models.user import User
 from app.repositories.user import UserRepository
 from app.schemas.auth import RefreshTokenResponse, TokenResponse, UserResponse
 from app.services.wechat import WeChatAPIClient
-from app.services.sms import get_sms_provider
+from app.services.providers.sms import (
+    SMSRateLimiter,
+    get_sms_provider,
+    mask_phone_sms,
+)
 
 
 OTP_TTL = 300
-OTP_RATE_LIMIT = 60
+OTP_RATE_LIMIT = 60  # legacy 60s key, kept for backward-compat
 DEV_OTP = "000000"
 
 
@@ -27,23 +31,36 @@ class AuthService:
         self.session = session
 
     async def send_otp(self, phone: str) -> None:
-        rate_key = f"otp:rate:{phone}"
-        if await self.redis.get(rate_key):
-            raise BadRequestException("Please wait 60 seconds before requesting a new code")
+        # Per-phone rate limiting (60s + 1h windows). Backed by Redis;
+        # see app.services.providers.sms.rate_limit for details.
+        limiter = SMSRateLimiter(self.redis)
+        decision = await limiter.check_and_record(phone)
+        if not decision.allowed:
+            masked = mask_phone_sms(phone)
+            if decision.reason == "per_minute_exceeded":
+                # Keep the legacy substring "60 seconds" so existing API
+                # consumers / tests that match on it continue to work.
+                raise BadRequestException(
+                    f"Please wait 60 seconds before requesting a new code (retry in {decision.retry_after_seconds}s, {masked})"
+                )
+            raise BadRequestException(
+                f"该号码 1 小时内验证码请求已达上限，请稍后再试 ({masked})"
+            )
+
+        # Legacy 60s key — kept so external observers / dashboards reading
+        # otp:rate:* don't break. The new limiter is the source of truth.
+        await self.redis.set(f"otp:rate:{phone}", "1", ex=OTP_RATE_LIMIT)
 
         code = "".join(random.choices(string.digits, k=6))
-
         otp_key = f"otp:{phone}"
         await self.redis.set(otp_key, code, ex=OTP_TTL)
-        await self.redis.set(rate_key, "1", ex=OTP_RATE_LIMIT)
 
-        if settings.sms_provider == "mock":
-            print(f"[DEV] OTP for {phone}: {code}")
-        else:
-            sms = get_sms_provider()
-            success = await sms.send(phone, code)
-            if not success:
-                raise BadRequestException("短信发送失败，请稍后重试")
+        sms = get_sms_provider()
+        result = await sms.send_otp(phone, code)
+        if not result.ok:
+            raise BadRequestException(
+                f"短信发送失败 ({result.code})，请稍后重试"
+            )
 
     async def verify_otp(self, phone: str, code: str) -> TokenResponse:
         otp_key = f"otp:{phone}"

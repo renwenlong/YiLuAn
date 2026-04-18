@@ -26,6 +26,7 @@ from app.models.user import User, UserRole
 class FakeRedis:
     def __init__(self):
         self._store: dict[str, str] = {}
+        self._zsets: dict[str, dict[str, float]] = {}
 
     async def get(self, key: str) -> str | None:
         return self._store.get(key)
@@ -38,12 +39,53 @@ class FakeRedis:
 
     async def delete(self, key: str) -> None:
         self._store.pop(key, None)
+        self._zsets.pop(key, None)
 
     async def close(self) -> None:
         self._store.clear()
+        self._zsets.clear()
 
     async def ping(self) -> bool:
         return True
+
+    # --- minimal extras used by SMSRateLimiter / similar -----------------
+    async def incr(self, key: str) -> int:
+        try:
+            current = int(self._store.get(key, "0"))
+        except (TypeError, ValueError):
+            current = 0
+        current += 1
+        self._store[key] = str(current)
+        return current
+
+    async def expire(self, key: str, ttl: int) -> bool:
+        # TTL not enforced in tests; just signal success if key exists.
+        return key in self._store or key in self._zsets
+
+    async def ttl(self, key: str) -> int:
+        # Tests don't depend on the actual TTL countdown.
+        return 60 if key in self._store else -2
+
+    async def zadd(self, key: str, mapping: dict[str, float]) -> int:
+        zset = self._zsets.setdefault(key, {})
+        added = 0
+        for member, score in mapping.items():
+            if member not in zset:
+                added += 1
+            zset[member] = float(score)
+        return added
+
+    async def zcard(self, key: str) -> int:
+        return len(self._zsets.get(key, {}))
+
+    async def zremrangebyscore(self, key: str, min_score: float, max_score: float) -> int:
+        zset = self._zsets.get(key)
+        if not zset:
+            return 0
+        to_remove = [m for m, s in zset.items() if min_score <= s <= max_score]
+        for m in to_remove:
+            zset.pop(m, None)
+        return len(to_remove)
 
 
 # ---------------------------------------------------------------------------
