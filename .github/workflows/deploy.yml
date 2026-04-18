@@ -1,3 +1,14 @@
+# ============================================================================
+# YiLuAn 生产部署流水线（未启用 / SCAFFOLDING ONLY）
+#
+# 状态：未启用。仅保留手动 workflow_dispatch 入口以供调试。
+# 启用前置条件（见 docs/TODO_CREDENTIALS.md 运维段）：
+#   1. Azure 资源就位：RG / ACR / Container Apps Env / PostgreSQL / Redis / Key Vault
+#   2. GitHub Secrets 写入：ACR_USERNAME / ACR_PASSWORD / AZURE_CREDENTIALS
+#                    STAGING_DATABASE_URL / PRODUCTION_DATABASE_URL
+#   3. GitHub Environments 配置：staging（无保护） / production（必须 reviewer 审批）
+#   4. 取消下面 push 触发的注释，并确认 ci-smoke.yml 不会重复跑测试
+# ============================================================================
 name: Deploy
 
 on:
