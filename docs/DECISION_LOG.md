@@ -585,3 +585,24 @@
   - `python scripts/alembic_check_hook.py` → `No new upgrade operations detected`
 - **关联**：TD-CI-01（此次清除）、D-020 / D-019（迁移审计工作的延续）。
 
+
+---
+## D-023 (2026-04-18) - 支付 Provider 抽象 + 回调幂等加固 (P0-1, Action #1)
+
+**背景**：原 `payment_service.py` 把 mock / wechat 实现写在同一文件；回调端点没有持久化的幂等键，依赖 `Payment.status` 终态判断，重复回调风险高。
+
+**决策**：
+1. 抽出 `backend/app/services/providers/payment/` 包：`base.py` 定义 `PaymentProvider` + `OrderDTO` / `RefundDTO`；`mock.py` / `wechat.py` 各自实现；`factory.get_payment_provider()` 按 `settings.payment_provider` 路由。
+2. 新增 `payment_callback_log` 表 + 唯一约束 `(provider, transaction_id)`，回调端点先 INSERT、命中 IntegrityError 即视为重复，立刻返回 SUCCESS 而不再触发 `handle_pay_callback`。INSERT 用 SAVEPOINT 保护以避免污染外层 session。
+3. `payment_service.py` 保留 `MockPaymentProvider` / `WechatPaymentProvider` / `PaymentProvider` / `_platform_cert_cache` re-export，零改动通过既有 38 个支付测试。
+4. 退款 provider 异常路径：当前选择**不持久化** `status=failed` 审计行（避免 SAVEPOINT + 提前 commit 污染外层事务），换为「surface 400 + 允许重试」。后续若需要审计行，建议拆出独立的 `payment_event_log` 表并由独立 session 写入。
+
+**迁移**：`c8d9e0f1a2b3_add_payment_callback_log.py`（手写，含 unique constraint + 两个 index + downgrade）。已本地 `alembic upgrade head` / `downgrade -1` / `alembic revision --autogenerate --check` 通过。
+
+**验证**：`pytest backend/tests` 全绿 407 passed (+13 新增)。
+
+**风险 / 待复核**：
+- `record_callback_or_skip` 在 `transaction_id` 为空时默认返回 True（处理），可能在异常 provider 行为下导致重复处理。建议 Phase 2 在 wechat 回调路径上 enforce `transaction_id` 必填。
+- 退款失败审计行的取舍是否符合财务侧期望，待 Arch 复核。
+- `WechatPaymentProvider.query` 仍是 NotImplementedError，待真实接入时补齐。
+
