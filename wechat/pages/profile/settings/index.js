@@ -173,6 +173,14 @@ Page({
     wx.navigateTo({ url: '/pages/profile/about/index' })
   },
 
+  onPrivacyPolicy: function () {
+    wx.navigateTo({ url: '/pages/legal/privacy/index' })
+  },
+
+  onUserAgreement: function () {
+    wx.navigateTo({ url: '/pages/legal/terms/index' })
+  },
+
   onDeleteAccount: function () {
     wx.navigateTo({ url: '/pages/settings/delete-account/index' })
   }
