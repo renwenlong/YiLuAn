@@ -606,3 +606,75 @@
 - 退款失败审计行的取舍是否符合财务侧期望，待 Arch 复核。
 - `WechatPaymentProvider.query` 仍是 NotImplementedError，待真实接入时补齐。
 
+
+
+---
+
+## D-024 (2026-04-18) — SMS Provider 抽象 + 单号限频 (P0-2, Action #2)
+
+**背景 / 问题**
+
+P0-1 已经把支付落到 `app.services.providers.payment` 包里（mock / wechat 两套实现 + factory + base）。短信链路当时仍然挤在单文件 `app/services/sms.py`：
+
+- `AliyunSMSProvider` / `TencentSMSProvider` 在缺凭证时**静默 fallback 成 mock 并返回 True**——一旦生产忘了配齐 AccessKey，OTP 看上去“发送成功”但实际无短信送达，用户被锁号、监控指标也是绿的。
+- 限频只有 `AuthService.send_otp` 里粗暴的 60s `setex`，没有 1h 总量上限，缺少结构化错误码，日志也没有统一脱敏。
+- 没有跟 P0-1 一样的 `REQUIRED_PRODUCTION_SETTINGS` 契约常量，运维无法程序化检查“真上线还差几项”。
+
+**决策**
+
+1. 新增 `app/services/providers/sms/` 子包，结构与 payment 包对齐：
+   - `base.py`：`SMSProvider` 抽象类（`send_otp` / `send_notification`） + `SMSResult` dataclass（`ok` / `code` / `message` / `provider` / `extra`） + `mask_phone_sms()` 助手（保留前 3 + 后 4，例 `138****0001`，比 `core.pii.mask_phone` 更接近常见 OTP 审计日志的格式约定）。
+   - `mock.py`：`MockSMSProvider`，无网络调用，dev 环境继续 stdout 打印 OTP，日志仅输出脱敏号；万能 OTP `000000` 仍由 `AuthService.verify_otp` 在 `environment == "development"` 时生效（provider 不持有该约定）。
+   - `aliyun.py`：`AliyunSMSProvider` **严格占位**——`send_otp` / `send_notification` 直接 `raise NotImplementedError`，并在 ERROR 日志里打印 `REQUIRED_PRODUCTION_SETTINGS` 清单（手机号脱敏）。彻底拒绝 silent fallback，宁可启动失败也不要装作能发短信。
+   - `factory.py`：按 `settings.sms_provider` 路由 (`mock` / `aliyun`)，未知值带 WARNING 回落 mock。
+   - `__init__.py`：导出 `SMSProvider` / `SMSResult` / `MockSMSProvider` / `AliyunSMSProvider` / `ALIYUN_REQUIRED_PRODUCTION_SETTINGS` / `get_sms_provider` / `SMSRateLimiter` / `mask_phone_sms`。
+
+2. 新增 `providers/sms/rate_limit.py::SMSRateLimiter`：
+   - 60s 窗口：Redis `INCR + EXPIRE`，单号默认上限 1。
+   - 1h 窗口：Redis `ZSET`（成员 = `时间戳:uuid` 防同微秒冲突）+ `ZREMRANGEBYSCORE` 滑动剔除，默认上限 5。
+   - 阈值通过 `settings.sms_rate_limit_per_minute` / `sms_rate_limit_per_hour` 可调（用 `getattr` 默认值 1/5，先不强行加 Settings 字段以保持向后兼容；待运维需要调参时再升级）。
+   - 返回 `RateLimitDecision(allowed, reason, retry_after_seconds)`，`reason ∈ {ok, per_minute_exceeded, per_hour_exceeded}`。
+   - 同时支持 in-process fallback（无 Redis 时单进程可用，方便单测；生产必须接 Redis）。
+
+3. `AuthService.send_otp` 切换到新 limiter + 新 provider：
+   - 限流命中时抛 `BadRequestException`，错误信息保留旧 substring `"60 seconds"` 防止前端 / 既有测试断言失效。
+   - 仍然写 `otp:rate:{phone}` 旧 key（外部仪表盘观测用），但**真相源**是新 limiter。
+   - 不再根据 `settings.sms_provider == "mock"` 走 print 旁路；统一通过 provider 走，避免出现两条代码路径。
+
+4. **不引入新表**：限流计数全部走 Redis（KV + ZSET），无 alembic 迁移。这是有意决定——
+   - 写 PG 限流表会显著拖慢 OTP 接口。
+   - Redis TTL 已能满足 60s/1h 窗口语义。
+   - 对“需要审计追溯每次发送”的需求，建议另起 `sms_send_log` 表，**作为后续 D-XXX 单独提案**，不与本次限频耦合。
+
+5. 旧 `app/services/sms.py` 保持不变（仍导出 `MockSMSProvider` / `AliyunSMSProvider` / `TencentSMSProvider` / `SMSProvider` / `get_sms_provider`），既有 `tests/test_sms.py` 不动。新代码请从 `app.services.providers.sms` 导入；旧路径作为 legacy re-export 在下一次 cleanup 周期再删（标记 TODO，未列入本次范围以缩小爆炸半径）。
+
+**测试覆盖**（全部新增于 `backend/tests/test_sms_providers.py`）
+
+- `mask_phone_sms`：CN 11 位 → `138****0001`；带 `+86` → `+86138****0001`；空值 / 短号边界。
+- `MockSMSProvider`：`send_otp` / `send_notification` 返回 `SMSResult(ok=True)`；日志含脱敏号、不含原始号（PII 断言）。
+- `factory`：默认 mock / `aliyun` → `AliyunSMSProvider` / 未知值带 WARNING 回落 mock。
+- `AliyunSMSProvider` 占位：`send_otp` / `send_notification` 抛 `NotImplementedError`；异常 message 或 ERROR 日志中包含全部 `REQUIRED_PRODUCTION_SETTINGS`；日志仍脱敏。
+- `SMSRateLimiter`（in-process + FakeRedis 双路径覆盖）：
+  - 同号 60s 内第 2 次 → `per_minute_exceeded`。
+  - 同号 1h 内第 6 次 → `per_hour_exceeded`（用 monkeypatch 把 60s 阈值放宽到 999 单独验证 1h 窗口）。
+  - 不同号互不干扰。
+- 抽象基类两个方法默认抛 `NotImplementedError`。
+
+为支持新 limiter，`tests/conftest.py::FakeRedis` 增补 `incr` / `expire` / `ttl` / `zadd` / `zcard` / `zremrangebyscore`（最小够用版，不实现真正 TTL 流逝）。
+
+**回归结果**
+
+`pytest backend/tests`：428 passed, 5 deselected（之前基线 ≥407，本次新增 21 个测试用例，无既有用例被破坏，包含 `test_auth.py::test_send_otp_rate_limit` 因保留 `"60 seconds"` 字面量而绿）。
+
+**待办（不纳入本次提交，未来工单）**
+
+- TODO-SMS-01：实现 `AliyunSMSProvider` 真实 Dysmsapi HMAC-SHA1 调用 + 退避重试 + BizCode → SMSResult.code 映射。
+- TODO-SMS-02：`sms_send_log` 表（审计追溯）+ Grafana 看板（成功率 / p95 / 模板维度）。
+- TODO-SMS-03：把 `settings.sms_rate_limit_per_minute` / `_per_hour` 升级为正式 Settings 字段（含生产 validator）。
+- TODO-SMS-04：legacy `app/services/sms.py` 删除窗口（建议下次 sprint 完成迁移后执行）。
+
+**关联**
+
+- D-023（支付 Provider 抽象）—— 本次复用其结构与契约风格。
+- `docs/TODO_CREDENTIALS.md` —— 阿里云 SMS 段同步追加（8 项配置）。
+- `app.services.providers.sms.aliyun.REQUIRED_PRODUCTION_SETTINGS` —— 程序化获取入口。
