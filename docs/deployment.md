@@ -570,6 +570,19 @@ az monitor metrics alert create \
   --action yiluan-alerts
 ```
 
+## 14.3 监控告警最小集（生产上线 P0）
+
+上线第一周必须配齐以下 4 类告警，缺一不可：
+
+| # | 告警项 | 触发条件 | 通知渠道 | 建议响应 SLA |
+|---|--------|----------|----------|--------------|
+| 1 | **Readiness 失败** | `/readiness` 或 `/api/v1/readiness` 连续 2 次返回非 200（DB 或 Redis 不通） | 短信 + 企业微信 | 5 分钟内介入 |
+| 2 | **支付回调失败** | 微信支付 notify 接口 5 分钟错误率 > 5% 或连续 3 笔失败 | 短信 + 企业微信 | 10 分钟内介入（资金影响） |
+| 3 | **SMS 发送异常** | 阿里云 SMS provider 5 分钟失败率 > 20%，或日发送配额触顶 | 邮件 + 企业微信 | 30 分钟内介入 |
+| 4 | **WebSocket / Redis 异常** | Redis 连接池耗尽 / WS 连接掉线率突增 / pub-sub 中断 | 邮件 + 企业微信 | 30 分钟内介入 |
+
+> 详细 KQL 查询与 Action Group 配置见 14.1 / 14.2 节。所有告警接入同一个 Action Group `yiluan-alerts`，避免遗漏。
+
 ## 15. 回滚流程
 
 ### 15.1 应用回滚（Container Apps）
@@ -611,3 +624,123 @@ cd backend && alembic downgrade -1
 | 数据库迁移有误 | alembic downgrade | 5-10 分钟 |
 | 数据损坏 | PostgreSQL PITR 时间点恢复 | 15-30 分钟 |
 | 全面故障 | 恢复到最后已知良好 revision + DB PITR | 30-60 分钟 |
+
+### 15.4 迁移降级注意事项 ⚠️
+
+Alembic `downgrade` 不是万能的，执行前必须确认：
+
+1. **不可逆迁移识别** — 检查目标 revision 的 `downgrade()` 是否为 `pass`。若为 `pass`，则**严禁直接 downgrade**，必须走 PITR。
+2. **Drop column / drop table 类迁移** — `downgrade` 会重建空列/表，但**原数据已永久丢失**；必须先从备份恢复数据，再执行业务回滚。
+3. **数据迁移脚本（data migration）** — 若 `upgrade` 中有 `op.execute("UPDATE ...")`，`downgrade` 通常无法还原原值，必须从快照恢复。
+4. **多版本回退** — 跨多个 revision 回退时，逐个 `downgrade -1` 并记录日志；不要直接 `downgrade <old_rev>` 跳跃执行，避免中间状态错误。
+5. **生产回退前必做** —
+   ```bash
+   # 1. 立即创建当前状态的手动备份
+   az postgres flexible-server backup create \
+     --resource-group yiluan-rg --name yiluan-db \
+     --backup-name pre-rollback-$(date +%Y%m%d-%H%M%S)
+   # 2. 在 Staging 完整演练一次 downgrade 路径
+   # 3. 准备前向修复脚本（forward-fix），若 downgrade 失败立即切到前向修复
+   ```
+6. **应用与迁移版本对齐** — 回滚镜像后必须确认数据库 schema 与该镜像兼容；若 schema 已超前，应用启动会因为 ORM 校验失败而 readiness 持续 503。
+
+## 16. 环境变量清单（按环境分组）
+
+所有 secret 通过 Azure Key Vault 注入，明文配置直接写在 Container App `env-vars`。
+
+### 16.1 通用变量（dev / staging / prod 都需要）
+
+| 变量名 | 类型 | dev 默认值 | staging | prod | 说明 |
+|--------|------|-----------|---------|------|------|
+| `ENVIRONMENT` | 明文 | `development` | `staging` | `production` | 控制日志级别、CORS、debug 路由 |
+| `APP_VERSION` | 明文 | `dev` | git tag | git tag | 显示在 `/health` 响应里 |
+| `DATABASE_URL` | secret | `postgresql+asyncpg://yiluan:yiluan@localhost:5432/yiluan` | Key Vault `staging-database-url` | Key Vault `prod-database-url` | 必须使用 `+asyncpg` 驱动 |
+| `REDIS_URL` | secret | `redis://localhost:6379/0` | Key Vault `staging-redis-url`（`rediss://`） | Key Vault `prod-redis-url`（`rediss://`） | Azure Redis 必须用 TLS |
+| `JWT_SECRET_KEY` | secret | 本地随机 | Key Vault | Key Vault | 至少 32 字节随机 |
+| `JWT_ALGORITHM` | 明文 | `HS256` | `HS256` | `HS256` | — |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | 明文 | `60` | `60` | `30` | 生产更短 |
+| `LOG_LEVEL` | 明文 | `DEBUG` | `INFO` | `INFO` | — |
+
+### 16.2 微信小程序与支付（staging / prod）
+
+| 变量名 | dev | staging | prod | 说明 |
+|--------|-----|---------|------|------|
+| `WECHAT_APP_ID` | mock 值 | 测试号 AppID | 正式 AppID | — |
+| `WECHAT_APP_SECRET` | mock 值 | Key Vault | Key Vault | — |
+| `WECHAT_PAY_MCH_ID` | — | 测试商户号 | 正式商户号 | dev 走 mock provider |
+| `WECHAT_PAY_API_KEY_V3` | — | Key Vault | Key Vault | APIv3 密钥 |
+| `WECHAT_PAY_CERT_SERIAL` | — | Key Vault | Key Vault | 商户证书序列号 |
+| `WECHAT_PAY_PRIVATE_KEY` | — | Key Vault（PEM 内容） | Key Vault | 注意换行符 |
+| `WECHAT_PAY_NOTIFY_URL` | — | `https://yiluan-api-staging.../api/v1/payments/notify` | `https://api.yiluan.com/api/v1/payments/notify` | 必须 HTTPS 公网可达 |
+
+### 16.3 短信服务（staging / prod）
+
+| 变量名 | dev | staging | prod | 说明 |
+|--------|-----|---------|------|------|
+| `SMS_PROVIDER` | `mock` | `aliyun` | `aliyun` | dev 走控制台输出验证码 |
+| `ALIYUN_SMS_ACCESS_KEY_ID` | — | Key Vault | Key Vault | — |
+| `ALIYUN_SMS_ACCESS_KEY_SECRET` | — | Key Vault | Key Vault | — |
+| `ALIYUN_SMS_SIGN_NAME` | — | 测试签名 | 正式签名 | 需提前审核 |
+| `ALIYUN_SMS_TEMPLATE_CODE_VERIFY` | — | 测试模板 | 正式模板 | 验证码模板 |
+
+### 16.4 监控与可观测（staging / prod）
+
+| 变量名 | staging | prod | 说明 |
+|--------|---------|------|------|
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | Key Vault | Key Vault | App Insights 接入 |
+| `SENTRY_DSN` | （可选） | （可选） | 若启用 Sentry |
+
+## 17. 数据库迁移操作手册
+
+### 17.1 标准升级流程（部署管线已自动化）
+
+```bash
+# Staging
+DATABASE_URL=$STAGING_DATABASE_URL alembic upgrade head
+
+# Production（必须在新镜像部署 *之前* 执行，因为迁移要求向前兼容）
+DATABASE_URL=$PRODUCTION_DATABASE_URL alembic upgrade head
+```
+
+管线对应 step 见 `.github/workflows/deploy.yml` 中的 `migrate-staging` / `migrate-production` job。
+
+### 17.2 迁移失败处理
+
+```bash
+# 1. 立即查看 alembic 报错与 DB 当前 revision
+alembic current
+alembic history --verbose | head -30
+
+# 2. 若失败发生在 schema 变更阶段（事务未提交），通常 DB 还在旧 revision —— 直接修复迁移脚本重跑即可
+
+# 3. 若失败发生在数据迁移阶段（部分提交），按以下顺序处置：
+#    a) 先 STOP 部署管线（取消后续 deploy job）
+#    b) 评估是否可手动补全：alembic stamp <expected_rev> 标记完成
+#    c) 不可补全则走 15.4 的 PITR 流程
+```
+
+### 17.3 迁移评审 checklist（写迁移时必查）
+
+- [ ] 是否纯 additive？（新增列、新增表、新增索引并 `CREATE INDEX CONCURRENTLY`）
+- [ ] 破坏性变更（drop / rename / type change）是否拆成两次部署？
+- [ ] `downgrade()` 是否实现？不可逆请显式注释 `# IRREVERSIBLE: requires PITR`
+- [ ] 大表是否避免长事务锁？（>100 万行的 backfill 拆成批处理脚本，迁移里只改 schema）
+- [ ] 已在本地 + Staging 演练通过
+
+## 18. 部署后 Smoke 验证清单 ✅
+
+每次 production 发版完成后**必须**逐项勾选，缺一项都不算上线成功。
+
+- [ ] **1. Liveness** — `curl https://api.yiluan.com/health` 返回 200，且 `version` 字段是新版本号
+- [ ] **2. Readiness** — `curl https://api.yiluan.com/api/v1/readiness` 返回 200，`db.ok=true` 且 `redis.ok=true`
+- [ ] **3. 登录链路** — 用测试账号走 `/api/v1/auth/login` → 拿到 JWT → `/api/v1/users/me` 返回正确用户
+- [ ] **4. 核心读 API** — `/api/v1/escorts`（陪诊员列表）返回非空，分页字段正确
+- [ ] **5. 核心写 API** — 用测试账号下一单 `/api/v1/orders`，订单写入成功
+- [ ] **6. 支付链路（沙箱）** — 触发一笔测试支付 → 微信回调 notify 命中 → 订单状态变为 `paid`
+- [ ] **7. 短信链路** — 请求一次 `/api/v1/auth/sms/send`，确认收到 SMS（或回调日志显示成功）
+- [ ] **8. WebSocket** — 客户端 `wss://api.yiluan.com/ws/...` 能建连，能收到一条心跳/广播
+- [ ] **9. 日志可见** — Log Analytics 中能查到本次部署后的请求日志，无大量 ERROR
+- [ ] **10. 告警通道** — 手动触发一次 P1 告警（如临时改 readiness 阈值），确认企业微信/短信收到通知
+
+> 任一项失败立即按 §15 回滚，不要带病上线。
+
