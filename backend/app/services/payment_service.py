@@ -1,40 +1,60 @@
 """
 Payment Service — unified payment entry point.
 
-Supports pluggable providers:
-  - mock   : instant success, for dev/test
-  - wechat : WeChat Pay v3 JSAPI (production)
+Supports pluggable providers selected by ``settings.payment_provider``:
 
-Provider is selected by ``settings.payment_provider``.
+  * ``mock``   — instant success, for dev/test (default)
+  * ``wechat`` — WeChat Pay v3 JSAPI (production)
+
+Provider implementations live in :mod:`app.services.providers.payment`.
+This module is the **orchestration layer**: it owns the ``Payment`` model
+and the cross-provider concerns (idempotency, refund bookkeeping, etc.).
+
+Backwards-compatibility re-exports
+----------------------------------
+Existing tests import ``MockPaymentProvider``, ``WechatPaymentProvider``
+and ``PaymentProvider`` from this module. To avoid touching call-sites
+during the P0-1 refactor, those names are re-exported below.
 """
 
 from __future__ import annotations
 
-import base64
-import json
 import logging
-import threading
-import time
 import uuid
 from dataclasses import dataclass
 from typing import Any
 
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.exceptions import BadRequestException
 from app.models.payment import Payment
+from app.models.payment_callback_log import PaymentCallbackLog
 from app.repositories.payment import PaymentRepository
+from app.services.providers.payment import (
+    MockPaymentProvider,
+    PaymentProvider,
+    WechatPaymentProvider,
+    get_payment_provider,
+)
+from app.services.providers.payment.wechat import (
+    _platform_cert_cache,  # noqa: F401  (re-exported for legacy tests)
+)
 
 logger = logging.getLogger(__name__)
 
 
-# ---------------------------------------------------------------------------
-# Platform certificate cache (module-level, thread-safe)
-# ---------------------------------------------------------------------------
-
-_platform_cert_cache: dict[str, Any] = {}
-_cert_cache_lock = threading.Lock()
+__all__ = [
+    "PrepayResult",
+    "RefundResult",
+    "PaymentService",
+    # legacy re-exports (don't remove without migrating tests)
+    "PaymentProvider",
+    "MockPaymentProvider",
+    "WechatPaymentProvider",
+]
 
 
 # ---------------------------------------------------------------------------
@@ -47,10 +67,8 @@ class PrepayResult:
 
     payment_id: uuid.UUID
     provider: str  # "mock" | "wechat"
-    # Fields only populated by wechat provider:
     prepay_id: str | None = None
     sign_params: dict[str, Any] | None = None
-    # For mock provider, payment is already "success":
     mock_success: bool = False
 
 
@@ -63,450 +81,6 @@ class RefundResult:
 
 
 # ---------------------------------------------------------------------------
-# Provider interface
-# ---------------------------------------------------------------------------
-
-class PaymentProvider:
-    """Abstract base for payment providers."""
-
-    async def create_prepay(
-        self,
-        order_number: str,
-        amount_yuan: float,
-        description: str,
-        openid: str | None = None,
-    ) -> dict[str, Any]:
-        raise NotImplementedError
-
-    async def create_refund(
-        self,
-        trade_no: str,
-        refund_id: str,
-        total_yuan: float,
-        refund_yuan: float,
-    ) -> dict[str, Any]:
-        raise NotImplementedError
-
-    async def verify_callback(self, headers: dict, body: bytes) -> dict[str, Any]:
-        raise NotImplementedError
-
-
-# ---------------------------------------------------------------------------
-# Mock provider (dev / test)
-# ---------------------------------------------------------------------------
-
-class MockPaymentProvider(PaymentProvider):
-    """Instant‑success provider for development and testing."""
-
-    async def create_prepay(
-        self,
-        order_number: str,
-        amount_yuan: float,
-        description: str,
-        openid: str | None = None,
-    ) -> dict[str, Any]:
-        fake_trade = f"MOCK_{uuid.uuid4().hex[:16].upper()}"
-        return {
-            "trade_no": fake_trade,
-            "prepay_id": f"mock_prepay_{fake_trade}",
-            "status": "success",
-        }
-
-    async def create_refund(
-        self,
-        trade_no: str,
-        refund_id: str,
-        total_yuan: float,
-        refund_yuan: float,
-    ) -> dict[str, Any]:
-        return {
-            "refund_id": refund_id,
-            "status": "success",
-        }
-
-    async def verify_callback(self, headers: dict, body: bytes) -> dict[str, Any]:
-        return {"verified": True}
-
-
-# ---------------------------------------------------------------------------
-# WeChat Pay v3 provider (production — skeleton)
-# ---------------------------------------------------------------------------
-
-class WechatPaymentProvider(PaymentProvider):
-    """
-    WeChat Pay v3 JSAPI provider.
-
-    When real credentials are configured (settings.wechat_pay_mch_id etc.),
-    this provider calls the actual WeChat Pay v3 API.
-    When credentials are empty, it falls back to mock-style responses
-    that mirror the real API response structure.
-    """
-
-    def __init__(self):
-        self.mch_id = settings.wechat_pay_mch_id
-        self.api_key_v3 = settings.wechat_pay_api_key_v3
-        self.cert_serial = settings.wechat_pay_cert_serial
-        self.private_key_path = settings.wechat_pay_private_key_path
-        self.notify_url = settings.wechat_pay_notify_url
-        self.app_id = settings.wechat_app_id
-        self.platform_cert_path = settings.wechat_pay_platform_cert_path
-        self._has_credentials = bool(self.mch_id and self.api_key_v3)
-
-    async def create_prepay(
-        self,
-        order_number: str,
-        amount_yuan: float,
-        description: str,
-        openid: str | None = None,
-    ) -> dict[str, Any]:
-        import time
-
-        amount_fen = int(round(amount_yuan * 100))
-
-        if not self._has_credentials:
-            # Simulate WeChat v3 response structure with mock data
-            fake_prepay = f"wx_prepay_{uuid.uuid4().hex[:16]}"
-            fake_trade = f"WX_{uuid.uuid4().hex[:20].upper()}"
-            timestamp = str(int(time.time()))
-            nonce = uuid.uuid4().hex[:32]
-            return {
-                "trade_no": fake_trade,
-                "prepay_id": fake_prepay,
-                "status": "success",
-                "sign_params": {
-                    "appId": self.app_id or "wx_mock_appid",
-                    "timeStamp": timestamp,
-                    "nonceStr": nonce,
-                    "package": f"prepay_id={fake_prepay}",
-                    "signType": "RSA",
-                    "paySign": f"mock_sign_{nonce[:8]}",
-                },
-            }
-
-        # --- Real WeChat Pay v3 JSAPI call ---
-        # POST https://api.mch.weixin.qq.com/v3/pay/transactions/jsapi
-        import httpx
-
-        url = "https://api.mch.weixin.qq.com/v3/pay/transactions/jsapi"
-        body = {
-            "appid": self.app_id,
-            "mchid": self.mch_id,
-            "description": description,
-            "out_trade_no": order_number,
-            "notify_url": self.notify_url,
-            "amount": {
-                "total": amount_fen,
-                "currency": "CNY",
-            },
-            "payer": {
-                "openid": openid or "",
-            },
-        }
-
-        headers = self._build_auth_header("POST", "/v3/pay/transactions/jsapi", body)
-
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(url, json=body, headers=headers, timeout=30)
-
-        if resp.status_code != 200:
-            logger.error("WeChat prepay failed: %s %s", resp.status_code, resp.text)
-            raise BadRequestException(f"微信支付下单失败: {resp.status_code}")
-
-        data = resp.json()
-        prepay_id = data.get("prepay_id", "")
-        timestamp = str(int(time.time()))
-        nonce = uuid.uuid4().hex[:32]
-
-        # Build sign params for wx.requestPayment
-        sign_str = f"{self.app_id}\n{timestamp}\n{nonce}\nprepay_id={prepay_id}\n"
-        pay_sign = self._rsa_sign(sign_str)
-
-        return {
-            "trade_no": order_number,
-            "prepay_id": prepay_id,
-            "status": "pending",
-            "sign_params": {
-                "appId": self.app_id,
-                "timeStamp": timestamp,
-                "nonceStr": nonce,
-                "package": f"prepay_id={prepay_id}",
-                "signType": "RSA",
-                "paySign": pay_sign,
-            },
-        }
-
-    async def create_refund(
-        self,
-        trade_no: str,
-        refund_id: str,
-        total_yuan: float,
-        refund_yuan: float,
-    ) -> dict[str, Any]:
-        total_fen = int(round(total_yuan * 100))
-        refund_fen = int(round(refund_yuan * 100))
-
-        if not self._has_credentials:
-            return {
-                "refund_id": refund_id,
-                "status": "success",
-            }
-
-        # --- Real WeChat Pay v3 refund ---
-        import httpx
-
-        url = "https://api.mch.weixin.qq.com/v3/refund/domestic/refunds"
-        body = {
-            "out_trade_no": trade_no,
-            "out_refund_no": refund_id,
-            "amount": {
-                "refund": refund_fen,
-                "total": total_fen,
-                "currency": "CNY",
-            },
-            "notify_url": f"{self.notify_url.rstrip('/')}-refund"
-            if self.notify_url
-            else "",
-        }
-
-        headers = self._build_auth_header(
-            "POST", "/v3/refund/domestic/refunds", body
-        )
-
-        async with httpx.AsyncClient() as client:
-            resp = await client.post(url, json=body, headers=headers, timeout=30)
-
-        if resp.status_code not in (200, 201):
-            logger.error("WeChat refund failed: %s %s", resp.status_code, resp.text)
-            raise BadRequestException(f"微信退款失败: {resp.status_code}")
-
-        data = resp.json()
-        return {
-            "refund_id": data.get("out_refund_no", refund_id),
-            "status": data.get("status", "PROCESSING").lower(),
-        }
-
-    async def verify_callback(
-        self, headers: dict, body: bytes
-    ) -> dict[str, Any]:
-        """Verify WeChat callback signature and decrypt payload."""
-        if not self._has_credentials:
-            # Mock mode: trust everything
-            try:
-                return json.loads(body)
-            except Exception:
-                return {"verified": True, "raw": body.decode(errors="replace")}
-
-        # --- Real signature verification ---
-        self._verify_signature(headers, body)
-
-        # --- Decrypt resource ---
-        payload = json.loads(body)
-        resource = payload.get("resource")
-        if resource:
-            decrypted = self._decrypt_resource(resource)
-            payload["resource"] = decrypted
-
-        return payload
-
-    # -- Signature verification -----------------------------------------------
-
-    def _verify_signature(self, headers: dict, body: bytes) -> None:
-        """
-        Verify WeChat Pay v3 callback RSA-SHA256 signature.
-
-        Raises BadRequestException on missing headers or invalid signature.
-        """
-        timestamp = headers.get("wechatpay-timestamp", "")
-        nonce = headers.get("wechatpay-nonce", "")
-        signature_b64 = headers.get("wechatpay-signature", "")
-        serial = headers.get("wechatpay-serial", "")
-
-        if not all([timestamp, nonce, signature_b64, serial]):
-            missing = [
-                name
-                for name, val in [
-                    ("Wechatpay-Timestamp", timestamp),
-                    ("Wechatpay-Nonce", nonce),
-                    ("Wechatpay-Signature", signature_b64),
-                    ("Wechatpay-Serial", serial),
-                ]
-                if not val
-            ]
-            raise BadRequestException(
-                f"微信回调缺少必要 header: {', '.join(missing)}"
-            )
-
-        # Timestamp freshness check — reject callbacks older than 5 minutes
-        # to prevent replay attacks.
-        try:
-            ts = int(timestamp)
-        except (ValueError, TypeError):
-            raise BadRequestException("微信回调时间戳格式无效")
-        if abs(time.time() - ts) > 300:
-            raise BadRequestException("微信回调时间戳过期，可能为重放攻击")
-
-        # Construct verification string: {timestamp}\n{nonce}\n{body}\n
-        verify_str = f"{timestamp}\n{nonce}\n{body.decode()}\n"
-
-        # Load platform certificate
-        public_key = self._load_platform_cert(serial)
-
-        # Verify RSA-SHA256 signature
-        from cryptography.hazmat.primitives import hashes
-        from cryptography.hazmat.primitives.asymmetric import padding
-
-        signature = base64.b64decode(signature_b64)
-
-        try:
-            public_key.verify(
-                signature,
-                verify_str.encode("utf-8"),
-                padding.PKCS1v15(),
-                hashes.SHA256(),
-            )
-        except Exception as e:
-            logger.warning("WeChat callback signature verification failed: %s", e)
-            raise BadRequestException("微信回调签名验证失败") from e
-
-    # -- AES-256-GCM decryption -----------------------------------------------
-
-    def _decrypt_resource(self, resource: dict) -> dict[str, Any]:
-        """
-        Decrypt callback resource using AES-256-GCM.
-
-        resource dict contains: ciphertext, nonce, associated_data
-        Key is the api_key_v3 (32-byte string used as 256-bit key).
-        """
-        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-
-        ciphertext_b64 = resource.get("ciphertext", "")
-        nonce = resource.get("nonce", "")
-        associated_data = resource.get("associated_data", "")
-
-        if not ciphertext_b64:
-            raise BadRequestException("微信回调 resource 缺少 ciphertext")
-
-        key = self.api_key_v3.encode("utf-8")
-        if len(key) != 32:
-            raise BadRequestException("api_key_v3 长度必须为 32 字节")
-
-        ciphertext = base64.b64decode(ciphertext_b64)
-        aesgcm = AESGCM(key)
-
-        try:
-            plaintext = aesgcm.decrypt(
-                nonce.encode("utf-8"),
-                ciphertext,
-                associated_data.encode("utf-8") if associated_data else None,
-            )
-        except Exception as e:
-            logger.warning("WeChat callback AES-GCM decryption failed: %s", e)
-            raise BadRequestException("微信回调解密失败") from e
-
-        return json.loads(plaintext)
-
-    # -- Platform certificate loading -----------------------------------------
-
-    def _load_platform_cert(self, serial: str) -> Any:
-        """
-        Load WeChat platform public key from local PEM certificate file.
-
-        Uses a module-level cache keyed by file path to avoid repeated disk I/O.
-        """
-        cert_path = self.platform_cert_path
-        if not cert_path:
-            raise BadRequestException(
-                "未配置微信平台证书路径 (WECHAT_PAY_PLATFORM_CERT_PATH)"
-            )
-
-        cache_key = f"{cert_path}:{serial}"
-
-        with _cert_cache_lock:
-            if cache_key in _platform_cert_cache:
-                return _platform_cert_cache[cache_key]
-
-        from cryptography import x509
-
-        try:
-            with open(cert_path, "rb") as f:
-                cert = x509.load_pem_x509_certificate(f.read())
-        except FileNotFoundError:
-            raise BadRequestException(
-                f"微信平台证书文件不存在: {cert_path}"
-            )
-        except Exception as e:
-            raise BadRequestException(
-                f"微信平台证书加载失败: {e}"
-            ) from e
-
-        public_key = cert.public_key()
-
-        with _cert_cache_lock:
-            _platform_cert_cache[cache_key] = public_key
-
-        return public_key
-
-    def _build_auth_header(
-        self, method: str, path: str, body: Any
-    ) -> dict[str, str]:
-        """Build WECHATPAY2-SHA256-RSA2048 Authorization header."""
-        import time as _time
-
-        timestamp = str(int(_time.time()))
-        nonce = uuid.uuid4().hex[:32]
-        body_str = json.dumps(body, ensure_ascii=False) if body else ""
-        sign_str = f"{method}\n{path}\n{timestamp}\n{nonce}\n{body_str}\n"
-        signature = self._rsa_sign(sign_str)
-
-        auth = (
-            f'WECHATPAY2-SHA256-RSA2048 '
-            f'mchid="{self.mch_id}",'
-            f'nonce_str="{nonce}",'
-            f'timestamp="{timestamp}",'
-            f'serial_no="{self.cert_serial}",'
-            f'signature="{signature}"'
-        )
-        return {
-            "Authorization": auth,
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        }
-
-    def _rsa_sign(self, message: str) -> str:
-        """Sign message with merchant RSA private key."""
-        if not self.private_key_path:
-            return "mock_rsa_signature"
-
-        try:
-            from cryptography.hazmat.primitives import hashes, serialization
-            from cryptography.hazmat.primitives.asymmetric import padding
-
-            with open(self.private_key_path, "rb") as f:
-                private_key = serialization.load_pem_private_key(f.read(), password=None)
-
-            sig = private_key.sign(
-                message.encode("utf-8"),
-                padding.PKCS1v15(),
-                hashes.SHA256(),
-            )
-            return base64.b64encode(sig).decode("utf-8")
-        except Exception as e:
-            logger.error("RSA sign failed: %s", e)
-            return "sign_error"
-
-
-# ---------------------------------------------------------------------------
-# Provider factory
-# ---------------------------------------------------------------------------
-
-def _get_provider() -> PaymentProvider:
-    name = getattr(settings, "payment_provider", "mock")
-    if name == "wechat":
-        return WechatPaymentProvider()
-    return MockPaymentProvider()
-
-
-# ---------------------------------------------------------------------------
 # PaymentService
 # ---------------------------------------------------------------------------
 
@@ -514,13 +88,14 @@ class PaymentService:
     """
     Orchestrates payment lifecycle: prepay → callback → refund.
 
-    This service owns the Payment model; OrderService delegates here.
+    Owns ``Payment`` + ``PaymentCallbackLog`` persistence; OrderService
+    delegates here.
     """
 
     def __init__(self, session: AsyncSession):
         self.repo = PaymentRepository(session)
         self.session = session
-        self.provider = _get_provider()
+        self.provider = get_payment_provider()
 
     # -- prepay ---------------------------------------------------------------
 
@@ -535,7 +110,6 @@ class PaymentService:
     ) -> PrepayResult:
         """Create a prepay order. Returns signing params for the client."""
 
-        # Idempotency: if a successful pay record exists, reject
         existing = await self.repo.get_by_order_and_type(order_id, "pay")
         if existing and existing.status == "success":
             raise BadRequestException("订单已支付，请勿重复操作")
@@ -561,7 +135,6 @@ class PaymentService:
             prepay_id=prepay_id,
         )
 
-        # If existing pending record, update it; otherwise create
         if existing and existing.status == "pending":
             existing.trade_no = trade_no
             existing.prepay_id = prepay_id
@@ -580,6 +153,78 @@ class PaymentService:
             mock_success=is_mock,
         )
 
+    # -- callback idempotency -------------------------------------------------
+
+    async def record_callback_or_skip(
+        self,
+        *,
+        provider: str,
+        transaction_id: str,
+        callback_type: str = "pay",
+        out_trade_no: str | None = None,
+        raw_body: bytes | str | None = None,
+    ) -> bool:
+        """
+        Insert a PaymentCallbackLog row keyed by (provider, transaction_id).
+
+        Returns
+        -------
+        ``True`` if this is a **new** callback and the caller should proceed
+        with business processing.
+        ``False`` if the same notification was already accepted previously
+        (duplicate); the caller must NOT re-apply state changes.
+        """
+        if not transaction_id:
+            # Without a transaction_id we cannot deduplicate; let caller
+            # decide. Default to "process" because the alternative is to
+            # silently drop the callback.
+            return True
+
+        body_str: str | None
+        if isinstance(raw_body, bytes):
+            body_str = raw_body.decode(errors="replace")[:4000]
+        elif isinstance(raw_body, str):
+            body_str = raw_body[:4000]
+        else:
+            body_str = None
+
+        log = PaymentCallbackLog(
+            provider=provider,
+            transaction_id=transaction_id,
+            callback_type=callback_type,
+            out_trade_no=out_trade_no,
+            status="processed",
+            raw_body=body_str,
+        )
+
+        # Use a SAVEPOINT so a uniqueness violation does not poison the
+        # outer session (FastAPI dependency holds an open transaction).
+        try:
+            async with self.session.begin_nested():
+                self.session.add(log)
+                await self.session.flush()
+        except IntegrityError:
+            logger.info(
+                "Duplicate callback ignored: provider=%s txn=%s",
+                provider,
+                transaction_id,
+            )
+            return False
+        return True
+
+    async def is_callback_processed(
+        self, provider: str, transaction_id: str
+    ) -> bool:
+        """Cheap pre-check used by tests / monitoring."""
+        if not transaction_id:
+            return False
+        stmt = select(PaymentCallbackLog.id).where(
+            PaymentCallbackLog.provider == provider,
+            PaymentCallbackLog.transaction_id == transaction_id,
+        )
+        result = await self.session.execute(stmt)
+        return result.first() is not None
+
     # -- callback -------------------------------------------------------------
 
     async def handle_pay_callback(
@@ -590,11 +235,23 @@ class PaymentService:
     ) -> Payment | None:
         """
         Process payment callback from WeChat.
-        Idempotent: if already processed, return existing record.
+
+        This method is **state-mutating only**; the endpoint MUST first
+        call ``record_callback_or_skip`` and only invoke this when the
+        callback is genuinely new.
+
+        Even so, we still defensively short-circuit if the Payment row is
+        already in a terminal state (success / failed) — this matters for
+        the ``订单已关闭后回调`` scenario where the order was cancelled and
+        the Payment record may already have been closed out.
         """
         payment = await self.repo.get_by_trade_no(trade_no)
         if payment and payment.status in ("success", "failed"):
-            logger.info("Callback already processed for trade_no=%s", trade_no)
+            logger.info(
+                "Callback already processed for trade_no=%s status=%s",
+                trade_no,
+                payment.status,
+            )
             return payment
 
         if payment is None:
@@ -621,12 +278,12 @@ class PaymentService:
     ) -> RefundResult:
         """Create a refund for an order."""
 
-        # Check existing refund (idempotent)
-        existing_refund = await self.repo.get_by_order_and_type(order_id, "refund")
+        existing_refund = await self.repo.get_by_order_and_type(
+            order_id, "refund"
+        )
         if existing_refund:
             raise BadRequestException("该订单已退款，请勿重复操作")
 
-        # Get original pay record
         original_pay = await self.repo.get_by_order_and_type(order_id, "pay")
         if not original_pay or original_pay.status != "success":
             raise BadRequestException("原订单未支付成功，无法退款")
@@ -634,12 +291,30 @@ class PaymentService:
         refund_number = f"R{uuid.uuid4().hex[:16].upper()}"
         is_mock = isinstance(self.provider, MockPaymentProvider)
 
-        result = await self.provider.create_refund(
-            trade_no=original_pay.trade_no or "",
-            refund_id=refund_number,
-            total_yuan=original_amount,
-            refund_yuan=refund_amount,
-        )
+        try:
+            result = await self.provider.create_refund(
+                trade_no=original_pay.trade_no or "",
+                refund_id=refund_number,
+                total_yuan=original_amount,
+                refund_yuan=refund_amount,
+            )
+        except BadRequestException:
+            # Provider explicitly rejected — propagate to caller as-is so
+            # the API surface returns a 400 with the underlying reason.
+            raise
+        except Exception as e:
+            # Provider hard-failure (network, etc.). Surface as 400 so the
+            # request is rolled back cleanly; do NOT persist a partial
+            # success record. Operators can replay the request once the
+            # provider recovers; the unique (order_id, payment_type=refund)
+            # constraint still protects against double-refund.
+            logger.error(
+                "Refund provider call failed for order=%s: %s",
+                order_id,
+                e,
+                exc_info=True,
+            )
+            raise BadRequestException(f"退款渠道异常: {e}") from e
 
         refund = Payment(
             order_id=order_id,

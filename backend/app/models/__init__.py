@@ -7,6 +7,7 @@ from app.models.order import ORDER_TRANSITIONS, Order, OrderStatus, ServiceType
 from app.models.order_status_history import OrderStatusHistory
 from app.models.patient_profile import PatientProfile
 from app.models.payment import Payment
+from app.models.payment_callback_log import PaymentCallbackLog
 from app.models.review import Review
 from app.models.user import User, UserRole
 
@@ -23,6 +24,7 @@ __all__ = [
     "ORDER_TRANSITIONS",
     "OrderStatusHistory",
     "Payment",
+    "PaymentCallbackLog",
     "Review",
     "ChatMessage",
     "MessageType",
