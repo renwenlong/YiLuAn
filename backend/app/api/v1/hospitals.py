@@ -1,6 +1,7 @@
+import json
 from uuid import UUID
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 
 from app.dependencies import DBSession
 from app.schemas.hospital import (
@@ -13,9 +14,29 @@ from app.services.hospital import HospitalService
 
 router = APIRouter(prefix="/hospitals", tags=["hospitals"])
 
+CACHE_TTL = 3600  # 1 hour
+
+
+def _cache_key(
+    keyword: str | None,
+    province: str | None,
+    city: str | None,
+    district: str | None,
+    level: str | None,
+    tag: str | None,
+    page: int,
+    page_size: int,
+) -> str:
+    return (
+        f"hospitals:list:keyword={keyword or ''}:province={province or ''}"
+        f":city={city or ''}:district={district or ''}:level={level or ''}"
+        f":tag={tag or ''}:page={page}:page_size={page_size}"
+    )
+
 
 @router.get("", response_model=HospitalListResponse, summary="搜索医院", description="分页搜索医院列表，支持按关键词、省市区、等级、标签筛选。")
 async def search_hospitals(
+    request: Request,
     session: DBSession,
     keyword: str | None = Query(None),
     province: str | None = Query(None),
@@ -26,6 +47,14 @@ async def search_hospitals(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
+    redis = request.app.state.redis
+    cache_key = _cache_key(keyword, province, city, district, level, tag, page, page_size)
+
+    cached = await redis.get(cache_key)
+    if cached is not None:
+        data = json.loads(cached)
+        return HospitalListResponse(**data)
+
     service = HospitalService(session)
     skip = (page - 1) * page_size
     items, total = await service.search(
@@ -38,10 +67,12 @@ async def search_hospitals(
         skip=skip,
         limit=page_size,
     )
-    return HospitalListResponse(
+    response = HospitalListResponse(
         items=[HospitalResponse.model_validate(h) for h in items],
         total=total,
     )
+    await redis.set(cache_key, response.model_dump_json(), ex=CACHE_TTL)
+    return response
 
 
 @router.get("/filters", response_model=HospitalFiltersResponse, summary="获取医院筛选项", description="获取可用的医院筛选条件选项，如省份、城市、等级列表。")
