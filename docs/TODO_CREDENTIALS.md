@@ -1,114 +1,111 @@
-# 医路安待办事项（需用户提供）
+# 医路安外部凭证 / 资源依赖追踪
 
-## 微信支付凭证（P0 - 阻塞真实上线）
+> 本文档追踪上线前必须就位的 5 个外部凭证 / 资源 Blocker。
+> 状态：Pending | In Progress | Done
+> 责任人默认 = 用户（项目负责人）
 
-下列字段是 `WechatPaymentProvider` 切换到 `settings.payment_provider="wechat"`
-后正常工作所需的**全部**配置项。环境变量名与 `app.config.Settings`
-中的字段对应。也可通过常量
-`app.services.providers.payment.wechat.REQUIRED_PRODUCTION_SETTINGS`
-程序化获取。
+---
 
-| 环境变量 | settings 字段 | 说明 |
-| --- | --- | --- |
-| `WECHAT_APP_ID` | `wechat_app_id` | 微信小程序 AppID |
-| `WECHAT_PAY_MCH_ID` | `wechat_pay_mch_id` | 微信支付商户号 |
-| `WECHAT_PAY_API_KEY_V3` | `wechat_pay_api_key_v3` | APIv3 32 字节密钥（用于回调 AES-GCM 解密） |
-| `WECHAT_PAY_CERT_SERIAL` | `wechat_pay_cert_serial` | 商户 API 证书序列号 |
-| `WECHAT_PAY_PRIVATE_KEY_PATH` | `wechat_pay_private_key_path` | 商户 API 私钥 PEM 文件绝对路径（容器内挂载点） |
-| `WECHAT_PAY_NOTIFY_URL` | `wechat_pay_notify_url` | 公网 HTTPS 回调 URL，例：`https://api.example.com/api/v1/payments/wechat/callback` |
-| `WECHAT_PAY_PLATFORM_CERT_PATH` | `wechat_pay_platform_cert_path` | 微信平台证书 PEM 路径（用于校验回调签名） |
+## B-01 微信支付商户号 + APIv3 + 证书 zip
 
-切换步骤：
-1. 上述字段全部填入生产环境（推荐 Azure Key Vault + 容器环境变量挂载）。
-2. 设置 `PAYMENT_PROVIDER=wechat`。
-3. `Settings` 自带启动期校验（见 `config.py`）：缺任一字段会在进程启动失败，不会出现 silent fallback。
-4. 部署后跑回归冒烟：下单 → 支付 → 回调 → 退款。回调幂等保护见 `payment_callback_log` 表。
+**状态：** Pending
+**责任人 / 催办人：** 用户
 
-## 短信服务凭证（P0）
-- [ ] 阿里云/腾讯云 SMS AccessKey
-- [ ] 短信签名
-- [ ] 短信模板 ID
+### 所需材料
 
-### 阿里云 SMS（P0-2 追加，2026-04-18）
+- 微信支付商户号（`WECHAT_PAY_MCH_ID`）
+- APIv3 密钥（32 字节，`WECHAT_PAY_API_KEY_V3`）
+- 商户 API 证书 zip（含私钥 PEM + 证书序列号）
+  - `WECHAT_PAY_CERT_SERIAL`
+  - `WECHAT_PAY_PRIVATE_KEY_PATH`
+  - `WECHAT_PAY_PLATFORM_CERT_PATH`
+- 支付回调 HTTPS URL（`WECHAT_PAY_NOTIFY_URL`，需域名 + ICP 备案后配置）
+- 微信小程序 AppID（`WECHAT_APP_ID`，真实值）
 
-下列字段是 `AliyunSMSProvider` 切换到 `settings.sms_provider="aliyun"` 后正常工作所需的**全部**配置项。
-环境变量名与 `app.config.Settings` 中的字段对应。也可通过常量
-`app.services.providers.sms.aliyun.REQUIRED_PRODUCTION_SETTINGS` 程序化获取。
+### 提交方式
 
-| 环境变量 | settings 字段 | 默认 | 说明 |
-| --- | --- | --- | --- |
-| `SMS_ACCESS_KEY` | `sms_access_key` | `""` | 阿里云 RAM 子账号 AccessKey ID（最小权限：仅 Dysmsapi） |
-| `SMS_ACCESS_SECRET` | `sms_access_secret` | `""` | 阿里云 AccessKey Secret，写入 Azure Key Vault |
-| `SMS_REGION` | `sms_region` | `cn-hangzhou` | Dysmsapi 区域 |
-| `SMS_SIGN_NAME` | `sms_sign_name` | `""` | 已审核通过的短信签名（如「医路安」） |
-| `SMS_TEMPLATE_CODE` | `sms_template_code` | `""` | OTP 模板 ID（如 `SMS_123456789`） |
-| `SMS_NOTIFY_TEMPLATE_CODE` | `sms_notify_template_code` | `""` | 通用通知（订单状态、提醒）模板 ID |
-| `SMS_RATE_LIMIT_PER_MINUTE` | `sms_rate_limit_per_minute` | `1` | 单号 60 秒内最多发送条数 |
-| `SMS_RATE_LIMIT_PER_HOUR` | `sms_rate_limit_per_hour` | `5` | 单号 1 小时内最多发送条数 |
+1. 登录 [微信支付商户平台](https://pay.weixin.qq.com) 申请商户号。
+2. 在「API 安全」页面设置 APIv3 密钥、下载证书 zip。
+3. 将上述值写入 Azure Key Vault，环境变量挂载到容器。
 
-切换步骤：
-1. 上述字段全部填入生产环境（推荐 Azure Key Vault + 容器环境变量挂载）。
-2. 设置 `SMS_PROVIDER=aliyun`。
-3. `Settings` 自带启动期校验（见 `config.py`，`validate_production_config`）：缺任一字段会在进程启动失败，不会出现 silent fallback。
-4. **当前 `AliyunSMSProvider` 仍是占位实现**：`send_otp` / `send_notification` 会抛 `NotImplementedError` 并把 `REQUIRED_PRODUCTION_SETTINGS` 列表写入 ERROR 日志（手机号已脱敏）。激活前必须实现真实 Dysmsapi HMAC-SHA1 调用 + 结构化错误映射（见模块底部 TODO）。
-5. 部署后跑回归冒烟：登录 → 收 OTP → 验证。注意验证 60s + 1h 限频在 Redis 集群中跨副本生效。
+### 预计耗时
 
-## 生产环境（P0）
-- [ ] Azure 订阅 / 资源组
-- [ ] 域名（已备案）
-- [ ] SSL 证书（或 Azure 自动签发）
+商户号审核 1-3 工作日（需营业执照）。
 
-## 应用发布（P1）
-- [ ] 微信小程序 AppID + AppSecret（真实值）
-- [ ] Apple Developer 账号（iOS 发布）
+### 最近一次催办
 
-## 运维 / 生产部署凭证（P0-3 追加，2026-04-18）
+2026-04-20 — 等待用户提交
 
-> 来源：今日晨会 Action Item #3。所有项**负责人 = 用户**，状态默认 ❌ 未提供。
-> 凭证就位后，将本节对应项打勾并填入 Azure Key Vault；GitHub Secrets 同步配置。
+### 阻塞影响
 
-### Azure 资源凭证
+- 真实微信支付流程（当前使用 mock provider）
+- 生产环境支付回调验签
+- 下单 → 支付 → 回调 → 退款全链路回归
 
-- [ ] ❌ Azure 订阅 ID（`AZURE_SUBSCRIPTION_ID`） — 负责人：用户
-- [ ] ❌ Azure 资源组名称（建议 `yiluan-rg`，区域 `eastasia`） — 负责人：用户
-- [ ] ❌ Azure Service Principal JSON（`AZURE_CREDENTIALS`，用于 GitHub Actions `azure/login`） — 负责人：用户
-- [ ] ❌ ACR 名称 + 登录用户名（`ACR_USERNAME`） — 负责人：用户
-- [ ] ❌ ACR 密码 / token（`ACR_PASSWORD`，建议改用 managed identity） — 负责人：用户
-- [ ] ❌ Azure Key Vault 名称（建议 `yiluan-kv`） — 负责人：用户
-- [ ] ❌ Container Apps 环境名（建议 `yiluan-env`） — 负责人：用户
-- [ ] ❌ PostgreSQL Flexible Server 管理员账号 + 初始密码 — 负责人：用户
-- [ ] ❌ Staging DB 连接串（`STAGING_DATABASE_URL`，写入 GitHub Secrets） — 负责人：用户
-- [ ] ❌ Production DB 连接串（`PRODUCTION_DATABASE_URL`，写入 GitHub Secrets） — 负责人：用户
-- [ ] ❌ Azure Cache for Redis 实例名 + access key（写入 Key Vault） — 负责人：用户
+---
 
-### 域名 / SSL / 网络
+## B-02 阿里云 SMS AccessKey + 模板 ID
 
-- [ ] ❌ 生产 API 域名（建议 `api.yiluan.com`，需已 ICP 备案） — 负责人：用户
-- [ ] ❌ Staging API 域名（建议 `api-staging.yiluan.com`） — 负责人：用户
-- [ ] ❌ 域名 DNS 控制权（用于配置 CNAME 到 Front Door / Container Apps） — 负责人：用户
-- [ ] ❌ SSL 证书来源决策（Azure Front Door 托管证书 / 自带证书） — 负责人：用户
+**状态：** Pending
+**责任人 / 催办人：** 用户
 
-### 微信小程序后台域名配置
+### 所需材料
 
-> 域名确定后必须在微信公众平台 → 开发设置中加入白名单，否则小程序请求失败。
+- 阿里云 RAM 子账号 AccessKey ID（`SMS_ACCESS_KEY`，最小权限：仅 Dysmsapi）
+- AccessKey Secret（`SMS_ACCESS_SECRET`）
+- 短信签名（`SMS_SIGN_NAME`，如「医路安」，需审核通过）
+- OTP 验证码模板 ID（`SMS_TEMPLATE_CODE`）
+- 通用通知模板 ID（`SMS_NOTIFY_TEMPLATE_CODE`）
+- 可选：区域（`SMS_REGION`，默认 `cn-hangzhou`）
 
-- [ ] ❌ request 合法域名：`https://api.yiluan.com`、`https://api-staging.yiluan.com` — 负责人：用户
-- [ ] ❌ socket 合法域名：`wss://api.yiluan.com`、`wss://api-staging.yiluan.com` — 负责人：用户
-- [ ] ❌ uploadFile 合法域名（如有 OSS/Blob 直传）：待补 — 负责人：用户
-- [ ] ❌ downloadFile 合法域名：待补 — 负责人：用户
-- [ ] ❌ 微信支付 notify_url 域名（`https://api.yiluan.com/api/v1/payments/notify`）已在商户平台登记 — 负责人：用户
-- [ ] ❌ 业务域名校验文件已上传到根目录（如商户平台要求） — 负责人：用户
+### 提交方式
 
-### 监控 / 告警接入
+1. 登录 [阿里云短信服务控制台](https://dysms.console.aliyun.com) 申请签名 + 模板。
+2. 在 RAM 控制台创建子账号，仅授予 `AliyunDysmsFullAccess`。
+3. 将 AK/SK 写入 Azure Key Vault。
 
-- [ ] ❌ Application Insights 连接串（`APPLICATIONINSIGHTS_CONNECTION_STRING`） — 负责人：用户
-- [ ] ❌ Log Analytics Workspace ID + Key — 负责人：用户
-- [ ] ❌ 告警接收人邮箱（建议至少 2 人） — 负责人：用户
-- [ ] ❌ 告警接收手机号（P0/P1 级短信） — 负责人：用户
-- [ ] ❌ 企业微信群机器人 Webhook URL（用于自动推送告警） — 负责人：用户
-- [ ] ❌ Sentry DSN（如启用） — 负责人：用户
+### 预计耗时
 
-### GitHub Secrets 汇总（运维需一次性写入）
+签名审核 1-2 工作日；模板审核 1 工作日。
+
+### 最近一次催办
+
+2026-04-20 — 等待用户提交
+
+### 阻塞影响
+
+- 真实 OTP 短信发送（当前 `AliyunSMSProvider` 为占位实现，会抛 `NotImplementedError`）
+- 登录 → 收 OTP → 验证流程
+- 订单状态通知短信
+
+---
+
+## B-03 ACR / 生产资源（K8s 集群 / RDS / Redis）
+
+**状态：** Pending
+**责任人 / 催办人：** 用户
+
+### 所需材料
+
+- Azure 订阅 ID（`AZURE_SUBSCRIPTION_ID`）
+- Azure 资源组（建议 `yiluan-rg`，区域 `eastasia`）
+- Azure Service Principal JSON（`AZURE_CREDENTIALS`）
+- ACR（Azure Container Registry）名称 + 登录凭证（`ACR_USERNAME` / `ACR_PASSWORD`）
+- Azure Key Vault 名称（建议 `yiluan-kv`）
+- Container Apps 环境名（建议 `yiluan-env`）
+- PostgreSQL Flexible Server 管理员账号 + 初始密码
+- Staging / Production DB 连接串（`STAGING_DATABASE_URL` / `PRODUCTION_DATABASE_URL`）
+- Azure Cache for Redis 实例名 + access key
+- Application Insights 连接串（`APPLICATIONINSIGHTS_CONNECTION_STRING`）
+- Log Analytics Workspace ID + Key
+
+### 提交方式
+
+1. 在 Azure Portal 创建资源组及上述资源。
+2. 使用 `az ad sp create-for-rbac` 创建 Service Principal。
+3. 将凭证写入 GitHub Secrets（见下方汇总表）及 Azure Key Vault。
+
+### GitHub Secrets 汇总
 
 | Secret 名 | 用途 |
 |-----------|------|
@@ -117,9 +114,113 @@
 | `STAGING_DATABASE_URL` | Staging Alembic 迁移 |
 | `PRODUCTION_DATABASE_URL` | Production Alembic 迁移 |
 
+### 预计耗时
+
+Azure 资源创建 < 1 小时（自助）；需 Azure 订阅已开通。
+
+### 最近一次催办
+
+2026-04-20 — 等待用户提交
+
+### 阻塞影响
+
+- CI/CD 部署流水线（`deploy.yml`）
+- Staging / Production 环境搭建
+- Alembic 生产迁移
+- 监控告警接入
+
 ---
 
-> 以上信息准备好后通知团队，Phase 2 真实接入可随时切换。
+## B-04 域名 + ICP 备案
+
+**状态：** Pending
+**责任人 / 催办人：** 用户
+
+> **重点 Blocker**：ICP 备案未完成前，网站不能解析到国内服务器。
+
+### 所需材料
+
+| # | 材料 | 说明 |
+|---|------|------|
+| 1 | **营业执照**（彩色扫描件） | 统一社会信用代码清晰可辨 |
+| 2 | **法人身份证正反面** | 有效期内，照片清晰 |
+| 3 | **网站负责人身份证正反面** | 可与法人不同；需在备案系统做人脸核验 |
+| 4 | **域名证书** | 从域名注册商控制台下载（阿里云 / 腾讯云） |
+| 5 | **域名实名认证截图** | 域名持有者须与备案主体一致 |
+| 6 | **网站建设方案书** | 部分管局要求；描述网站用途、内容、技术架构 |
+
+### 提交方式
+
+1. 在**阿里云备案系统**（或腾讯云备案系统）提交初审。
+2. 云服务商初审通过后，提交至**通信管理局**（北京管局）终审。
+3. 终审通过后获得 ICP 备案号（如 京ICP备XXXXXXXX号）。
+
+### 预计耗时
+
+- 云服务商初审：1-2 工作日
+- 通信管理局终审：**7-15 工作日**（北京管局）
+- 总计：**约 10-20 工作日**
+
+### 注意事项
+
+1. **备案号下来前，网站域名不能解析到国内服务器**（否则会被封堵）。
+2. **公安备案**需在 ICP 备案通过后 **30 日内**到 [全国互联网安全管理服务平台](http://www.beian.gov.cn) 完成。
+3. 域名持有者必须与备案主体（营业执照）一致，不一致需先做域名过户。
+4. 微信小程序后台「request 合法域名」需填写已备案域名（`https://api.yiluan.com`）。
+5. 建议的域名：
+   - 生产 API：`api.yiluan.com`
+   - Staging API：`api-staging.yiluan.com`
+
+### 最近一次催办
+
+2026-04-20 — 等待用户提交
+
+### 阻塞影响
+
+- **所有国内生产环境部署**（域名无法解析到国内服务器）
+- 微信小程序后台域名白名单配置
+- 微信支付回调 URL 配置（依赖 B-01）
+- SSL 证书签发（依赖域名）
+- 微信小程序审核提交（需合法域名）
+
+---
+
+## B-05 Apple 开发者账号
+
+**状态：** Pending
+**责任人 / 催办人：** 用户
+
+### 所需材料
+
+- Apple Developer Program 组织账号（$99/年）
+- 需要一个 Apple ID 作为 Account Holder
+- D-U-N-S 编号（组织类型申请需要；如无需先申请，约 1-2 周）
+
+### 提交方式
+
+1. 在 [Apple Developer](https://developer.apple.com/programs/) 注册组织类型开发者账号。
+2. 提交 D-U-N-S 编号 + 组织信息。
+3. Apple 审核通过后即可使用。
+
+### 预计耗时
+
+- 已有 D-U-N-S：审核 1-3 工作日
+- 无 D-U-N-S：额外 7-14 工作日申请
+
+### 最近一次催办
+
+2026-04-20 — 等待用户提交
+
+### 阻塞影响
+
+- iOS App Store 发布
+- TestFlight 内测分发
+- 推送通知证书（APNs）配置
+- iOS 签名 + Archive
+
+---
+
+> 以上凭证 / 资源准备好后通知团队，Phase 2 真实接入可随时切换。
 > 当前所有开发使用 mock provider 先行推进，架构已预留切换能力。
-> Provider 抽象详见 `backend/app/services/providers/payment/`。
-> 运维段对齐 `docs/deployment.md` §16 环境变量清单 与 `.github/workflows/deploy.yml`。
+> Provider 抽象详见 `backend/app/services/providers/payment/` 及 `backend/app/services/providers/sms/`。
+> 运维段对齐 `docs/deployment.md` §16 环境变量清单与 `.github/workflows/deploy.yml`。
