@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.security import create_access_token, create_refresh_token, decode_token
-from app.exceptions import BadRequestException, ConflictException, UnauthorizedException
+from app.exceptions import BadRequestException, ConflictException, TooManyRequestsException, UnauthorizedException
 from app.models.user import User
 from app.repositories.user import UserRepository
 from app.schemas.auth import RefreshTokenResponse, TokenResponse, UserResponse
@@ -22,6 +22,8 @@ from app.services.providers.sms import (
 OTP_TTL = 300
 OTP_RATE_LIMIT = 60  # legacy 60s key, kept for backward-compat
 DEV_OTP = "000000"
+OTP_FAIL_MAX = 5
+OTP_FAIL_LOCK_SECONDS = 900  # 15 minutes
 
 
 class AuthService:
@@ -63,6 +65,17 @@ class AuthService:
             )
 
     async def verify_otp(self, phone: str, code: str) -> TokenResponse:
+        fail_key = f"otp:fail:{phone}"
+
+        # Check if locked out
+        fail_count = await self.redis.get(fail_key)
+        if fail_count is not None and int(fail_count) >= OTP_FAIL_MAX:
+            ttl = await self.redis.ttl(fail_key)
+            raise TooManyRequestsException(
+                detail=f"Too many failed attempts, please try again in 15 minutes",
+                retry_after=max(ttl, 0),
+            )
+
         otp_key = f"otp:{phone}"
 
         is_dev = settings.environment == "development"
@@ -71,10 +84,15 @@ class AuthService:
         else:
             stored_code = await self.redis.get(otp_key)
             if stored_code is None:
+                await self._record_otp_failure(fail_key)
                 raise BadRequestException("OTP code expired or not found")
             if stored_code != code:
+                await self._record_otp_failure(fail_key)
                 raise BadRequestException("Invalid OTP code")
             await self.redis.delete(otp_key)
+
+        # Success — clear fail counter
+        await self.redis.delete(fail_key)
 
         user = await self.user_repo.get_by_phone(phone)
         if user is None:
@@ -95,6 +113,11 @@ class AuthService:
             refresh_token=refresh_token,
             user=UserResponse.model_validate(user),
         )
+
+    async def _record_otp_failure(self, fail_key: str) -> None:
+        count = await self.redis.incr(fail_key)
+        if count == 1:
+            await self.redis.expire(fail_key, OTP_FAIL_LOCK_SECONDS)
 
     async def refresh_token(self, refresh_token_str: str) -> RefreshTokenResponse:
         payload = decode_token(refresh_token_str)

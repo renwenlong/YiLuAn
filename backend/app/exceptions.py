@@ -29,3 +29,9 @@ class BadRequestException(AppException):
 class ConflictException(AppException):
     def __init__(self, detail: str = "Conflict"):
         super().__init__(status_code=status.HTTP_409_CONFLICT, detail=detail)
+
+
+class TooManyRequestsException(AppException):
+    def __init__(self, detail: str = "Too many requests", retry_after: int | None = None):
+        super().__init__(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=detail)
+        self.retry_after = retry_after
