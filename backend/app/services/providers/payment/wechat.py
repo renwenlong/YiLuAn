@@ -55,6 +55,7 @@ from app.services.providers.payment.base import (
     PaymentProvider,
     RefundDTO,
 )
+from app.utils.outbound import outbound_call
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,7 @@ class WechatPaymentProvider(PaymentProvider):
 
     # ------------------------------------------------------------------ API
 
+    @outbound_call(provider="wechat_pay", timeout=5.0, max_retries=2)
     async def create_order(self, order: OrderDTO) -> dict[str, Any]:
         amount_fen = int(round(order.amount_yuan * 100))
 
@@ -168,6 +170,7 @@ class WechatPaymentProvider(PaymentProvider):
             },
         }
 
+    @outbound_call(provider="wechat_pay", timeout=5.0, max_retries=2)
     async def refund(self, refund: RefundDTO) -> dict[str, Any]:
         total_fen = int(round(refund.total_yuan * 100))
         refund_fen = int(round(refund.refund_yuan * 100))
@@ -217,6 +220,7 @@ class WechatPaymentProvider(PaymentProvider):
             "status": data.get("status", "PROCESSING").lower(),
         }
 
+    @outbound_call(provider="wechat_pay", timeout=5.0, max_retries=2)
     async def verify_callback(
         self, headers: dict, body: bytes
     ) -> dict[str, Any]:
@@ -237,6 +241,7 @@ class WechatPaymentProvider(PaymentProvider):
             payload["resource"] = self._decrypt_resource(resource)
         return payload
 
+    @outbound_call(provider="wechat_pay", timeout=5.0, max_retries=2)
     async def query(self, order: OrderDTO) -> dict[str, Any]:
         # Real implementation would call:
         #   GET /v3/pay/transactions/out-trade-no/{out_trade_no}?mchid={mch_id}
