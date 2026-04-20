@@ -829,3 +829,26 @@ class TestWallet:
         data = resp.json()
         assert data["balance"] == 299.0
         assert data["total_income"] == 299.0
+
+
+@pytest.mark.asyncio
+class TestCheckExpiredAdminAuth:
+    async def test_check_expired_no_token(self, client):
+        resp = await client.post("/api/v1/orders/check-expired")
+        assert resp.status_code == 422  # missing required header
+
+    async def test_check_expired_wrong_token(self, client):
+        resp = await client.post(
+            "/api/v1/orders/check-expired",
+            headers={"X-Admin-Token": "wrong-token"},
+        )
+        assert resp.status_code == 401
+
+    async def test_check_expired_correct_token(self, client):
+        resp = await client.post(
+            "/api/v1/orders/check-expired",
+            headers={"X-Admin-Token": "dev-admin-token"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "cancelled_count" in data
