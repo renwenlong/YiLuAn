@@ -267,6 +267,43 @@ class PaymentService:
         )
         return payment
 
+    # -- close order -----------------------------------------------------------
+
+    async def close_pending_payment(
+        self,
+        order_id: uuid.UUID,
+    ) -> None:
+        """
+        Close a pending payment at the PSP and mark it CLOSED locally.
+
+        Raises BadRequestException if the PSP rejects the close (e.g. already paid).
+        """
+        payment = await self.repo.get_by_order_and_type(order_id, "pay")
+        if payment is None or payment.status != "pending":
+            return  # nothing to close
+
+        try:
+            await self.provider.close_order(payment.trade_no or "")
+        except Exception as e:
+            logger.error(
+                "close_order failed for order=%s trade_no=%s: %s",
+                order_id,
+                payment.trade_no,
+                e,
+                exc_info=True,
+            )
+            raise BadRequestException(
+                f"无法关闭支付单，可能用户已完成支付: {e}"
+            ) from e
+
+        payment.status = "closed"
+        await self.session.flush()
+        logger.info(
+            "Payment closed: order=%s trade_no=%s",
+            order_id,
+            payment.trade_no,
+        )
+
     # -- refund ---------------------------------------------------------------
 
     async def create_refund(

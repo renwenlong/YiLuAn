@@ -6,7 +6,7 @@ from typing import Sequence
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.exceptions import BadRequestException, ForbiddenException, NotFoundException
+from app.exceptions import BadRequestException, ForbiddenException, NotFoundException, NotExpirableOrderError
 from app.models.order import (
     ORDER_TRANSITIONS,
     Order,
@@ -427,25 +427,29 @@ class OrderService:
         expired_orders = await self.order_repo.list_expired(now)
         cancelled = []
         for order in expired_orders:
+            # --- Fix 1: close / guard payment before expiring ---
+            existing_pay = await self.payment_repo.get_by_order_and_type(order.id, "pay")
+            if existing_pay:
+                if existing_pay.status == "success":
+                    # User paid just before expiry — do NOT expire
+                    raise NotExpirableOrderError(
+                        f"订单 {order.order_number} 已支付成功，无法过期"
+                    )
+                if existing_pay.status == "pending":
+                    try:
+                        await self.payment_svc.close_pending_payment(order.id)
+                    except BadRequestException:
+                        # close_order failed — PSP may have already accepted payment
+                        raise NotExpirableOrderError(
+                            f"订单 {order.order_number} 支付单关闭失败，无法过期"
+                        )
+
             order = await self.order_repo.update(
                 order, {"status": OrderStatus.expired}
             )
             await self._record_history(
                 order.id, OrderStatus.created, OrderStatus.expired, order.patient_id
             )
-
-            # Auto-refund if paid
-            existing_pay = await self.payment_repo.get_by_order_and_type(order.id, "pay")
-            if existing_pay and existing_pay.status == "success":
-                try:
-                    await self.payment_svc.create_refund(
-                        order_id=order.id,
-                        user_id=order.patient_id,
-                        original_amount=order.price,
-                        refund_amount=order.price,
-                    )
-                except BadRequestException:
-                    pass
 
             # Notify patient
             await self.notification_svc.notify_order_expired(order, order.patient_id)

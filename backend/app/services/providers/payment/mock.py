@@ -54,3 +54,6 @@ class MockPaymentProvider(PaymentProvider):
             "out_trade_no": order.order_number,
             "trade_state": "SUCCESS",
         }
+
+    async def close_order(self, out_trade_no: str) -> dict[str, Any]:
+        return {"status": "success"}

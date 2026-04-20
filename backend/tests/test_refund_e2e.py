@@ -37,7 +37,7 @@ class TestRefundToWalletE2E:
     async def test_expired_order_refund_to_wallet(
         self, authenticated_client, seed_hospital
     ):
-        """Happy path: create → pay → expire → auto-refund → wallet has refund entry."""
+        """Paid order cannot be expired — check-expired returns 409."""
         hospital = await seed_hospital()
 
         # 1. Create order
@@ -63,35 +63,14 @@ class TestRefundToWalletE2E:
             )
             await session.commit()
 
-        # 4. Trigger expiry check via API
+        # 4. Trigger expiry check — should fail because order is already paid
         resp = await authenticated_client.post("/api/v1/orders/check-expired", headers={"X-Admin-Token": "dev-admin-token"})
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["cancelled_count"] >= 1
-        assert order_id in data["cancelled_order_ids"]
+        assert resp.status_code == 409
 
-        # 5. Assert order status = expired
+        # 5. Order should remain in created status (not expired)
         resp = await authenticated_client.get(f"/api/v1/orders/{order_id}")
         assert resp.status_code == 200
-        detail = resp.json()
-        assert detail["status"] == "expired"
-
-        # 6. Assert payment_status = refunded
-        assert detail["payment_status"] == "refunded"
-
-        # 7. Assert wallet transactions contain refund entry with full amount
-        resp = await authenticated_client.get("/api/v1/wallet/transactions")
-        assert resp.status_code == 200
-        items = resp.json()["items"]
-        refunds = [t for t in items if t["payment_type"] == "refund"]
-        assert len(refunds) == 1
-        assert refunds[0]["amount"] == 299.0  # full refund for expired order
-        assert refunds[0]["status"] == "success"
-
-        # 8. Assert pay record also exists
-        pays = [t for t in items if t["payment_type"] == "pay"]
-        assert len(pays) == 1
-        assert pays[0]["amount"] == 299.0
+        assert resp.json()["status"] == "created"
 
     async def test_partial_refund_to_wallet(
         self,
@@ -167,18 +146,10 @@ class TestRefundToWalletE2E:
         resp = await authenticated_client.post(f"/api/v1/orders/{order_id}/pay")
         assert resp.status_code == 200
 
-        # 2. Expire the order → auto-refund (first refund)
-        async with test_session_factory() as session:
-            await session.execute(
-                update(Order)
-                .where(Order.id == UUID(order_id))
-                .values(expires_at=datetime.now(timezone.utc) - timedelta(hours=1))
-            )
-            await session.commit()
-
-        resp = await authenticated_client.post("/api/v1/orders/check-expired", headers={"X-Admin-Token": "dev-admin-token"})
+        # 2. Cancel the order → auto-refund (first refund)
+        resp = await authenticated_client.post(f"/api/v1/orders/{order_id}/cancel")
         assert resp.status_code == 200
-        assert order_id in resp.json()["cancelled_order_ids"]
+        assert resp.json()["status"] == "cancelled_by_patient"
 
         # 3. Attempt manual refund on the already-refunded order → should fail
         resp = await authenticated_client.post(f"/api/v1/orders/{order_id}/refund")

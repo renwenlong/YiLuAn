@@ -35,3 +35,10 @@ class TooManyRequestsException(AppException):
     def __init__(self, detail: str = "Too many requests", retry_after: int | None = None):
         super().__init__(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=detail)
         self.retry_after = retry_after
+
+
+class NotExpirableOrderError(AppException):
+    """Raised when an order cannot be expired (e.g. payment already succeeded)."""
+
+    def __init__(self, detail: str = "Order cannot be expired"):
+        super().__init__(status_code=status.HTTP_409_CONFLICT, detail=detail)
