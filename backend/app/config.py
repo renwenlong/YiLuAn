@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     wechat_pay_notify_url: str = ""  # 回调通知 URL
     wechat_pay_platform_cert_path: str = ""  # 微信平台证书路径（用于验签）
 
+    # Admin
+    admin_api_token: str = "dev-admin-token"
+
     # CORS
     cors_origins: list[str] = ["*"]
 

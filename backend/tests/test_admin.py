@@ -27,22 +27,22 @@ class TestAdminAuth:
 
     async def test_no_token_returns_401(self, client: AsyncClient):
         """Request without Authorization header should get 401 or 403."""
-        resp = await client.get("/api/v1/admin/companions/pending")
+        resp = await client.get("/api/v1/admin/orders")
         assert resp.status_code in (401, 403)
 
     async def test_patient_returns_403(self, authenticated_client: AsyncClient):
         """Patient role user should be forbidden from admin endpoints."""
-        resp = await authenticated_client.get("/api/v1/admin/companions/pending")
+        resp = await authenticated_client.get("/api/v1/admin/orders")
         assert resp.status_code == 403
 
     async def test_companion_returns_403(self, companion_client: AsyncClient):
         """Companion role user should be forbidden from admin endpoints."""
-        resp = await companion_client.get("/api/v1/admin/companions/pending")
+        resp = await companion_client.get("/api/v1/admin/orders")
         assert resp.status_code == 403
 
     async def test_admin_returns_200(self, admin_client: AsyncClient):
         """Admin role user should access admin endpoints successfully."""
-        resp = await admin_client.get("/api/v1/admin/companions/pending")
+        resp = await admin_client.get("/api/v1/admin/orders")
         assert resp.status_code == 200
 
 
@@ -53,17 +53,19 @@ class TestAdminAuth:
 
 @pytest.mark.asyncio
 class TestCompanionVerification:
-    """Tests for companion approval / rejection workflow."""
+    """Tests for companion approval / rejection workflow (token-based auth)."""
 
-    async def test_list_pending_empty(self, admin_client: AsyncClient):
+    HEADERS = {"X-Admin-Token": "dev-admin-token"}
+
+    async def test_list_pending_empty(self, client: AsyncClient):
         """Empty list when no pending companions exist."""
-        resp = await admin_client.get("/api/v1/admin/companions/pending")
+        resp = await client.get("/api/v1/admin/companions/", headers=self.HEADERS)
         assert resp.status_code == 200
         assert resp.json()["items"] == []
 
     async def test_approve_pending_companion(
         self,
-        admin_client: AsyncClient,
+        client: AsyncClient,
         seed_user,
         seed_companion_profile,
     ):
@@ -73,16 +75,16 @@ class TestCompanionVerification:
             user.id, verification_status=VerificationStatus.pending
         )
 
-        resp = await admin_client.post(
-            f"/api/v1/admin/companions/{profile.id}/approve"
+        resp = await client.post(
+            f"/api/v1/admin/companions/{profile.id}/approve",
+            headers=self.HEADERS,
         )
         assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "approved"
+        assert resp.json()["ok"] is True
 
     async def test_reject_pending_companion(
         self,
-        admin_client: AsyncClient,
+        client: AsyncClient,
         seed_user,
         seed_companion_profile,
     ):
@@ -92,43 +94,46 @@ class TestCompanionVerification:
             user.id, verification_status=VerificationStatus.pending
         )
 
-        resp = await admin_client.post(
-            f"/api/v1/admin/companions/{profile.id}/reject"
+        resp = await client.post(
+            f"/api/v1/admin/companions/{profile.id}/reject",
+            headers=self.HEADERS,
+            json={"reason": "资质不符"},
         )
         assert resp.status_code == 200
-        data = resp.json()
-        assert data["status"] == "rejected"
+        assert resp.json()["ok"] is True
 
-    async def test_approve_already_verified_returns_400(
+    async def test_approve_already_verified_returns_409(
         self,
-        admin_client: AsyncClient,
+        client: AsyncClient,
         seed_user,
         seed_companion_profile,
     ):
-        """Approving an already-verified companion should return 400."""
+        """Approving an already-verified companion should return 409."""
         user = await seed_user(phone="13100131002")
         profile = await seed_companion_profile(
             user.id, verification_status=VerificationStatus.verified
         )
 
-        resp = await admin_client.post(
-            f"/api/v1/admin/companions/{profile.id}/approve"
+        resp = await client.post(
+            f"/api/v1/admin/companions/{profile.id}/approve",
+            headers=self.HEADERS,
         )
-        assert resp.status_code == 400
+        assert resp.status_code == 409
 
-    async def test_approve_nonexistent_returns_404(self, admin_client: AsyncClient):
+    async def test_approve_nonexistent_returns_404(self, client: AsyncClient):
         """Approving a non-existent profile should return 404."""
         import uuid
 
         fake_id = uuid.uuid4()
-        resp = await admin_client.post(
-            f"/api/v1/admin/companions/{fake_id}/approve"
+        resp = await client.post(
+            f"/api/v1/admin/companions/{fake_id}/approve",
+            headers=self.HEADERS,
         )
         assert resp.status_code == 404
 
     async def test_list_pending_pagination(
         self,
-        admin_client: AsyncClient,
+        client: AsyncClient,
         seed_user,
         seed_companion_profile,
     ):
@@ -139,14 +144,16 @@ class TestCompanionVerification:
                 user.id, verification_status=VerificationStatus.pending
             )
 
-        resp = await admin_client.get(
-            "/api/v1/admin/companions/pending?page=1&page_size=2"
+        resp = await client.get(
+            "/api/v1/admin/companions/?page=1&page_size=2",
+            headers=self.HEADERS,
         )
         assert resp.status_code == 200
         assert len(resp.json()["items"]) == 2
 
-        resp2 = await admin_client.get(
-            "/api/v1/admin/companions/pending?page=2&page_size=2"
+        resp2 = await client.get(
+            "/api/v1/admin/companions/?page=2&page_size=2",
+            headers=self.HEADERS,
         )
         assert resp2.status_code == 200
         assert len(resp2.json()["items"]) == 1
