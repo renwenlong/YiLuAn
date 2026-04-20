@@ -1,7 +1,8 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, Query
 
+from app.core.admin_auth import require_admin_token
 from app.dependencies import CurrentUser, DBSession
 from app.schemas.order import (
     CreateOrderRequest,
@@ -151,7 +152,7 @@ async def refund_order(
     return await service.refund_order(order_id, current_user)
 
 
-@router.post("/check-expired", summary="检查过期订单", description="扫描并自动取消超时未接单的订单，可由定时任务调用。")
+@router.post("/check-expired", summary="检查过期订单", description="扫描并自动取消超时未接单的订单，可由定时任务调用。需要 admin token 鉴权。", dependencies=[Depends(require_admin_token)])
 async def check_expired_orders(
     session: DBSession,
 ):

@@ -190,7 +190,7 @@ class TestOrderExpiry:
             await session.refresh(order)
             order_id = order.id
 
-        resp = await client.post("/api/v1/orders/check-expired")
+        resp = await client.post("/api/v1/orders/check-expired", headers={"X-Admin-Token": "dev-admin-token"})
         assert resp.status_code == 200
         data = resp.json()
         assert data["cancelled_count"] >= 1
@@ -209,7 +209,7 @@ class TestOrderExpiry:
             expires_at=datetime.now(timezone.utc) + timedelta(hours=3),
         )
 
-        resp = await client.post("/api/v1/orders/check-expired")
+        resp = await client.post("/api/v1/orders/check-expired", headers={"X-Admin-Token": "dev-admin-token"})
         assert resp.status_code == 200
         assert resp.json()["cancelled_count"] == 0
 
