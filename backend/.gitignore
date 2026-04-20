@@ -1,1 +1,7 @@
 static/
+
+# Coverage
+.coverage
+.coverage.*
+.coverage_html/
+htmlcov/
