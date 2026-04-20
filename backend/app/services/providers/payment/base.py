@@ -65,6 +65,10 @@ class PaymentProvider:
     async def query(self, order: OrderDTO) -> dict[str, Any]:
         raise NotImplementedError
 
+    async def close_order(self, out_trade_no: str) -> dict[str, Any]:
+        """Close a prepay order at the PSP so it can no longer be paid."""
+        raise NotImplementedError
+
     # ---- legacy API (delegates) --------------------------------------------
 
     async def create_prepay(

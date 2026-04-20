@@ -22,6 +22,8 @@ from fastapi import APIRouter, Request, Response
 
 from app.dependencies import DBSession
 from app.exceptions import BadRequestException
+from app.models.order import OrderStatus
+from app.repositories.order import OrderRepository
 from app.services.payment_service import (
     MockPaymentProvider,
     PaymentService,
@@ -116,6 +118,52 @@ async def wechat_pay_callback(
         if payment:
             payment.callback_raw = body.decode(errors="replace")[:4000]
             await session.flush()
+
+        # 5) Defensive auto-refund: if payment succeeded but the order is
+        #    already EXPIRED or CANCELLED, refund immediately instead of
+        #    letting funds sit unclaimed.
+        if payment and payment.status == "success" and success:
+            _terminal = {
+                OrderStatus.expired,
+                OrderStatus.cancelled_by_patient,
+                OrderStatus.cancelled_by_companion,
+                OrderStatus.rejected_by_companion,
+            }
+            order_repo = OrderRepository(session)
+            order = await order_repo.get_by_id(payment.order_id)
+            if order and order.status in _terminal:
+                logger.warning(
+                    "late_callback_after_expire: order=%s status=%s "
+                    "trade_no=%s — triggering auto-refund",
+                    order.id,
+                    order.status.value,
+                    trade_no,
+                )
+                try:
+                    await svc.create_refund(
+                        order_id=order.id,
+                        user_id=payment.user_id,
+                        original_amount=order.price,
+                        refund_amount=order.price,
+                    )
+                    logger.info(
+                        "Auto-refund issued for late callback: order=%s",
+                        order.id,
+                    )
+                except BadRequestException as refund_err:
+                    # Already refunded or payment not in success — log but ack
+                    logger.error(
+                        "Auto-refund failed for late callback: order=%s err=%s",
+                        order.id,
+                        refund_err.detail,
+                    )
+                except Exception as refund_err:
+                    logger.error(
+                        "Auto-refund unexpected error: order=%s err=%s",
+                        order.id,
+                        refund_err,
+                        exc_info=True,
+                    )
 
         logger.info(
             "Pay callback processed: trade_no=%s success=%s",
