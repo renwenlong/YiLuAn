@@ -15,10 +15,8 @@ from fastapi import APIRouter, Depends, Query
 
 from app.dependencies import DBSession, get_current_user
 from app.exceptions import ForbiddenException, NotFoundException, BadRequestException
-from app.models.companion_profile import CompanionProfile, VerificationStatus
 from app.models.order import Order, OrderStatus
 from app.models.user import User
-from app.repositories.companion_profile import CompanionProfileRepository
 from app.repositories.order import OrderRepository
 from app.repositories.user import UserRepository
 from app.services.payment_service import PaymentService
@@ -37,64 +35,6 @@ async def get_admin_user(
 
 AdminUser = get_admin_user
 
-
-# =============================================================================
-# Companion Verification
-# =============================================================================
-
-
-@router.get("/companions/pending")
-async def list_pending_companions(
-    session: DBSession,
-    _admin: User = Depends(AdminUser),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-):
-    """List companions awaiting verification."""
-    repo = CompanionProfileRepository(session)
-    skip = (page - 1) * page_size
-    profiles = await repo.list_by_status(
-        VerificationStatus.pending, skip=skip, limit=page_size
-    )
-    return {"items": profiles, "page": page}
-
-
-@router.post("/companions/{profile_id}/approve")
-async def approve_companion(
-    profile_id: UUID,
-    session: DBSession,
-    _admin: User = Depends(AdminUser),
-):
-    """Approve a companion's verification."""
-    repo = CompanionProfileRepository(session)
-    profile = await repo.get_by_id(profile_id)
-    if profile is None:
-        raise NotFoundException("Companion profile not found")
-    if profile.verification_status != VerificationStatus.pending:
-        raise BadRequestException(
-            f"Profile is {profile.verification_status.value}, not pending"
-        )
-
-    profile.verification_status = VerificationStatus.verified
-    await session.flush()
-    return {"status": "approved", "profile_id": str(profile_id)}
-
-
-@router.post("/companions/{profile_id}/reject")
-async def reject_companion(
-    profile_id: UUID,
-    session: DBSession,
-    _admin: User = Depends(AdminUser),
-):
-    """Reject a companion's verification."""
-    repo = CompanionProfileRepository(session)
-    profile = await repo.get_by_id(profile_id)
-    if profile is None:
-        raise NotFoundException("Companion profile not found")
-
-    profile.verification_status = VerificationStatus.rejected
-    await session.flush()
-    return {"status": "rejected", "profile_id": str(profile_id)}
 
 
 # =============================================================================
