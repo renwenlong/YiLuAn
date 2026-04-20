@@ -64,7 +64,7 @@ class TestRefundToWalletE2E:
             await session.commit()
 
         # 4. Trigger expiry check via API
-        resp = await authenticated_client.post("/api/v1/orders/check-expired")
+        resp = await authenticated_client.post("/api/v1/orders/check-expired", headers={"X-Admin-Token": "dev-admin-token"})
         assert resp.status_code == 200
         data = resp.json()
         assert data["cancelled_count"] >= 1
@@ -176,7 +176,7 @@ class TestRefundToWalletE2E:
             )
             await session.commit()
 
-        resp = await authenticated_client.post("/api/v1/orders/check-expired")
+        resp = await authenticated_client.post("/api/v1/orders/check-expired", headers={"X-Admin-Token": "dev-admin-token"})
         assert resp.status_code == 200
         assert order_id in resp.json()["cancelled_order_ids"]
 
