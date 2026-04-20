@@ -55,7 +55,7 @@ Page({
 
   onBook() {
     wx.navigateTo({
-      url: '/pages/patient/create-order/index?companionId=' + this.companionId
+      url: '/pages/patient/create-order/index?companion_id=' + this.companionId
     })
   },
 
