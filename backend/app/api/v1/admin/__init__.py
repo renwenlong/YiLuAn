@@ -230,3 +230,11 @@ async def enable_user(
     user.is_active = True
     await session.flush()
     return {"user_id": str(user_id), "is_active": True}
+
+
+# ---------------------------------------------------------------------------
+# Sub-module routers (A6)
+# ---------------------------------------------------------------------------
+from app.api.v1.admin.companions import router as companions_router  # noqa: E402
+
+router.include_router(companions_router)
