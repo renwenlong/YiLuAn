@@ -1,3 +1,4 @@
+import logging
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -5,6 +6,8 @@ from typing import Sequence
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 from app.exceptions import BadRequestException, ForbiddenException, NotFoundException, NotExpirableOrderError
 from app.models.order import (
@@ -294,8 +297,19 @@ class OrderService:
                     original_amount=order.price,
                     refund_amount=refund_amount,
                 )
-            except BadRequestException:
-                pass  # Already refunded, ignore
+            except BadRequestException as e:
+                logger.error(
+                    "auto_refund_failed",
+                    extra={
+                        "order_id": str(order_id),
+                        "amount": refund_amount,
+                        "reason": str(e.detail),
+                        "trigger": "cancel_order",
+                    },
+                )
+                raise BadRequestException(
+                    f"订单已取消，但退款失败，请联系客服处理: {e.detail}"
+                ) from e
 
         # Notify the other party about cancellation
         if user.role == UserRole.patient and order.companion_id:
@@ -414,8 +428,18 @@ class OrderService:
                     original_amount=order.price,
                     refund_amount=order.price,
                 )
-            except BadRequestException:
-                pass
+            except BadRequestException as e:
+                logger.error(
+                    "auto_refund_failed",
+                    extra={
+                        "order_id": str(order_id),
+                        "amount": order.price,
+                        "reason": str(e.detail),
+                        "trigger": "reject_by_companion",
+                    },
+                )
+                # TODO: dead_letter / ops manual compensation
+                # Do not block rejection — patient can request manual refund
 
         # Notify patient
         await self.notification_svc.notify_order_rejected(order, order.patient_id)

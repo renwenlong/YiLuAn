@@ -852,3 +852,95 @@ class TestCheckExpiredAdminAuth:
         assert resp.status_code == 200
         data = resp.json()
         assert "cancelled_count" in data
+
+
+@pytest.mark.asyncio
+class TestAutoRefundFailure:
+    """C6: verify silent failure on auto-refund is eliminated."""
+
+    async def test_cancel_order_refund_failure_raises(
+        self, authenticated_client, seed_hospital, seed_order
+    ):
+        """User cancels paid order but refund fails → error propagated to user."""
+        from unittest.mock import AsyncMock, patch
+
+        from app.exceptions import BadRequestException
+
+        user = authenticated_client._test_user
+        hospital = await seed_hospital()
+        order = await seed_order(user.id, hospital.id)
+        # Pay first
+        await authenticated_client.post(f"/api/v1/orders/{order.id}/pay")
+        # Mock create_refund to fail
+        with patch(
+            "app.services.order.PaymentService.create_refund",
+            new_callable=AsyncMock,
+            side_effect=BadRequestException("退款渠道异常: provider down"),
+        ):
+            resp = await authenticated_client.post(
+                f"/api/v1/orders/{order.id}/cancel"
+            )
+            assert resp.status_code == 400
+            assert "退款失败" in resp.json()["detail"]
+
+    async def test_reject_order_refund_failure_logs_not_blocks(
+        self, companion_client, seed_hospital, seed_order, seed_user, seed_payment
+    ):
+        """Companion rejects paid order, refund fails → rejection succeeds, error logged."""
+        from unittest.mock import AsyncMock, patch
+
+        from app.exceptions import BadRequestException
+
+        patient = await seed_user(phone="13500135099")
+        hospital = await seed_hospital()
+        companion_user = companion_client._test_user
+        order = await seed_order(
+            patient.id, hospital.id, companion_id=companion_user.id
+        )
+        await seed_payment(order.id, patient.id)
+        with patch(
+            "app.services.order.PaymentService.create_refund",
+            new_callable=AsyncMock,
+            side_effect=BadRequestException("退款渠道异常: provider down"),
+        ) as mock_refund, patch(
+            "app.services.order.logger"
+        ) as mock_logger:
+            resp = await companion_client.post(
+                f"/api/v1/orders/{order.id}/reject"
+            )
+            # Rejection should succeed despite refund failure
+            assert resp.status_code == 200
+            assert resp.json()["status"] == "rejected_by_companion"
+            # Error should be logged
+            mock_logger.error.assert_called_once()
+            log_kwargs = mock_logger.error.call_args
+            assert "auto_refund_failed" in str(log_kwargs)
+
+    async def test_cancel_order_refund_failure_logs_structured(
+        self, authenticated_client, seed_hospital, seed_order
+    ):
+        """Cancel with refund failure includes structured log with order_id and trigger."""
+        from unittest.mock import AsyncMock, patch
+
+        from app.exceptions import BadRequestException
+
+        user = authenticated_client._test_user
+        hospital = await seed_hospital()
+        order = await seed_order(user.id, hospital.id)
+        await authenticated_client.post(f"/api/v1/orders/{order.id}/pay")
+        with patch(
+            "app.services.order.PaymentService.create_refund",
+            new_callable=AsyncMock,
+            side_effect=BadRequestException("退款渠道异常: provider down"),
+        ), patch(
+            "app.services.order.logger"
+        ) as mock_logger:
+            resp = await authenticated_client.post(
+                f"/api/v1/orders/{order.id}/cancel"
+            )
+            assert resp.status_code == 400
+            # Verify structured logging was called
+            mock_logger.error.assert_called_once()
+            call_kwargs = mock_logger.error.call_args[1]
+            assert call_kwargs["extra"]["trigger"] == "cancel_order"
+            assert call_kwargs["extra"]["order_id"] == str(order.id)
