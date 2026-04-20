@@ -22,6 +22,10 @@
     </view>
   </view>
 
+  <view class="build-section" wx:if="{{gitSha}}">
+    <text class="build-text">Build: {{gitSha}} · {{buildTime}}</text>
+  </view>
+
   <view class="copyright-section">
     <text class="copyright-text">Copyright 2026 医路安 All Rights Reserved</text>
   </view>
