@@ -6,7 +6,9 @@
 .star {
   font-size: 40rpx;
   margin-right: 8rpx;
-  transition: transform 0.2s ease;
+  transform: translateZ(0);
+  will-change: transform;
+  transition: transform 0.2s ease, color 0.15s ease;
 }
 
 .star-filled {
@@ -22,5 +24,21 @@
 }
 
 .star-interactive:active {
-  transform: scale(1.2);
+  transform: translateZ(0) scale(1.2);
+}
+
+.star-pop {
+  animation: star-pop-in 0.3s ease forwards;
+}
+
+@keyframes star-pop-in {
+  0% {
+    transform: translateZ(0) scale(1);
+  }
+  50% {
+    transform: translateZ(0) scale(1.35) rotate(15deg);
+  }
+  100% {
+    transform: translateZ(0) scale(1);
+  }
 }
