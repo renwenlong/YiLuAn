@@ -16,9 +16,22 @@ const ORDER_STATUS = {
   expired: { label: '已过期', color: '#999999' },
 }
 
+const STATUS_GROUPS = {
+  pending: ['created'],
+  in_progress: ['accepted', 'in_progress'],
+  completed: ['completed', 'reviewed'],
+  cancelled: ['cancelled_by_patient', 'cancelled_by_companion', 'rejected_by_companion', 'expired'],
+}
+
+function filterByGroup(groupName, orders) {
+  const statuses = STATUS_GROUPS[groupName]
+  if (!statuses) return orders
+  return orders.filter(function (o) { return statuses.indexOf(o.status) !== -1 })
+}
+
 const USER_ROLES = {
   patient: '患者',
   companion: '陪诊师',
 }
 
-module.exports = { SERVICE_TYPES, ORDER_STATUS, USER_ROLES }
+module.exports = { SERVICE_TYPES, ORDER_STATUS, STATUS_GROUPS, filterByGroup, USER_ROLES }
