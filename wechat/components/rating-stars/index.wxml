@@ -2,7 +2,7 @@
   <text
     wx:for="{{stars}}"
     wx:key="*this"
-    class="star {{item <= value ? 'star-filled' : 'star-empty'}} {{interactive ? 'star-interactive' : ''}}"
+    class="star {{item <= value ? 'star-filled' : 'star-empty'}} {{interactive ? 'star-interactive' : ''}} {{item <= animatingStar ? 'star-pop' : ''}}"
     data-value="{{item}}"
     bindtap="onStarTap"
   >{{item <= value ? '★' : '☆'}}</text>
