@@ -333,3 +333,58 @@ class PaymentService:
             refund_id=refund.refund_id,
             mock_success=is_mock,
         )
+
+    async def handle_refund_callback(
+        self,
+        refund_id: str,
+        refund_status: str,
+        raw_body: str | None = None,
+    ) -> Payment | None:
+        """
+        Process refund callback from WeChat.
+
+        Must be called AFTER ``record_callback_or_skip`` confirms this is
+        a new (non-duplicate) notification.
+
+        Returns the updated Payment, or ``None`` if the refund_id is unknown.
+        """
+        payment = await self.repo.get_by_refund_id(refund_id)
+
+        if payment is None:
+            logger.warning(
+                "Refund callback for unknown refund_id=%s — ignoring",
+                refund_id,
+            )
+            return None
+
+        # Already terminal — idempotent success
+        if payment.status in ("success", "failed"):
+            logger.info(
+                "Refund already terminal: refund_id=%s status=%s",
+                refund_id,
+                payment.status,
+            )
+            return payment
+
+        if refund_status == "SUCCESS":
+            payment.status = "success"
+            logger.info(
+                "Refund succeeded: refund_id=%s amount=%s",
+                refund_id,
+                payment.amount,
+            )
+        else:
+            # CHANGE / REFUNDCLOSE / ABNORMAL or any non-SUCCESS
+            payment.status = "failed"
+            logger.error(
+                "Refund FAILED: refund_id=%s wechat_status=%s — "
+                "manual intervention may be required",
+                refund_id,
+                refund_status,
+            )
+
+        if raw_body:
+            payment.callback_raw = raw_body[:4000]
+
+        await self.session.flush()
+        return payment

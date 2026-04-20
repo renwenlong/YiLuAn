@@ -186,7 +186,12 @@ async def wechat_refund_callback(
             refund_id,
             refund_status,
         )
-        # TODO: update refund Payment record status based on refund_status
+
+        payment = await svc.handle_refund_callback(
+            refund_id=refund_id,
+            refund_status=refund_status,
+            raw_body=body.decode(errors="replace"),
+        )
 
     except Exception as e:  # noqa: BLE001
         logger.error("Refund callback error: %s", e, exc_info=True)
