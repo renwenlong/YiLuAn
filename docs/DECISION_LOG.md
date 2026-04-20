@@ -683,6 +683,29 @@ P0-1 已经把支付落到 `app.services.providers.payment` 包里（mock / wech
 
 ## 2026-04-20
 
+### D-027 payment_callback_log 与 sms_send_log 加 30 天 TTL
+
+- **ID**：D-027
+- **提议人**：Arch
+- **状态**：Accepted
+- **背景**：
+  回调幂等表 payment_callback_log 与短信发送审计表 sms_send_log 当前无清理策略，长期增长会拖慢查询、占用磁盘。
+  对账场景需要至少 30 天历史数据，更早的可归档到对象存储。
+- **决策**：
+  1. 两张表加 created_at 索引（如未加），便于时间范围查询
+  2. 用 Alembic migration 加定时清理任务（或在 backend/app/scheduler 注册一个 daily job）
+  3. 删除前先归档：导出为 ndjson + 上传到 OSS，按"YYYY/MM/yyyymmdd-table.ndjson.gz"路径
+  4. 归档成功后才物理删除（事务级保障）
+  5. 归档保留期：阿里云 OSS 1 年（按月归档），1 年后转冷归档
+- **影响**：
+  - 正面：表大小可控，查询性能稳定；满足审计 + 对账需要
+  - 负面：需要 OSS 桶资源（B-03 一并申请）；调度任务有失败风险，需告警
+  - 实施依赖：OSS 凭证（B-03）；如未到位则先写 Alembic migration + scheduler 骨架，归档逻辑 stub
+- **关联**：ADR-0026（外呼装饰器调用 sms / payment 都会写日志表）、B-03（OSS 桶资源）
+- **实施排期**：
+  - 4/22 前完成 Alembic migration + scheduler 注册（Backend）
+  - B-03 到位后接入真实 OSS 归档（Ops）
+
 ### D-028 零提交日预警机制
 
 - **ID**：D-028
