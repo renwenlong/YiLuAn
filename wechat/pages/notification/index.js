@@ -1,4 +1,30 @@
 const { getNotifications, getUnreadCount, markRead, markAllRead } = require('../../services/notification')
+const store = require('../../store/index')
+
+function getNavigationUrl(notification) {
+  var type = notification.type
+  var refId = notification.reference_id
+  var state = store.getState()
+  var role = (state.user && state.user.role) || 'patient'
+  var orderDetailBase = role === 'companion'
+    ? '/pages/companion/order-detail/index'
+    : '/pages/patient/order-detail/index'
+
+  if (!type || !refId) return null
+
+  switch (type) {
+    case 'order_status_changed':
+    case 'new_order':
+    case 'start_service_request':
+      return orderDetailBase + '?id=' + refId
+    case 'new_message':
+      return '/pages/chat/room/index?order_id=' + refId
+    case 'review_received':
+      return orderDetailBase + '?id=' + refId
+    default:
+      return null
+  }
+}
 
 Page({
   data: {
@@ -46,6 +72,15 @@ Page({
   onNotificationTap(e) {
     const id = e.currentTarget.dataset.id
     const isRead = e.currentTarget.dataset.read
+    const item = this.data.notifications.find(n => n.id === id)
+    const url = item ? getNavigationUrl(item) : null
+
+    const doNavigate = function () {
+      if (url) {
+        wx.navigateTo({ url: url })
+      }
+    }
+
     if (!isRead) {
       markRead(id)
         .then(() => {
@@ -57,8 +92,11 @@ Page({
             notifications: notifications,
             unreadCount: Math.max(0, this.data.unreadCount - 1),
           })
+          doNavigate()
         })
         .catch(() => {})
+    } else {
+      doNavigate()
     }
   },
 

@@ -94,7 +94,7 @@ Page({
 
   onNotificationTap() {
     wx.navigateTo({
-      url: '/pages/profile/notifications/index'
+      url: '/pages/notification/index'
     })
   }
 })
