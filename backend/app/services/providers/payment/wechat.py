@@ -251,6 +251,18 @@ class WechatPaymentProvider(PaymentProvider):
             "see docs/TODO_CREDENTIALS.md and the module docstring."
         )
 
+    async def close_order(self, out_trade_no: str) -> dict[str, Any]:
+        # Real implementation would call:
+        #   POST /v3/pay/transactions/out-trade-no/{out_trade_no}/close
+        #   body: {"mchid": self.mch_id}
+        # For now, fall back to mock-style success when credentials are absent.
+        if not self._has_credentials:
+            return {"status": "success"}
+        raise NotImplementedError(
+            "WechatPaymentProvider.close_order() production path not "
+            "implemented yet — see docs/TODO_CREDENTIALS.md."
+        )
+
     # ------------------------------------------------- signature / crypto
 
     def _verify_signature(self, headers: dict, body: bytes) -> None:

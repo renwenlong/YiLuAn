@@ -573,7 +573,10 @@ class TestCheckExpiredOrders:
         assert any(c.id == order_id for c in cancelled)
         assert all(c.status == OrderStatus.expired for c in cancelled)
 
-    async def test_expire_paid_order_triggers_refund(self):
+    async def test_expire_paid_order_raises_not_expirable(self):
+        """Paid order cannot be expired — raises NotExpirableOrderError."""
+        from app.exceptions import NotExpirableOrderError
+
         patient = await _make_user(phone="10000000101")
         hospital = await _make_hospital("医院E2")
         async with test_session_factory() as s:
@@ -597,15 +600,8 @@ class TestCheckExpiredOrders:
 
         async with test_session_factory() as s:
             svc = OrderService(s)
-            cancelled = await svc.check_expired_orders()
-            await s.commit()
-
-        async with test_session_factory() as s:
-            from sqlalchemy import select
-            refund = (await s.execute(
-                select(Payment).where(Payment.order_id == order_id, Payment.payment_type == "refund")
-            )).scalar_one_or_none()
-            assert refund is not None
+            with pytest.raises(NotExpirableOrderError):
+                await svc.check_expired_orders()
 
 
 # ---------------------------------------------------------------------------
