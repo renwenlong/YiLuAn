@@ -1,7 +1,8 @@
 """
-Admin Companions Audit — MVP scaffold (A6).
+Admin Companions Audit — business logic (B1).
 
 Routes: /api/v1/admin/companions
+Auth: X-Admin-Token header (token-based, TODO: migrate to OAuth/JWT)
 """
 
 from uuid import UUID
@@ -9,11 +10,15 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
-from app.api.v1.admin import AdminUser
+from app.core.admin_auth import require_admin_token
 from app.dependencies import DBSession
-from app.models.user import User
+from app.services.admin_audit import AdminAuditService
 
-router = APIRouter(prefix="/companions", tags=["admin-companions"])
+router = APIRouter(
+    prefix="/companions",
+    tags=["admin-companions"],
+    dependencies=[Depends(require_admin_token)],
+)
 
 
 # ---------------------------------------------------------------------------
@@ -21,8 +26,16 @@ router = APIRouter(prefix="/companions", tags=["admin-companions"])
 # ---------------------------------------------------------------------------
 
 
+class CompanionItem(BaseModel):
+    id: str
+    real_name: str
+    id_number: str | None = None
+    certifications: str | None = None
+    created_at: str | None = None
+
+
 class PaginatedCompanions(BaseModel):
-    items: list = Field(default_factory=list)
+    items: list[CompanionItem] = Field(default_factory=list)
     total: int = 0
     page: int = 1
     page_size: int = 20
@@ -44,23 +57,22 @@ class OkResponse(BaseModel):
 @router.get("/", response_model=PaginatedCompanions)
 async def list_pending_companions(
     session: DBSession,
-    _admin: User = Depends(AdminUser),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
-    """List companions pending audit. TODO: wire to AdminAuditService."""
-    # TODO: call AdminAuditService.list_pending_companions
-    return PaginatedCompanions(items=[], total=0, page=page, page_size=page_size)
+    """List companions pending audit."""
+    svc = AdminAuditService(session)
+    return await svc.list_pending_companions(page=page, page_size=page_size)
 
 
 @router.post("/{companion_id}/approve", response_model=OkResponse)
 async def approve_companion(
     companion_id: UUID,
     session: DBSession,
-    _admin: User = Depends(AdminUser),
 ):
-    """Approve a companion. TODO: wire to AdminAuditService."""
-    # TODO: call AdminAuditService.approve_companion
+    """Approve a companion."""
+    svc = AdminAuditService(session)
+    await svc.approve_companion(companion_id, operator_id="admin-token")
     return OkResponse()
 
 
@@ -69,8 +81,8 @@ async def reject_companion(
     companion_id: UUID,
     body: RejectBody,
     session: DBSession,
-    _admin: User = Depends(AdminUser),
 ):
-    """Reject a companion with reason. TODO: wire to AdminAuditService."""
-    # TODO: call AdminAuditService.reject_companion
+    """Reject a companion with reason."""
+    svc = AdminAuditService(session)
+    await svc.reject_companion(companion_id, operator_id="admin-token", reason=body.reason)
     return OkResponse()

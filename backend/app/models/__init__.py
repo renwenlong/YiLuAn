@@ -1,3 +1,4 @@
+from app.models.admin_audit_log import AdminAuditLog
 from app.models.chat_message import ChatMessage, MessageType
 from app.models.companion_profile import CompanionProfile, VerificationStatus
 from app.models.device_token import DeviceToken
@@ -12,6 +13,7 @@ from app.models.review import Review
 from app.models.user import User, UserRole
 
 __all__ = [
+    "AdminAuditLog",
     "User",
     "UserRole",
     "PatientProfile",
