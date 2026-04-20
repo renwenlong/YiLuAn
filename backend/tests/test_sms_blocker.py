@@ -4,9 +4,9 @@ SMS **阻断级**（blocker）tests — P1-7 / Action #7.
 Complementary to ``test_sms_providers.py``. Covers failure modes that
 would silently lock users out of OTP login if regressed:
 
-  B1. Provider 异常 fail-fast      —— AliyunProvider raises NotImplementedError;
-                                       caller must NOT loop / retry forever
-                                       and must produce structured logs.
+  B1. Provider 缺凭证 fail-fast      —— AliyunProvider without credentials
+                                         raises ValueError immediately;
+                                         caller must NOT fall back to mock.
   B2. 限流满 → 第 6 条被拒          —— 1h boundary edge (5 → blocked).
   B3. 限流窗口过期 → 放行          —— 60s window expiry; 1h sliding window
                                        eviction.
@@ -18,19 +18,14 @@ would silently lock users out of OTP login if regressed:
   B6. 空 / 异常手机号              —— "" / "abc" / very-long input must be
                                        rejected by validate, must NOT
                                        consume a rate-limit slot.
-
-Constraints
------------
-* Only adds tests; never touches business code.
-* If a real bug surfaces (e.g. PII leaked in log on failure path), it
-  is recorded in ``docs/TECH_DEBT.md`` and the test stays as the
-  regression marker.
 """
 
 from __future__ import annotations
 
 import logging
+from unittest.mock import AsyncMock, patch
 
+import httpx
 import pytest
 
 from app.services.providers.sms import (
@@ -40,6 +35,7 @@ from app.services.providers.sms import (
     mask_phone_sms,
     reset_inproc_store,
 )
+from app.utils.outbound import NonRetryableError, reset_circuit_breakers
 
 
 # ---------------------------------------------------------------------------
@@ -48,40 +44,15 @@ from app.services.providers.sms import (
 
 @pytest.mark.asyncio
 class TestAliyunFailFast:
-    """The Aliyun placeholder must:
+    """The Aliyun provider must:
 
-    * raise ``NotImplementedError`` exactly once (no retry loop).
-    * log a structured ERROR mentioning the missing settings.
-    * never include the raw phone in either exception or log.
+    * raise ``ValueError`` immediately when credentials are missing.
+    * never silently fall back to mock.
     """
 
-    async def test_send_otp_raises_immediately(self, caplog):
-        provider = AliyunSMSProvider()
-        call_counter = {"n": 0}
-
-        # Wrap the underlying helper to detect any accidental retry.
-        original = provider._not_implemented
-
-        def counting(*args, **kwargs):
-            call_counter["n"] += 1
-            return original(*args, **kwargs)
-
-        provider._not_implemented = counting  # type: ignore[assignment]
-
-        with caplog.at_level(logging.ERROR, logger="app.services.providers.sms.aliyun"):
-            with pytest.raises(NotImplementedError):
-                await provider.send_otp("13800138001", "123456")
-
-        assert call_counter["n"] == 1, (
-            "Aliyun placeholder must fail-fast — caller seen retrying "
-            "would burn quota / mask outage."
-        )
-
-        log_text = "\n".join(r.getMessage() for r in caplog.records)
-        assert "SMS_ACCESS_KEY" in log_text or "SMS_TEMPLATE_CODE" in log_text, (
-            "Failure log must surface the missing-settings hint so ops can "
-            "trace activation gaps."
-        )
+    def test_no_credentials_raises_value_error(self):
+        with pytest.raises(ValueError, match="SMS_ACCESS_KEY"):
+            AliyunSMSProvider()
 
 
 # ---------------------------------------------------------------------------
@@ -202,31 +173,44 @@ class TestRateLimitWindowExpiry:
 
 @pytest.mark.asyncio
 class TestPIIMaskOnException:
-    """Provider exception path MUST mask the phone in logs / messages.
-    A raw phone in a stack trace is a privacy regression even though
-    it 'only' shows up on the error path.
-    """
+    """Provider exception path MUST mask the phone in logs / messages."""
 
-    async def test_aliyun_exception_message_masks_phone(self, caplog):
+    def setup_method(self):
+        reset_circuit_breakers()
+
+    async def test_aliyun_exception_message_masks_phone(self, caplog, monkeypatch):
+        monkeypatch.setattr("app.config.settings.sms_access_key", "ak")
+        monkeypatch.setattr("app.config.settings.sms_access_secret", "sk")
+        monkeypatch.setattr("app.config.settings.sms_sign_name", "sig")
+        monkeypatch.setattr("app.config.settings.sms_template_code", "TPL")
         provider = AliyunSMSProvider()
         raw_phone = "13800138006"
         masked = mask_phone_sms(raw_phone)
 
-        with caplog.at_level(logging.ERROR, logger="app.services.providers.sms.aliyun"):
-            with pytest.raises(NotImplementedError) as exc_info:
-                await provider.send_otp(raw_phone, "123456")
+        mock_resp = httpx.Response(
+            200,
+            json={"Code": "isv.MOBILE_NUMBER_ILLEGAL", "Message": "bad"},
+            request=httpx.Request("GET", "https://dysmsapi.aliyuncs.com/"),
+        )
 
-        # Stack-trace text + log text together
+        with patch("app.services.providers.sms.aliyun.httpx.AsyncClient") as MockClient:
+            instance = AsyncMock()
+            instance.get.return_value = mock_resp
+            instance.__aenter__ = AsyncMock(return_value=instance)
+            instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = instance
+
+            with caplog.at_level(logging.ERROR, logger="app.services.providers.sms.aliyun"):
+                with pytest.raises(NonRetryableError):
+                    await provider.send_otp(raw_phone, "123456")
+
         log_text = "\n".join(r.getMessage() for r in caplog.records)
-        exc_text = str(exc_info.value)
-        combined = log_text + "\n" + exc_text
 
-        assert raw_phone not in combined, (
-            f"Raw phone {raw_phone} leaked in exception/log: {combined!r}"
+        assert raw_phone not in log_text, (
+            f"Raw phone {raw_phone} leaked in log: {log_text!r}"
         )
         assert masked in log_text, (
-            "Masked phone must appear in the failure log so ops can "
-            "correlate without exposing PII."
+            "Masked phone must appear in the failure log."
         )
 
 

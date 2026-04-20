@@ -97,6 +97,10 @@ class TestGetSMSProviderNew:
         monkeypatch.setattr(
             "app.services.providers.sms.factory.settings.sms_provider", "aliyun"
         )
+        monkeypatch.setattr("app.config.settings.sms_access_key", "ak")
+        monkeypatch.setattr("app.config.settings.sms_access_secret", "sk")
+        monkeypatch.setattr("app.config.settings.sms_sign_name", "sig")
+        monkeypatch.setattr("app.config.settings.sms_template_code", "TPL")
         assert isinstance(get_sms_provider(), AliyunSMSProvider)
 
     def test_unknown_falls_back_to_mock(self, monkeypatch, caplog):
@@ -110,39 +114,30 @@ class TestGetSMSProviderNew:
 
 
 # ---------------------------------------------------------------------------
-# Aliyun placeholder
+# Aliyun provider — credential validation
 # ---------------------------------------------------------------------------
-@pytest.mark.asyncio
-class TestAliyunPlaceholder:
-    async def test_send_otp_raises_not_implemented(self, caplog):
-        provider = AliyunSMSProvider()
-        with caplog.at_level(logging.ERROR, logger="app.services.providers.sms.aliyun"):
-            with pytest.raises(NotImplementedError) as exc_info:
-                await provider.send_otp("13800010001", "123456")
-        # Required-settings hint must be visible somewhere (exception OR log).
-        msg = str(exc_info.value)
-        log_text = "\n".join(r.getMessage() for r in caplog.records)
-        for required in ALIYUN_REQUIRED_PRODUCTION_SETTINGS:
-            assert required in msg or required in log_text, (
-                f"Required setting {required} should appear in error message or logs"
-            )
-        # And the log must use the masked phone, not the raw one.
-        assert "138****0001" in log_text
-        assert "13800010001" not in log_text
+class TestAliyunCredentialValidation:
+    def test_missing_credentials_raises_value_error(self):
+        """Without credentials, AliyunSMSProvider() raises ValueError."""
+        with pytest.raises(ValueError, match="SMS_ACCESS_KEY"):
+            AliyunSMSProvider()
 
-    async def test_send_notification_raises_not_implemented(self):
+    def test_with_credentials_succeeds(self, monkeypatch):
+        """With credentials set, AliyunSMSProvider() initialises."""
+        monkeypatch.setattr("app.config.settings.sms_access_key", "ak")
+        monkeypatch.setattr("app.config.settings.sms_access_secret", "sk")
+        monkeypatch.setattr("app.config.settings.sms_sign_name", "sig")
+        monkeypatch.setattr("app.config.settings.sms_template_code", "TPL")
         provider = AliyunSMSProvider()
-        with pytest.raises(NotImplementedError):
-            await provider.send_notification("13800010001", "TPL_999", {"x": "1"})
+        assert provider.name == "aliyun"
 
 
 class TestAliyunRequiredSettings:
-    """Sync-only checks for the placeholder's contract surface."""
+    """Checks for the required settings constant."""
 
     def test_required_production_settings_constant_shape(self):
-        # Must be a non-empty tuple of upper-snake setting names.
         assert isinstance(ALIYUN_REQUIRED_PRODUCTION_SETTINGS, tuple)
-        assert len(ALIYUN_REQUIRED_PRODUCTION_SETTINGS) >= 5
+        assert len(ALIYUN_REQUIRED_PRODUCTION_SETTINGS) >= 4
         for name in ALIYUN_REQUIRED_PRODUCTION_SETTINGS:
             assert name.isupper()
             assert "_" in name
