@@ -73,3 +73,15 @@ class PaymentRepository(BaseRepository[Payment]):
         stmt = select(Payment).where(Payment.trade_no == trade_no).limit(1)
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
+
+    async def get_by_refund_id(self, refund_id: str) -> Payment | None:
+        stmt = (
+            select(Payment)
+            .where(
+                Payment.refund_id == refund_id,
+                Payment.payment_type == "refund",
+            )
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
