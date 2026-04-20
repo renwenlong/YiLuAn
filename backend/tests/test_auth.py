@@ -246,3 +246,80 @@ class TestTokenSecurity:
         )
         assert response.status_code == 401
         assert "disabled" in response.json()["detail"].lower()
+
+
+# ===========================================================================
+# OTP brute-force protection
+# ===========================================================================
+class TestOTPBruteForceProtection:
+    """P0-01: 5 failed OTP attempts → 15 min lockout."""
+
+    PHONE = "13800139999"
+    OTP_KEY = f"otp:{PHONE}"
+    FAIL_KEY = f"otp:fail:{PHONE}"
+
+    async def test_valid_otp_succeeds(self, client, fake_redis):
+        await fake_redis.set(self.OTP_KEY, "123456", ex=300)
+        resp = await client.post(
+            "/api/v1/auth/verify-otp",
+            json={"phone": self.PHONE, "code": "123456"},
+        )
+        assert resp.status_code == 200
+        assert "access_token" in resp.json()
+
+    async def test_failed_attempts_under_limit(self, client, fake_redis):
+        await fake_redis.set(self.OTP_KEY, "123456", ex=300)
+        for _ in range(4):
+            resp = await client.post(
+                "/api/v1/auth/verify-otp",
+                json={"phone": self.PHONE, "code": "000001"},
+            )
+            assert resp.status_code == 400
+
+    async def test_fifth_failure_triggers_lockout(self, client, fake_redis):
+        await fake_redis.set(self.OTP_KEY, "123456", ex=300)
+        for i in range(5):
+            resp = await client.post(
+                "/api/v1/auth/verify-otp",
+                json={"phone": self.PHONE, "code": "000001"},
+            )
+        # 5th attempt itself returns 400, but now locked
+        assert resp.status_code == 400
+        # Next attempt should be 429
+        resp = await client.post(
+            "/api/v1/auth/verify-otp",
+            json={"phone": self.PHONE, "code": "000001"},
+        )
+        assert resp.status_code == 429
+        assert "Too many failed attempts" in resp.json()["detail"]
+
+    async def test_lockout_blocks_correct_code(self, client, fake_redis):
+        # Simulate 5 failures
+        await fake_redis.set(self.FAIL_KEY, "5")
+        await fake_redis.expire(self.FAIL_KEY, 900)
+        await fake_redis.set(self.OTP_KEY, "123456", ex=300)
+        resp = await client.post(
+            "/api/v1/auth/verify-otp",
+            json={"phone": self.PHONE, "code": "123456"},
+        )
+        assert resp.status_code == 429
+
+    async def test_success_clears_fail_counter(self, client, fake_redis):
+        # Accumulate 3 failures
+        await fake_redis.set(self.OTP_KEY, "123456", ex=300)
+        for _ in range(3):
+            await client.post(
+                "/api/v1/auth/verify-otp",
+                json={"phone": self.PHONE, "code": "000001"},
+            )
+        count = await fake_redis.get(self.FAIL_KEY)
+        assert int(count) == 3
+        # Now succeed (OTP is still there for wrong-code failures)
+        resp = await client.post(
+            "/api/v1/auth/verify-otp",
+            json={"phone": self.PHONE, "code": "123456"},
+        )
+        assert resp.status_code == 200
+        # Counter should be cleared
+        count = await fake_redis.get(self.FAIL_KEY)
+        assert count is None
