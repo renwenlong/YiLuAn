@@ -36,6 +36,7 @@ from app.services.providers.sms.base import (
     SMSResult,
     mask_phone_sms,
 )
+from app.utils.outbound import outbound_call
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +69,7 @@ class AliyunSMSProvider(SMSProvider):
 
     # ------------------------------------------------------------------ API
 
+    @outbound_call(provider="aliyun_sms", timeout=5.0, max_retries=2)
     async def send_otp(
         self,
         phone: str,
@@ -76,6 +78,7 @@ class AliyunSMSProvider(SMSProvider):
     ) -> SMSResult:
         return self._not_implemented(phone, kind="otp", template=template_id or self.template_code)
 
+    @outbound_call(provider="aliyun_sms", timeout=5.0, max_retries=2)
     async def send_notification(
         self,
         phone: str,
