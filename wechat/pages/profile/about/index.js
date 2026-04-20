@@ -1,5 +1,7 @@
 Page({
   data: {
-    version: '1.0.0'
+    version: '__APP_VERSION__',
+    gitSha: '__GIT_SHA__',
+    buildTime: '__BUILD_TIME__'
   }
 })
