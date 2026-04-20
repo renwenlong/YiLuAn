@@ -10,13 +10,12 @@ const ENV = {
 }
 
 // __wxConfig.envVersion: 'develop' | 'trial' | 'release'
-const env = typeof __wxConfig !== 'undefined' && __wxConfig.envVersion === 'release'
-  ? 'production'
-  : 'development'
+const envVersion = typeof __wxConfig !== 'undefined' ? __wxConfig.envVersion : 'develop'
+const env = envVersion === 'release' ? 'production' : 'development'
 
 module.exports = {
   ...ENV[env],
   OTP_LENGTH: 6,
-  DEV_OTP: '000000',
+  DEV_OTP: env === 'development' ? '000000' : null,
   PAGE_SIZE: 20,
 }
