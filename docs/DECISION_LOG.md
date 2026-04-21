@@ -745,22 +745,22 @@ P0-1 已经把支付落到 `app.services.providers.payment` 包里（mock / wech
 
 - **ID**：TD-OPS-02（Tech-Debt / Ops）
 - **状态**：Logged，未实现
-- **关联**：D-027、A21-02-partial（commit 待填，本次只落 expires_at 字段）
+- **关联**：D-027、A21-02-partial、**D-033（sms_send_log 已建表，纳入清理范围）**
 - **上下文**：A21-02-partial 已为 `payment_callback_log` 增加 `expires_at` 字段+索引，应用层后续在写入新行时填 `now() + 90d`。本次 migration 不含后台清理 job，也不回填历史数据（历史行 `expires_at = NULL`）。
 - **待实现工作**：
-  1. 在 `backend/app/scheduler` 增加每日 job：
+  1. 在 `backend/app/scheduler` 增加每日 job，覆盖 **两张表**（`payment_callback_log`、`sms_send_log`）：
      - 删除 `expires_at < now()` 的行
      - 对 `expires_at IS NULL` 的历史行使用 fallback 策略（按 `created_at < now() - 90d` 判定）
-  2. 写入路径同步：`payment_callback.py` 在 INSERT 时填充 `expires_at = now() + 90d`
+  2. 写入路径同步：`payment_callback.py` 在 INSERT 时填充 `expires_at = now() + 90d`（sms_send_log 已在 wrapper 中默认填充，无需补做）
   3. 归档：D-027 决策中提到 OSS NDJSON 归档（待 B-03 OSS 接入完成后再做，本任务只做删除）
   4. 指标：`cleanup_deleted_total{table=payment_callback_log}` Counter
 - **Owner**：Backend
 - **优先级**：P2（数据量增长前不阻塞，但建议在 30 天内完成首个清理 job 上线）
 
-### A21-02b sms_send_log 表设计与字段落地（follow-up，待架构师定 schema）
+### A21-02b sms_send_log 表设计与字段落地（follow-up，已落地 D-033）
 
 - **ID**：A21-02b
-- **状态**：Blocked on Arch decision
+- **状态**：✅ 已落地（2026-04-21，D-033）— migration `d1e2f3a4b5c6_add_sms_send_log`、model `app/models/sms_send_log.py`、wrapper `app/services/providers/sms/logging_wrapper.py`、12 用例 `tests/test_sms_send_log.py`，全套 585 passed / 0 failed。详见 D-033。
 - **关联**：D-027、A21-02-partial
 - **背景**：D-027 原文同时覆盖 `payment_callback_log` 和 `sms_send_log` 两张表，但代码库当前没有 `sms_send_log` 表（无 model、无 migration、SMS provider 调用从未落库）。A21-02-partial 仅完成 payment 半边；SMS 半边拆出本任务。
 - **待架构师决策的 schema 项**：
