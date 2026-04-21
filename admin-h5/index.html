@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>YiLuAn Admin · Companion Audit</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">YiLuAn 后台 · 陪诊师审核 <span class="env-tag" id="envTag">MVP</span></div>
+    <div class="actions">
+      <span id="adminInfo" class="admin-info"></span>
+      <button id="logoutBtn" class="btn btn-ghost" hidden>退出</button>
+    </div>
+  </header>
+
+  <main id="app">
+    <!-- Login view -->
+    <section id="loginView" class="card login-card" hidden>
+      <h2>登录</h2>
+      <p class="hint">输入运营后台 Admin Token（环境变量 ADMIN_TOKEN）。Token 仅缓存在本机 localStorage。</p>
+      <div class="form-row">
+        <label for="apiBaseInput">后端地址</label>
+        <input id="apiBaseInput" type="text" placeholder="http://127.0.0.1:8000" />
+      </div>
+      <div class="form-row">
+        <label for="tokenInput">Admin Token</label>
+        <input id="tokenInput" type="password" placeholder="请输入 X-Admin-Token" />
+      </div>
+      <div class="form-row">
+        <button id="loginBtn" class="btn btn-primary">登录并加载列表</button>
+      </div>
+      <div id="loginError" class="error" hidden></div>
+    </section>
+
+    <!-- List view -->
+    <section id="listView" class="card" hidden>
+      <div class="list-toolbar">
+        <h2>待审核陪诊师</h2>
+        <div class="toolbar-right">
+          <button id="refreshBtn" class="btn btn-ghost">刷新</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 200px">ID</th>
+              <th>真实姓名</th>
+              <th>身份证号</th>
+              <th>资质材料</th>
+              <th>提交时间</th>
+              <th style="width: 220px">操作</th>
+            </tr>
+          </thead>
+          <tbody id="companionsTbody">
+            <tr><td colspan="6" class="empty">加载中…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="pagination">
+        <button id="prevPageBtn" class="btn btn-ghost">上一页</button>
+        <span id="pageInfo">第 1 / 1 页 · 共 0 条</span>
+        <button id="nextPageBtn" class="btn btn-ghost">下一页</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Reject reason modal -->
+  <div id="rejectModal" class="modal" hidden>
+    <div class="modal-card">
+      <h3>拒绝原因</h3>
+      <p class="hint">请填写拒绝原因（1-500 字），将写入审计日志并通知申请人。</p>
+      <textarea id="rejectReason" rows="4" maxlength="500" placeholder="例如：身份证照片模糊，请重新上传"></textarea>
+      <div class="modal-actions">
+        <button id="rejectCancelBtn" class="btn btn-ghost">取消</button>
+        <button id="rejectConfirmBtn" class="btn btn-danger">确认拒绝</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
