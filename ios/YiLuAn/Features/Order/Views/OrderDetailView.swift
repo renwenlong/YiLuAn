@@ -65,6 +65,10 @@ struct OrderDetailView: View {
                 }
             }
         }
+        // 统一挂载后端 guard-code 提示。
+        .phoneRequiredAlert($viewModel.phoneRequiredMessage)
+        .paymentRequiredAlert($viewModel.paymentRequiredMessage)
+        .verificationRequiredAlert($viewModel.verificationRequiredMessage)
     }
 
     private func statusHeader(_ order: Order) -> some View {
@@ -172,6 +176,15 @@ struct OrderDetailView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+
+                Button(role: .destructive) {
+                    pendingAction = "reject"
+                    showActionAlert = true
+                } label: {
+                    Text("拒绝订单")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
             }
 
             if order.status == .accepted {
@@ -179,10 +192,19 @@ struct OrderDetailView: View {
                     pendingAction = "start"
                     showActionAlert = true
                 } label: {
-                    Text("开始服务")
+                    Text("直接开始服务")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
+
+                Button {
+                    pendingAction = "request-start"
+                    showActionAlert = true
+                } label: {
+                    Text("请求患者确认开始")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
             }
 
             if order.status == .inProgress {
@@ -208,7 +230,9 @@ struct OrderDetailView: View {
     private var actionMessage: String {
         switch pendingAction {
         case "accept": return "确定要接受该订单吗？"
+        case "reject": return "确定要拒绝该订单吗？拒绝后系统将自动退款给患者。"
         case "start": return "确认开始为患者提供陪诊服务？"
+        case "request-start": return "向患者发送开始服务的确认请求？"
         case "complete": return "确认已完成本次陪诊服务？"
         default: return "确认操作？"
         }

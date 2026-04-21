@@ -19,6 +19,7 @@ from httpx import AsyncClient
 from app.core import error_codes
 from app.core.security import create_access_token
 from app.models.companion_profile import CompanionProfile, VerificationStatus
+from app.models.order import OrderStatus
 from app.models.user import UserRole
 from tests.conftest import test_session_factory
 
@@ -129,9 +130,6 @@ async def test_admin_approve_blocked_when_owner_has_no_phone(client: AsyncClient
     assert _extract_error_code(resp.json()) == error_codes.PHONE_REQUIRED
 
 
-# ---------- Backward compatibility: error code is optional ----------
-
-
 @pytest.mark.asyncio
 async def test_legacy_error_without_code_still_string(client: AsyncClient, seed_user, seed_hospital):
     """已有 BadRequestException(detail='...') 调用未传 error_code → detail 仍是字符串"""
@@ -146,3 +144,94 @@ async def test_legacy_error_without_code_still_string(client: AsyncClient, seed_
     detail = resp.json().get("detail")
     # 旧路径 detail 应仍是 str（向后兼容）
     assert isinstance(detail, str)
+
+
+# ---------- Companion without verified profile trying to accept ----------
+
+
+@pytest.mark.asyncio
+async def test_accept_order_requires_verification(
+    client: AsyncClient, seed_user, seed_hospital, seed_order
+):
+    """手机号已绑、却没有 verified profile 的陪诊师接单 → 400 VERIFICATION_REQUIRED"""
+    patient = await seed_user(phone="13900000221", role=UserRole.patient)
+    hospital = await seed_hospital()
+    order = await seed_order(patient.id, hospital.id)
+
+    # 手机号已绑定，但没有 CompanionProfile
+    companion = await seed_user(phone="13700000221", role=UserRole.companion)
+    token = create_access_token({"sub": str(companion.id), "role": "companion"})
+    client.headers["Authorization"] = f"Bearer {token}"
+
+    resp = await client.post(f"/api/v1/orders/{order.id}/accept")
+    assert resp.status_code == 400, resp.text
+    assert _extract_error_code(resp.json()) == error_codes.VERIFICATION_REQUIRED
+
+
+@pytest.mark.asyncio
+async def test_accept_order_blocked_for_pending_verification(
+    client: AsyncClient, seed_user, seed_hospital, seed_order
+):
+    """profile 存在但还在 pending，接单同样被 VERIFICATION_REQUIRED 拦"""
+    patient = await seed_user(phone="13900000222", role=UserRole.patient)
+    hospital = await seed_hospital()
+    order = await seed_order(patient.id, hospital.id)
+
+    companion = await seed_user(phone="13700000222", role=UserRole.companion)
+    async with test_session_factory() as session:
+        profile = CompanionProfile(
+            user_id=companion.id,
+            real_name="还在审核",
+            verification_status=VerificationStatus.pending,
+        )
+        session.add(profile)
+        await session.commit()
+
+    token = create_access_token({"sub": str(companion.id), "role": "companion"})
+    client.headers["Authorization"] = f"Bearer {token}"
+
+    resp = await client.post(f"/api/v1/orders/{order.id}/accept")
+    assert resp.status_code == 400, resp.text
+    assert _extract_error_code(resp.json()) == error_codes.VERIFICATION_REQUIRED
+
+
+# ---------- PAYMENT_REQUIRED: start / confirm-start without payment ----------
+
+
+@pytest.mark.asyncio
+async def test_start_order_requires_payment(
+    client: AsyncClient, seed_user, seed_hospital, seed_order, seed_companion_profile
+):
+    """未支付订单陆单后陪诊师调 /start → 400 PAYMENT_REQUIRED"""
+    patient = await seed_user(phone="13900000310", role=UserRole.patient)
+    hospital = await seed_hospital()
+    companion = await seed_user(phone="13700000310", role=UserRole.companion)
+    await seed_companion_profile(user_id=companion.id)  # verified
+    order = await seed_order(
+        patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted
+    )
+    token = create_access_token({"sub": str(companion.id), "role": "companion"})
+    client.headers["Authorization"] = f"Bearer {token}"
+
+    resp = await client.post(f"/api/v1/orders/{order.id}/start")
+    assert resp.status_code == 400, resp.text
+    assert _extract_error_code(resp.json()) == error_codes.PAYMENT_REQUIRED
+
+
+@pytest.mark.asyncio
+async def test_confirm_start_requires_payment(
+    client: AsyncClient, seed_user, seed_hospital, seed_order
+):
+    """未支付订单患者确认开始 → 400 PAYMENT_REQUIRED"""
+    patient = await seed_user(phone="13900000320", role=UserRole.patient)
+    hospital = await seed_hospital()
+    companion = await seed_user(phone="13700000320", role=UserRole.companion)
+    order = await seed_order(
+        patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted
+    )
+    token = create_access_token({"sub": str(patient.id), "role": "patient"})
+    client.headers["Authorization"] = f"Bearer {token}"
+
+    resp = await client.post(f"/api/v1/orders/{order.id}/confirm-start")
+    assert resp.status_code == 400, resp.text
+    assert _extract_error_code(resp.json()) == error_codes.PAYMENT_REQUIRED

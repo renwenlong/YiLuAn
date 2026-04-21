@@ -28,16 +28,30 @@ class OrderViewModel: ObservableObject {
     @Published var total = 0
     /// 当后端返回 PHONE_REQUIRED 时设置，view 进行弹窗 + 引导用户去绑定手机号。
     @Published var phoneRequiredMessage: String?
+    /// 当后端返回 PAYMENT_REQUIRED 时设置，view 弹窗并提示用户/陪诊师先完成支付。
+    @Published var paymentRequiredMessage: String?
+    /// 当后端返回 VERIFICATION_REQUIRED 时设置，view 弹窗并提示陪诊师资质未审核通过。
+    @Published var verificationRequiredMessage: String?
 
-    /// 统一的错误处理：遇到 PHONE_REQUIRED 写到 phoneRequiredMessage，
+    /// 统一的错误处理：遇到机器可读码写入对应的 *RequiredMessage，
     /// 其余错误写到 errorMessage。
     private func handleError(_ error: Error) {
-        if let apiError = error as? APIError,
-           case .phoneRequired(let msg) = apiError {
-            phoneRequiredMessage = msg
-            return
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .phoneRequired(let msg):
+                phoneRequiredMessage = msg
+                return
+            case .paymentRequired(let msg):
+                paymentRequiredMessage = msg
+                return
+            case .verificationRequired(let msg):
+                verificationRequiredMessage = msg
+                return
+            default:
+                break
+            }
         }
-        handleError(error)
+        errorMessage = error.localizedDescription
     }
 
     func loadOrders(status: String? = nil, page: Int = 1) async {

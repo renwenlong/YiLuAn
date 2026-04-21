@@ -19,14 +19,23 @@ class CompanionProfileViewModel: ObservableObject {
     @Published var stats: CompanionStatsResponse?
     /// 当后端返回 PHONE_REQUIRED 时设置，view 进行弹窗 + 引导用户去绑定手机号。
     @Published var phoneRequiredMessage: String?
+    /// 当后端返回 VERIFICATION_REQUIRED 时设置。
+    @Published var verificationRequiredMessage: String?
 
     private func handleError(_ error: Error) {
-        if let apiError = error as? APIError,
-           case .phoneRequired(let msg) = apiError {
-            phoneRequiredMessage = msg
-            return
+        if let apiError = error as? APIError {
+            switch apiError {
+            case .phoneRequired(let msg):
+                phoneRequiredMessage = msg
+                return
+            case .verificationRequired(let msg):
+                verificationRequiredMessage = msg
+                return
+            default:
+                break
+            }
         }
-        handleError(error)
+        errorMessage = error.localizedDescription
     }
 
     // MARK: - List & Detail
