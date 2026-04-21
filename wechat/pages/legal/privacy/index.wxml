@@ -7,7 +7,7 @@
 >
   <view id="legal-top"></view>
   <view class="legal-title">医路安隐私政策</view>
-  <view class="legal-meta">更新日期：2026年4月10日　生效日期：2026年4月10日</view>
+  <view class="legal-meta">更新日期：{{updatedAt}}　生效日期：{{effectiveAt}}</view>
 
   <view class="legal-section">
     <view class="section-title">一、引言</view>
