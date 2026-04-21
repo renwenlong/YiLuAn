@@ -2,8 +2,11 @@
  * Patient Order Detail — Upgraded UI v2.0
  * ============================================ */
 
+/* A21-05: action-bar 改为跟随内容 + safe-area padding，page 不再需要为 fixed bar 预留底部空间 */
 .page-container {
-  padding-bottom: 160rpx;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
 }
 
 /* ---- Status Header with Gradients ---- */
@@ -289,11 +292,17 @@
 }
 
 /* ---- Action Bar ---- */
+/*
+ * A21-05 fix: 原 position:fixed + 父容器固定 padding-bottom 在 iPhone SE 上会出现 2rpx ~ 2px 错位
+ * （状态栏/safe-area 计算误差）。改为 sticky + flex 末端，让按钮跟随文档流，并通过
+ * env(safe-area-inset-bottom) 兜底所有 iOS 机型的底部安全区。
+ */
 .action-bar {
-  position: fixed;
+  position: sticky;
   bottom: 0;
   left: 0;
   right: 0;
+  margin-top: auto; /* flex 列末端：内容不足一屏时仍贴底 */
   display: flex;
   gap: var(--spacing-sm);
   padding: var(--spacing-md) var(--spacing-lg);
