@@ -18,6 +18,12 @@ PHONE_REQUIRED = "PHONE_REQUIRED"
 
 REALNAME_REQUIRED = "REALNAME_REQUIRED"  # reserved for future实名校验
 VERIFICATION_PENDING = "VERIFICATION_PENDING"  # reserved
+VERIFICATION_REQUIRED = "VERIFICATION_REQUIRED"
+"""Operation needs the user to be verified (e.g. companion qualification approved)."""
+
+# --- Payment ---
+PAYMENT_REQUIRED = "PAYMENT_REQUIRED"
+"""Operation requires the user to complete payment first."""
 
 # --- Order domain ---
 ORDER_HAS_UNPAID = "ORDER_HAS_UNPAID"
@@ -42,6 +48,8 @@ __all__ = [
     "PHONE_REQUIRED",
     "REALNAME_REQUIRED",
     "VERIFICATION_PENDING",
+    "VERIFICATION_REQUIRED",
+    "PAYMENT_REQUIRED",
     "ORDER_HAS_UNPAID",
     "ORDER_NOT_FOUND",
     "ORDER_TRANSITION_INVALID",

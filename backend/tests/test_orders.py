@@ -194,7 +194,7 @@ class TestOrderStateMachine:
         assert data["companion_id"] is not None
 
     async def test_start_order(
-        self, companion_client, seed_hospital, seed_order, seed_user
+        self, companion_client, seed_hospital, seed_order, seed_user, seed_payment
     ):
         patient = await seed_user(phone="13500135001")
         companion = companion_client._test_user
@@ -205,6 +205,7 @@ class TestOrderStateMachine:
             companion_id=companion.id,
             status=OrderStatus.accepted,
         )
+        await seed_payment(order.id, patient.id)
         resp = await companion_client.post(f"/api/v1/orders/{order.id}/start")
         assert resp.status_code == 200
         assert resp.json()["status"] == "in_progress"
@@ -362,7 +363,7 @@ class TestOrderStateMachine:
         assert resp.status_code == 400
 
     async def test_confirm_start_by_patient(
-        self, authenticated_client, seed_hospital, seed_order, seed_user
+        self, authenticated_client, seed_hospital, seed_order, seed_user, seed_payment
     ):
         """Patient confirms start — order transitions accepted → in_progress."""
         user = authenticated_client._test_user
@@ -374,6 +375,7 @@ class TestOrderStateMachine:
             companion_id=companion.id,
             status=OrderStatus.accepted,
         )
+        await seed_payment(order.id, user.id)
         resp = await authenticated_client.post(
             f"/api/v1/orders/{order.id}/confirm-start"
         )
@@ -435,7 +437,7 @@ class TestOrderStateMachine:
         assert resp.status_code == 403
 
     async def test_full_lifecycle(
-        self, authenticated_client, seed_hospital, seed_user
+        self, authenticated_client, seed_hospital, seed_user, seed_companion_profile, seed_payment
     ):
         hospital = await seed_hospital()
         # Create order as patient
@@ -455,6 +457,7 @@ class TestOrderStateMachine:
         from app.core.security import create_access_token
 
         companion = await seed_user(phone="13500135099", role="companion")
+        await seed_companion_profile(user_id=companion.id)
         companion_token = create_access_token(
             {"sub": str(companion.id), "role": "companion"}
         )
@@ -465,6 +468,9 @@ class TestOrderStateMachine:
         resp = await authenticated_client.post(f"/api/v1/orders/{order_id}/accept")
         assert resp.status_code == 200
         assert resp.json()["status"] == "accepted"
+        # Pay (患者支付) — 模拟：直接 seed 一条 payment
+        import uuid as _uuid
+        await seed_payment(_uuid.UUID(order_id), authenticated_client._test_user.id)
         # Start
         resp = await authenticated_client.post(f"/api/v1/orders/{order_id}/start")
         assert resp.status_code == 200
@@ -478,7 +484,7 @@ class TestOrderStateMachine:
         authenticated_client.headers["Authorization"] = saved_auth
 
     async def test_full_lifecycle_with_confirm_start(
-        self, authenticated_client, seed_hospital, seed_user
+        self, authenticated_client, seed_hospital, seed_user, seed_companion_profile, seed_payment
     ):
         """Full lifecycle using request-start + confirm-start flow."""
         hospital = await seed_hospital()
@@ -499,6 +505,7 @@ class TestOrderStateMachine:
 
         # Switch to companion
         companion = await seed_user(phone="13500135098", role="companion")
+        await seed_companion_profile(user_id=companion.id)
         companion_token = create_access_token(
             {"sub": str(companion.id), "role": "companion"}
         )
@@ -509,6 +516,10 @@ class TestOrderStateMachine:
         resp = await authenticated_client.post(f"/api/v1/orders/{order_id}/accept")
         assert resp.status_code == 200
         assert resp.json()["status"] == "accepted"
+
+        # Pay (患者支付) — 模拟： seed payment
+        import uuid as _uuid
+        await seed_payment(_uuid.UUID(order_id), authenticated_client._test_user.id)
 
         # Companion requests start — status stays accepted
         resp = await authenticated_client.post(

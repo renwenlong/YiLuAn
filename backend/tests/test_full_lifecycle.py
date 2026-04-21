@@ -343,7 +343,7 @@ class TestStage4_StartService:
         _restore_auth(authenticated_client, saved)
 
     async def test_confirm_start_by_patient(
-        self, authenticated_client, seed_hospital, seed_user, seed_order, seed_companion_profile
+        self, authenticated_client, seed_hospital, seed_user, seed_order, seed_companion_profile, seed_payment
     ):
         user = authenticated_client._test_user
         companion = await seed_user(phone="13500135401", role="companion")
@@ -352,12 +352,13 @@ class TestStage4_StartService:
         order = await seed_order(
             user.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted
         )
+        await seed_payment(order.id, user.id)
         resp = await authenticated_client.post(f"/api/v1/orders/{order.id}/confirm-start")
         assert resp.status_code == 200
         assert resp.json()["status"] == "in_progress"
 
     async def test_direct_start_by_companion(
-        self, authenticated_client, seed_hospital, seed_user, seed_order, seed_companion_profile
+        self, authenticated_client, seed_hospital, seed_user, seed_order, seed_companion_profile, seed_payment
     ):
         user = authenticated_client._test_user
         companion = await seed_user(phone="13500135402", role="companion")
@@ -366,6 +367,7 @@ class TestStage4_StartService:
         order = await seed_order(
             user.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted
         )
+        await seed_payment(order.id, user.id)
         saved = _switch_to_companion(authenticated_client, companion)
         resp = await authenticated_client.post(f"/api/v1/orders/{order.id}/start")
         assert resp.status_code == 200

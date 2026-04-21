@@ -222,6 +222,7 @@ class TestAcceptOrder:
     async def test_accept_order_success(self):
         patient = await _make_user(phone="10000000020")
         companion = await _make_user(phone="10000000021", role=UserRole.companion)
+        await _make_companion_profile(companion.id)
         hospital = await _make_hospital("医院A")
         order = await _make_order(patient.id, hospital.id)
         async with test_session_factory() as s:
@@ -243,6 +244,7 @@ class TestAcceptOrder:
     async def test_accept_already_accepted_fails(self):
         patient = await _make_user(phone="10000000023")
         companion = await _make_user(phone="10000000024", role=UserRole.companion)
+        await _make_companion_profile(companion.id)
         hospital = await _make_hospital("医院A3")
         order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted)
         async with test_session_factory() as s:
@@ -261,6 +263,7 @@ class TestStartOrder:
         companion = await _make_user(phone="10000000031", role=UserRole.companion)
         hospital = await _make_hospital("医院S")
         order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted)
+        await _make_payment(order.id, patient.id)
         async with test_session_factory() as s:
             svc = OrderService(s)
             result = await svc.start_order(order.id, companion)
@@ -283,6 +286,7 @@ class TestStartOrder:
         companion = await _make_user(phone="10000000036", role=UserRole.companion)
         hospital = await _make_hospital("医院S3")
         order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.cancelled_by_patient)
+        await _make_payment(order.id, patient.id)
         async with test_session_factory() as s:
             svc = OrderService(s)
             with pytest.raises(BadRequestException, match="Cannot transition"):
@@ -635,6 +639,7 @@ class TestStartServiceFlow:
         companion = await _make_user(phone="10000000115", role=UserRole.companion)
         hospital = await _make_hospital("医院F3")
         order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted)
+        await _make_payment(order.id, patient.id)
         async with test_session_factory() as s:
             svc = OrderService(s)
             result = await svc.confirm_start_service(order.id, patient)
@@ -675,6 +680,8 @@ class TestStateTransitions:
                 companion_id=companion.id,
                 status=status,
             )
+            # payment seed 以确保 start_order 先过 payment 检查、然后在 transition 上报错
+            await _make_payment(order.id, patient.id)
             async with test_session_factory() as s:
                 svc = OrderService(s)
                 with pytest.raises(BadRequestException, match="Cannot transition"):

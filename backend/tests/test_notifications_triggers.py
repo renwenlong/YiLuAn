@@ -37,10 +37,11 @@ class TestOrderNotificationTriggers:
         assert str(order.id) in notif["reference_id"]
 
     async def test_start_order_creates_notification(
-        self, client, seed_user, seed_hospital, seed_order
+        self, client, seed_user, seed_hospital, seed_order, seed_companion_profile, seed_payment
     ):
         patient = await seed_user(phone="13800138101", role=UserRole.patient)
         companion = await seed_user(phone="13700137101", role=UserRole.companion)
+        await seed_companion_profile(user_id=companion.id)
         hospital = await seed_hospital()
         order = await seed_order(
             patient.id,
@@ -48,6 +49,7 @@ class TestOrderNotificationTriggers:
             companion_id=companion.id,
             status=OrderStatus.accepted,
         )
+        await seed_payment(order.id, patient.id)
 
         companion_token = create_access_token(
             {"sub": str(companion.id), "role": "companion"}
@@ -181,7 +183,7 @@ class TestOrderNotificationTriggers:
         )
 
     async def test_confirm_start_notifies_companion(
-        self, client, seed_user, seed_hospital, seed_order
+        self, client, seed_user, seed_hospital, seed_order, seed_payment
     ):
         """Patient confirm-start sends order_status_changed notification to companion."""
         patient = await seed_user(phone="13800138105", role=UserRole.patient)
@@ -193,6 +195,7 @@ class TestOrderNotificationTriggers:
             companion_id=companion.id,
             status=OrderStatus.accepted,
         )
+        await seed_payment(order.id, patient.id)
 
         patient_token = create_access_token(
             {"sub": str(patient.id), "role": "patient"}

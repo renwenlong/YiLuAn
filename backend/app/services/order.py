@@ -191,6 +191,13 @@ class OrderService:
                 "请先绑定手机号后再接单",
                 error_code=error_codes.PHONE_REQUIRED,
             )
+        # 前置：陪诊师资质必须已审核通过
+        profile = await self.companion_repo.get_by_user_id(user.id)
+        if profile is None or profile.verification_status.value != "verified":
+            raise BadRequestException(
+                "陪诊师资质未审核通过，暂时不能接单",
+                error_code=error_codes.VERIFICATION_REQUIRED,
+            )
         self._validate_transition(order.status, OrderStatus.accepted)
 
         update_data = {
@@ -213,6 +220,13 @@ class OrderService:
         order = await self._get_order_for_update_or_404(order_id)
         if order.companion_id != user.id:
             raise ForbiddenException("Not your order")
+        # 前置：订单必须已支付才能开始服务
+        existing_pay = await self.payment_repo.get_by_order_and_type(order_id, "pay")
+        if not existing_pay or existing_pay.status != "success":
+            raise BadRequestException(
+                "订单尚未支付，请提醒患者完成支付后再开始服务",
+                error_code=error_codes.PAYMENT_REQUIRED,
+            )
         self._validate_transition(order.status, OrderStatus.in_progress)
 
         order = await self.order_repo.update(
@@ -246,6 +260,13 @@ class OrderService:
         order = await self._get_order_for_update_or_404(order_id)
         if order.patient_id != user.id:
             raise ForbiddenException("Not your order")
+        # 前置：订单必须已支付才能确认开始服务
+        existing_pay = await self.payment_repo.get_by_order_and_type(order_id, "pay")
+        if not existing_pay or existing_pay.status != "success":
+            raise BadRequestException(
+                "订单尚未支付，请先完成支付",
+                error_code=error_codes.PAYMENT_REQUIRED,
+            )
         self._validate_transition(order.status, OrderStatus.in_progress)
 
         order = await self.order_repo.update(

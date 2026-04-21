@@ -4,7 +4,10 @@ const { getAccessToken, setAccessToken, setRefreshToken, getRefreshToken, clearT
 let _isRefreshing = false
 let _refreshQueue = []
 
-function request({ url, method = 'GET', data, auth = true, _skipPhoneRequiredHandler = false }) {
+function request({ url, method = 'GET', data, auth = true, _skipGuardHandlers = false, _skipPhoneRequiredHandler = false }) {
+  // `_skipPhoneRequiredHandler` 保留为向后兼容的参数。如果备调用流不希望自动触发 guard 弹窗，
+  // 建议使用 `_skipGuardHandlers: true`。
+  const skipGuards = _skipGuardHandlers || _skipPhoneRequiredHandler
   return new Promise((resolve, reject) => {
     const header = { 'Content-Type': 'application/json' }
     if (auth) {
@@ -24,12 +27,17 @@ function request({ url, method = 'GET', data, auth = true, _skipPhoneRequiredHan
           resolve(res.data)
         } else if (res.statusCode === 401 && auth) {
           _handleUnauthorized({ url, method, data, auth }, resolve, reject)
-        } else if (
-          res.statusCode === 400
-          && !_skipPhoneRequiredHandler
-          && _extractErrorCode(res.data) === 'PHONE_REQUIRED'
-        ) {
-          _handlePhoneRequired(res.data, reject)
+        } else if (res.statusCode === 400 && !skipGuards) {
+          const code = _extractErrorCode(res.data)
+          if (code === 'PHONE_REQUIRED') {
+            _handlePhoneRequired(res.data, reject)
+          } else if (code === 'PAYMENT_REQUIRED') {
+            _handlePaymentRequired(res.data, reject)
+          } else if (code === 'VERIFICATION_REQUIRED') {
+            _handleVerificationRequired(res.data, reject)
+          } else {
+            reject({ statusCode: res.statusCode, data: res.data })
+          }
         } else {
           reject({ statusCode: res.statusCode, data: res.data })
         }
@@ -81,6 +89,32 @@ function _handlePhoneRequired(payload, reject) {
         wx.navigateTo({ url })
       }
     }
+  })
+  reject({ statusCode: 400, data: payload, handled: true })
+}
+
+// 遇到 PAYMENT_REQUIRED 弹窗提示（先保持简单形式，后续可附带跳转支付页的逻辑）
+function _handlePaymentRequired(payload, reject) {
+  const detail = payload && payload.detail
+  const message = (detail && detail.message) || '订单尚未支付'
+  wx.showModal({
+    title: '订单尚未支付',
+    content: message,
+    confirmText: '知道了',
+    showCancel: false,
+  })
+  reject({ statusCode: 400, data: payload, handled: true })
+}
+
+// 遇到 VERIFICATION_REQUIRED 弹窗提示
+function _handleVerificationRequired(payload, reject) {
+  const detail = payload && payload.detail
+  const message = (detail && detail.message) || '陪诊师资质未审核通过'
+  wx.showModal({
+    title: '资质审核中',
+    content: message,
+    confirmText: '知道了',
+    showCancel: false,
   })
   reject({ statusCode: 400, data: payload, handled: true })
 }

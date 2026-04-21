@@ -8,6 +8,8 @@ enum APIError: Error, LocalizedError {
     case networkError(Error)
     case unauthorized
     case phoneRequired(message: String)
+    case paymentRequired(message: String)
+    case verificationRequired(message: String)
 
     var errorDescription: String? {
         switch self {
@@ -17,7 +19,20 @@ enum APIError: Error, LocalizedError {
         case .decodingError(let err): return "Decoding error: \(err.localizedDescription)"
         case .networkError(let err): return "Network error: \(err.localizedDescription)"
         case .unauthorized: return "Unauthorized"
-        case .phoneRequired(let msg): return msg
+        case .phoneRequired(let msg),
+             .paymentRequired(let msg),
+             .verificationRequired(let msg):
+            return msg
+        }
+    }
+
+    /// 返回该错误是否属于“前置条件未满足”的哪种机器可读码，供 UI 分发。
+    var guardCode: String? {
+        switch self {
+        case .phoneRequired: return BackendErrorCode.phoneRequired
+        case .paymentRequired: return BackendErrorCode.paymentRequired
+        case .verificationRequired: return BackendErrorCode.verificationRequired
+        default: return nil
         }
     }
 }
@@ -63,6 +78,8 @@ struct ErrorResponse: Decodable {
 /// Backend machine-readable error codes. Mirrors `backend/app/core/error_codes.py`.
 enum BackendErrorCode {
     static let phoneRequired = "PHONE_REQUIRED"
+    static let paymentRequired = "PAYMENT_REQUIRED"
+    static let verificationRequired = "VERIFICATION_REQUIRED"
 }
 
 actor APIClient {
@@ -125,18 +142,25 @@ actor APIClient {
         }
     }
 
-    /// Shared decoder for non-2xx responses. Throws `.phoneRequired` when the
-    /// backend returned the PHONE_REQUIRED error code; otherwise throws
-    /// `.httpError` with the backend-provided message (if parsable).
+    /// Shared decoder for non-2xx responses. Throws typed guard-errors
+    /// (`.phoneRequired` / `.paymentRequired` / `.verificationRequired`) when the
+    /// backend returned a recognized error code; otherwise throws `.httpError`
+    /// with the backend-provided message (if parsable).
     private nonisolated func throwForFailedResponse(_ data: Data, statusCode: Int) throws {
         let decoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         let errorMsg = try? decoder.decode(ErrorResponse.self, from: data)
-        if statusCode == 400,
-           errorMsg?.errorCode == BackendErrorCode.phoneRequired {
-            throw APIError.phoneRequired(
-                message: errorMsg?.message ?? "请先绑定手机号"
-            )
+        if statusCode == 400, let code = errorMsg?.errorCode {
+            switch code {
+            case BackendErrorCode.phoneRequired:
+                throw APIError.phoneRequired(message: errorMsg?.message ?? "请先绑定手机号")
+            case BackendErrorCode.paymentRequired:
+                throw APIError.paymentRequired(message: errorMsg?.message ?? "订单尚未支付")
+            case BackendErrorCode.verificationRequired:
+                throw APIError.verificationRequired(message: errorMsg?.message ?? "陪诊师资质未审核通过")
+            default:
+                break
+            }
         }
         throw APIError.httpError(statusCode: statusCode, message: errorMsg?.detail)
     }
@@ -249,16 +273,10 @@ actor APIClient {
             }
 
             guard (200...299).contains(httpResponse.statusCode) else {
-                let errorMsg = try? decoder.decode(ErrorResponse.self, from: data)
-                if httpResponse.statusCode == 400,
-                   errorMsg?.errorCode == BackendErrorCode.phoneRequired {
-                    throw APIError.phoneRequired(
-                        message: errorMsg?.message ?? "请先绑定手机号"
-                    )
-                }
+                try self.throwForFailedResponse(data, statusCode: httpResponse.statusCode)
                 throw APIError.httpError(
                     statusCode: httpResponse.statusCode,
-                    message: errorMsg?.detail
+                    message: nil
                 )
             }
 
