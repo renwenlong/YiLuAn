@@ -148,10 +148,14 @@ class TestReadinessParity:
 @pytest.mark.asyncio
 @pytest.mark.xfail(
     reason=(
-        "TECH_DEBT: /readiness does not yet check alembic_version vs head. "
-        "If a deploy lands new model code without running migrations, the "
-        "pod will report ready and start serving 5xx-on-write. Tracked in "
-        "docs/TECH_DEBT.md."
+        "TECH_DEBT [TD-OPS-02] (re-confirmed 2026-04-21, A21-11): "
+        "/readiness still only runs DB SELECT 1 + Redis PING and does NOT "
+        "compare alembic_version vs head revision (verified: no 'alembic'/"
+        "'migration'/'version' references in app/api/v1/health.py). If a "
+        "deploy lands new model code without running migrations, the pod "
+        "reports ready and starts serving 5xx-on-write. Implementation "
+        "plan and priority (P2, blocked on D-021) tracked in "
+        "docs/TECH_DEBT.md \u2192 TD-OPS-02."
     ),
     strict=False,
 )
