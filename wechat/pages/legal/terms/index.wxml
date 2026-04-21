@@ -7,7 +7,7 @@
 >
   <view id="legal-top"></view>
   <view class="legal-title">医路安用户协议</view>
-  <view class="legal-meta">更新日期：2026年4月10日　生效日期：2026年4月10日</view>
+  <view class="legal-meta">更新日期：{{updatedAt}}　生效日期：{{effectiveAt}}</view>
 
   <view class="legal-section">
     <view class="section-title">一、概述</view>
@@ -94,9 +94,12 @@
     <view class="section-body">如有任何问题，请通过以下方式联系我们：</view>
     <view class="section-body">
       <view class="list-item">客服邮箱：support@yiluan.com</view>
-      <view class="list-item">在线客服：平台内"我的 → 联系客服"</view>
+      <view class="list-item">在线客服：平台内“我的 → 联系客服”</view>
     </view>
   </view>
+
+  <view class="legal-footer">本用户协议适用于医路安微信小程序和iOS应用。</view>
+  <view class="legal-footer">{{version}} · 生效日期 {{effectiveAt}} · 最近更新 {{updatedAt}}</view>
 </scroll-view>
 
 <!-- 返回顶部按钮 -->

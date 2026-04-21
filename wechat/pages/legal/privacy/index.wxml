@@ -107,6 +107,7 @@
   </view>
 
   <view class="legal-footer">本隐私政策适用于医路安微信小程序和iOS应用。</view>
+  <view class="legal-footer">{{version}} · 生效日期 {{effectiveAt}} · 最近更新 {{updatedAt}}</view>
 </scroll-view>
 
 <!-- 返回顶部按钮 -->

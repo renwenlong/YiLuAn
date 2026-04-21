@@ -275,7 +275,7 @@ rg -n "诊断|诊疗|处方|在线问诊|主治|用药指导" pages\
    - `app.json` 已开 `__usePrivacyCheck__: true`，需联调真机：首次启动是否弹出"用户隐私保护指引"，"同意/拒绝"分支是否正确处理
    - 如未弹出，检查公众平台是否已发布"用户隐私保护指引"
 5. **`pages/legal/privacy/index.wxml` 与 §4.1 表格逐字段比对**，缺一项补一项
-6. **`pages/legal/privacy/index.wxml` 与 `pages/legal/terms/index.wxml` 末尾追加生效日期与版本号**
+6. ✅ **`pages/legal/privacy/index.wxml` 与 `pages/legal/terms/index.wxml` 末尾追加生效日期与版本号**（[B4] 完成：权威源 `wechat/config/legal.js`，均已动态绑定 `v1.0` + 生效 / 更新日期）
 
 ### 10.3 锦上添花
 7. 协议文本提供 H5 镜像（H5 域名加入业务域名白名单），方便分享给非小程序用户
