@@ -84,6 +84,19 @@
   color: #999999;
 }
 
+.info-section-legal {
+  margin-top: 20rpx;
+}
+
+.info-item-link {
+  justify-content: space-between;
+}
+
+.item-arrow {
+  font-size: 28rpx;
+  color: #CCCCCC;
+}
+
 .copyright-section {
   margin-top: auto;
   padding: 48rpx 0;
