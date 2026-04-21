@@ -60,6 +60,10 @@ class PaymentCallbackLog(Base):
             "ix_payment_callback_created_at",
             "created_at",
         ),
+        Index(
+            "ix_payment_callback_log_expires_at",
+            "expires_at",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -85,4 +89,12 @@ class PaymentCallbackLog(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
         nullable=False,
+    )
+    # D-027: TTL marker. Application layer fills ``now() + 90d`` on
+    # insert. Historical rows (pre-A21-02 migration) remain NULL and
+    # are handled by the cleanup job (TD-OPS-02) under a fallback
+    # policy keyed off ``created_at``.
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
