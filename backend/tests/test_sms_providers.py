@@ -91,7 +91,11 @@ class TestGetSMSProviderNew:
         monkeypatch.setattr(
             "app.services.providers.sms.factory.settings.sms_provider", "mock"
         )
-        assert isinstance(get_sms_provider(), MockSMSProvider)
+        provider = get_sms_provider()
+        # A21-02b / D-033: factory now wraps providers with the
+        # send-log wrapper. Unwrap before isinstance assertions.
+        inner = getattr(provider, "_inner", provider)
+        assert isinstance(inner, MockSMSProvider)
 
     def test_aliyun_returns_aliyun(self, monkeypatch):
         monkeypatch.setattr(
@@ -101,7 +105,9 @@ class TestGetSMSProviderNew:
         monkeypatch.setattr("app.config.settings.sms_access_secret", "sk")
         monkeypatch.setattr("app.config.settings.sms_sign_name", "sig")
         monkeypatch.setattr("app.config.settings.sms_template_code", "TPL")
-        assert isinstance(get_sms_provider(), AliyunSMSProvider)
+        provider = get_sms_provider()
+        inner = getattr(provider, "_inner", provider)
+        assert isinstance(inner, AliyunSMSProvider)
 
     def test_unknown_falls_back_to_mock(self, monkeypatch, caplog):
         monkeypatch.setattr(
@@ -109,7 +115,8 @@ class TestGetSMSProviderNew:
         )
         with caplog.at_level(logging.WARNING, logger="app.services.providers.sms.factory"):
             provider = get_sms_provider()
-        assert isinstance(provider, MockSMSProvider)
+        inner = getattr(provider, "_inner", provider)
+        assert isinstance(inner, MockSMSProvider)
         assert any("unknown sms_provider" in r.getMessage() for r in caplog.records)
 
 
