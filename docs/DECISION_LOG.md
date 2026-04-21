@@ -771,3 +771,38 @@ P0-1 已经把支付落到 `app.services.providers.payment` 包里（mock / wech
   5. **是否本次同时改造调用路径**：建表+写入一次到位，还是先建表后接
 - **Owner**：Arch（schema 决策）→ Backend（落地）
 - **优先级**：P2（SMS 量上来前不阻塞）
+
+
+---
+
+## TD-FE-01 — admin-h5 陪诊师资质材料图片预览
+
+**记录时间：** 2026-04-21
+**类型：** 技术债（Tech Debt） / 待办（Backlog）
+**Owner：** Backend → Frontend（接力）
+**优先级：** P3
+
+### 现状
+admin-h5 MVP（commit `cf48099`，A21-04）只渲染 `certifications` 文本字段：因为后端当前 `CompanionApplication.certifications` 字段是 `string`（自由文本备注），而非图片 URL 列表，前端只能展示纯文本，无法预览陪诊师上传的资质材料图片。
+
+### 影响
+- ✅ 不阻塞审批闭环：运营仍可基于现有文本字段完成接单/驳回操作，MVP 上线不受影响。
+- ⚠️ v2 体验缺失：审核体验显著低于真实业务需求，运营需要离线查看截图/原图，效率低；也不利于后续合规留痕。
+
+### 待办
+1. **Backend：**
+   - ER 设计：在 `CompanionApplication` 上新增 `certifications_files: list[str]`（存放对象存储 key 或 URL）。
+   - DB：Alembic migration 新增字段（JSON / ARRAY 二选一，倾向 JSON 兼容 SQLite 测试）。
+   - API：上传接口（companion 端，multipart → 对象存储 → 返回 key），admin API 返回签名 URL 列表。
+   - 不破坏旧 `certifications` 文本字段，并行存在。
+2. **Frontend（admin-h5）：**
+   - 列表页/详情页渲染缩略图网格，点击放大。
+   - 兼容老数据（`certifications_files` 为空时回退到只展示文本）。
+
+### 决策口径
+- 字段并存（不删除 `certifications` 文本）：保留运营备注用途。
+- 命名 `certifications_files` 而非 `certification_images`：考虑未来可能扩展到 PDF。
+
+### 关联
+- 主仓 commit `cf48099` —— admin-h5 MVP 初版，确认了文本-only 展示的临时方案。
+- A21 follow-up 三件套：本条与 A21-14 / A21-13 / A21-10 同批落档，串入 v2 backlog。
