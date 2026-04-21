@@ -267,9 +267,9 @@ rg -n "诊断|诊疗|处方|在线问诊|主治|用药指导" pages\
    - 同上，跳 `/pages/legal/terms/index`
 
 ### 10.2 强烈建议（过审率↑）
-3. **关于页（`pages/profile/about/index.wxml`）增加：**
-   - 「用户协议」入口（跳 terms）
-   - 「隐私政策」入口（跳 privacy）
+3. ✅ **关于页（`pages/profile/about/index.wxml`）增加：**
+   - 「用户协议」入口（跳 terms）✅
+   - 「隐私政策」入口（跳 privacy）✅
    - 「公司主体名称」「ICP 备案号」（凭证就位后填）
 4. **首次启动隐私弹窗联调验证**
    - `app.json` 已开 `__usePrivacyCheck__: true`，需联调真机：首次启动是否弹出"用户隐私保护指引"，"同意/拒绝"分支是否正确处理

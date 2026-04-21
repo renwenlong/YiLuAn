@@ -22,6 +22,17 @@
     </view>
   </view>
 
+  <view class="info-section info-section-legal">
+    <view class="info-item info-item-link" bindtap="onUserAgreement">
+      <text class="info-label">用户协议</text>
+      <text class="item-arrow">></text>
+    </view>
+    <view class="info-item info-item-link" bindtap="onPrivacyPolicy">
+      <text class="info-label">隐私政策</text>
+      <text class="item-arrow">></text>
+    </view>
+  </view>
+
   <view class="build-section" wx:if="{{gitSha}}">
     <text class="build-text">Build: {{gitSha}} · {{buildTime}}</text>
   </view>
