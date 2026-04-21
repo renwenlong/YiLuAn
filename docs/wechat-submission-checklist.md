@@ -260,7 +260,7 @@ rg -n "诊断|诊疗|处方|在线问诊|主治|用药指导" pages\
 > 由前端按本节逐项实现；本次仅 audit 不新建占位页面。
 
 ### 10.1 阻塞提审（必补）
-1. **个人中心 → 设置页 增加"隐私政策"入口**
+1. ✅ **个人中心 → 设置页 增加"隐私政策"入口**（已完成 commit f44868a）
    - 文件：`wechat/pages/profile/settings/index.wxml` + `index.js`
    - 行为：`wx.navigateTo({ url: '/pages/legal/privacy/index' })`
 2. **个人中心 → 设置页 增加"用户协议"入口**
