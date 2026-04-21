@@ -10,6 +10,7 @@ from app.models.patient_profile import PatientProfile
 from app.models.payment import Payment
 from app.models.payment_callback_log import PaymentCallbackLog
 from app.models.review import Review
+from app.models.sms_send_log import SmsSendLog
 from app.models.user import User, UserRole
 
 __all__ = [
@@ -28,6 +29,7 @@ __all__ = [
     "Payment",
     "PaymentCallbackLog",
     "Review",
+    "SmsSendLog",
     "ChatMessage",
     "MessageType",
     "Notification",
