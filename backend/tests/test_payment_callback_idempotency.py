@@ -19,7 +19,7 @@ from sqlalchemy import select
 
 from app.config import settings
 from app.exceptions import BadRequestException
-from app.models.order import OrderStatus
+from app.models.order import Order, OrderStatus
 from app.models.payment import Payment
 from app.models.payment_callback_log import PaymentCallbackLog
 from app.services.payment_service import PaymentService
@@ -266,17 +266,38 @@ class TestCallbackSignatureRejection:
 
 @pytest.mark.asyncio
 class TestRefundFailure:
-    async def test_provider_refund_failure_persists_failed_record(
+    async def test_provider_refund_failure_is_atomic_and_recoverable(
         self,
         authenticated_client: AsyncClient,
         seed_hospital,
         seed_order,
     ):
         """
-        If the underlying provider raises during refund, the service must:
-          * surface a 400 to the API caller (provider error wrapped)
-          * NOT leave a successful refund row behind (idempotency hold)
-          * allow retry once the provider recovers
+        Replaces the previous ``_persists_failed_record`` test.
+
+        C6 (commit d06867a) flipped the cancel-with-broken-refund semantics:
+
+          * Old behaviour  : swallow the refund error, return 200, persist a
+            ``failed`` refund row so callers can replay.
+          * New behaviour  : surface the refund failure as an explicit 400 on
+            ``/cancel``; the request session is rolled back wholesale by
+            ``app.database.get_db`` so the order stays in its pre-cancel
+            status (``created``/``accepted``) and no partial refund row is
+            left behind. The client retries by calling ``/cancel`` again
+            once the provider recovers.
+
+        The old "persist a failed refund_log row" semantic is no longer
+        achievable inside the request transaction — it would require an
+        outbox table or a dedicated SAVEPOINT escape hatch. That work is
+        tracked as follow-up TD-PAY-02 in ``docs/DECISION_LOG.md``.
+
+        Invariants this test pins down:
+          1. Provider failure surfaces as a 400 with a Chinese refund-related
+             error message (no silent 200).
+          2. The whole cancel transaction rolls back: order status stays
+             ``paid`` and zero refund rows of any status exist.
+          3. Retrying ``/cancel`` after the provider recovers atomically
+             flips the order to cancelled AND persists a successful refund.
         """
         user = authenticated_client._test_user
         hospital = await seed_hospital()
@@ -290,9 +311,7 @@ class TestRefundFailure:
         async def boom(*args, **kwargs):
             raise RuntimeError("simulated network outage")
 
-        # /refund requires the order to be in a cancelled-like state.
-        # Patch the cancel auto-refund so it doesn't run with mock first;
-        # we manually cancel + then trigger /refund with provider broken.
+        # 1) Cancel with provider broken — must explicitly fail (C6).
         with patch(
             "app.services.providers.payment.mock.MockPaymentProvider.refund",
             side_effect=boom,
@@ -300,19 +319,51 @@ class TestRefundFailure:
             cancel_resp = await authenticated_client.post(
                 f"/api/v1/orders/{order.id}/cancel"
             )
-            # Cancel itself may swallow the refund error — we just need
-            # the order to land in a cancelled state.
-            assert cancel_resp.status_code == 200
 
-            resp = await authenticated_client.post(
-                f"/api/v1/orders/{order.id}/refund"
+        assert cancel_resp.status_code == 400
+        body = cancel_resp.json()
+        # Error message must mention the refund failure so operators can
+        # tell this 400 apart from a generic "cannot transition" 400.
+        assert "退款" in body["detail"]
+
+        # 2) Whole transaction rolled back: order still paid, no refund rows.
+        async with test_session_factory() as s:
+            order_after = (
+                await s.execute(select(Order).where(Order.id == order.id))
+            ).scalar_one()
+            assert order_after.status == OrderStatus.created, (
+                "cancel rollback failed — order status leaked through"
             )
 
-        assert resp.status_code == 400
+            refund_rows = (
+                await s.execute(
+                    select(Payment).where(
+                        Payment.order_id == order.id,
+                        Payment.payment_type == "refund",
+                    )
+                )
+            ).scalars().all()
+            assert refund_rows == [], (
+                "no partial refund row of any status should be persisted"
+            )
 
-        # No 'success' refund row should exist — caller can retry.
+        # 3) Retry cancel with provider recovered — must atomically succeed:
+        #    order flips to cancelled AND a successful refund row appears.
+        retry = await authenticated_client.post(
+            f"/api/v1/orders/{order.id}/cancel"
+        )
+        assert retry.status_code == 200
+
         async with test_session_factory() as s:
-            successful = (
+            order_final = (
+                await s.execute(select(Order).where(Order.id == order.id))
+            ).scalar_one()
+            assert order_final.status in (
+                OrderStatus.cancelled_by_patient,
+                OrderStatus.cancelled_by_companion,
+            )
+
+            refund_final = (
                 await s.execute(
                     select(Payment).where(
                         Payment.order_id == order.id,
@@ -320,14 +371,8 @@ class TestRefundFailure:
                         Payment.status == "success",
                     )
                 )
-            ).scalars().all()
-        assert successful == []
-
-        # Subsequent retry with provider recovered must succeed.
-        retry = await authenticated_client.post(
-            f"/api/v1/orders/{order.id}/refund"
-        )
-        assert retry.status_code == 200
+            ).scalar_one()
+            assert refund_final is not None
 
 
 # ---------------------------------------------------------------------------

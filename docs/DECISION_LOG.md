@@ -721,3 +721,22 @@ P0-1 已经把支付落到 `app.services.providers.payment` 包里（mock / wech
   - 正面：早期发现工程节奏问题，避免发布前夜爆雷
   - 负面：周一晨会需要复盘上周末延伸的工作进度
 - **关联**：ADR-0026（外呼装饰器，4/19 滑期事项）、A14 本身
+
+---
+
+## 2026-04-21
+
+### TD-PAY-02 取消/退款失败的持久化记录（follow-up，未排期）
+
+- **ID**：TD-PAY-02（Tech-Debt / Payment）
+- **状态**：Logged，未排期
+- **关联**：D-031、commit d06867a（C6）、A21-01
+- **背景**：C6 把 `/cancel` 在自动退款失败时的语义从「吞错保留 200」翻转为「显式 400 + 整体回滚」。`app.database.get_db` 在异常时 `session.rollback()`，因此 `PaymentService.create_refund` 在 provider 抛错之前**不会**留下任何 `Payment` 行；之前的 `order.status` 改动和 history 也被一并回滚。失败的退款尝试目前**只存在于结构化日志中**（`payment_service.py:348` ERROR + `order.py:301` `auto_refund_failed`），数据库没有审计行。
+- **问题**：运维 / 客服无法用 SQL 查询「过去 24h 哪些订单尝试退款失败」；监控只能基于日志告警，缺少强一致对账面。
+- **可选方案（待评估）**：
+  1. **Outbox 表**：新增 `refund_attempt_log`，在 provider 调用前用独立 session/事务写入，provider 成功/失败后再 update 终态。优点是与业务事务解耦；代价是引入 2PC-lite 协调。
+  2. **SAVEPOINT 逃生口**：在 `cancel_order` 内对「写失败审计行」单独开 SAVEPOINT，rollback 业务变更但保留审计行。实现轻，但要求所有路径都正确处理 SAVEPOINT 边界，易出错。
+  3. **接受现状 + 强化结构化日志告警**：保持代码不变，依赖 ELK / 日志平台对 `auto_refund_failed` 做计数告警。零改动，但缺少强一致审计。
+- **当前判断**：MVP 阶段方案 3 可接受；进入 Phase 2 真实微信渠道之前必须升级到方案 1 或 2。
+- **触发条件**：接入真实微信支付 v3 商户号之前；或出现首例需要事后对账的退款失败客诉。
+- **Owner**：Backend（待指派），Arch review
