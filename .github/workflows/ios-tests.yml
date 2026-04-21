@@ -1,0 +1,104 @@
+# =============================================================================
+# STUB workflow — A21-10
+# -----------------------------------------------------------------------------
+# 说明：
+#   - 这是 iOS 测试 CI 的占位 workflow，首次跑通后请去掉文件名/标题里的 STUB 字样
+#     并取消 PRODUCT_BACKLOG 中 Q21-10 标签。
+#   - 当前仓库 ios/ 目录下只有 Swift 源码（ios/YiLuAn/* + ios/YiLuAnTests/*），
+#     **尚未生成 .xcodeproj/.xcworkspace**。本 workflow 假设后续会用
+#     `ios/YiLuAn.xcodeproj` + scheme `YiLuAnTests`。如果实际项目用 workspace，
+#     把下面 -project 参数改成 -workspace 并指向 .xcworkspace 路径。
+#   - **首次启用前**必须先：
+#       1) 在 ios/ 下提交 .xcodeproj 或 .xcworkspace；
+#       2) 确认 GitHub Actions macos runner free quota 够用
+#          （public repo 免费；private repo 每月 2000 分钟，但 macos runner
+#          按 10x 计费，相当于实际可用 200 分钟，需排期评估）；
+#       3) 若 quota 紧张，考虑改为 schedule 触发或 self-hosted runner。
+#   - 本地（Windows）无法运行此 workflow，仅做 yaml 语法层面的提交。
+# =============================================================================
+
+name: ios-tests (STUB)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-tests.yml'
+  pull_request:
+    paths:
+      - 'ios/**'
+      - '.github/workflows/ios-tests.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ios-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: xcodebuild test (iOS Simulator)
+    # 主选 macos-latest；如果 latest 出现 Xcode 版本回归，可临时切到 macos-14 / macos-13
+    runs-on: macos-latest
+    # runs-on: macos-14
+    # runs-on: macos-13
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Show Xcode & SDK info
+        run: |
+          xcodebuild -version
+          xcrun simctl list runtimes | head -n 20
+
+      # SPM 依赖缓存。如果项目暂未使用 SPM，本步骤为 no-op，保留以便后续启用。
+      - name: Cache Swift Package Manager
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Developer/Xcode/DerivedData/**/SourcePackages
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-spm-${{ hashFiles('ios/**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Resolve dependencies (best-effort)
+        working-directory: ios
+        run: |
+          if [ -d "YiLuAn.xcodeproj" ]; then
+            xcodebuild -resolvePackageDependencies \
+              -project YiLuAn.xcodeproj \
+              -scheme YiLuAnTests || true
+          else
+            echo "::warning::ios/YiLuAn.xcodeproj not found — STUB workflow, project file pending"
+          fi
+
+      - name: Run unit tests
+        working-directory: ios
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project YiLuAn.xcodeproj \
+            -scheme YiLuAnTests \
+            -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
+            -resultBundlePath TestResults.xcresult \
+            CODE_SIGNING_ALLOWED=NO \
+            | tee xcodebuild.log
+
+      - name: Upload test result bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-test-results
+          path: |
+            ios/TestResults.xcresult
+            ios/xcodebuild.log
+          if-no-files-found: warn
+          retention-days: 14
