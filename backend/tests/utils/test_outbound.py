@@ -156,8 +156,11 @@ async def test_circuit_half_open_recovers():
     cb = _get_circuit_breaker("recover_test", 2, 0.05)
     assert cb.state == CircuitBreaker.OPEN
 
-    # Wait for circuit_timeout
-    await asyncio.sleep(0.06)
+    # Wait for circuit_timeout.
+    # Windows clock resolution ~15.6ms; sleep 0.15s ensures we cross
+    # the 50ms circuit timeout reliably (covers worst-case granularity
+    # plus ample margin so the test does not flake on Windows runners).
+    await asyncio.sleep(0.15)
 
     # Should enter half-open and succeed
     result = await fn()
