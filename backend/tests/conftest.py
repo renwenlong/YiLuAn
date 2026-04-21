@@ -204,8 +204,23 @@ async def no_role_client(client, seed_user) -> AsyncClient:
 
 
 @pytest.fixture
-async def companion_client(client, seed_user) -> AsyncClient:
+async def companion_client(client, seed_user, seed_companion_profile) -> AsyncClient:
     user = await seed_user(phone="13700137000", role=UserRole.companion)
+    # 默认为陪诊师 seed 一条 verified profile，使接单/start 等需要
+    # verified 审核的流程在测试中默认可走。seed_companion_profile 是 idempotent 的，
+    # 测试内部再次调用也不会冲突。需要测试未审核的场景，使用专门的测试方法或 token 启新用户。
+    await seed_companion_profile(user_id=user.id)
+    token = create_access_token({"sub": str(user.id), "role": "companion"})
+    client.headers["Authorization"] = f"Bearer {token}"
+    client._test_user = user  # type: ignore[attr-defined]
+    return client
+
+
+@pytest.fixture
+async def verified_companion_client(client, seed_user, seed_companion_profile) -> AsyncClient:
+    """Alias/explicit form of ``companion_client`` for readability."""
+    user = await seed_user(phone="13700137000", role=UserRole.companion)
+    await seed_companion_profile(user_id=user.id)
     token = create_access_token({"sub": str(user.id), "role": "companion"})
     client.headers["Authorization"] = f"Bearer {token}"
     client._test_user = user  # type: ignore[attr-defined]
@@ -248,6 +263,24 @@ def seed_companion_profile():
         **kwargs,
     ) -> CompanionProfile:
         async with test_session_factory() as session:
+            # Idempotent: if a profile already exists for this user, reuse it and
+            # merge in the requested fields. This lets fixtures that pre-seed a
+            # profile (e.g. companion_client) coexist with individual tests that
+            # call seed_companion_profile explicitly.
+            from sqlalchemy import select as _select
+            existing = (
+                await session.execute(
+                    _select(CompanionProfile).where(CompanionProfile.user_id == user_id)
+                )
+            ).scalar_one_or_none()
+            if existing is not None:
+                existing.real_name = real_name
+                existing.verification_status = verification_status
+                for k, v in kwargs.items():
+                    setattr(existing, k, v)
+                await session.commit()
+                await session.refresh(existing)
+                return existing
             profile = CompanionProfile(
                 user_id=user_id,
                 real_name=real_name,

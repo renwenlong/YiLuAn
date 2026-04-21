@@ -104,4 +104,77 @@ describe('services/api', () => {
     const callArgs = wx.request.mock.calls[0][0]
     expect(callArgs.header['Authorization']).toBeUndefined()
   })
+
+  // Test 7: PHONE_REQUIRED triggers modal + rejects as handled
+  test('400 + PHONE_REQUIRED shows modal and rejects handled=true', async () => {
+    wx.setStorageSync('yiluan_access_token', 'tok')
+    __mockWxRequest(400, { detail: { error_code: 'PHONE_REQUIRED', message: '先绑手机号' } })
+
+    await expect(request({ url: 'orders', method: 'POST' })).rejects.toMatchObject({
+      statusCode: 400,
+      handled: true,
+    })
+    expect(wx.showModal).toHaveBeenCalled()
+    const modalArgs = wx.showModal.mock.calls[0][0]
+    expect(modalArgs.title).toBe('请先绑定手机号')
+  })
+
+  // Test 8: PAYMENT_REQUIRED triggers modal + rejects as handled
+  test('400 + PAYMENT_REQUIRED shows modal and rejects handled=true', async () => {
+    wx.setStorageSync('yiluan_access_token', 'tok')
+    __mockWxRequest(400, {
+      detail: { error_code: 'PAYMENT_REQUIRED', message: '订单未支付' },
+    })
+
+    await expect(request({ url: 'orders/x/start', method: 'POST' })).rejects.toMatchObject({
+      statusCode: 400,
+      handled: true,
+    })
+    expect(wx.showModal).toHaveBeenCalled()
+    expect(wx.showModal.mock.calls[0][0].title).toBe('订单尚未支付')
+  })
+
+  // Test 9: VERIFICATION_REQUIRED triggers modal + rejects as handled
+  test('400 + VERIFICATION_REQUIRED shows modal and rejects handled=true', async () => {
+    wx.setStorageSync('yiluan_access_token', 'tok')
+    __mockWxRequest(400, {
+      detail: { error_code: 'VERIFICATION_REQUIRED', message: '审核中' },
+    })
+
+    await expect(request({ url: 'orders/x/accept', method: 'POST' })).rejects.toMatchObject({
+      statusCode: 400,
+      handled: true,
+    })
+    expect(wx.showModal).toHaveBeenCalled()
+    expect(wx.showModal.mock.calls[0][0].title).toBe('资质审核中')
+  })
+
+  // Test 10: _skipGuardHandlers bypasses modal and propagates raw rejection
+  test('_skipGuardHandlers=true bypasses guard modals', async () => {
+    wx.setStorageSync('yiluan_access_token', 'tok')
+    __mockWxRequest(400, {
+      detail: { error_code: 'PAYMENT_REQUIRED', message: 'pay first' },
+    })
+
+    const err = await request({
+      url: 'orders/x/start',
+      method: 'POST',
+      _skipGuardHandlers: true,
+    }).catch((e) => e)
+
+    expect(err.statusCode).toBe(400)
+    expect(err.handled).toBeUndefined()
+    expect(wx.showModal).not.toHaveBeenCalled()
+  })
+
+  // Test 11: 400 without error_code still rejects without modal (legacy behavior)
+  test('400 without error_code rejects without modal', async () => {
+    wx.setStorageSync('yiluan_access_token', 'tok')
+    __mockWxRequest(400, { detail: 'bad request' })
+
+    await expect(request({ url: 'x', method: 'POST' })).rejects.toMatchObject({
+      statusCode: 400,
+    })
+    expect(wx.showModal).not.toHaveBeenCalled()
+  })
 })
