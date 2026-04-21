@@ -8,9 +8,11 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.exceptions import ConflictException, NotFoundException
+from app.core import error_codes
+from app.exceptions import BadRequestException, ConflictException, NotFoundException
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.companion_profile import CompanionProfile, VerificationStatus
+from app.models.user import User
 
 
 class AdminAuditService:
@@ -60,6 +62,14 @@ class AdminAuditService:
         if profile.verification_status != VerificationStatus.pending:
             raise ConflictException(
                 f"Profile status is '{profile.verification_status.value}', expected 'pending'"
+            )
+
+        # 上架（verified）前兜底校验：陪诊师必须已绑定手机号，否则无法被联系
+        owner = await self.session.get(User, profile.user_id)
+        if owner is None or not owner.phone:
+            raise BadRequestException(
+                "陪诊师未绑定手机号，无法上架。请通知陪诊师补全手机号后再审核。",
+                error_code=error_codes.PHONE_REQUIRED,
             )
 
         profile.verification_status = VerificationStatus.verified

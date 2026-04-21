@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
+from app.core import error_codes
 from app.exceptions import BadRequestException, ForbiddenException, NotFoundException, NotExpirableOrderError
 from app.models.order import (
     ORDER_TRANSITIONS,
@@ -55,10 +56,20 @@ class OrderService:
     async def create_order(
         self, user: User, data: CreateOrderRequest
     ) -> Order:
+        # 前置：手机号必须已绑定（兜底，前端也会拦）
+        if not user.phone:
+            raise BadRequestException(
+                "请先绑定手机号后再下单",
+                error_code=error_codes.PHONE_REQUIRED,
+            )
+
         # Check if patient has unpaid orders
         has_unpaid = await self.order_repo.has_unpaid_orders(user.id)
         if has_unpaid:
-            raise BadRequestException("您有未支付的订单，请先完成支付后再下单")
+            raise BadRequestException(
+                "您有未支付的订单，请先完成支付后再下单",
+                error_code=error_codes.ORDER_HAS_UNPAID,
+            )
 
         hospital = await self.hospital_repo.get_by_id(data.hospital_id)
         if hospital is None:
@@ -174,12 +185,19 @@ class OrderService:
         order = await self._get_order_for_update_or_404(order_id)
         if user.role != UserRole.companion:
             raise ForbiddenException("Only companions can accept orders")
+        # 前置：陪诊师必须已绑定手机号
+        if not user.phone:
+            raise BadRequestException(
+                "请先绑定手机号后再接单",
+                error_code=error_codes.PHONE_REQUIRED,
+            )
         self._validate_transition(order.status, OrderStatus.accepted)
 
         update_data = {
             "status": OrderStatus.accepted,
             "companion_id": user.id,
-            "companion_name": user.display_name or user.phone,
+            # phone 已强制绑定，不再 fallback 到 user.phone
+            "companion_name": user.display_name or "陪诊师",
         }
         order = await self.order_repo.update(order, update_data)
         await self._record_history(

@@ -86,6 +86,7 @@ struct CompanionSetupView: View {
         }
         .navigationTitle("陪诊师入驻")
         .navigationBarTitleDisplayMode(.inline)
+        .phoneRequiredAlert($viewModel.phoneRequiredMessage)
         .alert("申请已提交", isPresented: $showSuccess) {
             Button("确定") { dismiss() }
         } message: {

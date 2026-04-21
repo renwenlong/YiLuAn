@@ -11,6 +11,7 @@ from sqlalchemy import select
 
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.companion_profile import CompanionProfile, VerificationStatus
+from app.models.user import User, UserRole
 from tests.conftest import test_session_factory
 
 ADMIN_TOKEN = "dev-admin-token"
@@ -26,10 +27,21 @@ def _headers(token: str | None = ADMIN_TOKEN) -> dict:
 async def _create_profile(
     verification_status: VerificationStatus = VerificationStatus.pending,
     real_name: str = "测试陪诊师",
+    *,
+    with_phone: bool = True,
 ) -> CompanionProfile:
     async with test_session_factory() as session:
+        # 同时创建 User 记录（上架校验依赖代理 user.phone）
+        user_id = uuid.uuid4()
+        phone = f"138{uuid.uuid4().int % 100000000:08d}" if with_phone else None
+        owner = User(
+            id=user_id,
+            phone=phone,
+            role=UserRole.companion,
+        )
+        session.add(owner)
         profile = CompanionProfile(
-            user_id=uuid.uuid4(),
+            user_id=user_id,
             real_name=real_name,
             verification_status=verification_status,
         )

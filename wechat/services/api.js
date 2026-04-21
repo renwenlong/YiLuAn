@@ -4,7 +4,7 @@ const { getAccessToken, setAccessToken, setRefreshToken, getRefreshToken, clearT
 let _isRefreshing = false
 let _refreshQueue = []
 
-function request({ url, method = 'GET', data, auth = true }) {
+function request({ url, method = 'GET', data, auth = true, _skipPhoneRequiredHandler = false }) {
   return new Promise((resolve, reject) => {
     const header = { 'Content-Type': 'application/json' }
     if (auth) {
@@ -24,6 +24,12 @@ function request({ url, method = 'GET', data, auth = true }) {
           resolve(res.data)
         } else if (res.statusCode === 401 && auth) {
           _handleUnauthorized({ url, method, data, auth }, resolve, reject)
+        } else if (
+          res.statusCode === 400
+          && !_skipPhoneRequiredHandler
+          && _extractErrorCode(res.data) === 'PHONE_REQUIRED'
+        ) {
+          _handlePhoneRequired(res.data, reject)
         } else {
           reject({ statusCode: res.statusCode, data: res.data })
         }
@@ -33,6 +39,50 @@ function request({ url, method = 'GET', data, auth = true }) {
       },
     })
   })
+}
+
+// 提取后端返回体里的机器可读错误码（detail 可能是 string 或 {error_code, message}）
+function _extractErrorCode(payload) {
+  if (!payload) return null
+  const detail = payload.detail
+  if (detail && typeof detail === 'object' && detail.error_code) {
+    return detail.error_code
+  }
+  return null
+}
+
+// 遇到 PHONE_REQUIRED 统一弹窗 + 跳转绑定页，原调用者以 reject 结束（上层不必重复处理）
+function _handlePhoneRequired(payload, reject) {
+  const detail = payload && payload.detail
+  const message = (detail && detail.message) || '请先绑定手机号'
+  // 拿当前页路径，跳转绑定后可回跳
+  let redirect = ''
+  try {
+    const pages = getCurrentPages()
+    if (pages && pages.length) {
+      const cur = pages[pages.length - 1]
+      const opts = cur.options || {}
+      const qs = Object.keys(opts).map(k => `${k}=${encodeURIComponent(opts[k])}`).join('&')
+      redirect = '/' + cur.route + (qs ? '?' + qs : '')
+    }
+  } catch (e) {
+    // 忽略
+  }
+
+  wx.showModal({
+    title: '请先绑定手机号',
+    content: message,
+    confirmText: '去绑定',
+    cancelText: '取消',
+    success(res) {
+      if (res.confirm) {
+        const url = '/pages/profile/bind-phone/index'
+          + (redirect ? '?redirect=' + encodeURIComponent(redirect) : '')
+        wx.navigateTo({ url })
+      }
+    }
+  })
+  reject({ statusCode: 400, data: payload, handled: true })
 }
 
 function _handleUnauthorized(originalRequest, resolve, reject) {
