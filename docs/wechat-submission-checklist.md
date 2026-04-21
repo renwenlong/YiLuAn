@@ -263,7 +263,7 @@ rg -n "诊断|诊疗|处方|在线问诊|主治|用药指导" pages\
 1. ✅ **个人中心 → 设置页 增加"隐私政策"入口**（已完成 commit f44868a）
    - 文件：`wechat/pages/profile/settings/index.wxml` + `index.js`
    - 行为：`wx.navigateTo({ url: '/pages/legal/privacy/index' })`
-2. **个人中心 → 设置页 增加"用户协议"入口**
+2. ✅ **个人中心 → 设置页 增加"用户协议"入口**（已完成 commit f44868a）
    - 同上，跳 `/pages/legal/terms/index`
 
 ### 10.2 强烈建议（过审率↑）
