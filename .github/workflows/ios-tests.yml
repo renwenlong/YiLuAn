@@ -1,23 +1,15 @@
 # =============================================================================
-# STUB workflow — A21-10
+# iOS Tests CI — A21-10 / A21-FOLLOWUP
 # -----------------------------------------------------------------------------
-# 说明：
-#   - 这是 iOS 测试 CI 的占位 workflow，首次跑通后请去掉文件名/标题里的 STUB 字样
-#     并取消 PRODUCT_BACKLOG 中 Q21-10 标签。
-#   - 当前仓库 ios/ 目录下只有 Swift 源码（ios/YiLuAn/* + ios/YiLuAnTests/*），
-#     **尚未生成 .xcodeproj/.xcworkspace**。本 workflow 假设后续会用
-#     `ios/YiLuAn.xcodeproj` + scheme `YiLuAnTests`。如果实际项目用 workspace，
-#     把下面 -project 参数改成 -workspace 并指向 .xcworkspace 路径。
-#   - **首次启用前**必须先：
-#       1) 在 ios/ 下提交 .xcodeproj 或 .xcworkspace；
-#       2) 确认 GitHub Actions macos runner free quota 够用
-#          （public repo 免费；private repo 每月 2000 分钟，但 macos runner
-#          按 10x 计费，相当于实际可用 200 分钟，需排期评估）；
-#       3) 若 quota 紧张，考虑改为 schedule 触发或 self-hosted runner。
-#   - 本地（Windows）无法运行此 workflow，仅做 yaml 语法层面的提交。
+# .xcodeproj is generated on-the-fly from ios/project.yml via XcodeGen.
+# Do NOT commit .xcodeproj (gitignored). Edit project.yml instead.
+#
+# Quota note: macos runners cost 10x normal minutes on private repos.
+# Free tier on a private repo ≈ 200 macos-minutes/month. Each run ~ 6-10 min.
+# If quota tightens later, switch to schedule-only or self-hosted runner.
 # =============================================================================
 
-name: ios-tests (STUB)
+name: ios-tests
 
 on:
   push:
@@ -38,10 +30,7 @@ concurrency:
 jobs:
   test:
     name: xcodebuild test (iOS Simulator)
-    # 主选 macos-latest；如果 latest 出现 Xcode 版本回归，可临时切到 macos-14 / macos-13
     runs-on: macos-latest
-    # runs-on: macos-14
-    # runs-on: macos-13
     timeout-minutes: 30
 
     steps:
@@ -53,12 +42,20 @@ jobs:
         with:
           xcode-version: latest-stable
 
-      - name: Show Xcode & SDK info
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Show toolchain info
         run: |
           xcodebuild -version
+          xcodegen --version
           xcrun simctl list runtimes | head -n 20
 
-      # SPM 依赖缓存。如果项目暂未使用 SPM，本步骤为 no-op，保留以便后续启用。
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      # SPM cache — no-op until project adds SPM dependencies.
       - name: Cache Swift Package Manager
         uses: actions/cache@v4
         with:
@@ -69,16 +66,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-spm-
 
-      - name: Resolve dependencies (best-effort)
+      - name: Resolve dependencies
         working-directory: ios
         run: |
-          if [ -d "YiLuAn.xcodeproj" ]; then
-            xcodebuild -resolvePackageDependencies \
-              -project YiLuAn.xcodeproj \
-              -scheme YiLuAnTests || true
-          else
-            echo "::warning::ios/YiLuAn.xcodeproj not found — STUB workflow, project file pending"
-          fi
+          xcodebuild -resolvePackageDependencies \
+            -project YiLuAn.xcodeproj \
+            -scheme YiLuAn || true
 
       - name: Run unit tests
         working-directory: ios
@@ -86,7 +79,7 @@ jobs:
           set -o pipefail
           xcodebuild test \
             -project YiLuAn.xcodeproj \
-            -scheme YiLuAnTests \
+            -scheme YiLuAn \
             -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
             -resultBundlePath TestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO \
