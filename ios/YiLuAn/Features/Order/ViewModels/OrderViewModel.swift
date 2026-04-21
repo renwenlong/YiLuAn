@@ -26,6 +26,19 @@ class OrderViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var total = 0
+    /// 当后端返回 PHONE_REQUIRED 时设置，view 进行弹窗 + 引导用户去绑定手机号。
+    @Published var phoneRequiredMessage: String?
+
+    /// 统一的错误处理：遇到 PHONE_REQUIRED 写到 phoneRequiredMessage，
+    /// 其余错误写到 errorMessage。
+    private func handleError(_ error: Error) {
+        if let apiError = error as? APIError,
+           case .phoneRequired(let msg) = apiError {
+            phoneRequiredMessage = msg
+            return
+        }
+        handleError(error)
+    }
 
     func loadOrders(status: String? = nil, page: Int = 1) async {
         isLoading = true
@@ -47,7 +60,7 @@ class OrderViewModel: ObservableObject {
             }
             total = response.total
         } catch {
-            errorMessage = error.localizedDescription
+            handleError(error)
         }
     }
 
@@ -59,7 +72,7 @@ class OrderViewModel: ObservableObject {
         do {
             currentOrder = try await APIClient.shared.request(.order(id: id))
         } catch {
-            errorMessage = error.localizedDescription
+            handleError(error)
         }
     }
 
@@ -85,7 +98,7 @@ class OrderViewModel: ObservableObject {
             let order: Order = try await APIClient.shared.request(.createOrder, body: body)
             return order
         } catch {
-            errorMessage = error.localizedDescription
+            handleError(error)
             return nil
         }
     }
@@ -101,7 +114,7 @@ class OrderViewModel: ObservableObject {
             )
             return true
         } catch {
-            errorMessage = error.localizedDescription
+            handleError(error)
             return false
         }
     }
@@ -115,7 +128,7 @@ class OrderViewModel: ObservableObject {
             let payment: Payment = try await APIClient.shared.request(.payOrder(id: id))
             return payment
         } catch {
-            errorMessage = error.localizedDescription
+            handleError(error)
             return nil
         }
     }
@@ -129,7 +142,7 @@ class OrderViewModel: ObservableObject {
             let payment: Payment = try await APIClient.shared.request(.refundOrder(id: id))
             return payment
         } catch {
-            errorMessage = error.localizedDescription
+            handleError(error)
             return nil
         }
     }
@@ -150,7 +163,7 @@ class OrderViewModel: ObservableObject {
             )
             hospitals = response
         } catch {
-            errorMessage = error.localizedDescription
+            handleError(error)
         }
     }
 }

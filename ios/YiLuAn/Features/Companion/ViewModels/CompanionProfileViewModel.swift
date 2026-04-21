@@ -17,6 +17,17 @@ class CompanionProfileViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var isSaved = false
     @Published var stats: CompanionStatsResponse?
+    /// 当后端返回 PHONE_REQUIRED 时设置，view 进行弹窗 + 引导用户去绑定手机号。
+    @Published var phoneRequiredMessage: String?
+
+    private func handleError(_ error: Error) {
+        if let apiError = error as? APIError,
+           case .phoneRequired(let msg) = apiError {
+            phoneRequiredMessage = msg
+            return
+        }
+        handleError(error)
+    }
 
     // MARK: - List & Detail
 
@@ -38,7 +49,7 @@ class CompanionProfileViewModel: ObservableObject {
                 queryItems: queryItems.isEmpty ? nil : queryItems
             )
         } catch {
-            errorMessage = error.localizedDescription
+            handleError(error)
         }
     }
 
@@ -50,7 +61,7 @@ class CompanionProfileViewModel: ObservableObject {
         do {
             selectedCompanion = try await APIClient.shared.request(.companion(id: id))
         } catch {
-            errorMessage = error.localizedDescription
+            handleError(error)
         }
     }
 
@@ -78,7 +89,7 @@ class CompanionProfileViewModel: ObservableObject {
                 body: body
             )
         } catch {
-            errorMessage = error.localizedDescription
+            handleError(error)
         }
     }
 
@@ -97,7 +108,7 @@ class CompanionProfileViewModel: ObservableObject {
             bio = profile.bio ?? ""
             serviceArea = profile.serviceArea ?? ""
         } catch {
-            errorMessage = error.localizedDescription
+            handleError(error)
         }
     }
 
@@ -118,7 +129,7 @@ class CompanionProfileViewModel: ObservableObject {
             )
             isSaved = true
         } catch {
-            errorMessage = error.localizedDescription
+            handleError(error)
         }
     }
 

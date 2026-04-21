@@ -3,7 +3,8 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.exceptions import ConflictException, ForbiddenException, NotFoundException
+from app.core import error_codes
+from app.exceptions import BadRequestException, ConflictException, ForbiddenException, NotFoundException
 from app.models.companion_profile import CompanionProfile
 from app.models.user import User, UserRole
 from app.repositories.companion_profile import CompanionProfileRepository
@@ -24,9 +25,18 @@ class CompanionProfileService:
         self.session = session
 
     async def apply(self, user: User, data: ApplyCompanionRequest) -> CompanionProfile:
+        # 前置：申请陪诊师资质前必须已绑定手机号（实名联系方式刚需）
+        if not user.phone:
+            raise BadRequestException(
+                "请先绑定手机号后再申请陪诊师资质",
+                error_code=error_codes.PHONE_REQUIRED,
+            )
         existing = await self.repo.get_by_user_id(user.id)
         if existing is not None:
-            raise ConflictException("Companion profile already exists")
+            raise ConflictException(
+                "Companion profile already exists",
+                error_code=error_codes.COMPANION_PROFILE_EXISTS,
+            )
 
         profile = CompanionProfile(
             user_id=user.id,

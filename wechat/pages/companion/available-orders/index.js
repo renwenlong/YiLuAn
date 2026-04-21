@@ -48,6 +48,26 @@ Page({
   },
 
   async onAccept(e) {
+    // 前置：手机号未绑定 → 弹窗 + 跳转绑定页（后端也会拦，这里走体验提前）
+    var state = store.getState()
+    var user = (state && state.user) || {}
+    if (!user.phone) {
+      wx.showModal({
+        title: '请先绑定手机号',
+        content: '接单前需要绑定手机号，方便患者联系您',
+        confirmText: '去绑定',
+        success: function (res) {
+          if (res.confirm) {
+            wx.navigateTo({
+              url: '/pages/profile/bind-phone/index?redirect='
+                + encodeURIComponent('/pages/companion/available-orders/index')
+            })
+          }
+        }
+      })
+      return
+    }
+
     const { id } = e.currentTarget.dataset
     const res = await wx.showModal({
       title: '确认接单',

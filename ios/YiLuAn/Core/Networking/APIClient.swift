@@ -7,6 +7,7 @@ enum APIError: Error, LocalizedError {
     case decodingError(Error)
     case networkError(Error)
     case unauthorized
+    case phoneRequired(message: String)
 
     var errorDescription: String? {
         switch self {
@@ -16,14 +17,52 @@ enum APIError: Error, LocalizedError {
         case .decodingError(let err): return "Decoding error: \(err.localizedDescription)"
         case .networkError(let err): return "Network error: \(err.localizedDescription)"
         case .unauthorized: return "Unauthorized"
+        case .phoneRequired(let msg): return msg
         }
     }
 }
 
 struct EmptyBody: Encodable {}
 
+/// Backend error payload. Accepts two shapes:
+/// - legacy: `{"detail": "..."}`
+/// - with error code: `{"detail": {"error_code": "PHONE_REQUIRED", "message": "..."}}`
 struct ErrorResponse: Decodable {
     let detail: String?
+    let errorCode: String?
+    let message: String?
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        // Try decoding detail as a plain string first
+        if let s = try? container.decode(String.self, forKey: .detail) {
+            self.detail = s
+            self.errorCode = nil
+            self.message = nil
+            return
+        }
+        // Fallback: detail is a dict
+        if let nested = try? container.nestedContainer(keyedBy: DetailKeys.self, forKey: .detail) {
+            self.errorCode = try? nested.decode(String.self, forKey: .errorCode)
+            self.message = try? nested.decode(String.self, forKey: .message)
+            self.detail = self.message
+            return
+        }
+        self.detail = nil
+        self.errorCode = nil
+        self.message = nil
+    }
+
+    private enum CodingKeys: String, CodingKey { case detail }
+    private enum DetailKeys: String, CodingKey {
+        case errorCode = "error_code"
+        case message
+    }
+}
+
+/// Backend machine-readable error codes. Mirrors `backend/app/core/error_codes.py`.
+enum BackendErrorCode {
+    static let phoneRequired = "PHONE_REQUIRED"
 }
 
 actor APIClient {
@@ -65,23 +104,41 @@ actor APIClient {
         body: (some Encodable)? = nil as EmptyBody?
     ) async throws {
         let request = try buildRequest(endpoint, body: body)
-        let (_, response) = try await session.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
         }
         if httpResponse.statusCode == 401 && endpoint.requiresAuth {
             try await refreshTokenIfNeeded()
             let retryRequest = try buildRequest(endpoint, body: body)
-            let (_, retryResponse) = try await session.data(for: retryRequest)
+            let (retryData, retryResponse) = try await session.data(for: retryRequest)
             guard let retryHttp = retryResponse as? HTTPURLResponse,
                   (200...299).contains(retryHttp.statusCode) else {
+                try self.throwForFailedResponse(retryData, statusCode: (retryResponse as? HTTPURLResponse)?.statusCode ?? 0)
                 throw APIError.unauthorized
             }
             return
         }
         guard (200...299).contains(httpResponse.statusCode) else {
+            try self.throwForFailedResponse(data, statusCode: httpResponse.statusCode)
             throw APIError.httpError(statusCode: httpResponse.statusCode, message: nil)
         }
+    }
+
+    /// Shared decoder for non-2xx responses. Throws `.phoneRequired` when the
+    /// backend returned the PHONE_REQUIRED error code; otherwise throws
+    /// `.httpError` with the backend-provided message (if parsable).
+    private nonisolated func throwForFailedResponse(_ data: Data, statusCode: Int) throws {
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        let errorMsg = try? decoder.decode(ErrorResponse.self, from: data)
+        if statusCode == 400,
+           errorMsg?.errorCode == BackendErrorCode.phoneRequired {
+            throw APIError.phoneRequired(
+                message: errorMsg?.message ?? "请先绑定手机号"
+            )
+        }
+        throw APIError.httpError(statusCode: statusCode, message: errorMsg?.detail)
     }
 
     func uploadImage(
@@ -193,6 +250,12 @@ actor APIClient {
 
             guard (200...299).contains(httpResponse.statusCode) else {
                 let errorMsg = try? decoder.decode(ErrorResponse.self, from: data)
+                if httpResponse.statusCode == 400,
+                   errorMsg?.errorCode == BackendErrorCode.phoneRequired {
+                    throw APIError.phoneRequired(
+                        message: errorMsg?.message ?? "请先绑定手机号"
+                    )
+                }
                 throw APIError.httpError(
                     statusCode: httpResponse.statusCode,
                     message: errorMsg?.detail
