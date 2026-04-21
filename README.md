@@ -2,6 +2,12 @@
 
 连接需要就医陪伴的患者与专业陪诊师，提供全程陪诊、半程陪诊、代办跑腿等服务。
 
+> **最后更新：** 2026-04-21（Sprint W17 / Release Wrap-Up Day 4）
+> **后端测试：** 573 passed / 1 xfailed　**前端测试：** 165 passed / 30 suites　**iOS 测试：** 57 passed (XCTest 离线快照)
+> **新增子项目：** `admin-h5/`（管理后台 MVP，陪诊师审核）
+> **关键能力新增：** 微信真实支付/退款回调（幂等）、Aliyun SMS、OTP 暴破防护、订单过期自动退款、统一 outbound 可靠性装饰器（timeout + retry + circuit breaker）、`/readiness` 健康探针、APScheduler 部署、WS 同用户连接数限制
+> **关键决策索引：** ADR-0026（outbound 可靠性）/ D-018~D-020（调度+连接限制）/ D-027（callback log TTL + OSS 归档）/ D-028（零提交日告警）/ D-029-D-030（Sprint W17 backlog）/ D-031（fix 与 test 优先级）/ D-032（XcodeGen）
+
 ---
 
 ## 技术选型
@@ -9,7 +15,7 @@
 | 层级 | 技术 | 说明 |
 |------|------|------|
 | **iOS** | SwiftUI + MVVM | 原生 iOS 客户端, iOS 17+, @MainActor + ObservableObject |
-| **微信小程序** | 原生框架 (WXML + WXSS + JS) | 21 页面, 7 组件, Observer 状态管理 |
+| **微信小程序** | 原生框架 (WXML + WXSS + JS) | 30 页面, 9 组件, Observer 状态管理 |
 | **后端** | Python 3.11 + FastAPI 0.115 (async) | 异步全链路, Pydantic v2 校验 |
 | **ORM** | SQLAlchemy 2.0 (async) + Alembic | asyncpg 驱动, Repository 泛型模式 |
 | **数据库** | PostgreSQL 15 | Azure Flexible Server (生产) / SQLite aiosqlite (测试) |
@@ -19,7 +25,12 @@
 | **文件存储** | Azure Blob Storage | avatars + chat-images 两个容器 |
 | **容器** | Docker + Azure Container Apps | python:3.11-slim, 1-5 replicas |
 | **实时通信** | WebSocket (原生) | 基于订单的聊天室, JWT query 参数认证 |
-| **支付** | 模拟支付 (MVP) | 即时确认, 无需企业资质 |
+| **支付** | 微信支付 v3 + 模拟支付双 provider | provider 抽象 + 回调幂等 + 自动退款 + partial refund，回退到 mock 用于本地/测试 |
+| **短信** | Aliyun SMS + Mock 双 provider | provider 抽象 + 发送限频 + OTP 5 次锁 15min 暴破防护 |
+| **可靠性** | 统一 outbound 装饰器 | timeout + retry(指数退避) + circuit breaker（half-open 探活），覆盖支付 / SMS / Redis Pub/Sub |
+| **调度** | APScheduler (AsyncIOScheduler) | 订单过期检查、迟到回调自动退款、callback log TTL 清理 |
+| **健康检查** | `/readiness` + `/api/v1/readiness` | DB + Redis 双探活，Kubernetes/ACA 就绪探针使用 |
+| **管理后台** | admin-h5（纯静态 HTML/JS） | 陪诊师审核 MVP，复用后端 admin token auth |
 | **速率限制** | slowapi | 全局 60/min, OTP 发送 5/min |
 | **日志** | 请求中间件 | method, path, status_code, duration_ms |
 
@@ -80,7 +91,7 @@ backend/
 │   │   ├── reviews.py         # 评价提交/查看
 │   │   ├── notifications.py   # 通知列表/已读/设备令牌
 │   │   └── ws.py              # WebSocket 聊天 (/ws/chat/{order_id})
-│   ├── models/                # 11 个 SQLAlchemy 2.0 模型
+│   ├── models/                # 13 个 SQLAlchemy 2.0 模型
 │   │   ├── base.py            # DeclarativeBase
 │   │   ├── user.py            # users + UserRole enum
 │   │   ├── patient_profile.py # patient_profiles
@@ -92,7 +103,9 @@ backend/
 │   │   ├── chat_message.py    # chat_messages + MessageType enum
 │   │   ├── review.py          # reviews
 │   │   ├── notification.py    # notifications + NotificationType enum
-│   │   └── device_token.py    # device_tokens
+│   │   ├── device_token.py    # device_tokens
+│   │   ├── payment_callback_log.py # 支付回调审计 + TTL (D-027)
+│   │   └── admin_audit_log.py # 管理后台操作审计
 │   ├── schemas/               # Pydantic v2 请求/响应模型
 │   │   ├── auth.py            # SendOTP, VerifyOTP, WeChatLogin, TokenResponse...
 │   │   ├── user.py            # UpdateUserRequest, UserResponse, AvatarUploadResponse
@@ -103,7 +116,7 @@ backend/
 │   │   ├── chat.py            # SendMessageRequest, ChatMessageResponse
 │   │   ├── review.py          # CreateReviewRequest, ReviewResponse
 │   │   └── notification.py    # NotificationResponse, RegisterDeviceRequest
-│   ├── services/              # 11 个业务服务
+│   ├── services/              # 24 个业务服务（含 7 个 provider 实现）
 │   │   ├── auth.py            # AuthService (OTP, JWT, 微信登录, 手机绑定)
 │   │   ├── user.py            # UserService
 │   │   ├── patient_profile.py # PatientProfileService
@@ -114,7 +127,14 @@ backend/
 │   │   ├── review.py          # ReviewService (含 avg_rating 反规范化)
 │   │   ├── notification.py    # NotificationService (含触发器)
 │   │   ├── upload.py          # UploadService (Azure Blob)
-│   │   └── wechat.py          # WeChatAPIClient (jscode2session)
+│   │   ├── wechat.py          # WeChatAPIClient (jscode2session)
+│   │   ├── payment_service.py # 统一支付编排（+ 显式抛错 + 结构化错误日志, C6）
+│   │   ├── sms.py             # SMS 服务编排（+ OTP 暴破防护, C1）
+│   │   ├── wallet.py          # 钱包余额 + 退款入账
+│   │   ├── admin_audit.py     # 后台操作审计写入
+│   │   └── providers/         # provider 抽象（基类 + 工厂 + 具体实现）
+│   │       ├── payment/       # base / factory / mock / wechat（v3 真实回调 + 幂等）
+│   │       └── sms/           # base / factory / mock / aliyun + rate_limit
 │   ├── repositories/          # 11 个数据仓储 (泛型 BaseRepository[T])
 │   │   ├── base.py            # BaseRepository[T] — get_by_id, create, update, delete
 │   │   ├── user.py            # by_phone, by_wechat_openid
@@ -135,7 +155,7 @@ backend/
 ├── alembic/                   # 数据库迁移
 │   ├── env.py                 # 异步迁移环境
 │   └── versions/              # 迁移版本文件
-├── tests/                     # 167 个 pytest-asyncio 测试
+├── tests/                     # 573 passed / 1 xfailed（pytest-asyncio + 全 provider mock）
 │   ├── conftest.py            # SQLite 内存 DB + FakeRedis + 全套 seed fixtures
 │   ├── test_auth.py           # OTP 登录全流程 (32 tests)
 │   ├── test_wechat_auth.py    # 微信登录 + 手机绑定 (12 tests)
@@ -152,7 +172,14 @@ backend/
 │   ├── test_notifications_triggers.py # 通知触发器
 │   ├── test_device_token.py   # 设备令牌
 │   ├── test_rate_limit.py     # 速率限制
-│   └── test_health.py         # 健康检查
+│   ├── test_health.py         # 健康检查 + /readiness
+│   ├── test_payment_callback_idempotency.py # 微信支付回调幂等 + 退款失败语义（C2/C6）
+│   ├── test_payment_provider*.py        # 支付 provider 抽象与切换
+│   ├── test_sms_*.py                    # Aliyun SMS provider + OTP 暴破 + 并发限频（C1/C5/A21-12）
+│   ├── test_outbound_decorator.py       # timeout/retry/circuit breaker 单元（A5/ADR-0026）
+│   ├── test_admin_*.py                  # admin token + companions 审核 + audit log（B1/A6）
+│   ├── test_alembic_smoke.py            # PG+alembic schema 漂移 smoke（TD-CI-01）
+│   └── test_ws_*.py                     # WS 限连接数 + Pub/Sub outbound 可靠性（D-020/A21-03）
 ├── Dockerfile                 # python:3.11-slim
 ├── docker-compose.yaml        # api + postgres:15-alpine + redis:7-alpine
 ├── requirements.txt
@@ -211,7 +238,7 @@ wechat/
 │   ├── profile/bind-phone/         # 绑定手机号 (OTP 验证)
 │   ├── profile/settings/           # 设置 (清除缓存)
 │   └── profile/about/              # 关于 (版本信息)
-└── __tests__/                       # 77 个 Jest 单元测试 (16 suites)
+└── __tests__/                       # 165 passed / 30 suites（Jest 单元测试）
     ├── setup.js                    # wx 全局对象 mock
     ├── pages/
     │   ├── bind-phone.test.js     # 绑定手机页面 (3 tests)
@@ -283,7 +310,7 @@ YiLuAn/
 
 ## 数据库设计
 
-共 11 张表，全部使用 UUID 主键 + UTC 时区时间戳。
+共 **13 张表**（含 `payment_callback_log`、`admin_audit_log`），全部使用 UUID 主键 + UTC 时区时间戳。Alembic 已累计 **18 个迁移版本**（最近变更：`payments` 新增 `trade_no` / `prepay_id` / `refund_id` / `callback_raw` 4 列 + `trade_no` 唯一索引；`OrderStatus` enum 新增 `rejected_by_companion` / `expired`；`payment_callback_log` 新增 `expires_at` 用于 TTL）。
 
 ### users
 
@@ -737,11 +764,11 @@ Request → API Route → Service → Repository → Database
 
 | 层级 | 职责 | 文件 |
 |------|------|------|
-| **API Route** | 请求校验, 依赖注入, HTTP 响应 | `api/v1/*.py` (11 个路由模块) |
-| **Service** | 业务逻辑, 事务编排, 触发器 | `services/*.py` (11 个服务) |
-| **Repository** | 数据访问, SQL 查询封装 | `repositories/*.py` (11 个仓储, 泛型基类) |
+| **API Route** | 请求校验, 依赖注入, HTTP 响应 | `api/v1/*.py` (含 admin 子路由) |
+| **Service** | 业务逻辑, 事务编排, 触发器 | `services/*.py` + `services/providers/**/*` (24 个) |
+| **Repository** | 数据访问, SQL 查询封装 | `repositories/*.py` (泛型基类 `BaseRepository[T]`) |
 | **Schema** | Pydantic v2 请求/响应模型 | `schemas/*.py` (9 个模块) |
-| **Model** | SQLAlchemy 2.0 ORM 映射 | `models/*.py` (11 个模型) |
+| **Model** | SQLAlchemy 2.0 ORM 映射 | `models/*.py` (13 个表) |
 
 ### 异常处理体系
 
@@ -841,14 +868,14 @@ curl -X POST http://localhost:8000/api/v1/hospitals/seed
 ```bash
 # 后端 (无需启动 Docker, 使用 SQLite 内存 + FakeRedis)
 cd backend
-python -m pytest tests/ -v              # 167 tests
+python -m pytest tests/ -v              # 573 passed / 1 xfailed
 python -m pytest tests/ -v -k "auth"    # 只运行认证测试
 python -m pytest tests/ -v --tb=short   # 简短错误信息
 
 # 微信小程序
 cd wechat
 npm install
-npm test                                # 77 tests (16 suites)
+npm test                                # 165 passed / 30 suites
 npm test -- --verbose                   # 详细输出
 npm test -- --watch                     # 监听模式
 
@@ -1031,9 +1058,9 @@ SMS_PROVIDER=aliyun
 
 | 平台 | 框架 | 测试数 | 状态 |
 |------|------|--------|------|
-| 后端 | pytest + pytest-asyncio | 167 | ✅ 全部通过 |
-| 微信小程序 | Jest | 77 (16 suites) | ✅ 全部通过 |
-| iOS | XCTest | 规划中 | — |
+| 后端 | pytest + pytest-asyncio | **573 passed / 1 xfailed** | ✅ 全部通过（含支付幂等、SMS 限频、outbound 装饰器、admin 审核、PG+alembic smoke）|
+| 微信小程序 | Jest | **165 / 30 suites** | ✅ 全部通过 |
+| iOS | XCTest（离线快照） | **57 passed** | ✅ macOS runner workflow 已 stub（A21-10），4/22 起跑 GitHub Actions |
 
 ---
 
@@ -1055,3 +1082,195 @@ SMS_PROVIDER=aliyun
 | 401 队列刷新 (小程序 api.js) | 并发请求遇 401 时只刷新一次, 其余排队等待 |
 | order_status_history 审计表 | 完整追踪订单状态变更, 支持争议回溯 |
 | 连接池 pool_size=20 + max_overflow=10 | 生产环境多副本下平衡连接数与性能 |
+| Outbound 统一可靠性装饰器 (ADR-0026) | 所有跨进程出站调用（支付/SMS/Redis Pub/Sub）走 timeout + retry + circuit breaker，故障收敛行为一致、可观测 |
+| 支付/SMS Provider 抽象 + 工厂 | 真实 provider（微信支付 v3 / Aliyun SMS）与 mock 一键切换，本地与 CI 不依赖外部凭证 |
+| 支付回调幂等 (C2) | `payment_callback_log` 唯一约束 + TTL，重复回调安全；7 天后由 APScheduler 归档到 OSS（D-027） |
+| 退款失败显式抛错 + 结构化日志 (C6 / D-031) | 拒绝静默吞错；测试以「原子失败」语义校验，避免半成功状态 |
+| 订单过期 + 迟到回调自动退款 (C3) | 用户体验侧不留「钱付了但订单已死」的孤儿状态 |
+| OTP 暴破防护 (C1) | 同手机号 5 次错码即锁 15min，结合 SMS 发送 5/min 限频 |
+| `/readiness` 双探针 (TD-OPS-01) | DB + Redis 真实连通性检查，区分 liveness 与 readiness，给容器编排正确信号 |
+| WS 同用户连接数限制 (D-020) | 默认上限 3，超出踢最老连接，避免移动端断网+重连堆积 |
+| APScheduler AsyncIOScheduler (D-018/D-019) | 单进程内调度订单过期/迟到回调/日志清理，多副本部署用 leader election 文档化 |
+| 零提交日告警 (D-028) | 每日 23:30 检查仓库当日提交数为 0 时报警，反映「项目是否在动」 |
+| XcodeGen 管理 iOS 项目 (D-032) | `project.yml` 声明式生成 `.xcodeproj`，避免合并冲突 + 让 macOS runner 一键 generate-and-build |
+
+---
+
+## 可靠性与容错（新）
+
+### 统一 Outbound 装饰器（ADR-0026）
+
+所有「进程出站调用」（HTTP / Redis pub-sub / 第三方 SDK）必须经过 `app/core/outbound.py` 的统一装饰器：
+
+```python
+from app.core.outbound import outbound
+
+@outbound(
+    name="wechat.pay.unifiedorder",
+    timeout=5.0,            # 单次调用上限
+    retries=2,              # 失败后再试 2 次
+    backoff="exponential",  # 0.5s → 1s → 2s（带 ±20% jitter）
+    circuit_breaker={        # half-open 探活
+        "failure_threshold": 5,
+        "recovery_timeout": 30,
+    },
+)
+async def call_wechat_pay(...): ...
+```
+
+**当前接入点：**
+
+| 出站 | 文件 | 说明 |
+|------|------|------|
+| 微信支付 v3 / 退款 | `services/providers/payment/wechat.py` | 单订单 5s 超时 + 2 retry + 5/30s 熔断 |
+| Aliyun SMS | `services/providers/sms/aliyun.py` | 单条 3s 超时 + 1 retry（短信不宜重发太多） |
+| Redis Pub/Sub 推送 | `app/ws/pubsub.py`（A21-03） | WS fanout 走 outbound 包装；熔断打开时降级到 best-effort 写库 |
+
+熔断器状态可通过 `/api/v1/internal/circuit-breakers`（admin-only）查看，已接入测试 `test_outbound_decorator.py`（含 Windows 时钟分辨率 flake 修复 / `f3d7ddb`）。
+
+### 速率限制矩阵
+
+| 维度 | 上限 | 实现 |
+|------|------|------|
+| 全局每客户端 | 60/min | slowapi（`app/core/rate_limit.py`） |
+| OTP 发送（同手机号） | 5/min | Redis INCR + EXPIRE 60s（`services/providers/sms/rate_limit.py`） |
+| OTP 校验（同手机号） | 5 次错则锁 15min | Redis 计数 + 锁 key（C1 / `ce4259e`） |
+| WS 同用户并发连接 | 3（默认） | `app/ws/manager.py`（D-020 / `237039f`） |
+| 支付回调入库 | 唯一约束 `(provider, transaction_id)` | DB 层幂等，重复回调读走早期记录 |
+
+---
+
+## 支付与退款（新）
+
+### Provider 抽象
+
+```
+backend/app/services/providers/payment/
+├── base.py       # PaymentProvider 协议（unifiedorder / query / refund / parse_callback）
+├── factory.py    # 根据 settings.payment_provider 选择 wechat | mock
+├── mock.py       # 即时确认，本地 / CI / 测试默认
+└── wechat.py     # 微信支付 v3：JSAPI 下单 + 真实回调验签 + 退款
+```
+
+**切换：** `PAYMENT_PROVIDER=wechat`（生产）/ `PAYMENT_PROVIDER=mock`（默认）。
+
+### 业务保障
+
+| 场景 | 行为 |
+|------|------|
+| 用户重复点击支付 | DB 层 `payments.trade_no` 唯一索引拦截 |
+| 微信回调重复推送 | `payment_callback_log (provider, transaction_id)` 唯一约束 + 第二次直接返回 `success` |
+| 用户已超时但回调迟到 | APScheduler 检测到 `order.expired` + 收到 paid 回调时，自动触发退款（C3 / `b127e3c`） |
+| 退款 API 失败 | 显式抛 `RefundFailed`，记录结构化错误日志（订单号/金额/provider 错误码），不静默吞（C6 / `d06867a`） |
+| 部分退款 | `wallet.refund_to_wallet(amount, reason)` 支持 partial，全链路有 e2e 测试 |
+| 本地开发 | `PAYMENT_PROVIDER=mock` + 任意金额即时成功，方便压全流程 |
+
+### 关键迁移
+
+`alembic/versions/` 中支付相关：
+
+- `b7c8d9e0f1a2_*`：`payments` 加 `trade_no` / `prepay_id` / `refund_id` / `callback_raw` 4 列 + `trade_no` 唯一索引；`OrderStatus` enum `ADD VALUE rejected_by_companion / expired`（autocommit block）
+- `<later>_*`：新建 `payment_callback_log` 表 + `(provider, transaction_id)` 唯一约束 + `expires_at` TTL（D-027）
+
+---
+
+## 短信（新）
+
+```
+backend/app/services/providers/sms/
+├── base.py        # SMSProvider 协议（send_otp / send_template）
+├── factory.py     # 根据 settings.sms_provider 选择 aliyun | mock
+├── mock.py        # 开发环境固定返回 OK，OTP 始终 000000
+├── aliyun.py      # Aliyun SMS API 封装（outbound 装饰器：3s timeout + 1 retry）
+└── rate_limit.py  # 同手机号 5/min 限频 + 5 次错码 15min 锁（C1）
+```
+
+**切换：** `SMS_PROVIDER=aliyun` + `ALIYUN_SMS_ACCESS_KEY_ID/SECRET/SIGN_NAME/TEMPLATE_OTP`（生产）/ `SMS_PROVIDER=mock`（默认）。
+
+**OTP 暴破防护流程：**
+
+```
+verify_otp(phone, code) →
+  if redis.incr("otp:fail:{phone}") > 5:
+      redis.set("otp:lock:{phone}", 1, ex=900)
+      raise OTPLocked(retry_after=900)
+  if code != stored:
+      raise OTPInvalid(remaining=5 - count)
+  redis.delete("otp:fail:{phone}")  # 成功即清零
+```
+
+---
+
+## 可观测性（新）
+
+### 健康探针
+
+| 端点 | 检查项 | 用途 |
+|------|--------|------|
+| `GET /` | FastAPI 启动 | liveness（容器还活着） |
+| `GET /readiness` | DB 连通 + Redis ping | readiness（容器能接流量） |
+| `GET /api/v1/readiness` | 同上，带版本号回显 | 业务链路健康（K8s/ACA 探针） |
+
+### 日志规范
+
+- 中间件 `app/main.py` 输出每请求：`method`, `path`, `status_code`, `duration_ms`, `request_id`
+- 业务关键点（支付回调、退款、OTP 暴破触发）走 `logger.info(extra={...})` 结构化字段，便于 Azure Log Analytics / OSS 检索
+- 详细规范见 `docs/observability-spec.md`（A7）
+
+### 告警与运维节奏
+
+- **零提交日告警（D-028）**：每日 23:30 cron 扫 git 当日提交数 = 0 则发企业群提醒「项目今日是否在动」
+- **零 504 / 异常率**：留给 Azure Monitor + Application Insights，部署清单在 `docs/credentials/checklist.md`
+- **PG schema 漂移防护**：`tests/test_alembic_smoke.py`（TD-CI-01）在 PG 容器跑 `alembic upgrade head` + 与 ORM `metadata.create_all` 对比表/列差异
+
+---
+
+## 管理后台 admin-h5（新）
+
+极简 MVP，纯静态 HTML/JS（无构建链），调用后端 admin API：
+
+```
+admin-h5/
+├── index.html    # 单页：陪诊师审核列表 + 详情抽屉 + 通过/驳回按钮
+├── app.js        # fetch + admin token 注入 + 调用 /api/v1/admin/companions/*
+├── styles.css
+└── README.md     # 本地启动 / 部署到 OSS+CDN 指南
+```
+
+**对应后端能力：**
+
+- `services/admin_audit.py` + `models/admin_audit_log.py`：所有审核动作写审计表
+- `api/v1/admin/*`：`GET /admin/companions?status=pending`、`POST /admin/companions/{id}/review`
+- 独立 `ADMIN_TOKEN` 环境变量 + bearer 校验，与用户 JWT 隔离（B1 / `0498b9a`）
+
+**当前覆盖范围：** 仅陪诊师资质审核（MVP）。订单争议处理、用户管理、报表等仍走数据库直连或后续迭代（见 D-029 backlog）。
+
+---
+
+## 决策与文档索引（新）
+
+### ADR / Decision Log
+
+| 编号 | 主题 | 状态 |
+|------|------|------|
+| ADR-0026 | 统一 outbound 可靠性装饰器（timeout/retry/circuit breaker） | ✅ 已实施 |
+| D-018 | APScheduler 选型（vs Celery / RQ） | ✅ 已实施 |
+| D-019 | APScheduler 多副本部署策略（leader election） | 📄 文档化 |
+| D-020 | WS 同用户连接数限制（默认 3） | ✅ 已实施 |
+| D-027 | 支付回调日志 TTL + OSS 归档 | ✅ 已实施 |
+| D-028 | 零提交日告警机制 | ✅ 已实施 |
+| D-029 / D-030 | Sprint W17 范围 + 16 项 backlog | 🔄 进行中 |
+| D-031 | fix 与 test 在「原子失败」语义下的优先级 | ✅ 已实施 |
+| D-032 | 采用 XcodeGen 管理 iOS 项目文件 | ✅ 已实施 |
+
+### 关键文档
+
+- `docs/DEV_SETUP.md`：本地开发 + schema 变更 checklist + 测试账号
+- `docs/MIGRATION_AUDIT_2026-04-17.md`：model vs PG schema 差异审计
+- `docs/observability-spec.md`：日志/指标/告警 SOP
+- `docs/credentials/checklist.md`：生产凭证 backlog + ICP 备案 checklist
+- `docs/qa/uat-checklist.md`：发布前 UAT 清单（支付/SMS/部署/回滚/小程序提审）
+- `docs/submission/wechat-screenshots.md`：小程序提审截图清单
+- `docs/decisions/sprint-w17-backlog.md`：Sprint W17 16 项 feature backlog
+- `docs/discuss/`：A21-13 支付备选 provider / A21-14 in-progress→in-service tab 改名讨论
+- `TECH_DEBT.md`：已知技术债登记（含 TD-CI-01 / TD-OPS-01 / TD-FE-01 / TD-PAY-01）
