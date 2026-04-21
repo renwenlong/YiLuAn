@@ -1,0 +1,96 @@
+# YiLuAn iOS - XcodeGen project specification
+# Regenerate the .xcodeproj with: cd ios && xcodegen generate
+# Spec docs: https://github.com/yonaskolb/XcodeGen/blob/master/Docs/ProjectSpec.md
+#
+# Why XcodeGen:
+#   - .xcodeproj is gitignored (source of truth = this file)
+#   - Adding/removing Swift files is automatic (no manual Xcode UI clicks)
+#   - CI (.github/workflows/ios-tests.yml) regenerates project deterministically
+#   - Removes the only blocker preventing iOS CI from going green (A21-10 follow-up)
+
+name: YiLuAn
+options:
+  bundleIdPrefix: com.yiluan
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: false
+  groupSortPosition: top
+  defaultConfig: Release
+
+settings:
+  base:
+    SWIFT_VERSION: "5.10"
+    DEVELOPMENT_TEAM: "" # leave empty; CI uses CODE_SIGNING_ALLOWED=NO
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    SWIFT_TREAT_WARNINGS_AS_ERRORS: NO
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+
+configs:
+  Debug: debug
+  Release: release
+
+targets:
+  YiLuAn:
+    type: application
+    platform: iOS
+    sources:
+      - path: YiLuAn
+        excludes:
+          - "**/*.md"
+    info:
+      path: YiLuAn/Info.plist
+      properties:
+        CFBundleDisplayName: 医路安
+        CFBundleShortVersionString: "1.0.0"
+        CFBundleVersion: "1"
+        UILaunchScreen:
+          UIColorName: ""
+        ITSAppUsesNonExemptEncryption: false
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
+          NSExceptionDomains:
+            localhost:
+              NSExceptionAllowsInsecureHTTPLoads: true
+        NSCameraUsageDescription: "用于拍摄陪诊师资质照片与上传订单凭证"
+        NSPhotoLibraryUsageDescription: "用于上传订单凭证、个人头像与陪诊师资质材料"
+        NSLocationWhenInUseUsageDescription: "用于定位附近的医院与陪诊师"
+        NSMicrophoneUsageDescription: "用于聊天语音消息"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yiluan.app
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: "1.0.0"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: NO
+
+  YiLuAnTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: YiLuAnTests
+    dependencies:
+      - target: YiLuAn
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.yiluan.app.tests
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/YiLuAn.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/YiLuAn"
+
+schemes:
+  YiLuAn:
+    build:
+      targets:
+        YiLuAn: all
+        YiLuAnTests: [test]
+    test:
+      gatherCoverageData: true
+      coverageTargets:
+        - YiLuAn
+      targets:
+        - YiLuAnTests
+    run:
+      config: Debug
+    archive:
+      config: Release
