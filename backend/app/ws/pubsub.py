@@ -44,6 +44,12 @@ from uuid import UUID
 
 from fastapi import FastAPI, WebSocket
 
+from app.utils.outbound import (
+    NonRetryableError,
+    RetryableError,
+    outbound_call,
+)
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_CHANNEL = "yiluan:ws:notifications"
@@ -210,32 +216,56 @@ class WsPubSubBroker:
     # ------------------------------------------------------------------
     # 推送
     # ------------------------------------------------------------------
+    # A21-03: ws Redis pub/sub 出站调用纳入统一 outbound 装饰器（ADR-0026）。
+    # 参数选择：
+    #   * timeout=2.0s —— pub/sub 不应阻塞热路径，比 SMS / payment 默认 5s 更紧；
+    #     失败时本地已投递，跨副本 fanout 是增强项，可接受丢失。
+    #   * max_retries=2，默认指数退避（0.2s, 0.8s）—— 冷失败最坏总耗时 ~3s。
+    #   * 熔断使用默认 threshold=5 / timeout=60s，与 SMS / payment provider 一致，
+    #     observability 告警规则可统一。
+    # 装饰器在重试耗尽 / 熔断打开时抛 ``RetryableError``；调用方
+    # ``push_to_key`` 在外层继续 swallow 以保持 best-effort 语义
+    # （local fanout 已经成功，跨实例丢失会在客户端重连/下一条消息时自愈）。
+    # 失败统一以 ERROR 级别打结构化日志，方便接告警。
+    @outbound_call(provider="ws_pubsub", timeout=2.0, max_retries=2)
+    async def _publish_envelope(self, envelope_json: str) -> None:
+        assert self.redis is not None  # caller-guarded
+        await self.redis.publish(self.channel, envelope_json)
+
     async def push_to_key(self, key: UUID | str, payload: dict[str, Any]) -> None:
         """对单个 key（user_id 或 order_id）推送消息。
 
         - 同步本地投递（连接在本副本 → 立即到达）
         - 同时 publish 到 Redis 频道 → 其他副本上的连接也会收到（通过 listen loop）
-        - Redis publish 失败不影响本地投递
+        - Redis publish 失败不影响本地投递（A21-03：超时 / 重试 / 熔断 已接入）
         """
         k = str(key)
 
         # 1) 本地投递（无论 pubsub 是否启用，本机连接都要送达）
         await self._deliver_local(k, payload)
 
-        # 2) publish 到其他副本
+        # 2) publish 到其他副本（受装饰器保护：超时 + 重试 + 熔断）
         if self.enabled and self.redis is not None and self._pubsub is not None:
             envelope = {
                 "origin": self.instance_id,
                 self.key_field: k,
                 "payload": payload,
             }
+            envelope_json = json.dumps(envelope)
             try:
-                await self.redis.publish(self.channel, json.dumps(envelope))
-            except Exception as exc:
-                logger.warning(
-                    "WsPubSubBroker publish failed (channel=%s, "
-                    "best-effort, local already delivered): %s",
+                await self._publish_envelope(envelope_json)
+            except (RetryableError, NonRetryableError, Exception) as exc:
+                # Best-effort: local 已投递。结构化 ERROR 日志便于 observability
+                # 接告警（A21-03）。即使熔断打开也不向上抛。
+                logger.error(
+                    "ws_pubsub publish failed (swallowed, best-effort): "
+                    "channel=%s key_field=%s key=%s instance=%s "
+                    "error_type=%s error=%s",
                     self.channel,
+                    self.key_field,
+                    k,
+                    self.instance_id,
+                    type(exc).__name__,
                     exc,
                 )
 
