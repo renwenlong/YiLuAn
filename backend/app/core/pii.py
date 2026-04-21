@@ -8,6 +8,38 @@
 """
 from __future__ import annotations
 
+import hashlib
+
+
+def hash_phone(phone: str | None, salt: str) -> str:
+    """对手机号做 SHA256(salt + phone) 的 hex 摘要，用于日志/审计的等值检索。
+
+    用途
+    ----
+    SMS 发送日志（A21-02b / D-033）需要按号查记录，但不能存明文。方案 D：
+    ``phone_masked`` 给人看 + ``phone_hash`` 给程序查。
+
+    设计
+    ----
+    * **必须传 salt**：避免「同一明文映射到同一固定 hash」可被全表彩虹查表。
+    * salt 来源：``app.config.settings.pii_hash_salt``，从 ``PII_HASH_SALT``
+      环境变量读取，**生产必须覆盖默认值**。
+    * 实现用 ``salt + phone``（前缀拼接），与 HMAC 不等价但对当前威胁模型
+      （日志泄漏后的彩虹表查询）足够；如未来需要密钥旋转可换 HMAC-SHA256。
+
+    Parameters
+    ----------
+    phone :
+        手机号（11 位 / 带 +CC / 任意字符串）。``None`` / 空串返回空串。
+    salt :
+        盐值。空 salt 抛 ``ValueError``，避免误用。
+    """
+    if not phone:
+        return ""
+    if not salt:
+        raise ValueError("hash_phone requires a non-empty salt")
+    return hashlib.sha256(f"{salt}{phone}".encode("utf-8")).hexdigest()
+
 
 def mask_phone(phone: str | None) -> str:
     """掩码手机号：保留前 3 + 后 2，中间替换为 *。

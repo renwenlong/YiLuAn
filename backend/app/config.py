@@ -55,6 +55,13 @@ class Settings(BaseSettings):
     # Admin
     admin_api_token: str = "dev-admin-token"
 
+    # PII (A21-02b / D-033)
+    # 用于 hash_phone() 等 PII 字段的 salt。
+    # ⚠️ 生产必须覆盖此值（通过 PII_HASH_SALT 环境变量）。
+    # 默认值仅供开发 / 测试，**绝不可在生产环境使用**。
+    # 如需未来轮换，请保留旧 salt 兼容历史 hash 数据。
+    pii_hash_salt: str = "yiluan-dev-salt-do-not-use-in-prod"
+
     # CORS
     cors_origins: list[str] = ["*"]
 

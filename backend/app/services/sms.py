@@ -253,3 +253,24 @@ def get_sms_provider() -> SMSProvider:
     elif name == "tencent":
         return TencentSMSProvider()
     return MockSMSProvider()
+
+
+# ---------------------------------------------------------------------------
+# A21-02b / D-033 — SMS send-log wrapper (high-level entry point)
+# ---------------------------------------------------------------------------
+#
+# 架构决策（5 项之一）：**所有 provider 自动落库**，不修改各 ``Provider.send_*`` 实现。
+# 接入处：此文件下方 ``LoggingSMSProviderWrapper`` + ``app.services.providers.sms.factory``
+# 返回这个 wrapper 包裹后的实例。业务代码调用 ``provider.send_otp(...)`` 时，
+# wrapper 会：
+#   1. INSERT 一行 ``status='pending'`` 拿到 log_id
+#   2. 调用底层 provider.send_otp
+#   3. 成功 → UPDATE status=success + biz_id + masked response
+#      失败/异常 → UPDATE status=failed + response_msg，然后 **re-raise**
+#
+# 实现在 ``app.services.providers.sms.logging_wrapper`` 以避免本文件产生对
+# ``app.models`` 的循环依赖（legacy、并顶层 factory 都依赖本文件）。
+# 这里只留一个导出快捷方便发现：
+from app.services.providers.sms.logging_wrapper import (  # noqa: E402,F401
+    LoggingSMSProviderWrapper,
+)
