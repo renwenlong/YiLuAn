@@ -71,6 +71,7 @@ struct CreateOrderView: View {
             }
             .navigationTitle("创建订单")
             .navigationBarTitleDisplayMode(.inline)
+            .phoneRequiredAlert($viewModel.phoneRequiredMessage)
         }
     }
 
