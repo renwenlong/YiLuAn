@@ -26,6 +26,7 @@ import logging
 from typing import Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from app.core.distributed_lock import (
@@ -125,6 +126,11 @@ async def _try_acquire_lock(redis_client, key: str, ttl: int) -> bool:
 
 def create_scheduler(app) -> AsyncIOScheduler:
     """创建并配置调度器（不 start）。调用方负责 start()/shutdown()。"""
+    from app.tasks.log_retention import (
+        cleanup_payment_callback_log,
+        cleanup_sms_send_log,
+    )
+
     scheduler = AsyncIOScheduler(timezone="UTC")
     scheduler.add_job(
         scan_expired_orders_job,
@@ -135,6 +141,30 @@ def create_scheduler(app) -> AsyncIOScheduler:
         coalesce=True,          # 多次错过的触发合并成一次
         max_instances=1,        # 同进程内防并发
         misfire_grace_time=30,  # 容忍 30 秒延迟
+        replace_existing=True,
+    )
+    # D-027: 日志保留清理 — 每天凌晨 3:00 清理 payment_callback_log
+    scheduler.add_job(
+        cleanup_payment_callback_log,
+        trigger=CronTrigger(hour=3, minute=0),
+        kwargs={"app": app},
+        id="cleanup_payment_callback_log",
+        name="Cleanup expired payment callback logs",
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=600,
+        replace_existing=True,
+    )
+    # D-027: 日志保留清理 — 每天凌晨 3:30 清理 sms_send_log
+    scheduler.add_job(
+        cleanup_sms_send_log,
+        trigger=CronTrigger(hour=3, minute=30),
+        kwargs={"app": app},
+        id="cleanup_sms_send_log",
+        name="Cleanup expired SMS send logs",
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=600,
         replace_existing=True,
     )
     return scheduler
