@@ -1,0 +1,67 @@
+groups:
+  - name: yiluan_alerts
+    rules:
+      # 1. Outbound call failure rate > 20% over 5 min
+      - alert: OutboundFailureRateHigh
+        expr: >
+          (
+            sum(rate(outbound_call_total{outcome!="success"}[5m]))
+            /
+            sum(rate(outbound_call_total[5m]))
+          ) > 0.2
+        for: 5m
+        labels:
+          severity: P1
+        annotations:
+          summary: "Outbound call failure rate exceeds 20%"
+          description: "Outbound failure rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+      # 2. Circuit breaker open for any provider
+      - alert: CircuitBreakerOpen
+        expr: outbound_circuit_breaker_state == 1
+        for: 1m
+        labels:
+          severity: P1
+        annotations:
+          summary: "Circuit breaker OPEN for provider {{ $labels.provider }}"
+          description: "Provider {{ $labels.provider }} circuit breaker has been open for >1 min."
+
+      # 3. Order creation rate drop > 80% vs 1h ago
+      - alert: OrderCreationDrop
+        expr: >
+          (
+            sum(rate(order_created_total[5m]))
+            /
+            sum(rate(order_created_total[5m] offset 1h))
+          ) < 0.2
+        for: 5m
+        labels:
+          severity: P1
+        annotations:
+          summary: "Order creation rate dropped >80% vs 1h ago"
+          description: "Current order creation rate is {{ $value | humanizePercentage }} of the rate 1 hour ago."
+
+      # 4. Payment callback failure rate > 10%
+      - alert: PaymentCallbackFailureRateHigh
+        expr: >
+          (
+            sum(rate(payment_callback_received_total{status="failed"}[5m]))
+            /
+            sum(rate(payment_callback_received_total[5m]))
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: P1
+        annotations:
+          summary: "Payment callback failure rate exceeds 10%"
+          description: "Payment callback failure rate is {{ $value | humanizePercentage }} over the last 5 minutes."
+
+      # 5. Readiness probe failing
+      - alert: ReadinessProbeFailure
+        expr: probe_success{job="yiluan-readiness"} == 0
+        for: 2m
+        labels:
+          severity: P0
+        annotations:
+          summary: "Readiness probe failing for >2 min"
+          description: "The /readiness endpoint has been returning non-200 for over 2 minutes."
