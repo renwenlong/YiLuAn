@@ -260,6 +260,11 @@ class PaymentService:
 
         payment.status = "success" if success else "failed"
         await self.session.flush()
+
+        from app.utils.metrics import payment_callback_received_total, order_paid_total
+        payment_callback_received_total.labels(status=payment.status).inc()
+        if payment.status == "success":
+            order_paid_total.labels(service_type="unknown").inc()
         logger.info(
             "Payment callback processed: trade_no=%s status=%s",
             trade_no,

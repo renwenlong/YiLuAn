@@ -7,6 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from prometheus_client import make_asgi_app as _make_metrics_app
+
 from app.api.v1.router import api_v1_router
 from app.config import settings
 from app.core.logging import setup_logging
@@ -99,6 +101,10 @@ def create_app() -> FastAPI:
             duration_ms,
         )
         return response
+
+    # Prometheus metrics endpoint (no auth — K8s scrape)
+    metrics_app = _make_metrics_app()
+    app.mount("/metrics", metrics_app)
 
     # Routers
     app.include_router(api_v1_router, prefix="/api/v1")
