@@ -159,7 +159,7 @@ class WsPubSubBroker:
             except Exception as exc:
                 logger.debug("WsPubSubBroker unsubscribe error: %s", exc)
             try:
-                await self._pubsub.close()
+                await self._pubsub.aclose()
             except Exception as exc:
                 logger.debug("WsPubSubBroker pubsub close error: %s", exc)
             self._pubsub = None
