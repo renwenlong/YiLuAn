@@ -178,11 +178,16 @@ def test_create_scheduler_registers_expired_order_job():
     scheduler = create_scheduler(app)
     try:
         jobs = scheduler.get_jobs()
-        assert len(jobs) == 1
-        job = jobs[0]
-        assert job.id == "scan_expired_orders"
-        assert job.max_instances == 1
-        assert job.coalesce is True
+        assert len(jobs) == 3
+        job_ids = {j.id for j in jobs}
+        assert job_ids == {
+            "scan_expired_orders",
+            "cleanup_payment_callback_log",
+            "cleanup_sms_send_log",
+        }
+        for job in jobs:
+            assert job.max_instances == 1
+            assert job.coalesce is True
     finally:
         # 不 start，避免事件循环绑定问题；直接清理
         try:
