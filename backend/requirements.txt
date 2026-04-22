@@ -32,6 +32,9 @@ httpx==0.28.1
 alibabacloud-dysmsapi20170525>=3.0.0
 tencentcloud-sdk-python-sms>=3.0.0
 
+# Monitoring
+prometheus_client>=0.20.0
+
 # Rate limiting
 slowapi==0.1.9
 

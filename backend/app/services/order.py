@@ -106,6 +106,10 @@ class OrderService:
         order = await self.order_repo.create(order)
 
         await self._record_history(order.id, None, OrderStatus.created, user.id)
+
+        from app.utils.metrics import order_created_total
+        order_created_total.labels(service_type=service_type.value if hasattr(service_type, 'value') else service_type).inc()
+
         return order
 
     async def get_order(self, order_id: uuid.UUID, user: User) -> Order:
@@ -349,6 +353,11 @@ class OrderService:
                 raise BadRequestException(
                     f"订单已取消，但退款失败，请联系客服处理: {e.detail}"
                 ) from e
+
+        from app.utils.metrics import order_cancelled_total
+        _st = order.service_type.value if hasattr(order.service_type, 'value') else order.service_type
+        _cb = user.role.value if hasattr(user.role, 'value') else user.role
+        order_cancelled_total.labels(service_type=_st, cancelled_by=_cb).inc()
 
         # Notify the other party about cancellation
         if user.role == UserRole.patient and order.companion_id:
