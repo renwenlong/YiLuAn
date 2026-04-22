@@ -59,7 +59,7 @@ async def lifespan(app: FastAPI):
     await stop_ws_chat_pubsub(app)
     await stop_ws_pubsub(app)
     if app.state.redis:
-        await app.state.redis.close()
+        await app.state.redis.aclose()
     logger.info("Shutdown complete")
 
 
