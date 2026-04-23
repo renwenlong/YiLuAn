@@ -168,3 +168,42 @@
 
 **一句话总结：**
 **医路安已从「功能冲刺期」切换到「发布收口期」。代码 Ready，发布等外部资源。**
+
+
+---
+
+## 本日更新（2026-04-23, Action #12）
+
+> 自 2026-04-18 上次同步以来的变化：
+
+### 测试/覆盖
+- 后端：428 → **609 passed**（+181, 新增 log_retention / metrics / error_codes_guard / D-034~D-036 相关测试）
+- 微信小程序：142 → **187 passed / 32 suites**（+45, 新增 haptic + 各 page 单测）
+- iOS：57 passed（持平）
+- **总测试：627 → 853**（+226）
+
+### 新增/稳定化
+- SP-03 `/metrics` + 业务计数器 + 5 条 Prometheus alerts（D-037 白名单文档化 commit `59a976f`）
+- D-036 Redis `aclose()` 统一，DeprecationWarning 51 → 0
+- D-027 日志保留任务（payment_callback_log / sms_send_log）
+- iOS CI 动态 simulator 探测（commit `b989b27`）
+- Polish batch 10 项（P-03~P-12，commit `f133d2b`）
+- Go-Live runbook 起草（`docs/runbook-go-live.md`）
+
+### Sprint W17 进度
+- Day 6 / 10，完成度 **74%**（较基准 +14%）
+- 已解决：D-036 / D-027 / SP-03 / iOS CI workflow / Polish 10 项
+- 待解决（本周内）：B-01~B-05 生产 Blocker（需文龙推动外部资源）
+
+### 5 个生产 Blocker 状态（截至 2026-04-23 23:55）
+| Blocker | 内容 | 等待天数 | Owner |
+|---|---|---|---|
+| B-01 | 微信支付商户号 / APIv3 / 证书 | 13 | PM（走商户审核）|
+| B-02 | 阿里云 SMS 签名与模板 | 13 | PM |
+| B-03 | ACR / 监控对接账号 | 11 | Ops |
+| B-04 | 域名 / SSL / ICP 备案 | 13 | PM |
+| B-05 | Apple 开发者账号 | 13 | PM |
+
+所有 Blocker 解锁后可按 `docs/runbook-go-live.md` 30 分钟完成上线。
+
+Last updated: 2026-04-23 23:55 (Action #12)
