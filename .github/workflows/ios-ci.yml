@@ -48,10 +48,17 @@ jobs:
           xcodebuild -version
           xcodegen --version
           xcrun simctl list runtimes | head -n 20
+          echo '--- available iOS Simulator destinations ---'
+          xcrun simctl list devices available | grep -E 'iPhone|iPad' | head -n 20 || true
 
       - name: Generate Xcode project
         working-directory: ios
         run: xcodegen generate
+
+      - name: Show build destinations (diagnostic)
+        working-directory: ios
+        run: |
+          xcodebuild -project YiLuAn.xcodeproj -scheme YiLuAn -showdestinations 2>&1 | head -n 40 || true
 
       - name: Cache DerivedData
         uses: actions/cache@v4
@@ -78,6 +85,19 @@ jobs:
             -project YiLuAn.xcodeproj \
             -scheme YiLuAn || true
 
+      - name: Pick iOS Simulator destination
+        id: sim
+        run: |
+          # Pick the first available iPhone simulator (iPhone 16/15/14 in that order).
+          # Hard-coding 'iPhone 15 Pro' or 'iPhone 16' breaks when Xcode bumps device names.
+          RUNTIME=$(xcrun simctl list runtimes available | grep -E 'iOS [0-9]+' | tail -n 1 | awk -F 'com.apple.CoreSimulator.SimRuntime.' '{print $2}')
+          DEVICE=$(xcrun simctl list devices available "$RUNTIME" 2>/dev/null | grep -E 'iPhone 1[3-9]' | head -n 1 | sed -E 's/^[[:space:]]+([^(]+) \(.*/\1/' | xargs)
+          if [ -z "$DEVICE" ]; then
+            DEVICE=$(xcrun simctl list devices available | grep -E 'iPhone 1[3-9]' | head -n 1 | sed -E 's/^[[:space:]]+([^(]+) \(.*/\1/' | xargs)
+          fi
+          echo "Picked: $DEVICE / $RUNTIME"
+          echo "device=${DEVICE:-iPhone 15}" >> $GITHUB_OUTPUT
+
       - name: Run unit tests
         working-directory: ios
         run: |
@@ -85,7 +105,7 @@ jobs:
           xcodebuild test \
             -project YiLuAn.xcodeproj \
             -scheme YiLuAn \
-            -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=latest' \
+            -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.device }},OS=latest" \
             -resultBundlePath TestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO \
             | tee xcodebuild.log
