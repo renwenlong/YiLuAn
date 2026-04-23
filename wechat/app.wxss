@@ -473,3 +473,107 @@ page {
 .safe-bottom-fixed {
   padding-bottom: calc(env(safe-area-inset-bottom) + 24rpx);
 }
+
+
+/* ============================================
+ * Polish Batch 2026-04-23 (P-03..P-12)
+ * Design intent: 补齐全局交互反馈 / 无障碍 / 深色模式
+ * ============================================ */
+
+/* P-05: 全局按钮点击态视觉反馈 */
+.btn,
+button,
+.polish-btn {
+  transition: opacity var(--duration-fast) var(--ease-out),
+              transform var(--duration-fast) var(--ease-out);
+}
+.btn:active,
+button:active,
+.polish-btn:active {
+  opacity: 0.7;
+  transform: scale(0.98);
+}
+
+/* P-04: 金额展示统一 (brand orange + bold + 36rpx) */
+.polish-amount,
+.amount,
+.order-amount,
+.wallet-amount {
+  font-size: 36rpx;
+  font-weight: 600;
+  color: var(--color-accent); /* brand orange #FF7A45 */
+  font-variant-numeric: tabular-nums;
+}
+.polish-amount--lg { font-size: 48rpx; }
+.polish-amount--sm { font-size: 28rpx; }
+
+/* P-06: loading 文案统一 (加载中 无省略号) */
+.polish-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-caption);
+}
+.polish-loading::after {
+  content: '';
+  width: 12rpx;
+  height: 12rpx;
+  border: 2rpx solid var(--color-primary);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: polish-spin 0.8s linear infinite;
+}
+@keyframes polish-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* P-08: 表单内联错误提示 (替代散落的 toast) */
+.polish-form-error {
+  display: block;
+  margin-top: var(--spacing-2xs);
+  font-size: var(--font-size-small);
+  color: var(--color-danger);
+  line-height: var(--line-height-tight);
+}
+
+/* P-11: 卡片圆角 token 化 */
+.polish-card,
+.order-card,
+.companion-card,
+.wallet-card {
+  border-radius: var(--radius-lg); /* 统一 16rpx */
+}
+
+/* P-10: 无障碍 — 纯图标按钮最小可点击区域 + 焦点环 */
+.polish-icon-btn {
+  min-width: 88rpx;
+  min-height: 88rpx;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.polish-icon-btn:focus-visible {
+  outline: 3rpx solid var(--color-primary);
+  outline-offset: 2rpx;
+}
+
+/* P-12: 深色模式适配 (微信小程序 theme=dark) */
+@media (prefers-color-scheme: dark) {
+  page {
+    --color-bg-page: #141414;
+    --color-bg-card: #1F1F1F;
+    --color-bg-input: #262626;
+    --color-bg-hover: #262626;
+    --color-text-primary: #F5F5F5;
+    --color-text-secondary: #BFBFBF;
+    --color-text-hint: #8C8C8C;
+    --color-border: #303030;
+    --color-border-light: #262626;
+  }
+}
+
+/* P-09: 页面标题栏默认样式(配合 app.json 的 navigationBarTextStyle=black) */
+.polish-navbar-spacer {
+  height: calc(env(safe-area-inset-top) + 44px);
+}
