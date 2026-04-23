@@ -1,0 +1,28 @@
+# Prometheus scrape config example for YiLuAn backend.
+# See docs/deployment.md §19 for nginx /metrics allowlist configuration.
+# Copy to your Prometheus server's prometheus.yml `scrape_configs:` section and adjust.
+
+scrape_configs:
+  - job_name: yiluan-backend
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    metrics_path: /metrics
+    scheme: https
+    static_configs:
+      - targets:
+          - api.yiluan.com:443
+        labels:
+          env: prod
+          service: backend
+
+  - job_name: yiluan-backend-staging
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    metrics_path: /metrics
+    scheme: https
+    static_configs:
+      - targets:
+          - api-staging.yiluan.com:443
+        labels:
+          env: staging
+          service: backend
