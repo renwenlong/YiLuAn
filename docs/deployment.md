@@ -744,3 +744,123 @@ alembic history --verbose | head -30
 
 > 任一项失败立即按 §15 回滚，不要带病上线。
 
+
+## 19. 监控指标端点（/metrics）
+
+> 决策：**D-037（2026-04-23）** — `/metrics` 端点不对公网暴露，只允许内网 Prometheus / 运维白名单 IP 访问，外网一律 403。
+
+### 19.1 背景
+
+后端在 `app/api/v1/metrics.py` 暴露 Prometheus exposition format 指标：
+
+- 请求计数 / 延迟直方图 / 错误计数
+- 业务指标：订单状态转移、SMS 发送结果、WebSocket 在线连接
+- 任务指标：log_retention 清理行数、payment 回调处理耗时
+
+默认未做鉴权，如果直接暴露公网会泄露内部接口列表、业务量级等敏感信息，因此所有环境必须在反向代理层加 IP 白名单。
+
+### 19.2 nginx 配置示例
+
+在 nginx 站点配置中加入以下 location 块，放在 `/` 通用 location 之前：
+
+```nginx
+# /metrics: 仅内网 Prometheus 可访问，外网 403
+location = /metrics {
+    # 允许的来源
+    allow 10.0.0.0/8;       # 示例：内网 Prometheus 子网
+    allow 172.16.0.0/12;    # 示例：Docker / K8s 内网段
+    allow 127.0.0.1;        # 本机
+    # allow <Prometheus 公网出口 IP>;  # 如果 Prometheus 在另一 region，单独放行其出口 IP
+
+    deny  all;
+
+    proxy_pass         http://backend_upstream;
+    proxy_http_version 1.1;
+    proxy_set_header   Host              $host;
+    proxy_set_header   X-Real-IP         $remote_addr;
+    proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header   X-Forwarded-Proto $scheme;
+
+    # /metrics 不需要长连接，收敛超时
+    proxy_read_timeout 5s;
+    proxy_connect_timeout 3s;
+    access_log off;
+}
+```
+
+**要点：**
+
+1. 使用 `location = /metrics` 精确匹配，避免子路径意外命中。
+2. `allow` / `deny` 规则 nginx 按顺序匹配，第一条命中即生效；把 `deny all` 放最后。
+3. `access_log off` 避免 Prometheus 每 15 秒一次的 scrape 把 access log 撑爆。
+4. 如果 Prometheus 走外网访问（例如托管在另一云厂商），**不要**简单放开所有 IP，应该：
+   - 走 VPN / Wireguard 隧道，只放行隧道出口 IP；或
+   - 在 Prometheus 侧配置 basic auth，同时在 nginx 加 `auth_basic`。
+
+### 19.3 Prometheus scrape 配置
+
+参考样例：`deploy/prometheus/scrape.yml.example`
+
+```yaml
+scrape_configs:
+  - job_name: yiluan-backend
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    metrics_path: /metrics
+    scheme: https
+    static_configs:
+      - targets:
+          - api.yiluan.com:443
+        labels:
+          env: prod
+          service: backend
+
+  - job_name: yiluan-backend-staging
+    scrape_interval: 30s
+    metrics_path: /metrics
+    scheme: https
+    static_configs:
+      - targets:
+          - api-staging.yiluan.com:443
+        labels:
+          env: staging
+          service: backend
+```
+
+实际生产环境应结合服务发现（Consul / K8s SD / file_sd）替代 static_configs。
+
+### 19.4 上线验证
+
+部署完 nginx 配置后，在**公网任意机器**执行：
+
+```bash
+# 外网应返回 403
+curl -I https://api.yiluan.com/metrics
+# 期望：HTTP/1.1 403 Forbidden
+
+# 内网 / VPN 内应返回 200，Content-Type: text/plain
+curl -I https://api.yiluan.com/metrics
+# 期望：HTTP/1.1 200 OK
+#       Content-Type: text/plain; version=0.0.4; charset=utf-8
+```
+
+如果外网仍返回 200，说明 nginx 白名单配置未生效，**立即回滚或改为 maintenance 模式**，避免 Prometheus scrape 接口长时间暴露。
+
+### 19.5 告警规则
+
+`/metrics` 本身也应被 Prometheus 监控（项目内规则见 `deploy/prometheus/alerts.yml`）：
+
+```yaml
+# prometheus/alerts.yml（节选）
+- alert: MetricsEndpointDown
+  expr: up{job="yiluan-backend"} == 0
+  for: 2m
+  annotations:
+    summary: "YiLuAn backend /metrics scrape failed for 2m"
+```
+
+scrape 失败本身就是一级告警，因为所有其它 Prometheus 规则都依赖于 `/metrics` 能被拉取。
+
+---
+
+Last updated: 2026-04-23 (D-037)
