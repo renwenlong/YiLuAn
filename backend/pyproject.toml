@@ -22,3 +22,20 @@ addopts = "-m 'not smoke'"
 markers = [
     "smoke: slow smoke tests requiring a real Postgres (run with `pytest -m smoke`)",
 ]
+
+[tool.coverage.run]
+# Use Python 3.12 sys.monitoring tracer; the legacy C tracer mis-attributes
+# coverage in async generator / try/except blocks (~4% under-report).
+core = "sysmon"
+branch = false
+source = ["app"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
