@@ -18,7 +18,7 @@ from app.api.v1.ws import router as ws_router
 api_v1_router = APIRouter()
 
 
-@api_v1_router.get("/ping", summary="Ping测试", description="简单的连通性测试接口，返回pong和API版本号。")
+@api_v1_router.get("/ping", summary="Ping测试", description="简单的连通性测试接口，返回pong和API版本号。", tags=["health"])
 async def ping():
     return {"message": "pong", "version": "v1"}
 

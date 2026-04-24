@@ -1,0 +1,7258 @@
+{
+  "components": {
+    "schemas": {
+      "ApplyCompanionRequest": {
+        "properties": {
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "个人简介",
+            "examples": [
+              "5 年三甲医院护理经验"
+            ],
+            "title": "Bio"
+          },
+          "certifications": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "资质证书描述（多个用逗号分隔）",
+            "examples": [
+              "护士资格证,养老护理员"
+            ],
+            "title": "Certifications"
+          },
+          "id_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "身份证号",
+            "examples": [
+              "110101199001011234"
+            ],
+            "title": "Id Number"
+          },
+          "real_name": {
+            "description": "真实姓名",
+            "examples": [
+              "张三"
+            ],
+            "maxLength": 50,
+            "minLength": 2,
+            "title": "Real Name",
+            "type": "string"
+          },
+          "service_area": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "服务区域，如『朝阳区,海淀区』",
+            "examples": [
+              "朝阳区,海淀区"
+            ],
+            "title": "Service Area"
+          },
+          "service_city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "服务城市",
+            "examples": [
+              "北京"
+            ],
+            "title": "Service City"
+          },
+          "service_hospitals": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "签约医院 ID 列表，逗号分隔",
+            "title": "Service Hospitals"
+          },
+          "service_types": {
+            "description": "提供的服务类型，逗号分隔",
+            "examples": [
+              "full_accompany,half_accompany"
+            ],
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Service Types",
+            "type": "string"
+          }
+        },
+        "required": [
+          "real_name",
+          "service_types"
+        ],
+        "title": "ApplyCompanionRequest",
+        "type": "object"
+      },
+      "AvatarUploadResponse": {
+        "properties": {
+          "avatar_url": {
+            "description": "新头像的访问 URL",
+            "examples": [
+              "https://cdn.example.com/avatars/u1.jpg"
+            ],
+            "title": "Avatar Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "avatar_url"
+        ],
+        "title": "AvatarUploadResponse",
+        "type": "object"
+      },
+      "Body_upload_avatar_api_v1_users_me_avatar_post": {
+        "properties": {
+          "file": {
+            "format": "binary",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_avatar_api_v1_users_me_avatar_post",
+        "type": "object"
+      },
+      "ChatMessageListResponse": {
+        "properties": {
+          "items": {
+            "description": "当页消息列表",
+            "items": {
+              "$ref": "#/components/schemas/ChatMessageResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "description": "总条数",
+            "examples": [
+              42
+            ],
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "ChatMessageListResponse",
+        "type": "object"
+      },
+      "ChatMessageResponse": {
+        "properties": {
+          "content": {
+            "description": "消息正文",
+            "examples": [
+              "请问还要等多久？"
+            ],
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "description": "发送时间",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "description": "消息 ID",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_read": {
+            "description": "是否已读",
+            "examples": [
+              false
+            ],
+            "title": "Is Read",
+            "type": "boolean"
+          },
+          "order_id": {
+            "description": "所属订单 ID",
+            "format": "uuid",
+            "title": "Order Id",
+            "type": "string"
+          },
+          "sender_id": {
+            "description": "发送方用户 ID",
+            "format": "uuid",
+            "title": "Sender Id",
+            "type": "string"
+          },
+          "type": {
+            "description": "消息类型",
+            "examples": [
+              "text"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "order_id",
+          "sender_id",
+          "type",
+          "content",
+          "is_read",
+          "created_at"
+        ],
+        "title": "ChatMessageResponse",
+        "type": "object"
+      },
+      "CompanionDetailResponse": {
+        "properties": {
+          "avg_rating": {
+            "default": 0.0,
+            "description": "平均评分（0~5）",
+            "examples": [
+              4.8
+            ],
+            "title": "Avg Rating",
+            "type": "number"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "个人简介",
+            "title": "Bio"
+          },
+          "certifications": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "资质证书",
+            "title": "Certifications"
+          },
+          "created_at": {
+            "description": "档案创建时间",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "description": "陪诊师档案 ID",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "real_name": {
+            "description": "真实姓名",
+            "title": "Real Name",
+            "type": "string"
+          },
+          "service_area": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "服务区域",
+            "title": "Service Area"
+          },
+          "service_city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "服务城市",
+            "title": "Service City"
+          },
+          "service_hospitals": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "签约医院 ID 列表",
+            "title": "Service Hospitals"
+          },
+          "service_types": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "服务类型",
+            "title": "Service Types"
+          },
+          "total_orders": {
+            "default": 0,
+            "description": "累计完成订单数",
+            "examples": [
+              126
+            ],
+            "title": "Total Orders",
+            "type": "integer"
+          },
+          "user_id": {
+            "description": "对应用户 ID",
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "verification_status": {
+            "default": "pending",
+            "description": "审核状态：pending/verified/rejected",
+            "examples": [
+              "verified"
+            ],
+            "title": "Verification Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "real_name",
+          "created_at"
+        ],
+        "title": "CompanionDetailResponse",
+        "type": "object"
+      },
+      "CompanionItem": {
+        "properties": {
+          "certifications": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "持证信息串",
+            "examples": [
+              "护士资格证"
+            ],
+            "title": "Certifications"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "创建时间 ISO8601",
+            "examples": [
+              "2026-04-24T10:00:00+08:00"
+            ],
+            "title": "Created At"
+          },
+          "id": {
+            "description": "陪诊师 ID",
+            "examples": [
+              "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+            ],
+            "title": "Id",
+            "type": "string"
+          },
+          "id_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "身份证号（脱敏）",
+            "examples": [
+              "110101********1234"
+            ],
+            "title": "Id Number"
+          },
+          "real_name": {
+            "description": "真实姓名",
+            "examples": [
+              "张三"
+            ],
+            "title": "Real Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "real_name"
+        ],
+        "title": "CompanionItem",
+        "type": "object"
+      },
+      "CompanionListResponse": {
+        "properties": {
+          "avg_rating": {
+            "default": 0.0,
+            "description": "平均评分（0~5）",
+            "examples": [
+              4.8
+            ],
+            "title": "Avg Rating",
+            "type": "number"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "个人简介",
+            "title": "Bio"
+          },
+          "id": {
+            "description": "陪诊师档案 ID",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "real_name": {
+            "description": "真实姓名",
+            "title": "Real Name",
+            "type": "string"
+          },
+          "service_area": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "服务区域",
+            "title": "Service Area"
+          },
+          "service_city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "服务城市",
+            "title": "Service City"
+          },
+          "service_hospitals": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "签约医院 ID 列表",
+            "title": "Service Hospitals"
+          },
+          "service_types": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "服务类型",
+            "title": "Service Types"
+          },
+          "total_orders": {
+            "default": 0,
+            "description": "累计完成订单数",
+            "examples": [
+              126
+            ],
+            "title": "Total Orders",
+            "type": "integer"
+          },
+          "user_id": {
+            "description": "对应用户 ID",
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "verification_status": {
+            "default": "pending",
+            "description": "审核状态：pending/verified/rejected",
+            "examples": [
+              "verified"
+            ],
+            "title": "Verification Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "real_name"
+        ],
+        "title": "CompanionListResponse",
+        "type": "object"
+      },
+      "CompanionStatsResponse": {
+        "properties": {
+          "avg_rating": {
+            "default": 0.0,
+            "description": "平均评分",
+            "examples": [
+              4.8
+            ],
+            "title": "Avg Rating",
+            "type": "number"
+          },
+          "open_orders": {
+            "default": 0,
+            "description": "进行中订单数",
+            "examples": [
+              2
+            ],
+            "title": "Open Orders",
+            "type": "integer"
+          },
+          "total_earnings": {
+            "default": 0.0,
+            "description": "累计收入（元）",
+            "examples": [
+              12480.5
+            ],
+            "title": "Total Earnings",
+            "type": "number"
+          },
+          "total_orders": {
+            "default": 0,
+            "description": "累计订单数",
+            "examples": [
+              126
+            ],
+            "title": "Total Orders",
+            "type": "integer"
+          }
+        },
+        "title": "CompanionStatsResponse",
+        "type": "object"
+      },
+      "CreateOrderRequest": {
+        "properties": {
+          "appointment_date": {
+            "description": "预约日期",
+            "examples": [
+              "2026-05-01"
+            ],
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "title": "Appointment Date",
+            "type": "string"
+          },
+          "appointment_time": {
+            "description": "预约时间 HH:MM",
+            "examples": [
+              "09:30"
+            ],
+            "pattern": "^\\d{2}:\\d{2}$",
+            "title": "Appointment Time",
+            "type": "string"
+          },
+          "companion_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "可选：直接指派的陪诊师 ID；为空则进入大厅抢单",
+            "title": "Companion Id"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "补充说明（病情、特殊需求）",
+            "examples": [
+              "需要陪同做核磁，行动不便"
+            ],
+            "title": "Description"
+          },
+          "hospital_id": {
+            "description": "目标医院 ID",
+            "format": "uuid",
+            "title": "Hospital Id",
+            "type": "string"
+          },
+          "service_type": {
+            "description": "服务类型：full_accompany 全程陪诊 / half_accompany 半天陪诊 / errand 跑腿代办",
+            "examples": [
+              "full_accompany"
+            ],
+            "pattern": "^(full_accompany|half_accompany|errand)$",
+            "title": "Service Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "service_type",
+          "hospital_id",
+          "appointment_date",
+          "appointment_time"
+        ],
+        "title": "CreateOrderRequest",
+        "type": "object"
+      },
+      "CreateReviewRequest": {
+        "properties": {
+          "content": {
+            "description": "文字评价 5~500 字",
+            "examples": [
+              "陪诊师非常专业，全程耐心解答。"
+            ],
+            "maxLength": 500,
+            "minLength": 5,
+            "title": "Content",
+            "type": "string"
+          },
+          "rating": {
+            "description": "评分 1~5 星",
+            "examples": [
+              5
+            ],
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Rating",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "rating",
+          "content"
+        ],
+        "title": "CreateReviewRequest",
+        "type": "object"
+      },
+      "DeviceTokenResponse": {
+        "properties": {
+          "created_at": {
+            "description": "注册时间",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "device_type": {
+            "description": "设备类型",
+            "title": "Device Type",
+            "type": "string"
+          },
+          "id": {
+            "description": "记录 ID",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "token": {
+            "description": "设备推送 token",
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "token",
+          "device_type",
+          "created_at"
+        ],
+        "title": "DeviceTokenResponse",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "HospitalFiltersResponse": {
+        "properties": {
+          "cities": {
+            "description": "可选城市列表",
+            "items": {
+              "type": "string"
+            },
+            "title": "Cities",
+            "type": "array"
+          },
+          "districts": {
+            "description": "可选区县列表",
+            "items": {
+              "type": "string"
+            },
+            "title": "Districts",
+            "type": "array"
+          },
+          "levels": {
+            "description": "可选医院等级",
+            "items": {
+              "type": "string"
+            },
+            "title": "Levels",
+            "type": "array"
+          },
+          "provinces": {
+            "description": "可选省份列表",
+            "items": {
+              "type": "string"
+            },
+            "title": "Provinces",
+            "type": "array"
+          },
+          "tags": {
+            "description": "可选标签",
+            "items": {
+              "type": "string"
+            },
+            "title": "Tags",
+            "type": "array"
+          }
+        },
+        "required": [
+          "provinces",
+          "cities",
+          "districts",
+          "levels",
+          "tags"
+        ],
+        "title": "HospitalFiltersResponse",
+        "type": "object"
+      },
+      "HospitalListResponse": {
+        "properties": {
+          "items": {
+            "description": "当页医院列表",
+            "items": {
+              "$ref": "#/components/schemas/HospitalResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "description": "总条数",
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "HospitalListResponse",
+        "type": "object"
+      },
+      "HospitalRegionResponse": {
+        "properties": {
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最近的城市",
+            "examples": [
+              "北京"
+            ],
+            "title": "City"
+          },
+          "province": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "最近的省份",
+            "examples": [
+              "北京"
+            ],
+            "title": "Province"
+          }
+        },
+        "title": "HospitalRegionResponse",
+        "type": "object"
+      },
+      "HospitalResponse": {
+        "properties": {
+          "address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "详细地址",
+            "examples": [
+              "东城区帅府园1号"
+            ],
+            "title": "Address"
+          },
+          "city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "城市",
+            "examples": [
+              "北京"
+            ],
+            "title": "City"
+          },
+          "district": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "区县",
+            "examples": [
+              "东城区"
+            ],
+            "title": "District"
+          },
+          "id": {
+            "description": "医院 UUID",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "纬度",
+            "title": "Latitude"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "医院等级",
+            "examples": [
+              "三甲"
+            ],
+            "title": "Level"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "经度",
+            "title": "Longitude"
+          },
+          "name": {
+            "description": "医院名称",
+            "examples": [
+              "北京协和医院"
+            ],
+            "title": "Name",
+            "type": "string"
+          },
+          "province": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "省份",
+            "examples": [
+              "北京"
+            ],
+            "title": "Province"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "标签，逗号分隔",
+            "examples": [
+              "综合,教学"
+            ],
+            "title": "Tags"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "HospitalResponse",
+        "type": "object"
+      },
+      "NotificationListResponse": {
+        "properties": {
+          "items": {
+            "description": "当页通知",
+            "items": {
+              "$ref": "#/components/schemas/NotificationResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "description": "总条数",
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "NotificationListResponse",
+        "type": "object"
+      },
+      "NotificationResponse": {
+        "properties": {
+          "body": {
+            "description": "正文",
+            "examples": [
+              "您的订单已被陪诊师张三接单"
+            ],
+            "title": "Body",
+            "type": "string"
+          },
+          "created_at": {
+            "description": "发送时间",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "description": "通知 ID",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_read": {
+            "description": "是否已读",
+            "title": "Is Read",
+            "type": "boolean"
+          },
+          "reference_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "关联资源 ID（如 order_id）",
+            "title": "Reference Id"
+          },
+          "title": {
+            "description": "标题",
+            "examples": [
+              "陪诊师已接单"
+            ],
+            "title": "Title",
+            "type": "string"
+          },
+          "type": {
+            "description": "通知类型",
+            "examples": [
+              "order_accepted"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "user_id": {
+            "description": "接收用户 ID",
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "type",
+          "title",
+          "body",
+          "is_read",
+          "created_at"
+        ],
+        "title": "NotificationResponse",
+        "type": "object"
+      },
+      "OkResponse": {
+        "properties": {
+          "ok": {
+            "default": true,
+            "description": "是否成功",
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "title": "OkResponse",
+        "type": "object"
+      },
+      "OrderListResponse": {
+        "properties": {
+          "items": {
+            "description": "当页订单",
+            "items": {
+              "$ref": "#/components/schemas/OrderResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "description": "总条数",
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "OrderListResponse",
+        "type": "object"
+      },
+      "OrderResponse": {
+        "properties": {
+          "appointment_date": {
+            "description": "预约日期",
+            "examples": [
+              "2026-05-01"
+            ],
+            "title": "Appointment Date",
+            "type": "string"
+          },
+          "appointment_time": {
+            "description": "预约时间",
+            "examples": [
+              "09:30"
+            ],
+            "title": "Appointment Time",
+            "type": "string"
+          },
+          "companion_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "陪诊师用户 ID（未接单时为空）",
+            "title": "Companion Id"
+          },
+          "companion_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "陪诊师姓名（冗余）",
+            "examples": [
+              "张三"
+            ],
+            "title": "Companion Name"
+          },
+          "created_at": {
+            "description": "创建时间",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "患者补充说明",
+            "title": "Description"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "待支付订单的过期时间",
+            "title": "Expires At"
+          },
+          "hospital_id": {
+            "description": "医院 ID",
+            "format": "uuid",
+            "title": "Hospital Id",
+            "type": "string"
+          },
+          "hospital_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "医院名称（冗余）",
+            "examples": [
+              "北京协和医院"
+            ],
+            "title": "Hospital Name"
+          },
+          "id": {
+            "description": "订单 ID",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "order_number": {
+            "description": "订单号（业务可见）",
+            "examples": [
+              "YLA20260424100501"
+            ],
+            "title": "Order Number",
+            "type": "string"
+          },
+          "patient_id": {
+            "description": "患者用户 ID",
+            "format": "uuid",
+            "title": "Patient Id",
+            "type": "string"
+          },
+          "patient_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "患者姓名（冗余）",
+            "examples": [
+              "小明"
+            ],
+            "title": "Patient Name"
+          },
+          "payment_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "支付状态",
+            "examples": [
+              "success"
+            ],
+            "title": "Payment Status"
+          },
+          "price": {
+            "description": "订单金额（元）",
+            "examples": [
+              199.0
+            ],
+            "title": "Price",
+            "type": "number"
+          },
+          "service_type": {
+            "description": "服务类型",
+            "examples": [
+              "full_accompany"
+            ],
+            "title": "Service Type",
+            "type": "string"
+          },
+          "status": {
+            "description": "订单状态",
+            "examples": [
+              "paid"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "timeline": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/TimelineItem"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "订单时间轴",
+            "title": "Timeline"
+          },
+          "timeline_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "当前时间轴索引",
+            "title": "Timeline Index"
+          },
+          "updated_at": {
+            "description": "最后更新时间",
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "order_number",
+          "patient_id",
+          "hospital_id",
+          "service_type",
+          "status",
+          "appointment_date",
+          "appointment_time",
+          "price",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "OrderResponse",
+        "type": "object"
+      },
+      "PaginatedCompanions": {
+        "properties": {
+          "items": {
+            "description": "当页陪诊师列表",
+            "items": {
+              "$ref": "#/components/schemas/CompanionItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "default": 1,
+            "description": "当前页码",
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "default": 20,
+            "description": "页大小",
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "default": 0,
+            "description": "总条数",
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "PaginatedCompanions",
+        "type": "object"
+      },
+      "PatientProfileResponse": {
+        "properties": {
+          "created_at": {
+            "description": "创建时间",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "emergency_contact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "紧急联系人",
+            "title": "Emergency Contact"
+          },
+          "emergency_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "紧急联系电话",
+            "title": "Emergency Phone"
+          },
+          "id": {
+            "description": "档案 ID",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "medical_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "就医备注",
+            "title": "Medical Notes"
+          },
+          "preferred_hospital_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "常用医院 ID",
+            "title": "Preferred Hospital Id"
+          },
+          "updated_at": {
+            "description": "更新时间",
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_id": {
+            "description": "用户 ID",
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "PatientProfileResponse",
+        "type": "object"
+      },
+      "PaymentResponse": {
+        "properties": {
+          "amount": {
+            "description": "金额（元）",
+            "examples": [
+              199.0
+            ],
+            "title": "Amount",
+            "type": "number"
+          },
+          "created_at": {
+            "description": "创建时间",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "description": "支付/退款记录 ID",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "order_id": {
+            "description": "所属订单 ID",
+            "format": "uuid",
+            "title": "Order Id",
+            "type": "string"
+          },
+          "payment_type": {
+            "description": "类型：pay / refund",
+            "examples": [
+              "pay"
+            ],
+            "title": "Payment Type",
+            "type": "string"
+          },
+          "status": {
+            "description": "状态：pending / success / failed",
+            "examples": [
+              "success"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "user_id": {
+            "description": "发起用户 ID",
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "order_id",
+          "user_id",
+          "amount",
+          "payment_type",
+          "status",
+          "created_at"
+        ],
+        "title": "PaymentResponse",
+        "type": "object"
+      },
+      "PhoneBindRequest": {
+        "properties": {
+          "code": {
+            "description": "6 位短信验证码",
+            "examples": [
+              "123456"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "phone": {
+            "description": "待绑定手机号",
+            "examples": [
+              "13800138000"
+            ],
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone",
+          "code"
+        ],
+        "title": "PhoneBindRequest",
+        "type": "object"
+      },
+      "RefreshTokenRequest": {
+        "properties": {
+          "refresh_token": {
+            "description": "登录或上次刷新返回的 refresh_token",
+            "examples": [
+              "eyJhbGciOiJIUzI1NiIsInR5..."
+            ],
+            "title": "Refresh Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "refresh_token"
+        ],
+        "title": "RefreshTokenRequest",
+        "type": "object"
+      },
+      "RefreshTokenResponse": {
+        "properties": {
+          "access_token": {
+            "description": "新的 JWT 访问令牌",
+            "title": "Access Token",
+            "type": "string"
+          },
+          "refresh_token": {
+            "description": "新的刷新令牌（旧 token 同时失效）",
+            "title": "Refresh Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "refresh_token"
+        ],
+        "title": "RefreshTokenResponse",
+        "type": "object"
+      },
+      "RegisterDeviceRequest": {
+        "properties": {
+          "device_type": {
+            "description": "设备类型：ios / android / wechat",
+            "examples": [
+              "ios"
+            ],
+            "title": "Device Type",
+            "type": "string"
+          },
+          "token": {
+            "description": "设备推送 token（APNs/FCM/微信 OpenID）",
+            "examples": [
+              "fcm-xxx-yyy-zzz"
+            ],
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "device_type"
+        ],
+        "title": "RegisterDeviceRequest",
+        "type": "object"
+      },
+      "RejectBody": {
+        "properties": {
+          "reason": {
+            "description": "驳回原因",
+            "examples": [
+              "资质证明不清晰"
+            ],
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "RejectBody",
+        "type": "object"
+      },
+      "ReviewListResponse": {
+        "properties": {
+          "items": {
+            "description": "当页评价列表",
+            "items": {
+              "$ref": "#/components/schemas/ReviewResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "description": "总条数",
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "ReviewListResponse",
+        "type": "object"
+      },
+      "ReviewResponse": {
+        "properties": {
+          "companion_id": {
+            "description": "陪诊师 ID",
+            "format": "uuid",
+            "title": "Companion Id",
+            "type": "string"
+          },
+          "content": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "评论",
+            "title": "Content"
+          },
+          "created_at": {
+            "description": "评价时间",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "description": "评价 ID",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "order_id": {
+            "description": "订单 ID",
+            "format": "uuid",
+            "title": "Order Id",
+            "type": "string"
+          },
+          "patient_id": {
+            "description": "患者 ID",
+            "format": "uuid",
+            "title": "Patient Id",
+            "type": "string"
+          },
+          "patient_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "患者昵称（脱敏可选）",
+            "title": "Patient Name"
+          },
+          "rating": {
+            "description": "评分",
+            "examples": [
+              5
+            ],
+            "title": "Rating",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "order_id",
+          "patient_id",
+          "companion_id",
+          "rating",
+          "created_at"
+        ],
+        "title": "ReviewResponse",
+        "type": "object"
+      },
+      "SendMessageRequest": {
+        "properties": {
+          "content": {
+            "description": "消息正文，最长 4000 字符（与 WS 通道一致）",
+            "examples": [
+              "请问还要等多久？"
+            ],
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          },
+          "type": {
+            "default": "text",
+            "description": "消息类型：text 文本 / image 图片 URL / system 系统消息",
+            "examples": [
+              "text"
+            ],
+            "pattern": "^(text|image|system)$",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "SendMessageRequest",
+        "type": "object"
+      },
+      "SendOTPRequest": {
+        "properties": {
+          "phone": {
+            "description": "中国大陆手机号，11 位数字，1[3-9] 开头",
+            "examples": [
+              "13800138000"
+            ],
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone"
+        ],
+        "title": "SendOTPRequest",
+        "type": "object"
+      },
+      "SwitchRoleRequest": {
+        "properties": {
+          "role": {
+            "description": "目标角色：patient / companion",
+            "examples": [
+              "companion"
+            ],
+            "title": "Role",
+            "type": "string"
+          }
+        },
+        "required": [
+          "role"
+        ],
+        "title": "SwitchRoleRequest",
+        "type": "object"
+      },
+      "TimelineItem": {
+        "properties": {
+          "time": {
+            "description": "发生时间 ISO8601",
+            "examples": [
+              "2026-04-24T10:05:00+08:00"
+            ],
+            "title": "Time",
+            "type": "string"
+          },
+          "title": {
+            "description": "阶段名称",
+            "examples": [
+              "已接单"
+            ],
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "time"
+        ],
+        "title": "TimelineItem",
+        "type": "object"
+      },
+      "TokenResponse": {
+        "properties": {
+          "access_token": {
+            "description": "JWT 访问令牌（默认 1 小时过期）",
+            "examples": [
+              "eyJhbGciOi..."
+            ],
+            "title": "Access Token",
+            "type": "string"
+          },
+          "refresh_token": {
+            "description": "刷新令牌（默认 30 天过期，一次性使用）",
+            "examples": [
+              "eyJhbGciOi..."
+            ],
+            "title": "Refresh Token",
+            "type": "string"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserResponse",
+            "description": "登录用户信息"
+          }
+        },
+        "required": [
+          "access_token",
+          "refresh_token",
+          "user"
+        ],
+        "title": "TokenResponse",
+        "type": "object"
+      },
+      "UnreadCountResponse": {
+        "properties": {
+          "count": {
+            "description": "未读通知数",
+            "examples": [
+              3
+            ],
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count"
+        ],
+        "title": "UnreadCountResponse",
+        "type": "object"
+      },
+      "UnregisterDeviceRequest": {
+        "properties": {
+          "token": {
+            "description": "待注销的设备 token",
+            "title": "Token",
+            "type": "string"
+          }
+        },
+        "required": [
+          "token"
+        ],
+        "title": "UnregisterDeviceRequest",
+        "type": "object"
+      },
+      "UpdateCompanionProfileRequest": {
+        "properties": {
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "个人简介",
+            "title": "Bio"
+          },
+          "certifications": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "资质证书",
+            "title": "Certifications"
+          },
+          "service_area": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "服务区域",
+            "title": "Service Area"
+          },
+          "service_city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "服务城市",
+            "title": "Service City"
+          },
+          "service_hospitals": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "签约医院",
+            "title": "Service Hospitals"
+          },
+          "service_types": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "服务类型",
+            "title": "Service Types"
+          }
+        },
+        "title": "UpdateCompanionProfileRequest",
+        "type": "object"
+      },
+      "UpdatePatientProfileRequest": {
+        "properties": {
+          "emergency_contact": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "紧急联系人姓名",
+            "examples": [
+              "王芳"
+            ],
+            "title": "Emergency Contact"
+          },
+          "emergency_phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "紧急联系人手机号",
+            "examples": [
+              "13900139000"
+            ],
+            "title": "Emergency Phone"
+          },
+          "medical_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "就医备注（过敏史、慢病等）",
+            "examples": [
+              "青霉素过敏"
+            ],
+            "title": "Medical Notes"
+          },
+          "preferred_hospital_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "常用医院 ID",
+            "title": "Preferred Hospital Id"
+          }
+        },
+        "title": "UpdatePatientProfileRequest",
+        "type": "object"
+      },
+      "UpdateUserRequest": {
+        "properties": {
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "头像 URL",
+            "title": "Avatar Url"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "昵称",
+            "examples": [
+              "小明"
+            ],
+            "title": "Display Name"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "切换活跃角色：patient / companion",
+            "examples": [
+              "patient"
+            ],
+            "title": "Role"
+          }
+        },
+        "title": "UpdateUserRequest",
+        "type": "object"
+      },
+      "UserResponse": {
+        "properties": {
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "头像 URL",
+            "title": "Avatar Url"
+          },
+          "created_at": {
+            "description": "账号创建时间",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "昵称",
+            "examples": [
+              "小明"
+            ],
+            "title": "Display Name"
+          },
+          "id": {
+            "description": "用户 UUID",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "手机号；微信注册账号未绑定时为 null",
+            "examples": [
+              "13800138000"
+            ],
+            "title": "Phone"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "当前活跃角色",
+            "examples": [
+              "patient"
+            ],
+            "title": "Role"
+          },
+          "roles": {
+            "description": "该账号已开通的全部角色集合",
+            "examples": [
+              [
+                "patient",
+                "companion"
+              ]
+            ],
+            "items": {
+              "type": "string"
+            },
+            "title": "Roles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "created_at"
+        ],
+        "title": "UserResponse",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "VerifyOTPRequest": {
+        "properties": {
+          "code": {
+            "description": "6 位短信验证码",
+            "examples": [
+              "123456"
+            ],
+            "title": "Code",
+            "type": "string"
+          },
+          "phone": {
+            "description": "手机号",
+            "examples": [
+              "13800138000"
+            ],
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone",
+          "code"
+        ],
+        "title": "VerifyOTPRequest",
+        "type": "object"
+      },
+      "WeChatLoginRequest": {
+        "properties": {
+          "code": {
+            "description": "微信小程序 wx.login() 拿到的临时凭证 code",
+            "examples": [
+              "0a1B2cD3eFgHiJkLmN4o5P6q"
+            ],
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code"
+        ],
+        "title": "WeChatLoginRequest",
+        "type": "object"
+      }
+    },
+    "securitySchemes": {
+      "HTTPBearer": {
+        "scheme": "bearer",
+        "type": "http"
+      }
+    }
+  },
+  "info": {
+    "contact": {
+      "email": "backend@yiluan.example.com",
+      "name": "YiLuAn 后端团队"
+    },
+    "description": "\n# YiLuAn 一路安 后端 API\n\n「一路安」是一款连接患者与陪诊师的服务平台。本 API 文档涵盖：\n\n- **认证（auth）**：手机号 OTP 登录、微信登录、JWT 刷新\n- **用户与角色（users / patients / companions）**：账户、患者档案、陪诊师档案\n- **医院与订单（hospitals / orders）**：医院搜索、下单、状态流转\n- **支付与钱包（payment-callbacks / wallet）**：微信支付回调、钱包流水\n- **沟通（chats / notifications）**：订单内聊天、站内通知\n- **后台管理（admin / admin-companions）**：审核、强制状态、退款\n- **运维（health）**：liveness / readiness 探针\n\n## 鉴权\n\n绝大多数 `/api/v1/*` 接口需要在请求头携带：\n\n```\nAuthorization: Bearer <access_token>\n```\n\n`access_token` 由 `/api/v1/auth/verify-otp`、`/api/v1/auth/wechat-login`、\n`/api/v1/auth/refresh` 等端点签发。详见 [AUTHENTICATION.md](../../docs/api/AUTHENTICATION.md)。\n\n## 错误响应\n\n所有 4xx / 5xx 错误统一返回如下结构：\n\n```json\n{ \"detail\": \"human-readable message\" }\n```\n\n详见 [ERROR_HANDLING.md](../../docs/api/ERROR_HANDLING.md)。\n",
+    "license": {
+      "name": "Proprietary"
+    },
+    "title": "YiLuAn API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/admin/companions/": {
+      "get": {
+        "description": "分页返回提交了入驻申请、状态为 `pending` 的陪诊师。请求头需携带 `X-Admin-Token`。",
+        "operationId": "list_pending_companions_api_v1_admin_companions__get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedCompanions"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：待审核陪诊师列表",
+        "tags": [
+          "admin",
+          "admin-companions"
+        ]
+      }
+    },
+    "/api/v1/admin/companions/{companion_id}/approve": {
+      "post": {
+        "description": "批准指定陪诊师，状态转为 `verified`，该陪诊师随即可被搜索与接单。",
+        "operationId": "approve_companion_api_v1_admin_companions__companion_id__approve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "companion_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Companion Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：批准陪诊师入驻",
+        "tags": [
+          "admin",
+          "admin-companions"
+        ]
+      }
+    },
+    "/api/v1/admin/companions/{companion_id}/reject": {
+      "post": {
+        "description": "驳回指定陪诊师的入驻申请并写入原因（1~500 字）。",
+        "operationId": "reject_companion_api_v1_admin_companions__companion_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "companion_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Companion Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RejectBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OkResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：驳回陪诊师申请",
+        "tags": [
+          "admin",
+          "admin-companions"
+        ]
+      }
+    },
+    "/api/v1/admin/orders": {
+      "get": {
+        "description": "管理员查看所有订单列表，可按 `status` 过滤。仅 `admin` 角色可调用。",
+        "operationId": "list_orders_admin_api_v1_admin_orders_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "后台：查询全部订单",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/orders/{order_id}/admin-refund": {
+      "post": {
+        "description": "以 `refund_ratio`（0~1）按订单金额按比例退款，1.0 表示全额退。",
+        "operationId": "admin_refund_order_api_v1_admin_orders__order_id__admin_refund_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "refund_ratio",
+            "required": false,
+            "schema": {
+              "default": 1.0,
+              "maximum": 1.0,
+              "minimum": 0.0,
+              "title": "Refund Ratio",
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "后台：管理员退款",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/orders/{order_id}/force-status": {
+      "post": {
+        "description": "管理员手动将订单跳转到指定状态，**仅用于运营干预**，不走业务状态机。",
+        "operationId": "force_order_status_api_v1_admin_orders__order_id__force_status_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_status",
+            "required": true,
+            "schema": {
+              "title": "Target Status",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "后台：强制修改订单状态",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/users": {
+      "get": {
+        "description": "分页查看所有用户（含已停用）。",
+        "operationId": "list_users_admin_api_v1_admin_users_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "后台：用户列表",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{user_id}/disable": {
+      "post": {
+        "description": "将指定用户账号设为 `is_active=False`，用于风控处置。",
+        "operationId": "disable_user_api_v1_admin_users__user_id__disable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "后台：停用用户",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{user_id}/enable": {
+      "post": {
+        "description": "重新启用被停用的账号。",
+        "operationId": "enable_user_api_v1_admin_users__user_id__enable_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "后台：启用用户",
+        "tags": [
+          "admin"
+        ]
+      }
+    },
+    "/api/v1/auth/bind-phone": {
+      "post": {
+        "description": "已登录用户绑定手机号，需要提供手机号 + 验证码。用于「微信注册账号」补充绑定手机号场景。",
+        "operationId": "bind_phone_api_v1_auth_bind_phone_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PhoneBindRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request payload"
+                }
+              }
+            },
+            "description": "请求参数错误"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "为当前账号绑定手机号",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "description": "使用 `refresh_token` 换取新的 `access_token` 和 `refresh_token`。旧的 refresh_token 会被撤销（一次性使用）。",
+        "operationId": "refresh_token_api_v1_auth_refresh_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefreshTokenRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefreshTokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "summary": "刷新访问令牌",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/send-otp": {
+      "post": {
+        "description": "向指定手机号发送 6 位短信验证码，用于登录或绑定手机号。\n\n**限流**：同一 IP 每分钟最多 5 次。\n\n**有效期**：验证码 5 分钟内有效。\n\n**幂等**：同一手机号 60 秒内重复请求会复用未过期的验证码。",
+        "operationId": "send_otp_api_v1_auth_send_otp_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendOTPRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "OTP sent successfully"
+                },
+                "schema": {}
+              }
+            },
+            "description": "已发送"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Rate limit exceeded: 5 per 1 minute"
+                }
+              }
+            },
+            "description": "触发限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "summary": "发送短信验证码",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/verify-otp": {
+      "post": {
+        "description": "校验手机号 + 6 位验证码。校验通过后：\n\n- 若手机号已注册 → 返回该用户的 JWT 令牌对；\n- 若手机号未注册 → 自动注册一个新用户后返回令牌对。\n\n返回的 `access_token` 默认 1 小时过期，`refresh_token` 默认 30 天过期。",
+        "operationId": "verify_otp_api_v1_auth_verify_otp_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyOTPRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request payload"
+                }
+              }
+            },
+            "description": "请求参数错误"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "summary": "校验短信验证码并登录",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/auth/wechat-login": {
+      "post": {
+        "description": "通过微信小程序 `wx.login()` 拿到的临时 `code` 完成登录。后端会调用微信 `code2session` 接口获取 `openid` 并完成账号映射。首次登录会创建一个无手机号的账号，后续可通过 `/auth/bind-phone` 绑定手机号。",
+        "operationId": "wechat_login_api_v1_auth_wechat_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WeChatLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request payload"
+                }
+              }
+            },
+            "description": "请求参数错误"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "summary": "微信小程序登录",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/v1/chats/{order_id}/messages": {
+      "get": {
+        "description": "分页查询指定订单的聊天消息记录。仅订单参与方（患者 / 陪诊师）可访问。\n\n实时双向通信请使用 `WS /api/v1/ws/chat/{order_id}?token=<jwt>`。",
+        "operationId": "list_messages_api_v1_chats__order_id__messages_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "页码（从 1 开始）",
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "description": "页码（从 1 开始）",
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "每页条数 1~100",
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "每页条数 1~100",
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessageListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "获取订单聊天历史",
+        "tags": [
+          "chats"
+        ]
+      },
+      "post": {
+        "description": "在指定订单的聊天会话中发送一条消息。推荐通过 WebSocket 发送以获得实时性，HTTP 接口主要作为离线 / 弱网兜底。",
+        "operationId": "send_message_api_v1_chats__order_id__messages_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request payload"
+                }
+              }
+            },
+            "description": "请求参数错误"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "发送一条聊天消息（HTTP 兜底）",
+        "tags": [
+          "chats"
+        ]
+      }
+    },
+    "/api/v1/chats/{order_id}/read": {
+      "post": {
+        "description": "将当前用户在该订单聊天中的全部未读消息标记为已读，返回标记数量。",
+        "operationId": "mark_read_api_v1_chats__order_id__read_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "marked_read": 3
+                },
+                "schema": {}
+              }
+            },
+            "description": "标记成功"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "批量标记订单消息为已读",
+        "tags": [
+          "chats"
+        ]
+      }
+    },
+    "/api/v1/companions": {
+      "get": {
+        "description": "按区域、城市、服务类型、医院筛选可接单的陪诊师，分页返回。",
+        "operationId": "list_companions_api_v1_companions_get",
+        "parameters": [
+          {
+            "description": "服务区域关键字，如『朝阳区』",
+            "in": "query",
+            "name": "area",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "服务区域关键字，如『朝阳区』",
+              "title": "Area"
+            }
+          },
+          {
+            "description": "城市，如『北京』",
+            "in": "query",
+            "name": "city",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "城市，如『北京』",
+              "title": "City"
+            }
+          },
+          {
+            "description": "服务类型：full_accompany / half_accompany / errand",
+            "in": "query",
+            "name": "service_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "服务类型：full_accompany / half_accompany / errand",
+              "title": "Service Type"
+            }
+          },
+          {
+            "description": "按签约医院 ID 过滤",
+            "in": "query",
+            "name": "hospital_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按签约医院 ID 过滤",
+              "title": "Hospital Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/CompanionListResponse"
+                  },
+                  "title": "Response List Companions Api V1 Companions Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "搜索陪诊师列表",
+        "tags": [
+          "companions"
+        ]
+      }
+    },
+    "/api/v1/companions/apply": {
+      "post": {
+        "description": "用户提交陪诊师入驻申请，填写真实姓名、服务区域、擅长项目等。提交后状态为 `pending`，需后台 `admin-companions` 模块审核。",
+        "operationId": "apply_companion_api_v1_companions_apply_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApplyCompanionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanionDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request payload"
+                }
+              }
+            },
+            "description": "请求参数错误"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "申请成为陪诊师",
+        "tags": [
+          "companions"
+        ]
+      }
+    },
+    "/api/v1/companions/me": {
+      "get": {
+        "description": "返回当前登录用户的陪诊师档案；若用户未申请陪诊师角色将抛出 404。",
+        "operationId": "get_my_profile_api_v1_companions_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanionDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "获取我的陪诊师档案",
+        "tags": [
+          "companions"
+        ]
+      },
+      "put": {
+        "description": "陪诊师本人更新服务区域、服务类型、签约医院、个人简介等可修改字段。",
+        "operationId": "update_companion_profile_api_v1_companions_me_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateCompanionProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanionDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "更新我的陪诊师档案",
+        "tags": [
+          "companions"
+        ]
+      }
+    },
+    "/api/v1/companions/me/stats": {
+      "get": {
+        "description": "返回当前陪诊师在接单量、完成量、平均评分、累计收入等维度的统计。",
+        "operationId": "get_companion_stats_api_v1_companions_me_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanionStatsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "获取陪诊师统计概览",
+        "tags": [
+          "companions"
+        ]
+      }
+    },
+    "/api/v1/companions/{companion_id}": {
+      "get": {
+        "description": "根据陪诊师 ID 查看公开的资料、服务范围与评分概要。",
+        "operationId": "get_companion_api_v1_companions__companion_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "companion_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Companion Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanionDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "查看陪诊师详情",
+        "tags": [
+          "companions"
+        ]
+      }
+    },
+    "/api/v1/companions/{companion_id}/reviews": {
+      "get": {
+        "description": "分页查询某位陪诊师收到的全部评价（公开数据，用于详情页展示）。",
+        "operationId": "list_companion_reviews_api_v1_companions__companion_id__reviews_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "companion_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Companion Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "陪诊师收到的评价列表",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/health": {
+      "get": {
+        "description": "liveness 探针：进程活着即返回 200，不检查外部依赖。",
+        "operationId": "health_api_v1_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "健康检查（liveness）",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/v1/hospitals": {
+      "get": {
+        "description": "按关键词 / 省市区 / 等级 / 标签搜索医院。结果带 1 小时 Redis 缓存，同一组查询参数命中缓存时直接返回。",
+        "operationId": "search_hospitals_api_v1_hospitals_get",
+        "parameters": [
+          {
+            "description": "医院名称模糊匹配",
+            "in": "query",
+            "name": "keyword",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "医院名称模糊匹配",
+              "title": "Keyword"
+            }
+          },
+          {
+            "description": "省份名称",
+            "in": "query",
+            "name": "province",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "省份名称",
+              "title": "Province"
+            }
+          },
+          {
+            "description": "城市名称",
+            "in": "query",
+            "name": "city",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "城市名称",
+              "title": "City"
+            }
+          },
+          {
+            "description": "区/县名称",
+            "in": "query",
+            "name": "district",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "区/县名称",
+              "title": "District"
+            }
+          },
+          {
+            "description": "医院等级，如『三甲』",
+            "in": "query",
+            "name": "level",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "医院等级，如『三甲』",
+              "title": "Level"
+            }
+          },
+          {
+            "description": "标签，如『综合』『儿科』",
+            "in": "query",
+            "name": "tag",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "标签，如『综合』『儿科』",
+              "title": "Tag"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HospitalListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "summary": "分页搜索医院",
+        "tags": [
+          "hospitals"
+        ]
+      }
+    },
+    "/api/v1/hospitals/filters": {
+      "get": {
+        "description": "根据当前选择的省/市级联返回可用的下级筛选条件（省、市、区、等级、标签）。",
+        "operationId": "get_hospital_filters_api_v1_hospitals_filters_get",
+        "parameters": [
+          {
+            "description": "已选省份",
+            "in": "query",
+            "name": "province",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "已选省份",
+              "title": "Province"
+            }
+          },
+          {
+            "description": "已选城市",
+            "in": "query",
+            "name": "city",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "已选城市",
+              "title": "City"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HospitalFiltersResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "summary": "获取医院筛选项",
+        "tags": [
+          "hospitals"
+        ]
+      }
+    },
+    "/api/v1/hospitals/nearest-region": {
+      "get": {
+        "description": "根据用户当前坐标，返回距离最近的医院所在的省、市，用于首屏自动选择城市。",
+        "operationId": "get_nearest_region_api_v1_hospitals_nearest_region_get",
+        "parameters": [
+          {
+            "description": "纬度",
+            "in": "query",
+            "name": "latitude",
+            "required": true,
+            "schema": {
+              "description": "纬度",
+              "examples": [
+                39.9087
+              ],
+              "title": "Latitude",
+              "type": "number"
+            }
+          },
+          {
+            "description": "经度",
+            "in": "query",
+            "name": "longitude",
+            "required": true,
+            "schema": {
+              "description": "经度",
+              "examples": [
+                116.3975
+              ],
+              "title": "Longitude",
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HospitalRegionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "summary": "按经纬度定位最近的省市",
+        "tags": [
+          "hospitals"
+        ]
+      }
+    },
+    "/api/v1/hospitals/seed": {
+      "post": {
+        "description": "从内置数据文件批量导入医院信息到数据库。**仅在初始化部署或测试环境使用**，线上请通过运维流程而非公开调用。",
+        "operationId": "seed_hospitals_api_v1_hospitals_seed_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "seeded": 1024
+                },
+                "schema": {}
+              }
+            },
+            "description": "导入完成"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "summary": "导入种子医院数据（运维）",
+        "tags": [
+          "hospitals"
+        ]
+      }
+    },
+    "/api/v1/hospitals/{hospital_id}": {
+      "get": {
+        "description": "根据医院 ID 返回完整字段（含坐标、等级、标签）。",
+        "operationId": "get_hospital_api_v1_hospitals__hospital_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "hospital_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Hospital Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HospitalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "summary": "获取医院详情",
+        "tags": [
+          "hospitals"
+        ]
+      }
+    },
+    "/api/v1/notifications": {
+      "get": {
+        "description": "返回当前用户的站内通知，按时间倒序分页。",
+        "operationId": "list_notifications_api_v1_notifications_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "分页获取站内通知",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/device-token": {
+      "delete": {
+        "description": "登出或换设备时调用，移除推送 token。",
+        "operationId": "unregister_device_token_api_v1_notifications_device_token_delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UnregisterDeviceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true
+                },
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "注销设备推送 token",
+        "tags": [
+          "notifications"
+        ]
+      },
+      "post": {
+        "description": "上报设备推送 token，用于服务端通过 APNs / FCM / 微信订阅消息推送。同一个 (user, token) 重复注册将复用现有记录。",
+        "operationId": "register_device_token_api_v1_notifications_device_token_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegisterDeviceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeviceTokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "注册设备推送 token",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/read-all": {
+      "post": {
+        "description": "将当前用户的所有未读通知一次性标记为已读，返回标记数量。",
+        "operationId": "mark_all_read_api_v1_notifications_read_all_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "marked_read": 12
+                },
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "一键全部已读",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/unread-count": {
+      "get": {
+        "description": "返回当前用户未读通知的总数，用于 App 角标显示。",
+        "operationId": "unread_count_api_v1_notifications_unread_count_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UnreadCountResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "未读通知数",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/v1/notifications/{notification_id}/read": {
+      "post": {
+        "description": "将指定通知标记为已读。返回 `{success: true/false}`。",
+        "operationId": "mark_notification_read_api_v1_notifications__notification_id__read_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "notification_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Notification Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true
+                },
+                "schema": {}
+              }
+            },
+            "description": "操作结果"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "标记单条通知已读",
+        "tags": [
+          "notifications"
+        ]
+      }
+    },
+    "/api/v1/orders": {
+      "get": {
+        "description": "分页查询当前用户参与的订单（患者视角看自己创建的，陪诊师视角看自己接的）。",
+        "operationId": "list_orders_api_v1_orders_get",
+        "parameters": [
+          {
+            "description": "订单状态过滤",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "订单状态过滤",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "预约日期 YYYY-MM-DD",
+            "in": "query",
+            "name": "date",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "预约日期 YYYY-MM-DD",
+              "title": "Date"
+            }
+          },
+          {
+            "description": "按城市过滤",
+            "in": "query",
+            "name": "city",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按城市过滤",
+              "title": "City"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "获取我的订单列表",
+        "tags": [
+          "orders"
+        ]
+      },
+      "post": {
+        "description": "患者发起一笔陪诊服务订单。需指定服务类型、医院、就诊日期与时间。可选 `companion_id` 直接指派，否则进入大厅由陪诊师抢单。\n\n新订单状态为 `pending_payment`，**必须在 30 分钟内完成支付**，否则会被定时任务自动取消。",
+        "operationId": "create_order_api_v1_orders_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateOrderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request payload"
+                }
+              }
+            },
+            "description": "请求参数错误"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "患者创建订单",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/check-expired": {
+      "post": {
+        "description": "扫描所有 `pending_payment` 超过 30 分钟未支付的订单并自动取消。由内部定时任务调度，**需 `X-Admin-Token` 鉴权**。",
+        "operationId": "check_expired_orders_api_v1_orders_check_expired_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "cancelled_count": 3,
+                  "cancelled_order_ids": [
+                    "uuid1",
+                    "uuid2",
+                    "uuid3"
+                  ]
+                },
+                "schema": {}
+              }
+            },
+            "description": "执行结果"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "summary": "扫描并取消过期订单（运维/定时任务）",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{order_id}": {
+      "get": {
+        "description": "按订单 ID 获取详情。仅订单参与方与管理员可见。",
+        "operationId": "get_order_api_v1_orders__order_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "获取订单详情",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{order_id}/accept": {
+      "post": {
+        "description": "陪诊师接受指定订单。需订单处于 `paid` 且未被其他陪诊师接走。",
+        "operationId": "accept_order_api_v1_orders__order_id__accept_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request payload"
+                }
+              }
+            },
+            "description": "请求参数错误"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "陪诊师接单",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{order_id}/cancel": {
+      "post": {
+        "description": "取消指定订单。患者和陪诊师均可在不同状态下调用，已支付订单将按规则触发退款（详见钱包/退款规则文档）。",
+        "operationId": "cancel_order_api_v1_orders__order_id__cancel_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request payload"
+                }
+              }
+            },
+            "description": "请求参数错误"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "取消订单",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{order_id}/complete": {
+      "post": {
+        "description": "陪诊师标记订单服务已完成，订单进入 `completed`，触发评价流程。",
+        "operationId": "complete_order_api_v1_orders__order_id__complete_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request payload"
+                }
+              }
+            },
+            "description": "请求参数错误"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "完成订单",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{order_id}/confirm-start": {
+      "post": {
+        "description": "患者确认陪诊师的开始服务请求，订单正式进入 `in_service` 状态。",
+        "operationId": "confirm_start_order_api_v1_orders__order_id__confirm_start_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request payload"
+                }
+              }
+            },
+            "description": "请求参数错误"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "患者确认开始服务",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{order_id}/pay": {
+      "post": {
+        "description": "对指定订单发起支付，返回前端调起微信支付所需的参数。MVP 环境下使用 mock provider，会直接返回 `mock_success=true`。",
+        "operationId": "pay_order_api_v1_orders__order_id__pay_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "mock_success": false,
+                  "payment_id": "ec3a0d74-...-...",
+                  "prepay_id": "wx2025...",
+                  "provider": "wechat",
+                  "sign_params": {
+                    "appId": "wx...",
+                    "nonceStr": "abcd",
+                    "package": "prepay_id=wx...",
+                    "paySign": "...",
+                    "signType": "RSA",
+                    "timeStamp": "1700000000"
+                  }
+                },
+                "schema": {}
+              }
+            },
+            "description": "支付参数"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request payload"
+                }
+              }
+            },
+            "description": "请求参数错误"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "对订单发起支付",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{order_id}/refund": {
+      "post": {
+        "description": "对已支付订单申请退款，金额原路返回到支付账户。",
+        "operationId": "refund_order_api_v1_orders__order_id__refund_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaymentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request payload"
+                }
+              }
+            },
+            "description": "请求参数错误"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "患者申请退款",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{order_id}/reject": {
+      "post": {
+        "description": "陪诊师拒绝指定订单。若已支付，则自动触发全额退款。",
+        "operationId": "reject_order_api_v1_orders__order_id__reject_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request payload"
+                }
+              }
+            },
+            "description": "请求参数错误"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "陪诊师拒单",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{order_id}/request-start": {
+      "post": {
+        "description": "陪诊师发起「开始服务」请求，等待患者在 App 内确认（双确认流程）。",
+        "operationId": "request_start_order_api_v1_orders__order_id__request_start_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request payload"
+                }
+              }
+            },
+            "description": "请求参数错误"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "陪诊师发起开始服务请求",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{order_id}/review": {
+      "get": {
+        "description": "查看指定订单的评价。若订单未被评价，返回 404。",
+        "operationId": "get_review_api_v1_orders__order_id__review_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "查看订单评价",
+        "tags": [
+          "reviews"
+        ]
+      },
+      "post": {
+        "description": "患者在订单 `completed` 后提交评价：1~5 星评分 + 5~500 字评论。**单订单仅可评价一次**，重复提交将返回 400。",
+        "operationId": "submit_review_api_v1_orders__order_id__review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request payload"
+                }
+              }
+            },
+            "description": "请求参数错误"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "提交订单评价",
+        "tags": [
+          "reviews"
+        ]
+      }
+    },
+    "/api/v1/orders/{order_id}/start": {
+      "post": {
+        "description": "陪诊师标记开始服务（已与患者线下见面），订单进入 `in_service`。",
+        "operationId": "start_order_api_v1_orders__order_id__start_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request payload"
+                }
+              }
+            },
+            "description": "请求参数错误"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "陪诊师直接开始服务",
+        "tags": [
+          "orders"
+        ]
+      }
+    },
+    "/api/v1/payments/wechat/callback": {
+      "post": {
+        "description": "微信支付服务端调用的支付通知接收端。**不要求 JWT**，由签名验证保护。\n\n幂等：基于 `payment_callback_log` 的 `(provider, transaction_id)` 唯一约束去重，重复回调直接返回 SUCCESS 不会再次更新订单。\n\n返回体始终为 `{\"code\": \"SUCCESS\"|\"FAIL\", \"message\": ...}`，HTTP 状态码恒为 200，以便微信侧停止重试。",
+        "operationId": "wechat_pay_callback_api_v1_payments_wechat_callback_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "code": "SUCCESS",
+                  "message": "OK"
+                },
+                "schema": {}
+              }
+            },
+            "description": "已确认（成功或显式失败均返回 200）"
+          }
+        },
+        "summary": "微信支付 - 支付结果回调",
+        "tags": [
+          "payment-callbacks"
+        ]
+      }
+    },
+    "/api/v1/payments/wechat/refund-callback": {
+      "post": {
+        "description": "微信支付的退款通知接收端。鉴权与幂等策略与支付回调一致。",
+        "operationId": "wechat_refund_callback_api_v1_payments_wechat_refund_callback_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "code": "SUCCESS",
+                  "message": "OK"
+                },
+                "schema": {}
+              }
+            },
+            "description": "已确认"
+          }
+        },
+        "summary": "微信支付 - 退款结果回调",
+        "tags": [
+          "payment-callbacks"
+        ]
+      }
+    },
+    "/api/v1/ping": {
+      "get": {
+        "description": "简单的连通性测试接口，返回pong和API版本号。",
+        "operationId": "ping_api_v1_ping_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Ping测试",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/v1/readiness": {
+      "get": {
+        "description": "检查数据库（SELECT 1）和 Redis（PING）连接。全部 OK → 200；任一失败 → 503。",
+        "operationId": "readiness_api_v1_readiness_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "就绪检查（readiness）",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/api/v1/users/me": {
+      "delete": {
+        "description": "**永久**删除当前用户账户及关联数据。操作不可恢复，请前端二次确认。",
+        "operationId": "delete_account_api_v1_users_me_delete",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "Account deleted successfully"
+                },
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "注销当前账户",
+        "tags": [
+          "users"
+        ]
+      },
+      "get": {
+        "description": "返回当前 JWT 对应用户的基本资料（id、手机号、昵称、头像、角色、可用角色集合）。",
+        "operationId": "get_me_api_v1_users_me_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "获取当前登录用户信息",
+        "tags": [
+          "users"
+        ]
+      },
+      "put": {
+        "description": "支持修改昵称、头像 URL、当前活跃角色。手机号不能通过本接口修改。",
+        "operationId": "update_me_api_v1_users_me_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "更新当前用户基本资料",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/me/avatar": {
+      "post": {
+        "description": "上传一张头像图片（multipart/form-data，字段名 `file`）。服务端保存到对象存储后，将 URL 写回用户资料并返回最终 URL。",
+        "operationId": "upload_avatar_api_v1_users_me_avatar_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_avatar_api_v1_users_me_avatar_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvatarUploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "上传头像",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/users/me/patient-profile": {
+      "get": {
+        "description": "获取当前登录用户的患者档案；不存在则自动创建一条空档案后返回。",
+        "operationId": "get_patient_profile_api_v1_users_me_patient_profile_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientProfileResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "获取我的患者档案",
+        "tags": [
+          "patients"
+        ]
+      },
+      "put": {
+        "description": "更新当前用户的患者档案：紧急联系人、紧急联系人手机号、就医备注、常用医院。",
+        "operationId": "update_patient_profile_api_v1_users_me_patient_profile_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePatientProfileRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PatientProfileResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "更新我的患者档案",
+        "tags": [
+          "patients"
+        ]
+      }
+    },
+    "/api/v1/users/me/switch-role": {
+      "post": {
+        "description": "在 `patient` 与 `companion` 两个已开通的角色间切换，**返回新的 JWT 令牌对**（新令牌的 `role` claim 已更新）。",
+        "operationId": "switch_role_api_v1_users_me_switch_role_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SwitchRoleRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request payload"
+                }
+              }
+            },
+            "description": "请求参数错误"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "切换活跃角色",
+        "tags": [
+          "users"
+        ]
+      }
+    },
+    "/api/v1/wallet": {
+      "get": {
+        "description": "返回当前用户的钱包余额、累计收入、累计支出、可提现金额等概览信息。",
+        "operationId": "get_wallet_summary_api_v1_wallet_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "balance": 128.5,
+                  "total_expense": 200.0,
+                  "total_income": 980.0,
+                  "withdrawable": 100.0
+                },
+                "schema": {}
+              }
+            },
+            "description": "钱包概览"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "获取钱包概览",
+        "tags": [
+          "wallet"
+        ]
+      }
+    },
+    "/api/v1/wallet/transactions": {
+      "get": {
+        "description": "分页查询当前用户的钱包流水（含支付、退款、提现等记录）。",
+        "operationId": "get_transactions_api_v1_wallet_transactions_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "获取钱包交易流水",
+        "tags": [
+          "wallet"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "根路径 liveness 探针，仅返回进程存活状态。",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "健康检查（liveness, root）",
+        "tags": [
+          "health"
+        ]
+      }
+    },
+    "/readiness": {
+      "get": {
+        "description": "根路径就绪探针，等价于 /api/v1/readiness：检查 DB + Redis。任一失败 → 503。",
+        "operationId": "readiness_root_readiness_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "就绪检查（readiness, root）",
+        "tags": [
+          "health"
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "description": "**认证模块**。手机号验证码登录、微信小程序登录、刷新令牌、绑定手机号。登录链路：`/auth/send-otp` → `/auth/verify-otp` → 携带 `Authorization: Bearer ...` 调用其他接口。",
+      "name": "auth"
+    },
+    {
+      "description": "**用户基础资料**。当前用户信息、修改资料、上传头像、切换角色（患者/陪诊师）、注销账户。",
+      "name": "users"
+    },
+    {
+      "description": "**患者档案**。紧急联系人、就医备注、常用医院等就诊辅助信息。",
+      "name": "patients"
+    },
+    {
+      "description": "**陪诊师档案**。陪诊师列表、详情、申请成为陪诊师、更新服务信息、个人统计。",
+      "name": "companions"
+    },
+    {
+      "description": "**医院数据**。按关键词/省市区/等级/标签搜索医院、查询筛选项、根据经纬度定位最近区域。列表查询带 1 小时 Redis 缓存。",
+      "name": "hospitals"
+    },
+    {
+      "description": "**订单全生命周期**。下单、查询、状态流转（接单 / 开始 / 完成 / 拒绝 / 取消）、支付、退款、过期清理。",
+      "name": "orders"
+    },
+    {
+      "description": "**订单评价**。患者对已完成订单的评分与评论，以及陪诊师收到的评价聚合。",
+      "name": "reviews"
+    },
+    {
+      "description": "**订单内聊天**。HTTP 用于历史拉取与已读标记；实时收发请使用 `WS /api/v1/ws/chat/{order_id}`。",
+      "name": "chats"
+    },
+    {
+      "description": "**站内通知**。通知列表、未读数、标记已读、设备推送 token 注册。",
+      "name": "notifications"
+    },
+    {
+      "description": "**钱包与流水**。当前用户钱包余额概览、交易流水分页查询。",
+      "name": "wallet"
+    },
+    {
+      "description": "**支付平台回调**（服务端到服务端）。微信支付的支付/退款异步通知接收端，**不要求 JWT**，由签名验证保护，且通过 `payment_callback_log` 做幂等。",
+      "name": "payment-callbacks"
+    },
+    {
+      "description": "**平台后台**。订单查询/强制状态/管理员退款、用户启用/停用。要求当前用户具备 `admin` 角色。",
+      "name": "admin"
+    },
+    {
+      "description": "**陪诊师审核后台**。待审核列表、批准、驳回。鉴权方式：请求头 `X-Admin-Token: <token>`。",
+      "name": "admin-companions"
+    },
+    {
+      "description": "**健康检查**。`/health` 为 liveness（仅返回进程存活），`/readiness` 检查 DB+Redis 连接。",
+      "name": "health"
+    }
+  ]
+}

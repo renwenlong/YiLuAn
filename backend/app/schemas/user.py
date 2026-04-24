@@ -1,10 +1,10 @@
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class UpdateUserRequest(BaseModel):
-    role: str | None = None
-    display_name: str | None = None
-    avatar_url: str | None = None
+    role: str | None = Field(None, description="切换活跃角色：patient / companion", examples=["patient"])
+    display_name: str | None = Field(None, description="昵称", examples=["小明"])
+    avatar_url: str | None = Field(None, description="头像 URL")
 
     @field_validator("role")
     @classmethod
@@ -15,11 +15,11 @@ class UpdateUserRequest(BaseModel):
 
 
 class AvatarUploadResponse(BaseModel):
-    avatar_url: str
+    avatar_url: str = Field(..., description="新头像的访问 URL", examples=["https://cdn.example.com/avatars/u1.jpg"])
 
 
 class SwitchRoleRequest(BaseModel):
-    role: str
+    role: str = Field(..., description="目标角色：patient / companion", examples=["companion"])
 
     @field_validator("role")
     @classmethod
