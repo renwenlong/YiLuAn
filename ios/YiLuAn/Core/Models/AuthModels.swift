@@ -32,3 +32,29 @@ struct BindPhoneRequest: Encodable {
 struct SwitchRoleRequest: Encodable {
     let role: String
 }
+
+// MARK: - Apple Sign-In (W18-A)
+
+struct AppleUserInfoPayload: Encodable {
+    let email: String?
+    let firstName: String?
+    let lastName: String?
+
+    enum CodingKeys: String, CodingKey {
+        case email
+        case firstName = "first_name"
+        case lastName = "last_name"
+    }
+}
+
+struct AppleLoginRequest: Encodable {
+    let identityToken: String
+    let authorizationCode: String
+    let userInfo: AppleUserInfoPayload?
+
+    enum CodingKeys: String, CodingKey {
+        case identityToken = "identity_token"
+        case authorizationCode = "authorization_code"
+        case userInfo = "user_info"
+    }
+}

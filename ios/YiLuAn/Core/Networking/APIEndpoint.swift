@@ -22,6 +22,7 @@ struct APIEndpoint {
     static let verifyOTP = APIEndpoint(path: "auth/verify-otp", method: .post, requiresAuth: false)
     static let refreshToken = APIEndpoint(path: "auth/refresh", method: .post, requiresAuth: false)
     static let bindPhone = APIEndpoint(path: "auth/bind-phone", method: .post, requiresAuth: true)
+    static let appleLogin = APIEndpoint(path: "auth/apple/login", method: .post, requiresAuth: false)
 
     // MARK: - Users
     static let me = APIEndpoint(path: "users/me", method: .get, requiresAuth: true)
