@@ -75,13 +75,15 @@ class AuthViewModel: ObservableObject {
 
     /// Apple Sign-In flow (W18-A): trigger native sheet, exchange identity
     /// token with backend, store our access/refresh tokens.
-    func loginWithApple(service: AppleSignInService = AppleSignInService()) async {
+    func loginWithApple(service: AppleSignInService? = nil) async {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
 
+        let svc = service ?? AppleSignInService()
+
         do {
-            let credential = try await service.signIn()
+            let credential = try await svc.signIn()
 
             var userInfoPayload: AppleUserInfoPayload? = nil
             if credential.email != nil || credential.fullName != nil {
