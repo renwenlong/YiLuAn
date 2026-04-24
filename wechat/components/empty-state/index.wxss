@@ -26,3 +26,20 @@
   font-size: 28rpx;
   color: #999;
 }
+
+/* P-07: 补充提示文案、与 empty-text 呈上下层级 */
+.empty-hint {
+  margin-top: 12rpx;
+  font-size: 24rpx;
+  color: #bbb;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* P-12: 深色模式下提高空状态文字对比度 */
+@media (prefers-color-scheme: dark) {
+  .empty-text { color: #d1d5db; }
+  .empty-hint { color: #9ca3af; }
+  .empty-icon { background: #2a2a2a; }
+  .icon-placeholder { color: #6b7280; }
+}
