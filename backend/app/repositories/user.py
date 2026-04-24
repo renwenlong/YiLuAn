@@ -21,6 +21,11 @@ class UserRepository(BaseRepository[User]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def get_by_apple_sub(self, apple_sub: str) -> User | None:
+        stmt = select(User).where(User.apple_sub == apple_sub)
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def list_all(
         self, *, skip: int = 0, limit: int = 20
     ) -> tuple[Sequence[User], int]:
