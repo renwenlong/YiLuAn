@@ -6672,7 +6672,7 @@
     },
     "/api/v1/readiness": {
       "get": {
-        "description": "检查数据库（SELECT 1）和 Redis（PING）连接。全部 OK → 200；任一失败 → 503。",
+        "description": "串行检查 5 项依赖：PostgreSQL（SELECT 1）、Redis（PING）、Alembic 版本、Payment 提供方、SMS 提供方。任一 error → 503；degraded/skipped 视为通过。",
         "operationId": "readiness_api_v1_readiness_get",
         "responses": {
           "200": {

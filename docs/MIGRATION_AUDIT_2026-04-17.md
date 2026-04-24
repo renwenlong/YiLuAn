@@ -109,3 +109,65 @@ SELECT enum_range(NULL::orderstatus);
 1. `/readiness` 路径不存在；只有 `/health` 与 `/api/v1/health`。部署文档/TOOLS.md 里若引用 /readiness 需更正。
 2. send-otp 接口对同一客户端 IP 有 60s 限流，脚本化批量测试需 sleep。
 3. pytest 仍走 SQLite + create_all；建议新增 PG-alembic CI 任务保证两条轨道同步（后续工作）。
+
+
+---
+
+## 2026-04-24 闭合 — TD-OPS-01 + TD-CI-01
+
+### TD-OPS-01: /readiness 真实 5 项依赖检查 — ✅ 完成
+
+提交 `ebe84b9`（`feat(ops): real /readiness endpoint with 5 dependency checks [TD-OPS-01]`）替换原 2-check stub。新 endpoint 并行串以下 5 项依赖，全部带严格 timeout，p99 < 1.5s：
+
+| Check | Timeout | Mock 行为 | Real 行为 | 失败语义 |
+|---|---|---|---|---|
+| db | 1.0s | — | `SELECT 1` | error → 503 |
+| redis | 0.5s | FakeRedis PING ok | `PING` + roundtrip | error → 503 |
+| alembic | 1.0s | — | 比对 `alembic_version` 与脚本 head | drift → 503 |
+| payment | 0.8s | `skipped` | wechatpay sandbox HEAD（degraded fallback） | degraded ≠ 503 |
+| sms | 0.2s | `skipped` | 仅校验 4 项配置完整性（不发付费 SMS） | error → 503 |
+
+响应契约：
+
+`
+{
+   ready: true,
+  status: ready,
+  checks: {
+    db:      {status: ok, latency_ms: 3},
+    redis:   {status: ok, latency_ms: 1},
+    alembic: {status: ok, current: d1e2f3a4b5c6, head: d1e2f3a4b5c6, latency_ms: 30},
+    payment: {status: skipped, mode: mock, latency_ms: 0},
+    sms:     {status: skipped, mode: mock, latency_ms: 0}
+  }
+}
+`
+
+副产品：**TD-OPS-02（migration drift detection）一并关闭** —— alembic 检查会发现 `current != head` 并返回 503。
+
+测试覆盖：`backend/tests/test_readiness.py` 16 用例（含 latency 预算 + drift + missing version row + payment degraded + sms missing-config 等），`backend/tests/smoke/test_readiness_blocker.py` 同步升级到新契约。所有 SQLite-based 测试通过 `conftest.setup_database` 自动 seed `alembic_version`。
+
+### TD-CI-01: PG-Alembic Smoke CI — ✅ 完成
+
+提交 `e658478`（`ci(alembic): PG smoke workflow + pg-only model tests [TD-CI-01]`）新增 `.github/workflows/alembic-smoke.yml`：
+
+- 触发：PR 改动 `backend/alembic/** | backend/app/models/** | backend/app/database.py`
+- service container：`postgres:15-alpine`
+- `timeout-minutes: 5`（满足约束）
+- 步骤：`upgrade head` → `downgrade base` → `upgrade head 又一次（幂等）` → `alembic check` → `pytest tests/test_models_pg_smoke.py -v`
+
+新增 `backend/tests/test_models_pg_smoke.py`（PG_SMOKE=1 才跑，本地 SQLite 自动 skip）8 个测试，专门覆盖 4-17 教训：
+
+1. `alembic_version` 在 head
+2. `orderstatus` enum 含 `rejected_by_companion` + `expired`
+3. `payments` 4 列（trade_no/prepay_id/refund_id/callback_raw）round-trip
+4. `payments` (order_id, payment_type) 唯一约束被 PG 真正强制
+5. Order 可以以两个新 enum 值插入
+6. `servicetype` enum 完整
+7. `verificationstatus` enum 完整
+8. Notification + DeviceToken 插入触达 `NotificationType` enum
+
+### 测试结果（commit `e658478` 之后）
+
+`cd backend && python -m pytest -q` → **617 passed, 8 skipped**（skipped = PG_SMOKE 系列，仅在 alembic-smoke workflow 跑）。
+

@@ -70,7 +70,7 @@ curl -X GET 'https://api.yiluan.example.com/api/v1/ping' \
 
 ### `GET /api/v1/readiness` — 就绪检查（readiness）
 
-检查数据库（SELECT 1）和 Redis（PING）连接。全部 OK → 200；任一失败 → 503。
+串行检查 5 项依赖：PostgreSQL（SELECT 1）、Redis（PING）、Alembic 版本、Payment 提供方、SMS 提供方。任一 error → 503；degraded/skipped 视为通过。
 
 **响应：**
 
