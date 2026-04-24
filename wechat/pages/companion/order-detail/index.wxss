@@ -127,10 +127,12 @@
   line-height: var(--line-height-normal, 1.5);
 }
 
+/* P-02: 金额字号统一 (brand orange + bold + 36rpx，对齐 .polish-amount) */
 .info-value.price {
-  color: var(--color-error, #E53935);
+  color: var(--color-accent);
   font-weight: 700;
-  font-size: var(--font-size-lg);
+  font-size: 36rpx;
+  font-variant-numeric: tabular-nums;
 }
 
 /* ===== Patient Card ===== */

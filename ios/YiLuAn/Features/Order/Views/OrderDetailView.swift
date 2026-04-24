@@ -95,7 +95,7 @@ struct OrderDetailView: View {
             if let time = order.appointmentTime {
                 infoRow("预约时间", time)
             }
-            infoRow("费用", "¥\(order.price as NSDecimalNumber)")
+            infoRow("费用", "¥\(order.price as NSDecimalNumber)", isPrice: true)
             if let desc = order.description, !desc.isEmpty {
                 infoRow("备注", desc)
             }
@@ -111,12 +111,20 @@ struct OrderDetailView: View {
         .cornerRadius(12)
     }
 
-    private func infoRow(_ label: String, _ value: String) -> some View {
+    private func infoRow(_ label: String, _ value: String, isPrice: Bool = false) -> some View {
         HStack {
             Text(label)
                 .foregroundStyle(.secondary)
                 .frame(width: 80, alignment: .leading)
-            Text(value)
+            if isPrice {
+                // P-02: 金额统一 brand orange + bold + .title2，与微信小程序 .polish-amount 保持一致
+                Text(value)
+                    .font(.title2.bold())
+                    .foregroundColor(.accent)
+                    .monospacedDigit()
+            } else {
+                Text(value)
+            }
             Spacer()
         }
         .font(.subheadline)
