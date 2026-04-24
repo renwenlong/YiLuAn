@@ -64,16 +64,7 @@ jobs:
         id: sim
         shell: bash
         run: |
-          UDID=$(xcrun simctl list devices available --json | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-runtimes = sorted([k for k in data['devices'] if 'iOS' in k], reverse=True)
-for rt in runtimes:
-    for d in data['devices'][rt]:
-        if d.get('isAvailable') and d['name'].startswith('iPhone'):
-            print(d['udid']); sys.exit(0)
-sys.exit('No iPhone simulator')
-")
+          UDID=$(xcrun simctl list devices available --json | python3 ios/scripts/pick_simulator.py)
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
       - name: Run unit tests

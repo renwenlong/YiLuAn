@@ -89,36 +89,9 @@ jobs:
         id: sim
         shell: bash
         run: |
-          # Robust picker: choose any available iPhone simulator UDID via JSON.
-          # Hard-coding device name + OS=latest fails when device/OS combo is unavailable
-          # (e.g. iPhone 15 Pro does not exist on iOS 18.x).
-          UDID=$(xcrun simctl list devices available --json \
-            | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-# Prefer devices on the highest iOS runtime, prefer iPhone 16/15.
-runtimes = sorted(
-    [k for k in data['devices'].keys() if 'iOS' in k],
-    reverse=True,
-)
-preferred = ['iPhone 16 Pro', 'iPhone 16', 'iPhone 15 Pro', 'iPhone 15', 'iPhone 14']
-for rt in runtimes:
-    devs = [d for d in data['devices'][rt] if d.get('isAvailable')]
-    if not devs:
-        continue
-    # Try preferred names first
-    for name in preferred:
-        for d in devs:
-            if d['name'] == name:
-                print(d['udid'])
-                sys.exit(0)
-    # Fallback: any iPhone in this runtime
-    for d in devs:
-        if d['name'].startswith('iPhone'):
-            print(d['udid'])
-            sys.exit(0)
-sys.exit('No available iPhone simulator found')
-")
+          # Robust picker (hard-coded name+OS=latest breaks when combo unavailable,
+          # e.g. iPhone 15 Pro does not exist on iOS 18.x).
+          UDID=$(xcrun simctl list devices available --json | python3 ios/scripts/pick_simulator.py)
           echo "Picked simulator UDID: $UDID"
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
