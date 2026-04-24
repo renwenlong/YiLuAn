@@ -629,3 +629,148 @@ class TestLogRetentionSkipOnLock:
         monkeypatch.setattr(lr, "async_session", test_session_factory)
         result = await lr.cleanup_sms_send_log(app=None)
         assert result["status"] == "error"
+
+
+# ============================================================================
+# app/config.py – production validator branches
+# ============================================================================
+class TestConfigProductionValidator:
+    def _build(self, **overrides):
+        from app.config import Settings
+
+        base = dict(
+            environment="production",
+            debug=False,
+            jwt_secret_key="strong-prod-secret-1234567890",
+            payment_provider="mock",
+            sms_provider="mock",
+        )
+        base.update(overrides)
+        return Settings(**base)
+
+    async def test_default_jwt_secret_in_production_rejected(self):
+        with pytest.raises(ValueError, match="JWT 密钥"):
+            self._build(jwt_secret_key="dev-secret-key-change-in-production")
+
+    async def test_debug_true_in_production_rejected(self):
+        with pytest.raises(ValueError, match="DEBUG"):
+            self._build(debug=True)
+
+    async def test_wechat_payment_missing_credentials_rejected(self):
+        with pytest.raises(ValueError, match="微信支付缺少凭证"):
+            self._build(
+                payment_provider="wechat",
+                wechat_pay_mch_id="",
+                wechat_pay_api_key_v3="",
+                wechat_pay_cert_serial="",
+                wechat_pay_private_key_path="",
+            )
+
+    async def test_sms_provider_missing_credentials_rejected(self):
+        with pytest.raises(ValueError, match="SMS"):
+            self._build(
+                sms_provider="aliyun",
+                sms_access_key="",
+                sms_access_secret="",
+                sms_sign_name="",
+                sms_template_code="",
+            )
+
+    async def test_production_with_all_credentials_passes(self):
+        s = self._build(
+            payment_provider="wechat",
+            wechat_pay_mch_id="M1",
+            wechat_pay_api_key_v3="K",
+            wechat_pay_cert_serial="S",
+            wechat_pay_private_key_path="/k.pem",
+            sms_provider="aliyun",
+            sms_access_key="AK",
+            sms_access_secret="SK",
+            sms_sign_name="YL",
+            sms_template_code="SMS_1",
+        )
+        assert s.environment == "production"
+
+
+# ============================================================================
+# app/services/order.py – remaining branches
+# ============================================================================
+class TestOrderServiceMoreBranches:
+    async def test_list_orders_status_cancelled_for_companion(self):
+        """status='cancelled' branch (virtual status mapping)."""
+        from app.services.order import OrderService
+
+        async with test_session_factory() as session:
+            comp = User(phone="13800500001", role=UserRole.companion, is_active=True)
+            session.add(comp)
+            await session.commit()
+            await session.refresh(comp)
+            svc = OrderService(session)
+            items, total = await svc.list_orders(comp, status="cancelled")
+            assert items == [] and total == 0
+
+    async def test_list_orders_status_completed_for_patient(self):
+        from app.services.order import OrderService
+
+        async with test_session_factory() as session:
+            p = User(phone="13800500002", role=UserRole.patient, is_active=True)
+            session.add(p)
+            await session.commit()
+            await session.refresh(p)
+            svc = OrderService(session)
+            items, total = await svc.list_orders(p, status="completed")
+            assert total == 0
+
+    async def test_list_orders_status_in_progress_companion_available(self):
+        from app.services.order import OrderService
+
+        async with test_session_factory() as session:
+            c = User(phone="13800500003", role=UserRole.companion, is_active=True)
+            session.add(c)
+            await session.commit()
+            await session.refresh(c)
+            svc = OrderService(session)
+            items, total = await svc.list_orders(c, status="in_progress")
+            assert total == 0
+
+    async def test_list_orders_companion_status_created_uses_list_available(self):
+        """companion + status='created' -> list_available branch."""
+        from app.services.order import OrderService
+
+        async with test_session_factory() as session:
+            c = User(phone="13800500004", role=UserRole.companion, is_active=True)
+            session.add(c)
+            await session.commit()
+            await session.refresh(c)
+            svc = OrderService(session)
+            items, total = await svc.list_orders(c, status="created")
+            assert total == 0
+
+    async def test_get_order_companion_other_after_accept_forbidden(self):
+        """Non-owner companion viewing assigned-and-progressed order -> Forbidden."""
+        from app.services.order import OrderService
+
+        async with test_session_factory() as session:
+            patient = User(phone="13800500005", role=UserRole.patient, is_active=True)
+            owner = User(phone="13800500006", role=UserRole.companion, is_active=True)
+            other = User(phone="13800500007", role=UserRole.companion, is_active=True)
+            hospital = Hospital(name="H", province="P", city="C", district="D", address="A")
+            session.add_all([patient, owner, other, hospital])
+            await session.flush()
+            order = Order(
+                order_number=f"YLA{uuid.uuid4().hex[:12].upper()}",
+                patient_id=patient.id,
+                companion_id=owner.id,
+                hospital_id=hospital.id,
+                service_type=ServiceType.full_accompany,
+                status=OrderStatus.in_progress,
+                appointment_date="2026-04-15",
+                appointment_time="09:00",
+                price=100.0,
+            )
+            session.add(order)
+            await session.commit()
+            await session.refresh(order)
+            svc = OrderService(session)
+            with pytest.raises(ForbiddenException):
+                await svc.get_order(order.id, other)
