@@ -10,6 +10,7 @@ from slowapi.errors import RateLimitExceeded
 from prometheus_client import make_asgi_app as _make_metrics_app
 
 from app.api.v1.router import api_v1_router
+from app.api.v1.openapi_meta import TAGS_METADATA, API_DESCRIPTION
 from app.config import settings
 from app.core.logging import setup_logging
 from app.core.rate_limit import limiter
@@ -69,9 +70,16 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
+        description=API_DESCRIPTION,
+        openapi_tags=TAGS_METADATA,
         docs_url="/docs" if settings.debug else None,
         redoc_url="/redoc" if settings.debug else None,
         lifespan=lifespan,
+        contact={
+            "name": "YiLuAn 后端团队",
+            "email": "backend@yiluan.example.com",
+        },
+        license_info={"name": "Proprietary"},
     )
 
     # Rate limiting
@@ -110,7 +118,7 @@ def create_app() -> FastAPI:
     app.include_router(api_v1_router, prefix="/api/v1")
 
     # Health check (liveness) — 进程活着即 200，不查依赖
-    @app.get("/health")
+    @app.get("/health", summary="健康检查（liveness, root）", description="根路径 liveness 探针，仅返回进程存活状态。", tags=["health"])
     async def health_check():
         return {"status": "healthy", "version": settings.app_version}
 
@@ -118,7 +126,7 @@ def create_app() -> FastAPI:
     # 复用 app.api.v1.health 中的检查逻辑，避免逻辑分叉
     from app.api.v1.health import _run_readiness_checks, _readiness_response
 
-    @app.get("/readiness")
+    @app.get("/readiness", summary="就绪检查（readiness, root）", description="根路径就绪探针，等价于 /api/v1/readiness：检查 DB + Redis。任一失败 → 503。", tags=["health"])
     async def readiness_root(request: Request):
         all_ok, checks = await _run_readiness_checks(request)
         return _readiness_response(all_ok, checks)

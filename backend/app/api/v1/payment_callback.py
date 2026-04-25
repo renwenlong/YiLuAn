@@ -53,7 +53,23 @@ def _fail_response(msg: str) -> Response:
     )
 
 
-@router.post("/wechat/callback")
+@router.post(
+    "/wechat/callback",
+    summary="微信支付 - 支付结果回调",
+    description=(
+        "微信支付服务端调用的支付通知接收端。**不要求 JWT**，由签名验证保护。\n\n"
+        "幂等：基于 `payment_callback_log` 的 `(provider, transaction_id)` 唯一约束去重，"
+        "重复回调直接返回 SUCCESS 不会再次更新订单。\n\n"
+        "返回体始终为 `{\"code\": \"SUCCESS\"|\"FAIL\", \"message\": ...}`，HTTP 状态码恒为 200，"
+        "以便微信侧停止重试。"
+    ),
+    responses={
+        200: {
+            "description": "已确认（成功或显式失败均返回 200）",
+            "content": {"application/json": {"example": {"code": "SUCCESS", "message": "OK"}}},
+        },
+    },
+)
 async def wechat_pay_callback(
     request: Request,
     session: DBSession,
@@ -178,7 +194,19 @@ async def wechat_pay_callback(
     return _success_response()
 
 
-@router.post("/wechat/refund-callback")
+@router.post(
+    "/wechat/refund-callback",
+    summary="微信支付 - 退款结果回调",
+    description=(
+        "微信支付的退款通知接收端。鉴权与幂等策略与支付回调一致。"
+    ),
+    responses={
+        200: {
+            "description": "已确认",
+            "content": {"application/json": {"example": {"code": "SUCCESS", "message": "OK"}}},
+        },
+    },
+)
 async def wechat_refund_callback(
     request: Request,
     session: DBSession,
