@@ -114,10 +114,44 @@ async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+def _current_alembic_head() -> str | None:
+    try:
+        from alembic.config import Config
+        from alembic.script import ScriptDirectory
+        from pathlib import Path as _P
+
+        cfg_paths = [_P("alembic.ini"), _P(__file__).resolve().parents[1] / "alembic.ini"]
+        cfg_path = next((p for p in cfg_paths if p.exists()), None)
+        if cfg_path is None:
+            return None
+        return ScriptDirectory.from_config(Config(str(cfg_path))).get_heads()[0]
+    except Exception:
+        return None
+
+
+_ALEMBIC_HEAD = _current_alembic_head()
+
+
 @pytest.fixture(autouse=True)
 async def setup_database():
+    from sqlalchemy import text as _text
+
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Mirror what `alembic upgrade head` would leave in a real DB so the
+        # /readiness alembic check passes against the SQLite test DB.
+        if _ALEMBIC_HEAD:
+            await conn.execute(
+                _text(
+                    "CREATE TABLE IF NOT EXISTS alembic_version "
+                    "(version_num VARCHAR(64) PRIMARY KEY)"
+                )
+            )
+            await conn.execute(_text("DELETE FROM alembic_version"))
+            await conn.execute(
+                _text("INSERT INTO alembic_version (version_num) VALUES (:v)"),
+                {"v": _ALEMBIC_HEAD},
+            )
     yield
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)

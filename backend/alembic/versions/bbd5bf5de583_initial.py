@@ -203,3 +203,18 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_companion_profiles_user_id'), table_name='companion_profiles')
     op.drop_table('companion_profiles')
     # ### end Alembic commands ###
+
+    # Drop PG enum types created implicitly by sa.Enum(...) above so that
+    # an upgrade -> downgrade -> upgrade cycle does not leave dangling
+    # types that trigger DuplicateObjectError on re-create.
+    bind = op.get_bind()
+    if bind.dialect.name == 'postgresql':
+        for enum_name in (
+            'verificationstatus',
+            'servicetype',
+            'orderstatus',
+            'userrole',
+            'messagetype',
+            'notificationtype',
+        ):
+            op.execute(f'DROP TYPE IF EXISTS {enum_name}')

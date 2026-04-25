@@ -1,64 +1,286 @@
+"""Health & Readiness endpoints.
+
+Liveness (`/health`):  process-only, always 200 if FastAPI is responsive.
+Readiness (`/readiness`):  checks 5 dependencies (DB, Redis, Alembic version,
+Payment provider, SMS provider).  Returns 200 only if every required check
+passes; otherwise 503.
+
+Per-check timeouts are enforced so the whole endpoint stays well under the
+1.5 s p99 budget required for K8s/ACA readiness probes:
+  * db        — 1.0 s   (SELECT 1)
+  * redis     — 0.5 s   (PING + roundtrip)
+  * alembic   — 1.0 s   (read alembic_version table, compare to script head)
+  * payment   — 0.8 s   (mock = instant; real = sandbox HEAD with fallback)
+  * sms       — 0.2 s   (mock = instant; real = config completeness only)
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
+from app.config import settings
 from app.database import async_session
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["health"])
 
 
-@router.get("/health", summary="健康检查（liveness）", description="liveness 探针：进程活着即返回 200，不检查外部依赖。")
+# ---------------------------------------------------------------------------
+# Liveness
+# ---------------------------------------------------------------------------
+@router.get(
+    "/health",
+    summary="健康检查（liveness）",
+    description="liveness 探针：进程活着即返回 200，不检查外部依赖。",
+)
 async def health():
-    """Liveness probe: 只要进程能响应就返回 200，不查 DB/Redis。"""
     return {"status": "ok", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
-async def _run_readiness_checks(request: Request) -> tuple[bool, dict]:
-    """执行 DB + Redis 就绪检查，返回 (all_ok, checks_dict)。
+# ---------------------------------------------------------------------------
+# Per-dependency check helpers
+# ---------------------------------------------------------------------------
+DB_TIMEOUT_S = 1.0
+REDIS_TIMEOUT_S = 0.5
+ALEMBIC_TIMEOUT_S = 1.0
+PAYMENT_TIMEOUT_S = 0.8
+SMS_TIMEOUT_S = 0.2
 
-    checks_dict 形如 {"db": "ok", "redis": "error: <msg>"}
-    """
-    checks: dict[str, str] = {}
 
-    # Check database: SELECT 1
+def _ms(start: float) -> int:
+    return int((time.perf_counter() - start) * 1000)
+
+
+async def _check_db() -> dict[str, Any]:
+    start = time.perf_counter()
     try:
-        async with async_session() as session:
-            await session.execute(text("SELECT 1"))
-        checks["db"] = "ok"
+        async def _do() -> None:
+            async with async_session() as session:
+                await session.execute(text("SELECT 1"))
+
+        await asyncio.wait_for(_do(), timeout=DB_TIMEOUT_S)
+        return {"status": "ok", "latency_ms": _ms(start)}
+    except asyncio.TimeoutError:
+        return {
+            "status": "error",
+            "latency_ms": _ms(start),
+            "error": f"timeout >{int(DB_TIMEOUT_S * 1000)}ms",
+        }
     except Exception as exc:  # noqa: BLE001
-        checks["db"] = f"error: {exc.__class__.__name__}: {exc}"[:200]
+        return {
+            "status": "error",
+            "latency_ms": _ms(start),
+            "error": f"{exc.__class__.__name__}: {exc}"[:200],
+        }
 
-    # Check Redis: PING
+
+async def _check_redis(request: Request) -> dict[str, Any]:
+    start = time.perf_counter()
     try:
-        redis = request.app.state.redis
+        redis = getattr(request.app.state, "redis", None)
         if redis is None:
             raise RuntimeError("redis client not initialized")
-        # 优先使用 PING（更轻量），失败则回退到 set/get 兼容 fakeredis 下的异常注入
-        pong = await redis.ping()
-        if pong is False:
-            raise RuntimeError("redis PING returned False")
-        # 额外的 set/get 往返，便于测试 mock 注入异常（与原实现保持兼容）
-        await redis.set("readiness_check", "1", ex=10)
-        val = await redis.get("readiness_check")
-        if val is None:
-            raise RuntimeError("redis readback returned None")
-        checks["redis"] = "ok"
-    except Exception as exc:  # noqa: BLE001
-        checks["redis"] = f"error: {exc.__class__.__name__}: {exc}"[:200]
 
-    all_ok = all(v == "ok" for v in checks.values())
+        async def _do() -> None:
+            pong = await redis.ping()
+            if pong is False:
+                raise RuntimeError("redis PING returned False")
+            # extra set/get roundtrip kept for FakeRedis injection compatibility
+            await redis.set("readiness_check", "1", ex=10)
+            val = await redis.get("readiness_check")
+            if val is None:
+                raise RuntimeError("redis readback returned None")
+
+        await asyncio.wait_for(_do(), timeout=REDIS_TIMEOUT_S)
+        return {"status": "ok", "latency_ms": _ms(start)}
+    except asyncio.TimeoutError:
+        return {
+            "status": "error",
+            "latency_ms": _ms(start),
+            "error": f"timeout >{int(REDIS_TIMEOUT_S * 1000)}ms",
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "status": "error",
+            "latency_ms": _ms(start),
+            "error": f"{exc.__class__.__name__}: {exc}"[:200],
+        }
+
+
+def _alembic_script_head() -> str | None:
+    """Return current head revision id from the bundled alembic scripts."""
+    from alembic.config import Config
+    from alembic.script import ScriptDirectory
+
+    # alembic.ini lives at backend/alembic.ini (cwd in tests = backend/)
+    cfg_paths = [
+        Path("alembic.ini"),
+        Path(__file__).resolve().parents[3] / "alembic.ini",
+    ]
+    cfg_path = next((p for p in cfg_paths if p.exists()), None)
+    if cfg_path is None:
+        raise RuntimeError("alembic.ini not found")
+    cfg = Config(str(cfg_path))
+    script = ScriptDirectory.from_config(cfg)
+    heads = script.get_heads()
+    if len(heads) > 1:
+        raise RuntimeError(f"multiple alembic heads: {heads}")
+    return heads[0] if heads else None
+
+
+async def _check_alembic() -> dict[str, Any]:
+    start = time.perf_counter()
+    try:
+        async def _do() -> dict[str, Any]:
+            head = await asyncio.to_thread(_alembic_script_head)
+            current: str | None = None
+            try:
+                async with async_session() as session:
+                    res = await session.execute(text("SELECT version_num FROM alembic_version"))
+                    row = res.first()
+                    current = row[0] if row else None
+            except Exception:
+                # alembic_version table may not exist (e.g. SQLite test env where
+                # we used metadata.create_all instead of running migrations).
+                # In that case treat current=None as a soft state.
+                current = None
+
+            if current is None:
+                # No alembic_version row: only OK if there are no migrations either.
+                if head is None:
+                    return {"status": "ok", "current": None, "head": None}
+                return {
+                    "status": "error",
+                    "current": None,
+                    "head": head,
+                    "error": "alembic_version row missing",
+                }
+            if current != head:
+                return {
+                    "status": "error",
+                    "current": current,
+                    "head": head,
+                    "error": "version drift",
+                }
+            return {"status": "ok", "current": current, "head": head}
+
+        result = await asyncio.wait_for(_do(), timeout=ALEMBIC_TIMEOUT_S)
+        result["latency_ms"] = _ms(start)
+        return result
+    except asyncio.TimeoutError:
+        return {
+            "status": "error",
+            "latency_ms": _ms(start),
+            "error": f"timeout >{int(ALEMBIC_TIMEOUT_S * 1000)}ms",
+        }
+    except Exception as exc:  # noqa: BLE001
+        return {
+            "status": "error",
+            "latency_ms": _ms(start),
+            "error": f"{exc.__class__.__name__}: {exc}"[:200],
+        }
+
+
+async def _check_payment() -> dict[str, Any]:
+    start = time.perf_counter()
+    mode = settings.payment_provider or "mock"
+    if mode == "mock":
+        return {"status": "skipped", "mode": "mock", "latency_ms": _ms(start)}
+
+    # real mode: ping wechatpay sandbox host but do NOT block readiness on
+    # external network — degrade gracefully.
+    try:
+        import httpx
+
+        async def _do() -> None:
+            async with httpx.AsyncClient(timeout=PAYMENT_TIMEOUT_S) as c:
+                # api.mch.weixin.qq.com is the production base; we use HEAD
+                # which is cheap and does not consume API quota.
+                await c.head("https://api.mch.weixin.qq.com/")
+
+        await asyncio.wait_for(_do(), timeout=PAYMENT_TIMEOUT_S)
+        return {"status": "ok", "mode": mode, "latency_ms": _ms(start)}
+    except Exception as exc:  # noqa: BLE001
+        # 503 fallback: mark as degraded but DO NOT fail readiness — payment
+        # outage shouldn't take down the whole API. Status "degraded" is
+        # treated as non-fatal by _aggregate.
+        return {
+            "status": "degraded",
+            "mode": mode,
+            "latency_ms": _ms(start),
+            "error": f"{exc.__class__.__name__}: {exc}"[:200],
+        }
+
+
+async def _check_sms() -> dict[str, Any]:
+    start = time.perf_counter()
+    mode = settings.sms_provider or "mock"
+    if mode == "mock":
+        return {"status": "skipped", "mode": "mock", "latency_ms": _ms(start)}
+
+    # real mode: do NOT actually send a (paid) SMS; only validate config
+    missing = [
+        name
+        for name, val in [
+            ("sms_access_key", settings.sms_access_key),
+            ("sms_access_secret", settings.sms_access_secret),
+            ("sms_sign_name", settings.sms_sign_name),
+            ("sms_template_code", settings.sms_template_code),
+        ]
+        if not val
+    ]
+    if missing:
+        return {
+            "status": "error",
+            "mode": mode,
+            "latency_ms": _ms(start),
+            "error": f"missing config: {', '.join(missing)}",
+        }
+    return {"status": "ok", "mode": mode, "latency_ms": _ms(start)}
+
+
+# ---------------------------------------------------------------------------
+# Aggregator
+# ---------------------------------------------------------------------------
+# A check is considered fatal (→ 503) when its status is "error".
+# "ok" / "skipped" / "degraded" all keep readiness=true.
+_FATAL_STATUSES = {"error"}
+
+
+async def _run_readiness_checks(request: Request) -> tuple[bool, dict[str, Any]]:
+    db, redis_, alembic_, payment, sms = await asyncio.gather(
+        _check_db(),
+        _check_redis(request),
+        _check_alembic(),
+        _check_payment(),
+        _check_sms(),
+    )
+    checks = {
+        "db": db,
+        "redis": redis_,
+        "alembic": alembic_,
+        "payment": payment,
+        "sms": sms,
+    }
+    all_ok = not any(c.get("status") in _FATAL_STATUSES for c in checks.values())
     return all_ok, checks
 
 
-def _readiness_response(all_ok: bool, checks: dict) -> JSONResponse | dict:
+def _readiness_response(all_ok: bool, checks: dict[str, Any]):
     body = {
+        "ready": all_ok,
+        # backward-compat fields used by older probes / dashboards
         "status": "ready" if all_ok else "not_ready",
         "checks": checks,
-        # 向后兼容字段（历史测试/探针脚本可能依赖扁平键）
-        "db": "ok" if checks.get("db") == "ok" else "error",
-        "redis": "ok" if checks.get("redis") == "ok" else "error",
     }
     if not all_ok:
         return JSONResponse(status_code=503, content=body)
@@ -68,7 +290,10 @@ def _readiness_response(all_ok: bool, checks: dict) -> JSONResponse | dict:
 @router.get(
     "/readiness",
     summary="就绪检查（readiness）",
-    description="检查数据库（SELECT 1）和 Redis（PING）连接。全部 OK → 200；任一失败 → 503。",
+    description=(
+        "串行检查 5 项依赖：PostgreSQL（SELECT 1）、Redis（PING）、Alembic 版本、"
+        "Payment 提供方、SMS 提供方。任一 error → 503；degraded/skipped 视为通过。"
+    ),
 )
 async def readiness(request: Request):
     all_ok, checks = await _run_readiness_checks(request)
