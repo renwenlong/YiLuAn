@@ -17,6 +17,7 @@
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
+| `POST` | `/api/v1/auth/apple/login` | Apple Sign-In 登录 |
 | `POST` | `/api/v1/auth/bind-phone` | 为当前账号绑定手机号 |
 | `POST` | `/api/v1/auth/refresh` | 刷新访问令牌 |
 | `POST` | `/api/v1/auth/send-otp` | 发送短信验证码 |

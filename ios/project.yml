@@ -64,6 +64,10 @@ targets:
         MARKETING_VERSION: "1.0.0"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: NO
+        # Sign In with Apple (W18-A)
+        # TODO(PM): set DEVELOPMENT_TEAM to the real Apple Developer Team ID
+        # before submitting to TestFlight; CI uses CODE_SIGNING_ALLOWED=NO.
+        CODE_SIGN_ENTITLEMENTS: YiLuAn/YiLuAn.entitlements
 
   YiLuAnTests:
     type: bundle.unit-test

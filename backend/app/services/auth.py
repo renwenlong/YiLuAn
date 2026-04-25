@@ -183,6 +183,47 @@ class AuthService:
             user=UserResponse.model_validate(user),
         )
 
+    async def login_or_register_by_apple_sub(
+        self, apple_sub: str, email: str | None = None
+    ) -> TokenResponse:
+        """Look up (or create) a user by Apple `sub` and issue tokens.
+
+        Apple's `sub` is a stable, unique identifier per (Team, Apple ID).
+        The first call creates a placeholder user with no phone (must bind
+        later via `/auth/bind-phone`). Subsequent calls reuse the user.
+        """
+        user = await self.user_repo.get_by_apple_sub(apple_sub)
+        if user is None:
+            # Brand-new Apple user. We deliberately leave phone NULL so the
+            # client is forced through phone binding for SMS-required flows.
+            # `email` from Apple is optional and may be a relay address; we
+            # currently don't persist it on the user model (no email column).
+            user = User(apple_sub=apple_sub)
+            user = await self.user_repo.create(user)
+
+        if user.is_deleted:
+            raise UnauthorizedException(
+                "Account has been deleted", error_code="APPLE_USER_REVOKED"
+            )
+        if not user.is_active:
+            raise UnauthorizedException(
+                "Account is disabled", error_code="APPLE_USER_REVOKED"
+            )
+
+        token_data = {
+            "sub": str(user.id),
+            "role": user.role.value if user.role else None,
+            "roles": user.get_roles(),
+        }
+        access_token = create_access_token(token_data)
+        refresh_token = create_refresh_token(token_data)
+
+        return TokenResponse(
+            access_token=access_token,
+            refresh_token=refresh_token,
+            user=UserResponse.model_validate(user),
+        )
+
     async def bind_phone(self, user_id: UUID, phone: str, code: str) -> User:
         otp_key = f"otp:{phone}"
 
