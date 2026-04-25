@@ -73,6 +73,47 @@ class AuthViewModel: ObservableObject {
         }
     }
 
+    /// Apple Sign-In flow (W18-A): trigger native sheet, exchange identity
+    /// token with backend, store our access/refresh tokens.
+    func loginWithApple(service: AppleSignInService? = nil) async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+
+        let svc = service ?? AppleSignInService()
+
+        do {
+            let credential = try await svc.signIn()
+
+            var userInfoPayload: AppleUserInfoPayload? = nil
+            if credential.email != nil || credential.fullName != nil {
+                userInfoPayload = AppleUserInfoPayload(
+                    email: credential.email,
+                    firstName: credential.fullName?.givenName,
+                    lastName: credential.fullName?.familyName
+                )
+            }
+
+            let body = AppleLoginRequest(
+                identityToken: credential.identityToken,
+                authorizationCode: credential.authorizationCode,
+                userInfo: userInfoPayload
+            )
+            let response: TokenResponse = try await APIClient.shared.request(
+                .appleLogin, body: body
+            )
+            KeychainManager.accessToken = response.accessToken
+            KeychainManager.refreshToken = response.refreshToken
+            currentUser = response.user
+            isAuthenticated = true
+        } catch AppleSignInError.userCancelled {
+            // Cancelling is not an error worth surfacing.
+            return
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func signOut() {
         KeychainManager.clearTokens()
         isAuthenticated = false
