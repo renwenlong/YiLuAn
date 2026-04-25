@@ -161,7 +161,17 @@ async def login_via_otp(client, fake_redis):
 
 @pytest.fixture
 async def assign_role_e2e():
-    """Promote a user to a role + add to roles list (SQLite)."""
+    """Promote a user to a role + add it to the comma-separated ``roles`` list.
+
+    YiLuAn's primary ``role`` column is a ``UserRole`` enum that only knows
+    about ``patient`` / ``companion``. Auxiliary roles such as ``admin`` live
+    purely in the ``roles`` string field and are checked via
+    :py:meth:`User.has_role`. This helper accepts both:
+
+    * ``patient`` / ``companion`` -> updates ``role`` enum AND ``roles`` list.
+    * Anything else (e.g. ``admin``) -> only appended to ``roles`` list so
+      ``has_role("admin")`` returns ``True`` without breaking the enum.
+    """
     async def _do(user_id, role):
         uid = UUID(str(user_id))
         async with test_session_factory() as session:
@@ -169,12 +179,81 @@ async def assign_role_e2e():
                 await session.execute(select(User).where(User.id == uid))
             ).scalar_one()
             role_val = role.value if isinstance(role, UserRole) else role
-            user.role = UserRole(role_val)
+            try:
+                user.role = UserRole(role_val)
+            except ValueError:
+                # Auxiliary role (e.g. "admin") not in the UserRole enum --
+                # store it in the multi-role ``roles`` field only.
+                pass
             current = set((user.roles or "").split(",")) - {""}
             current.add(role_val)
             user.roles = ",".join(sorted(current))
             await session.commit()
             return user
+
+    return _do
+
+
+@pytest.fixture
+async def accept_order_as_companion(login_via_otp, assign_role_e2e):
+    """End-to-end helper to drive an order into the ``accepted`` state.
+
+    Boots a verified companion (OTP login + apply + admin approve via
+    ``X-Admin-Token``), then calls ``/orders/{id}/accept`` from that
+    companion's session. Returns ``(companion_headers, accept_response_json)``.
+
+    Parameters
+    ----------
+    e2e_client : httpx.AsyncClient
+        The shared e2e client.
+    order_id : str
+        The order to accept (must already be in ``created`` status with
+        ``companion_id`` matching the companion this helper provisions; or
+        a broadcast order).
+    companion_phone : str
+        Phone number for the companion (use the ``companion_phone`` fixture).
+    admin_headers : dict
+        ``X-Admin-Token`` headers for approving the companion profile.
+    real_name : str, optional
+        Display name on the companion application.
+    service_type : str, optional
+        Service type on the companion application.
+    """
+    from app.config import settings
+
+    async def _do(
+        e2e_client,
+        order_id,
+        companion_phone,
+        admin_headers,
+        real_name: str = "接单陪诊",
+        service_type: str = "errand",
+    ):
+        c_access, _, c_user = await login_via_otp(companion_phone, role="companion")
+        c_headers = {"Authorization": f"Bearer {c_access}"}
+        r = await e2e_client.post(
+            "/api/v1/companions/apply",
+            headers=c_headers,
+            json={
+                "real_name": real_name,
+                "service_types": service_type,
+                "service_city": "北京",
+            },
+        )
+        assert r.status_code == 201, r.text
+        profile_id = r.json()["id"]
+
+        r = await e2e_client.post(
+            f"/api/v1/admin/companions/{profile_id}/approve",
+            headers=admin_headers,
+        )
+        assert r.status_code == 200, r.text
+
+        r = await e2e_client.post(
+            f"/api/v1/orders/{order_id}/accept", headers=c_headers
+        )
+        assert r.status_code == 200, r.text
+        return c_headers, r.json()
 
     return _do
 
