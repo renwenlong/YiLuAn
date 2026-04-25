@@ -28,6 +28,7 @@ Authorization: Bearer <access_token>
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
+| `POST` | `/api/v1/auth/apple/login` | Apple Sign-In 登录 |
 | `POST` | `/api/v1/auth/bind-phone` | 为当前账号绑定手机号 |
 | `POST` | `/api/v1/auth/refresh` | 刷新访问令牌 |
 | `POST` | `/api/v1/auth/send-otp` | 发送短信验证码 |
@@ -35,6 +36,32 @@ Authorization: Bearer <access_token>
 | `POST` | `/api/v1/auth/wechat-login` | 微信小程序登录 |
 
 ## 端点详情
+
+### `POST /api/v1/auth/apple/login` — Apple Sign-In 登录
+
+使用 Apple 颁发的 identity_token 完成登录/首次注册。返回标准 access_token / refresh_token，复用现有 JWT 流。
+
+**请求体（JSON）：**
+
+```json
+""
+```
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X POST 'https://api.yiluan.example.com/api/v1/auth/apple/login' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
 
 ### `POST /api/v1/auth/bind-phone` — 为当前账号绑定手机号
 

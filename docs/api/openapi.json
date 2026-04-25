@@ -1,6 +1,79 @@
 {
   "components": {
     "schemas": {
+      "AppleLoginRequest": {
+        "properties": {
+          "authorization_code": {
+            "description": "Apple authorization code (server-to-server use)",
+            "minLength": 1,
+            "title": "Authorization Code",
+            "type": "string"
+          },
+          "identity_token": {
+            "description": "Apple JWT (id_token)",
+            "minLength": 1,
+            "title": "Identity Token",
+            "type": "string"
+          },
+          "user_info": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AppleUserInfo"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional profile (only present on first authorization)."
+          }
+        },
+        "required": [
+          "identity_token",
+          "authorization_code"
+        ],
+        "title": "AppleLoginRequest",
+        "type": "object"
+      },
+      "AppleUserInfo": {
+        "description": "Optional profile bundle Apple returns ONLY on the first sign-in.",
+        "properties": {
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "first_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Name"
+          },
+          "last_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Name"
+          }
+        },
+        "title": "AppleUserInfo",
+        "type": "object"
+      },
       "ApplyCompanionRequest": {
         "properties": {
           "bio": {
@@ -2802,6 +2875,48 @@
         "summary": "后台：启用用户",
         "tags": [
           "admin"
+        ]
+      }
+    },
+    "/api/v1/auth/apple/login": {
+      "post": {
+        "description": "使用 Apple 颁发的 identity_token 完成登录/首次注册。返回标准 access_token / refresh_token，复用现有 JWT 流。",
+        "operationId": "apple_login_api_v1_auth_apple_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AppleLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Apple Sign-In 登录",
+        "tags": [
+          "auth"
         ]
       }
     },
