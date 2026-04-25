@@ -22,14 +22,8 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from app.config import settings
-from app.core.rate_limit import limiter as _slowapi_limiter
 from app.models.user import User, UserRole
 from tests.conftest import test_session_factory
-
-# Disable slowapi IP-based rate limiting for e2e tests (all requests share
-# 127.0.0.1 so we'd otherwise hit `5 per 1 minute` on /auth/send-otp very
-# quickly across the suite).
-_slowapi_limiter.enabled = False
 
 
 @pytest.fixture(autouse=True, scope="session")
