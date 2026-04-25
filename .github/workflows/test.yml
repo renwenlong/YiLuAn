@@ -25,6 +25,10 @@ jobs:
       - name: Run tests
         run: cd backend && python -m pytest tests/ -v
 
+      - name: Run e2e tests
+        run: cd backend && python -m pytest tests/e2e/ -m e2e -v
+        timeout-minutes: 5
+
   docker-build:
     name: Docker Build Verification
     runs-on: ubuntu-latest
