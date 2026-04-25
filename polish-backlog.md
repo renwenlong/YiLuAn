@@ -9,12 +9,12 @@
 | #   | 项目                                                                            | 域                    | 优先级 | 说明                                                                                                                                         |
 | --- | ------------------------------------------------------------------------------- | --------------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | P-01 | tabBar 离 iPhone 14 Pro Max 底部差 2pt                                           | 小程序微信端          | P3     | Design 已确认（2026-04-22 设计评审）。修法：`pages.json` tabBar `iconPath` 的 padding 改用 1.5x 底距 ✅ `a1b2c3d` |
-| P-02 | 订单详情页总金额字号不一致：iOS 28pt vs 微信小程序 22pt                          | iOS + 微信小程序      | P3     | 统一到微信方案（28rpx + bold + brand orange）。涉及文件：`OrderDetailView` 与 `pages/order/detail`        |
+| P-02 | 订单详情页总金额字号不一致：iOS 28pt vs 微信小程序 22pt                          | iOS + 微信小程序      | P3     | ✅ `fa71e88` / 2026-04-24。统一到 brand orange (#FF7A45) + 36rpx + tabular-nums，对齐 `.polish-amount`。微信修 `.info-value.price`（patient/companion order-detail）；iOS `OrderDetailView.infoRow` 增加 `isPrice` 分支 → `.title2.bold() + .accent + monospacedDigit()`        |
 | P-03 | tabBar 切换无触感反馈                                                            | 微信小程序            | P3     | iOS HapticFeedback / 微信 `wx.vibrateShort({type:'light'})`，失败静默                                                                          |
 | P-04 | 订单详情/列表/钱包页金额字号、字色不统一                                         | 微信小程序            | P3     | 统一 brand orange (#FF6B35) + 36rpx bold；覆盖 detail/list/wallet                                                                               |
 | P-05 | 按钮点击态缺少视觉反馈（透明度）                                                  | 微信小程序            | P3     | 全局 button class 加 `&:active { opacity: 0.7; transition: opacity 0.1s; }`                                                                    |
 | P-06 | 多处 loading 文案为空字符串 / "加载中..."                                         | 微信小程序            | P3     | 统一为 "加载中"（不带省略号），减少视觉负担                                                                                                         |
-| P-07 | 空状态图 + 文案缺失（空订单列表、空消息列表）                                      | 微信小程序            | P3     | 已有 `components/empty-state/` 组件，需要在 orders / chat 页应用                                                                                 |
+| P-07 | 空状态图 + 文案缺失（空订单列表、空消息列表）                                      | 微信小程序            | P3     | ✅ `e3d4cb3` / 2026-04-24。`empty-state` 组件新增 `hint` + 深色模式对比度调整；`pages/orders` 与 `pages/chat/list` 接入组件。同时顺手把 `pages/orders` load-more 提示接入 `.polish-loading` (P-06)                                                                                 |
 | P-08 | 表单错误提示位置不一致（有的在输入框下，有的 toast）                              | 微信小程序            | P3     | 统一为输入框下内联提示 + 红色文字                                                                                                               |
 | P-09 | 页面标题栏文字大小视觉不统一（navigationBarTitleText 风格）                     | 微信小程序            | P3     | 所有页面 `navigationBarTextStyle: black`，`navigationBarBackgroundColor: #FFFFFF`（已在 app.json 默认，排查 page 级 override） |
 | P-10 | 无障碍：多处 text 无 aria-label / 图标按钮无语义                                 | 微信小程序 + iOS      | P3     | 给纯图标按钮加 `aria-label`（wxml `aria-role="button" aria-label="..."`）                                                                     |
@@ -33,6 +33,8 @@
 
 ## 已完成（archive）
 
+- ✅ **P-02** 订单详情金额字号 iOS + 微信统一 brand orange + 36rpx — commit `fa71e88` / 2026-04-24
+- ✅ **P-07** `empty-state` 接入 orders + chat 列表页，含 hint / dark-mode — commit `e3d4cb3` / 2026-04-24
 - ✅ **P-03** 触感反馈统一入口 `wechat/utils/haptic.js` + 6 个 unit test — commit `待填` / 2026-04-23
 - ✅ **P-04** 金额统一样式 `.polish-amount` (36rpx + brand orange) — `app.wxss` / 2026-04-23
 - ✅ **P-05** 按钮点击态全局 CSS（opacity 0.7 + scale 0.98）— `app.wxss` / 2026-04-23
@@ -44,4 +46,4 @@
 - ✅ **P-12** 深色模式 `@media (prefers-color-scheme: dark)` 覆盖 — `app.wxss` / 2026-04-23
 - ✅ **polish-backlog** 扩充从 2 项 → 12 项，结构化验收标准明确
 
-共 **10 项** polish 落代码（P-01/P-02 已在23 日前完成），全部涉及全局样式 token 化和无障碍增强，不改动任何业务逻辑；jest 从 181 → 187 passed（+6）。
+共 **12 项** polish 落代码（P-01..P-12 全部完成），覆盖全局样式 token 化、无障碍增强、空状态/金额字号统一；不改动任何业务逻辑；jest 187 passed（baseline 保持）。

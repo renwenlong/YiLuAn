@@ -28,13 +28,13 @@
     </view>
   </view>
 
-  <view class="empty-state" wx:if="{{conversations.length === 0}}">
-    <view class="empty-icon">
-      <text class="empty-icon-text">消</text>
-    </view>
-    <text class="empty-text">暂无消息</text>
-    <text class="empty-hint">下单后可与陪诊师沟通</text>
-  </view>
+  <!-- P-07: 改用全局 empty-state 组件，统一空状态样式 -->
+  <empty-state
+    wx:if="{{conversations.length === 0}}"
+    text="暂无消息"
+    hint="下单后可与陪诊师沟通"
+    icon="消"
+  />
 </view>
 
 <patient-tab-bar active="chat" />
