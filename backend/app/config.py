@@ -26,6 +26,15 @@ class Settings(BaseSettings):
     azure_storage_container_avatars: str = "avatars"
     azure_storage_container_chat: str = "chat-images"
 
+    # Apple Sign-In (W18-A)
+    # TODO(PM): supply real values for production. See `placeholders` doc.
+    apple_team_id: str = ""  # TODO: 10-char Apple Developer Team ID
+    apple_client_id: str = ""  # TODO: Service ID (web) or Bundle ID (iOS), used as JWT `aud`
+    apple_jwks_url: str = "https://appleid.apple.com/auth/keys"
+    apple_issuer: str = "https://appleid.apple.com"
+    # When true (dev/test), skip JWKS signature verification but still validate claims.
+    apple_mock_verify: bool = False
+
     # APNs
     apns_key_id: str = ""
     apns_team_id: str = ""
