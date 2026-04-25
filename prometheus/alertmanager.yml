@@ -1,0 +1,61 @@
+# Alertmanager configuration for YiLuAn (一路安)
+#
+# Routing strategy:
+#   - default → wechat-work group bot (via local adapter)
+#   - severity=critical → wechat-work + email
+#
+# Inhibition: a 5xx alert from a service suppresses latency alerts from the
+# same service (the 5xx is the actionable root signal).
+#
+# Grouping: by alertname + severity, 30s wait, 5min repeat.
+
+global:
+  resolve_timeout: 5m
+  smtp_smarthost: "${SMTP_SMARTHOST:-smtp.example.com:587}"
+  smtp_from: "${SMTP_FROM:-alerts@yiluan.example.com}"
+  smtp_auth_username: "${SMTP_USERNAME:-}"
+  smtp_auth_password: "${SMTP_PASSWORD:-}"
+  smtp_require_tls: true
+
+templates:
+  - "/etc/alertmanager/templates/*.tmpl"
+
+route:
+  receiver: wechat-work-default
+  group_by: ["alertname", "severity"]
+  group_wait: 30s
+  group_interval: 30s
+  repeat_interval: 5m
+  routes:
+    - matchers:
+        - severity = "critical"
+      receiver: wechat-work-critical
+      group_wait: 10s
+      continue: false
+
+inhibit_rules:
+  # When a service is throwing 5xx, latency alerts from the same service are
+  # almost always downstream symptoms — suppress them to reduce noise.
+  - source_matchers:
+      - alertname = "HighHTTP5xxRate"
+    target_matchers:
+      - alertname = "HighRequestLatency"
+    equal: ["service", "instance"]
+
+receivers:
+  - name: wechat-work-default
+    webhook_configs:
+      - url: "http://wechat-work-webhook:5001/alert"
+        send_resolved: true
+        max_alerts: 0
+
+  - name: wechat-work-critical
+    webhook_configs:
+      - url: "http://wechat-work-webhook:5001/alert"
+        send_resolved: true
+        max_alerts: 0
+    email_configs:
+      - to: "${ONCALL_EMAIL:-oncall@yiluan.example.com}"
+        send_resolved: true
+        headers:
+          Subject: "[CRITICAL] {{ .CommonLabels.alertname }} on {{ .CommonLabels.service }}"

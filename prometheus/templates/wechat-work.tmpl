@@ -1,0 +1,28 @@
+{{/* WeChat Work (企业微信) markdown template for Alertmanager.
+     Rendered by the local webhook adapter, not by Alertmanager directly,
+     but kept here so the message format lives next to alertmanager.yml.   */}}
+
+{{ define "wechat-work.markdown" -}}
+{{ if eq .Status "firing" -}}
+## 🔥 告警触发: {{ .GroupLabels.alertname }}
+{{- else -}}
+## ✅ 告警恢复: {{ .GroupLabels.alertname }}
+{{- end }}
+
+- **级别:** {{ .CommonLabels.severity | default "warning" }}
+- **服务:** {{ .CommonLabels.service | default "-" }}
+- **实例:** {{ .CommonLabels.instance | default "-" }}
+- **起始:** {{ .StartsAt }}
+{{ if eq .Status "resolved" -}}
+- **结束:** {{ .EndsAt }}
+{{- end }}
+
+{{ range .Alerts -}}
+> {{ .Annotations.summary | default .Labels.alertname }}
+{{ if .Annotations.description -}}
+> {{ .Annotations.description }}
+{{ end -}}
+{{ end }}
+
+[查看 Grafana]({{ .ExternalURL }}) · [Alertmanager]({{ .ExternalURL }}/#/alerts)
+{{ end }}
