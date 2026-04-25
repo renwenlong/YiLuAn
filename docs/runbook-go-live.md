@@ -189,3 +189,53 @@
 ---
 
 Last updated: 2026-04-23 (PM + Ops 联合起草)
+
+
+---
+
+## 8. 配置告警 (A-2604-07)
+
+> **目标：** 把 Prometheus 已采集的 `/metrics` 指标接到 Alertmanager → 企业微信群机器人，oncall 群第一时间感知 5xx / 高延迟 / 任务积压。
+>
+> **决策依据：** 见 `docs/DECISION_LOG.md` D-040（不引入 Slack/钉钉，复用企业微信）。
+
+### 前置
+
+- [ ] Prometheus 已采集 backend `/metrics`（D-037 已完成）。
+- [ ] PM 已在企业微信 oncall 群创建群机器人，拿到 webhook URL（**待 PM 提供**）。
+- [ ] PM 已确认 critical 级别 oncall 邮箱组 + 邮件 SMTP 凭证（**待 PM 提供**）。
+
+### 步骤
+
+1. 把以下环境变量写入部署侧 secrets（**不要提交到仓库**）：
+   - `WECHAT_WORK_WEBHOOK_URL` — 企业微信群机器人 webhook 完整 URL（`https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...`）
+   - `ONCALL_EMAIL` — critical 邮件抄送地址（逗号分隔可选）
+   - `SMTP_SMARTHOST` / `SMTP_FROM` / `SMTP_USERNAME` / `SMTP_PASSWORD` — 邮件 relay 凭证
+   - `ALERTMANAGER_EXTERNAL_URL` — Alertmanager 公网/内网可达 URL（用于消息中"查看告警"链接）
+2. 启动 Alertmanager + wechat-work webhook 适配器：
+   ```bash
+   docker compose -f docker-compose.alertmanager.yml up -d
+   ```
+3. Prometheus 配置中加上 `alerting.alertmanagers: [{ static_configs: [{ targets: ["alertmanager:9093"] }] }]` 并 reload。
+4. 烟测：手工 POST 一个测试告警 payload 到适配器 dry-run 模式，确认企业微信群收到。
+   ```bash
+   curl -X POST http://<host>:5001/alert -H "Content-Type: application/json" \
+     -d '{"status":"firing","groupLabels":{"alertname":"SmokeTest"},"commonLabels":{"alertname":"SmokeTest","severity":"warning","service":"yiluan-api"},"alerts":[{"startsAt":"2026-04-24T15:00:00Z","endsAt":"0001-01-01T00:00:00Z","annotations":{"summary":"runbook smoke"},"labels":{}}],"externalURL":"http://localhost:9093"}'
+   ```
+
+### 验证
+
+- [ ] `GET http://<host>:5001/healthz` 返回 `{"ok": true, "dry_run": false, ...}`（dry_run 必须为 false，否则 webhook URL 没注入）。
+- [ ] 手工触发烟测告警后，oncall 群在 30s 内收到 markdown 消息（标题、级别、起止时间、查看链接齐全）。
+- [ ] 在 Prometheus 中临时把 `up{job="yiluan-api"}` 的告警阈值调到必触发，确认企业微信能收到 `firing`，恢复后能收到 `resolved`。
+- [ ] critical severity 告警同时有邮件抵达 `ONCALL_EMAIL`。
+
+### 回滚
+
+- 撤回 webhook URL（清空 `WECHAT_WORK_WEBHOOK_URL`）→ 适配器自动进入 dry-run 模式（仅日志，不再发群消息），不影响主业务。
+- 或直接 `docker compose -f docker-compose.alertmanager.yml down`：Alertmanager 不可用不会影响 backend，只是失去告警通道。
+
+### 速率限制
+
+- 适配器内置：同 alertname 60s 内最多 3 条（`WECHAT_RATE_LIMIT_MAX` / `WECHAT_RATE_LIMIT_WINDOW_SEC` 可调）。
+- Alertmanager 路由层：分组 30s wait + 5min repeat，配合应用级限流防止告警风暴洗版群。
