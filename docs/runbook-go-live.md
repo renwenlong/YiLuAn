@@ -1,20 +1,42 @@
 # 医路安（YiLuAn）Go-Live Runbook
 
-> 目标：在 5 个生产 Blocker（B-01 ~ B-05）都解锁后，**30 分钟内完成生产上线**。
+> 目标：在 5 个生产 Blocker（B-01 ~ B-05）都解锁后，**30 分钟内完成生产上线**(灰度观察窗口除外)。
 >
 > 每个 Blocker 单独一节，结构统一：**前置 → 步骤 → 验证 → 回滚**。
 >
-> 总流程：确认所有前置 → 按 B-01 → B-02 → B-03 → B-04 → B-05 顺序执行 → §7 灰度上线。
+> 总流程：确认所有前置 → 按 B-01 → B-02 → B-03 → B-04 → B-05 顺序执行 → §6 灰度上线 → §7 上线后 24h 监控。
+
+> **2026-04-25 dry-run 修订:** 详见 `docs/ops/GOLIVE_DRYRUN_REPORT_2026-04-25.md`。本次修订修正了 ENV 变量名(P-01/P-02)、/readiness 字段(P-14)、阈值口径(P-15)、通道(P-12)、§18 smoke 缺失(P-11) 等共 15 处。
+>
+> **配套文档:**
+> - `docs/RUNBOOK_ROLLBACK.md` — 回滚 SOP(场景 A/B/C)
+> - `docs/ops/INCIDENT_PLAYBOOK.md` — 应急 SOP(DB / Redis / 支付 / SMS)
+> - `docs/decisions/ADR-0028-canary-release-and-rollback.md` — 灰度策略
+>
+> **配套工具:**
+> - `ops/scripts/golive_preflight.sh` — 预发布一键检查
+> - `ops/scripts/deploy.sh --canary / --rollback` — 部署/回滚入口(当前 mock,真生产 TODO)
+> - `ops/scripts/canary_drill.sh` — 灰度演练 mock
+>
+> **总耗时预算(估算):**
+> - Preflight: 5-8 min
+> - 5 个 Blocker 串行执行: 各 15-30 min
+> - 灰度 5%→25%→50%→100% (各 30 min 观察): ~2 小时
+> - 24h 上线后观察窗口
 
 ---
 
 ## 0. 通用前置（所有 Blocker 解锁前必须完成）
 
-- [ ] `main` 分支当前 commit 已通过全套 CI（backend pytest / wechat jest / iOS CI）
-- [ ] Staging 环境已用同一 commit 完整跑通（§18 smoke 10 项）
-- [ ] 备份：PG 全量备份完成、WAL 归档到 OSS 确认可恢复（§15.4 PITR 流程验证过）
-- [ ] Ops On-call + 产品负责人（PM）+ 一名前端 / 后端值守（微信群 + 电话畅通）
+- [ ] **跑 `bash ops/scripts/golive_preflight.sh`,退出码 = 0**(任何 BLOCK 项都必须清除)
+- [ ] `main` 分支当前 commit 已通过全套 CI（backend pytest / wechat jest / iOS CI / alembic-smoke）
+- [ ] Staging 环境已用同一 commit 完整跑通（§18 smoke 10 项,见本文档末尾）
+- [ ] 备份：PG 全量备份完成、WAL 归档到 OSS 确认可恢复（`docs/RUNBOOK_ROLLBACK.md` 场景 C 前置验证过）
+- [ ] **估算迁移耗时:** `time alembic upgrade head` 在 staging 跑一次,填入 release-log;干跑本地空库实测 ~2.5s(30 个 revision),staging/prod 含数据估 < 60s
+- [ ] Ops On-call + 产品负责人（PM）+ 一名前端 / 后端值守（**企业微信**值守群 + 电话畅通）
 - [ ] 回滚包就绪：上一可用版本 tag + 对应 alembic revision 记录在案
+- [ ] `ops/scripts/deploy.sh` 与 `ops/scripts/canary_drill.sh --happy-path` 本地给 ops 跑过一次
+- [ ] **`/readiness` 实际字段名:** `checks.<dep>.status` (db / redis / alembic / payment / sms);不是 "wechatpay.ok=true" 之类伪字段
 
 ---
 
@@ -25,20 +47,20 @@
 - [ ] 拿到 mch_id / APIv3 密钥 / 商户私钥 + 证书序列号
 - [ ] 拿到平台证书（用于回调签名验证）
 
-### 步骤（≤10 步）
-1. 将 mch_id / appid / APIv3 key / 证书序列号 写入生产 KMS / secrets manager，key 命名与 `backend/app/core/config.py` 的环境变量对齐：
-   - `WECHATPAY_MCH_ID`
-   - `WECHATPAY_APIV3_KEY`
-   - `WECHATPAY_CERT_SERIAL`
-   - `WECHATPAY_PRIVATE_KEY_PEM`（整段 PEM，换行用 `\n` 编码）
-   - `WECHATPAY_PLATFORM_CERT_PEM`
-2. 部署到 backend 容器（滚动更新，`/readiness` 绿色后切流量）
+### 步骤（≤10 步）—— 估算 20-30 min
+
+> **2026-04-25 dry-run 修订:** ENV 变量名与 `backend/.env.example` + `backend/app/config.py` 对齐。原说明里的 `WECHATPAY_*` (无下划线)是错的,代码实际读的是 `WECHAT_PAY_*` 。
+
+1. 将 `WECHAT_PAY_MCH_ID` / `WECHAT_PAY_APPID` / `WECHAT_PAY_V3_KEY` / `WECHAT_PAY_SERIAL_NO` / `WECHAT_PAY_PRIVATE_KEY_PATH`(指向容器内 PEM 文件路径) / `WECHAT_PAY_PLATFORM_CERT_PATH` 写入生产 KMS / secrets manager;证书文件另外挂载到容器(推荐 secret volume)。
+   - **⚠️ 与 .env.example 反复核对** —— 预发布脚本会检查一致性。
+   - **⚠️ config.py 中的字段名为 `wechat_pay_api_key_v3` 但 .env.example 现为 `WECHAT_PAY_V3_KEY`** —— 需后端后续对齐,过渡期在 secret 中同时设两名。
+2. 部署到 backend 容器（滚动更新,`/readiness` 绿色后切流量）
 3. 调一次沙箱下单 → 验证签名正确、回调可被平台送达（可先用 ngrok 临时转发回调 URL 到生产域名 的 `/api/v1/payment/wechat/callback`）
 4. 确认回调签名验证通过（`/metrics` 中 `wechatpay_callback_signature_ok_total` 增加）
-5. 关闭沙箱模式：`WECHATPAY_SANDBOX=0`，再部署一次
+5. 关闭沙箱模式：`PAYMENT_PROVIDER=wechat` 且去掉任何 `*_SANDBOX=1` 开关,再部署一次
 
 ### 验证
-- [ ] `curl https://api.yiluan.com/api/v1/readiness` 返回 `wechatpay.ok=true`
+- [ ] `curl https://api.yiluan.com/readiness | jq '.checks.payment.status'` 返回 `"ok"` 或 `"skipped"`(如是 mock)
 - [ ] 真实 0.01 元订单支付成功（从下单→支付→回调→订单 status=paid 全链路）
 - [ ] Prometheus `wechatpay_callback_signature_fail_total` = 0（15 分钟窗口）
 
@@ -56,16 +78,22 @@
 - [ ] 各模板备案：登录 OTP / 订单提醒 / 支付成功 / 评价邀请
 - [ ] 拿到 AccessKey / AccessSecret（建议使用 RAM 子账号，权限仅限 SMS）
 
-### 步骤（≤10 步）
-1. Secrets：`ALIYUN_SMS_AK_ID` / `ALIYUN_SMS_AK_SECRET` / `ALIYUN_SMS_SIGNATURE` 写入 KMS
-2. 将 4 个模板 ID 写入配置（`ALIYUN_SMS_TEMPLATE_OTP` 等）
+### 步骤（≤10 步）—— 估算 15-25 min
+
+> **2026-04-25 dry-run 修订:** ENV 变量名以 `backend/.env.example` + `backend/app/config.py` 为准。原说明里的 `ALIYUN_SMS_AK_ID` / `ALIYUN_SMS_AK_SECRET` / `ALIYUN_SMS_SIGNATURE` 均错误。
+>
+> **⚠️ 代码当前只支持单 `ALIYUN_SMS_TEMPLATE_CODE`**(不是 4 个 OTP/订单/支付/评价模板)。多模板需 backend 后续扩展,本次上线只启用 OTP 一个。
+
+1. Secrets：`ALIYUN_SMS_ACCESS_KEY_ID` / `ALIYUN_SMS_ACCESS_KEY_SECRET` / `ALIYUN_SMS_SIGN_NAME` 写入 KMS
+2. 将 OTP 模板 ID 写入配置：`ALIYUN_SMS_TEMPLATE_CODE`
 3. 切换 provider：`SMS_PROVIDER=aliyun`（从 `mock` 改）
-4. 部署一次，`/readiness` 检查 `sms.ok=true`
+4. 部署一次,`/readiness` 检查 `checks.sms.status == "ok"`
 5. 真机拨测：用非团队号码发一次 OTP，确认收到 + 可登录
 
 ### 验证
 - [ ] Prometheus `sms_send_ok_total` 开始增长，`sms_send_fail_total` ≈ 0
 - [ ] 登录页 OTP 端到端跑通（真实手机号）
+- [ ] `curl https://api.yiluan.com/readiness | jq '.checks.sms'` 返回 status=ok
 
 ### 回滚
 - `SMS_PROVIDER=mock`，立即恢复登录可用性（开发约定 OTP = `000000`）
@@ -86,13 +114,14 @@
 3. 把 `deploy/prometheus/scrape.yml.example` 内容合并到 Prometheus 配置，reload
 4. 确认 scrape target `yiluan-backend` up=1
 5. 部署 `deploy/prometheus/alerts.yml` 5 条规则，Alertmanager reload
-6. 配置通道：P0 告警 → 电话 + 钉钉；P1 → 钉钉
-7. 测试：手动把 backend stop 1 分钟 → 确认 `BackendDown` 告警触发
+6. 配置通道：P0 告警 → **企业微信群机器人** + **电话机器人**；P1 → 企业微信群机器人(D-040 决议，不使用钉钉)
+7. 测试：手动把 backend stop 1 分钟 → 确认 `BackendDown` / `ReadinessProbeFailure` 告警触发,企业微信群收到 markdown 消息
 
 ### 验证
-- [ ] Grafana dashboard "YiLuAn Overview" 绿
-- [ ] Alertmanager → 手机真实收到钉钉 + 电话告警
+- [ ] Grafana dashboard "YiLuAn / Overview"(`ops/grafana/yiluan-overview.json`)绿
+- [ ] Alertmanager → 手机真实收到 **企业微信** + 电话告警
 - [ ] `/metrics` nginx 401/403 来自 0.0.0.0/0，200 仅内网
+- [ ] `curl http://<host>:5001/healthz` 返回 `dry_run=false`(表明 webhook URL 已注入)
 
 ### 回滚
 - 降级到上一镜像 tag；
@@ -156,35 +185,68 @@
 
 ## 6. 灰度上线（全部 Blocker 解锁后）
 
+> 详见 ADR-0028。本节只列报表。
+
+### 入口
+```bash
+bash ops/scripts/deploy.sh --canary --tag <release-tag>
+# 干跑检查请先跑:
+bash ops/scripts/canary_drill.sh --happy-path
+```
+
 ### 策略
-- **5% 流量**：仅团队 + 少量 beta 用户（白名单手机号），24h 观察
-- **30% 流量**：放开到所有登录用户，48h 观察
-- **100%**：无异常则全量
+- **5% 流量**：仅团队 + 少量 beta 用户(白名单手机号),30 min 观察
+- **25% 流量**：30 min 观察
+- **50% 流量**：30 min 观察
+- **100%**：无异常后全量、进入 24h 观察窗口
 
-### 必须监控的指标（Prometheus）
-| 指标 | 正常 | 熔断阈值 |
-|---|---|---|
-| 5xx 率 | < 0.3% | > 1%（5 分钟）|
-| 支付回调处理耗时 P95 | < 500ms | > 2s |
-| WebSocket 断连率 | < 5% | > 30% |
-| DB 连接池使用率 | < 60% | > 80% |
-| SMS 失败率 | < 0.5% | > 5% |
-| iOS / 小程序 crash 率 | < 0.1% | > 1% |
+### 必须监控的指标（Prometheus + Grafana "YiLuAn / Overview"）
+| 指标 | 正常 | 自动回滚阈值 | 告警名 |
+|---|---|---|---|
+| 5xx 率 | < 0.3% | **> 1% 持续 2 分钟** | (ADR-0028 watcher) |
+| /readiness | green | **连续失败 > 2 分钟** | ReadinessProbeFailure |
+| 支付回调处理耗时 P95 | < 500ms | > 2s | PaymentCallbackLatency(待加) |
+| WebSocket 断连率 | < 5% | > 30% | WSDropHigh(待加) |
+| DB 连接池使用率 | < 60% | > 80% | DBConnExhausted(待加) |
+| SMS 失败率 | < 0.5% | > 5% | SMSFailHigh(待加) |
+| iOS / 小程序 crash 率 | < 0.1% | > 1% | (App 侧上报) |
 
-### 熔断动作
-- 达到任一阈值 10 分钟 → Ops 熔断：
-  1. 流量百分比回退一级（100 → 30 → 5 → 关）
-  2. 调查根因，修复后重走灰度
-  3. 若无法短期修复：切换到上一 stable 版本（§15.4 PITR 不必要，unless DB schema 变更）
+### 人工检查阈值(stage 间手动 GO/NO-GO)
+该阈值与自动回滚不重叠,用于业务状态判断:
+- 订单创建率下跌 > 50% (对比 1h 前) → 人工介入
+- 客服反馈集中问题 ≥ 10 起 / 30 分钟 → 人工介入
+
+### 熔断动作(达到任一阈值 → §6 决策树)
+1. **首选 `bash ops/scripts/deploy.sh --rollback`**(场景 A 流量层,§30s 完成切流)
+2. 调查根因,修复后重走灰度
+3. 若无法短期修复：`bash ops/scripts/deploy.sh --rollback --code <prev-tag>`(场景 B 代码层)
+4. 若伴随不可逆 schema 变更: 走 `docs/RUNBOOK_ROLLBACK.md` 场景 C
 
 ---
 
 ## 7. 上线后 24h 关键监控点
 
-- [ ] 每 2h 看一次 Grafana "YiLuAn Overview"
+- [ ] 每 2h 看一次 Grafana "YiLuAn / Overview"
 - [ ] 每 6h 跑一次 §18 的 10 项 smoke
-- [ ] On-call 手机常在手边，钉钉 / 电话机器人通道保持
+- [ ] On-call 手机常在手边，企业微信 / 电话机器人通道保持
 - [ ] 24h 后做一次上线回顾（成功/失败/教训），归档到 `docs/launches/<date>.md`
+
+---
+
+## 18. §18 Smoke 10 项(上线验收 / 24h 中抽检用)
+
+所有项记为 [ ] 供勾选;在生产域名上跑,遇一项不过即进入§6 熔断动作。
+
+1. [ ] `curl https://api.yiluan.com/health` 返回 200
+2. [ ] `curl https://api.yiluan.com/readiness` 返回 200,5 项 checks 全 ok/skipped
+3. [ ] 手机号 SMS OTP 登录(全链路 ≤ 30s)
+4. [ ] Apple Sign-In 登录(iOS 真机)
+5. [ ] 浏览医院列表 + 错伴列表接口 200
+6. [ ] 下一笔 0.01 元订单 → 跳转微信支付 → 回调 → 订单 status=paid
+7. [ ] 发一条聊天消息 → WS 实时送达
+8. [ ] Admin 后台登录 + 列表获取​
+9. [ ] `/metrics` 返回在内网可访问,外网 401
+10. [ ] Alertmanager `curl /api/v2/status` reachable,中间件状态 ok
 
 ---
 
@@ -212,8 +274,9 @@ Last updated: 2026-04-23 (PM + Ops 联合起草)
    - `ONCALL_EMAIL` — critical 邮件抄送地址（逗号分隔可选）
    - `SMTP_SMARTHOST` / `SMTP_FROM` / `SMTP_USERNAME` / `SMTP_PASSWORD` — 邮件 relay 凭证
    - `ALERTMANAGER_EXTERNAL_URL` — Alertmanager 公网/内网可达 URL（用于消息中"查看告警"链接）
-2. 启动 Alertmanager + wechat-work webhook 适配器：
+2. 启动 Alertmanager + wechat-work webhook 适配器(**必须从仓库根目录**运行,本次 dry-run 修正了 compose 卷路径):
    ```bash
+   cd <repo-root>
    docker compose -f docker-compose.alertmanager.yml up -d
    ```
 3. Prometheus 配置中加上 `alerting.alertmanagers: [{ static_configs: [{ targets: ["alertmanager:9093"] }] }]` 并 reload。
