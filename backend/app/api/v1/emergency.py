@@ -28,6 +28,7 @@ router = APIRouter(prefix="/emergency", tags=["emergency"])
     "/contacts",
     response_model=list[EmergencyContactResponse],
     summary="紧急联系人列表",
+    description="返回当前用户配置的紧急联系人（最多 3 个），按 created_at 升序。",
     responses={**err(401, 500)},
 )
 async def list_contacts(current_user: CurrentUser, session: DBSession):
@@ -40,6 +41,7 @@ async def list_contacts(current_user: CurrentUser, session: DBSession):
     response_model=EmergencyContactResponse,
     status_code=status.HTTP_201_CREATED,
     summary="新增紧急联系人（最多 3 个）",
+    description="为当前用户新增一位紧急联系人；超过 3 个或重复手机号会返回 409。",
     responses={**err(401, 409, 422, 500)},
 )
 async def create_contact(
@@ -55,6 +57,7 @@ async def create_contact(
     "/contacts/{contact_id}",
     response_model=EmergencyContactResponse,
     summary="更新紧急联系人",
+    description="更新指定 contact_id 的姓名 / 关系 / 手机号；非本人持有返回 403。",
     responses={**err(401, 403, 404, 422, 500)},
 )
 async def update_contact(
@@ -71,6 +74,7 @@ async def update_contact(
     "/contacts/{contact_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="删除紧急联系人",
+    description="软删除指定的紧急联系人；非本人持有返回 403。",
     responses={**err(401, 403, 404, 500)},
 )
 async def delete_contact(
@@ -117,6 +121,7 @@ async def trigger_event(
     "/events",
     response_model=list[EmergencyEventResponse],
     summary="我的紧急事件历史",
+    description="返回当前用户触发过的紧急事件列表，按 created_at 降序，用于历史回溯审计。",
     responses={**err(401, 500)},
 )
 async def list_events(current_user: CurrentUser, session: DBSession):
