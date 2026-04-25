@@ -42,7 +42,11 @@ AdminUser = get_admin_user
 # =============================================================================
 
 
-@router.get("/orders")
+@router.get(
+    "/orders",
+    summary="后台：查询全部订单",
+    description="管理员查看所有订单列表，可按 `status` 过滤。仅 `admin` 角色可调用。",
+)
 async def list_orders_admin(
     session: DBSession,
     _admin: User = Depends(AdminUser),
@@ -60,7 +64,11 @@ async def list_orders_admin(
     return {"items": items, "total": total, "page": page}
 
 
-@router.post("/orders/{order_id}/force-status")
+@router.post(
+    "/orders/{order_id}/force-status",
+    summary="后台：强制修改订单状态",
+    description="管理员手动将订单跳转到指定状态，**仅用于运营干预**，不走业务状态机。",
+)
 async def force_order_status(
     order_id: UUID,
     session: DBSession,
@@ -88,7 +96,11 @@ async def force_order_status(
     }
 
 
-@router.post("/orders/{order_id}/admin-refund")
+@router.post(
+    "/orders/{order_id}/admin-refund",
+    summary="后台：管理员退款",
+    description="以 `refund_ratio`（0~1）按订单金额按比例退款，1.0 表示全额退。",
+)
 async def admin_refund_order(
     order_id: UUID,
     session: DBSession,
@@ -126,7 +138,11 @@ async def admin_refund_order(
 # =============================================================================
 
 
-@router.get("/users")
+@router.get(
+    "/users",
+    summary="后台：用户列表",
+    description="分页查看所有用户（含已停用）。",
+)
 async def list_users_admin(
     session: DBSession,
     _admin: User = Depends(AdminUser),
@@ -140,7 +156,11 @@ async def list_users_admin(
     return {"items": users, "total": total, "page": page}
 
 
-@router.post("/users/{user_id}/disable")
+@router.post(
+    "/users/{user_id}/disable",
+    summary="后台：停用用户",
+    description="将指定用户账号设为 `is_active=False`，用于风控处置。",
+)
 async def disable_user(
     user_id: UUID,
     session: DBSession,
@@ -156,7 +176,11 @@ async def disable_user(
     return {"user_id": str(user_id), "is_active": False}
 
 
-@router.post("/users/{user_id}/enable")
+@router.post(
+    "/users/{user_id}/enable",
+    summary="后台：启用用户",
+    description="重新启用被停用的账号。",
+)
 async def enable_user(
     user_id: UUID,
     session: DBSession,
