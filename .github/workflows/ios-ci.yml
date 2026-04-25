@@ -11,7 +11,7 @@ name: iOS CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, ci/ios-green]
     paths:
       - 'ios/**'
       - '.github/workflows/ios-ci.yml'
@@ -48,8 +48,8 @@ jobs:
           xcodebuild -version
           xcodegen --version
           xcrun simctl list runtimes | head -n 20
-          echo '--- available iOS Simulator destinations ---'
-          xcrun simctl list devices available | grep -E 'iPhone|iPad' | head -n 20 || true
+          echo '--- available iOS Simulator devices (iPhone) ---'
+          xcrun simctl list devices available | grep -E 'iPhone' | head -n 30 || true
 
       - name: Generate Xcode project
         working-directory: ios
@@ -58,7 +58,7 @@ jobs:
       - name: Show build destinations (diagnostic)
         working-directory: ios
         run: |
-          xcodebuild -project YiLuAn.xcodeproj -scheme YiLuAn -showdestinations 2>&1 | head -n 40 || true
+          xcodebuild -project YiLuAn.xcodeproj -scheme YiLuAn -showdestinations 2>&1 | head -n 80 || true
 
       - name: Cache DerivedData
         uses: actions/cache@v4
@@ -85,18 +85,15 @@ jobs:
             -project YiLuAn.xcodeproj \
             -scheme YiLuAn || true
 
-      - name: Pick iOS Simulator destination
+      - name: Pick iOS Simulator UDID
         id: sim
+        shell: bash
         run: |
-          # Pick the first available iPhone simulator (iPhone 16/15/14 in that order).
-          # Hard-coding 'iPhone 15 Pro' or 'iPhone 16' breaks when Xcode bumps device names.
-          RUNTIME=$(xcrun simctl list runtimes available | grep -E 'iOS [0-9]+' | tail -n 1 | awk -F 'com.apple.CoreSimulator.SimRuntime.' '{print $2}')
-          DEVICE=$(xcrun simctl list devices available "$RUNTIME" 2>/dev/null | grep -E 'iPhone 1[3-9]' | head -n 1 | sed -E 's/^[[:space:]]+([^(]+) \(.*/\1/' | xargs)
-          if [ -z "$DEVICE" ]; then
-            DEVICE=$(xcrun simctl list devices available | grep -E 'iPhone 1[3-9]' | head -n 1 | sed -E 's/^[[:space:]]+([^(]+) \(.*/\1/' | xargs)
-          fi
-          echo "Picked: $DEVICE / $RUNTIME"
-          echo "device=${DEVICE:-iPhone 15}" >> $GITHUB_OUTPUT
+          # Robust picker (hard-coded name+OS=latest breaks when combo unavailable,
+          # e.g. iPhone 15 Pro does not exist on iOS 18.x).
+          UDID=$(xcrun simctl list devices available --json | python3 ios/scripts/pick_simulator.py)
+          echo "Picked simulator UDID: $UDID"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
       - name: Run unit tests
         working-directory: ios
@@ -105,9 +102,11 @@ jobs:
           xcodebuild test \
             -project YiLuAn.xcodeproj \
             -scheme YiLuAn \
-            -destination "platform=iOS Simulator,name=${{ steps.sim.outputs.device }},OS=latest" \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             -resultBundlePath TestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
             | tee xcodebuild.log
 
       - name: Upload test results (on failure)

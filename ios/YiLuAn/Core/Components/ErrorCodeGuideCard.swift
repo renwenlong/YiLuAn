@@ -21,11 +21,11 @@ enum ErrorCodeGuideCardType: Equatable {
     /// 从后端机器可读错误码映射到卡片类型。未识别返回 nil（调用方应 fallback 到通用 toast）。
     static func from(errorCode: String?) -> ErrorCodeGuideCardType? {
         switch errorCode {
-        case APIErrorCode.phoneRequired:
+        case BackendErrorCode.phoneRequired:
             return .phoneRequired
-        case APIErrorCode.verificationRequired:
+        case BackendErrorCode.verificationRequired:
             return .verificationRequired
-        case APIErrorCode.paymentRequired:
+        case BackendErrorCode.paymentRequired:
             return .paymentRequired
         default:
             return nil

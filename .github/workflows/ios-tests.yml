@@ -1,26 +1,14 @@
 # =============================================================================
 # iOS Tests CI — A21-10 / A21-FOLLOWUP
 # -----------------------------------------------------------------------------
-# .xcodeproj is generated on-the-fly from ios/project.yml via XcodeGen.
-# Do NOT commit .xcodeproj (gitignored). Edit project.yml instead.
-#
-# Quota note: macos runners cost 10x normal minutes on private repos.
-# Free tier on a private repo ≈ 200 macos-minutes/month. Each run ~ 6-10 min.
-# If quota tightens later, switch to schedule-only or self-hosted runner.
+# Superseded by .github/workflows/ios-ci.yml (the canonical iOS pipeline).
+# Kept as a manual-only fallback so we don't burn double macOS minutes on every
+# push. Trigger from the Actions tab when needed.
 # =============================================================================
 
 name: ios-tests
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'ios/**'
-      - '.github/workflows/ios-tests.yml'
-  pull_request:
-    paths:
-      - 'ios/**'
-      - '.github/workflows/ios-tests.yml'
   workflow_dispatch:
 
 concurrency:
@@ -55,7 +43,6 @@ jobs:
         working-directory: ios
         run: xcodegen generate
 
-      # SPM cache — no-op until project adds SPM dependencies.
       - name: Cache Swift Package Manager
         uses: actions/cache@v4
         with:
@@ -73,6 +60,13 @@ jobs:
             -project YiLuAn.xcodeproj \
             -scheme YiLuAn || true
 
+      - name: Pick iOS Simulator UDID
+        id: sim
+        shell: bash
+        run: |
+          UDID=$(xcrun simctl list devices available --json | python3 ios/scripts/pick_simulator.py)
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
       - name: Run unit tests
         working-directory: ios
         run: |
@@ -80,9 +74,11 @@ jobs:
           xcodebuild test \
             -project YiLuAn.xcodeproj \
             -scheme YiLuAn \
-            -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
+            -destination "platform=iOS Simulator,id=${{ steps.sim.outputs.udid }}" \
             -resultBundlePath TestResults.xcresult \
             CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
             | tee xcodebuild.log
 
       - name: Upload test result bundle
