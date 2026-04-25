@@ -36,6 +36,13 @@ class CompanionProfile(Base):
     verification_status: Mapped[VerificationStatus] = mapped_column(
         Enum(VerificationStatus), default=VerificationStatus.pending, nullable=False
     )
+    # F-01: Companion certification display
+    certification_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    certification_no: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    certification_image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    certified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

@@ -109,3 +109,34 @@ class AdminAuditService:
         self.session.add(log)
         await self.session.flush()
         return profile
+
+    async def certify_companion(
+        self,
+        companion_id: UUID,
+        operator_id: str,
+        certification_type: str,
+        certification_no: str,
+        certification_image_url: str,
+    ) -> CompanionProfile:
+        """F-01: Set companion certification (type/no/image) and stamp certified_at."""
+        profile = await self.session.get(CompanionProfile, companion_id)
+        if profile is None:
+            raise NotFoundException("Companion profile not found")
+
+        profile.certification_type = certification_type
+        profile.certification_no = certification_no
+        profile.certification_image_url = certification_image_url
+        profile.certified_at = datetime.now(timezone.utc)
+        profile.updated_at = datetime.now(timezone.utc)
+
+        log = AdminAuditLog(
+            target_type="companion",
+            target_id=companion_id,
+            action="certify",
+            operator=operator_id,
+            reason=f"{certification_type}:{certification_no}",
+        )
+        self.session.add(log)
+        await self.session.flush()
+        await self.session.refresh(profile)
+        return profile

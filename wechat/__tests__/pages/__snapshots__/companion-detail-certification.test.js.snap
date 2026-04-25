@@ -1,0 +1,9 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`F-01 companion-detail certification badge loadData maps certification fields onto companion view-model 1`] = `
+{
+  "certificationNo": "NO.20231234",
+  "certificationType": "护士证",
+  "hasCertification": true,
+}
+`;
