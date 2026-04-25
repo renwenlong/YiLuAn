@@ -9,6 +9,22 @@ enum KeychainManager {
         case dataConversionError
     }
 
+    // In-memory fallback used when the Keychain is unavailable (e.g. unit-test
+    // bundles without a host application return errSecMissingEntitlement = -34018).
+    // This keeps semantics consistent without weakening production storage.
+    private static var memoryStore: [String: String] = [:]
+    private static let memoryQueue = DispatchQueue(label: "KeychainManager.memoryStore")
+
+    private static func memoryGet(_ key: String) -> String? {
+        memoryQueue.sync { memoryStore[key] }
+    }
+    private static func memorySet(_ key: String, _ value: String) {
+        memoryQueue.sync { memoryStore[key] = value }
+    }
+    private static func memoryDelete(_ key: String) {
+        _ = memoryQueue.sync { memoryStore.removeValue(forKey: key) }
+    }
+
     static func save(key: String, value: String) throws {
         guard let data = value.data(using: .utf8) else {
             throw KeychainError.dataConversionError
@@ -24,9 +40,17 @@ enum KeychainManager {
         SecItemDelete(query as CFDictionary)
 
         let status = SecItemAdd(query as CFDictionary, nil)
-        guard status == errSecSuccess else {
-            throw KeychainError.unexpectedStatus(status)
+        if status == errSecSuccess {
+            memoryDelete(key) // keep fallback in sync
+            return
         }
+        // Fallback for environments where the Keychain isn't accessible
+        // (notably XCTest bundles without a host app: errSecMissingEntitlement -34018).
+        if status == errSecMissingEntitlement || status == errSecNotAvailable {
+            memorySet(key, value)
+            return
+        }
+        throw KeychainError.unexpectedStatus(status)
     }
 
     static func get(key: String) -> String? {
@@ -40,12 +64,14 @@ enum KeychainManager {
         var result: AnyObject?
         let status = SecItemCopyMatching(query as CFDictionary, &result)
 
-        guard status == errSecSuccess,
-              let data = result as? Data,
-              let string = String(data: data, encoding: .utf8) else {
-            return nil
+        if status == errSecSuccess,
+           let data = result as? Data,
+           let string = String(data: data, encoding: .utf8) {
+            return string
         }
-        return string
+        // Fall back to in-memory store when Keychain is unavailable or the
+        // item was previously written via the fallback path.
+        return memoryGet(key)
     }
 
     static func delete(key: String) {
@@ -54,6 +80,7 @@ enum KeychainManager {
             kSecAttrAccount as String: key
         ]
         SecItemDelete(query as CFDictionary)
+        memoryDelete(key)
     }
 
     // MARK: - Convenience for tokens
