@@ -21,7 +21,6 @@ the migrated schema.
 
 from __future__ import annotations
 
-import asyncio
 import os
 import uuid
 from datetime import datetime, timezone
@@ -46,11 +45,32 @@ PG_URL = os.environ.get(
 )
 
 
-@pytest.fixture(scope="module")
-def pg_engine():
+# IMPORTANT: pytest-asyncio (asyncio_mode=auto) creates a fresh event loop per
+# test function by default. asyncpg connections (and therefore engines that
+# have opened any connection via pool_pre_ping) are bound to the loop that
+# created them, so a module/session-scoped engine triggers
+# "Future attached to a different loop" + "Event loop is closed" on the 2nd
+# test. We therefore build a per-test engine and dispose it in the same loop.
+
+# The root conftest registers an `autouse=True` async `setup_database` fixture
+# that calls `Base.metadata.create_all` against the SQLite test engine. That
+# engine is module-level (created at import time) so it gets bound to the
+# first test's loop and then explodes on every subsequent test for the same
+# reason. PG smoke tests do not need that SQLite setup at all (the schema is
+# managed by `alembic upgrade head` against the real PG), so override it to
+# a no-op for this module.
+@pytest.fixture(autouse=True)
+async def setup_database():
+    yield
+
+
+@pytest.fixture
+async def pg_engine():
     eng = create_async_engine(PG_URL, echo=False, pool_pre_ping=True)
-    yield eng
-    asyncio.get_event_loop().run_until_complete(eng.dispose())
+    try:
+        yield eng
+    finally:
+        await eng.dispose()
 
 
 @pytest.fixture
