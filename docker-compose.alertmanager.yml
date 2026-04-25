@@ -1,0 +1,39 @@
+version: "3.8"
+
+# Standalone compose for the Alertmanager + wechat-work webhook stack.
+# In production these would live in the main ops compose file.
+
+services:
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: alertmanager
+    restart: unless-stopped
+    ports:
+      - "9093:9093"
+    volumes:
+      - ../../prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ../../prometheus/templates:/etc/alertmanager/templates:ro
+      - alertmanager-data:/alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+      - "--web.external-url=${ALERTMANAGER_EXTERNAL_URL:-http://localhost:9093}"
+    depends_on:
+      - wechat-work-webhook
+
+  wechat-work-webhook:
+    build:
+      context: ./ops/alertmanager
+      dockerfile: Dockerfile
+    container_name: wechat-work-webhook
+    restart: unless-stopped
+    ports:
+      - "5001:5001"
+    environment:
+      # Leave unset for dry-run mode (logs only, never POSTs).
+      WECHAT_WORK_WEBHOOK_URL: "${WECHAT_WORK_WEBHOOK_URL:-}"
+      WECHAT_RATE_LIMIT_MAX: "${WECHAT_RATE_LIMIT_MAX:-3}"
+      WECHAT_RATE_LIMIT_WINDOW_SEC: "${WECHAT_RATE_LIMIT_WINDOW_SEC:-60}"
+
+volumes:
+  alertmanager-data:
