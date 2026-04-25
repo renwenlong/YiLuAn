@@ -21,6 +21,7 @@ testpaths = ["tests"]
 addopts = "-m 'not smoke'"
 markers = [
     "smoke: slow smoke tests requiring a real Postgres (run with `pytest -m smoke`)",
+    "e2e: end-to-end backend API tests requiring real Postgres+Redis (run with `pytest -m e2e`)",
 ]
 
 [tool.coverage.run]
