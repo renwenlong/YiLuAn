@@ -72,6 +72,7 @@
 每条技术债被解决后，请更新 DECISION_LOG.md 对应 D-xxx 小节并从本文件删除。
 
 ## 已解决的技术债
+- **TD-PAY-01 订单过期时支付状态未联动收尾** — 2026-04-25 解决，见 ADR-0029。
 
 - **TD-OPS-01 `/readiness` 端点缺失** — 2026-04-17 解决，见 D-021。
   根路径 `/readiness` + `/api/v1/readiness` 双挂载；DB(SELECT 1) + Redis(PING)
@@ -115,4 +116,6 @@
   1. `OrderService.check_expired_orders` 在标过期时同步把 pay 行降级为 `failed`（如尚未 success）。
   2. `PaymentService.handle_pay_callback` 增加"order 已是 expired/cancelled 时强制走退款分支"的防御逻辑。
 - **优先级**：P1（与 wechat provider 上线同窗口）
+
+- **已解决（2026-04-25）**：见 ADR-0029。check_expired_orders 对 paid 订单 raise NotExpirableOrderError（HTTP 409），对 pending pay 走 close + fail + 留痕；late SUCCESS 回调由 handle_pay_callback 防御退款分支兜底。
 

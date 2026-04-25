@@ -244,7 +244,15 @@ class PaymentService:
         already in a terminal state (success / failed) — this matters for
         the ``订单已关闭后回调`` scenario where the order was cancelled and
         the Payment record may already have been closed out.
+
+        TD-PAY-01 defense: if the order is already in a terminal state
+        (expired / cancelled / rejected) and the callback is SUCCESS,
+        we still flip the pay row to ``success`` for accounting honesty,
+        then issue an automatic refund in the same transaction. This
+        guarantees the user never has money parked against a dead order.
         """
+        from app.models.order import Order, OrderStatus
+
         payment = await self.repo.get_by_trade_no(trade_no)
         if payment and payment.status in ("success", "failed"):
             logger.info(
@@ -258,6 +266,20 @@ class PaymentService:
             logger.warning("No payment found for trade_no=%s", trade_no)
             return None
 
+        # Look up the linked order BEFORE mutating, so the defense
+        # decision is made against authoritative state.
+        order = (
+            await self.session.execute(
+                select(Order).where(Order.id == payment.order_id)
+            )
+        ).scalar_one_or_none()
+        order_terminal = order is not None and order.status in (
+            OrderStatus.expired,
+            OrderStatus.cancelled_by_patient,
+            OrderStatus.cancelled_by_companion,
+            OrderStatus.rejected_by_companion,
+        )
+
         payment.status = "success" if success else "failed"
         await self.session.flush()
 
@@ -270,6 +292,41 @@ class PaymentService:
             trade_no,
             payment.status,
         )
+
+        # TD-PAY-01: late SUCCESS callback against a terminal order
+        # → immediate auto-refund (idempotent; skipped if a refund row
+        # already exists thanks to the unique (order_id, payment_type)
+        # constraint surfaced as BadRequestException by create_refund).
+        if success and order_terminal and payment.status == "success":
+            logger.warning(
+                "late_callback_after_terminal: order=%s status=%s "
+                "trade_no=%s — auto-refunding",
+                order.id,
+                order.status.value,
+                trade_no,
+            )
+            try:
+                await self.create_refund(
+                    order_id=order.id,
+                    user_id=payment.user_id,
+                    original_amount=order.price,
+                    refund_amount=order.price,
+                )
+            except BadRequestException as e:
+                # Already refunded — idempotent ok.
+                logger.info(
+                    "late_callback_refund_skip order=%s reason=%s",
+                    order.id,
+                    e.detail,
+                )
+            except Exception as e:  # pragma: no cover - safety net
+                logger.error(
+                    "late_callback_refund_error order=%s err=%s",
+                    order.id,
+                    e,
+                    exc_info=True,
+                )
+
         return payment
 
     # -- close order -----------------------------------------------------------
