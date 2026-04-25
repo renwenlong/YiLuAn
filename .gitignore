@@ -40,6 +40,7 @@ docker-compose.override.yaml
 .coverage
 htmlcov/
 .tox/
+cov_*.txt
 
 # Alembic
 alembic/versions/*.pyc
@@ -84,3 +85,7 @@ wechat/node_modules/
 wechat/miniprogram_npm/
 wechat/coverage/
 wechat/project.private.config.json
+
+# pytest-cov annotate scratch files
+*,cover
+
