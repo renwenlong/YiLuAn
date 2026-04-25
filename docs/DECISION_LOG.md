@@ -1020,3 +1020,37 @@ Alertmanager 已经接入 Prometheus，需要选择一个面向 oncall 的通知
 
 - Swift `Decimal` 默认 Codable 经 Double 中转，理论上对极小数有精度风险。当前金额仅 2 位小数、API 输出形态固定，未触发；后续可加自定义 `init(from:)` 或 `JSONDecoder.decimalDecodingStrategy` 兜底。归入新技术债 TD-IOS-01（轻量，非阻塞）。
 - 数据库现存 Float 数据迁移到 Numeric(10,2) 时由 PG 隐式 round；ops 部署前需在 staging 跑一次 `SELECT count(*) FROM orders WHERE price::numeric(10,2) <> price` 确认无超精度脏数据。
+
+
+---
+
+## D-042 (2026-04-25) — OrderService 拆分（SP-01）
+
+### 背景
+
+`backend/app/services/order.py` 长期 708 行，一个 `OrderService` 类装下了全部生命周期、查询、取消、支付、过期 5 个域共 13 个公开方法。痛点：单文件 review 阅读负担大、跨域改动易冲突、TD-ARCH 中也长期挂着 SP-01。
+
+### 决策
+
+**Mixin 多继承 + 包重命名**，对外完全无感：
+
+- 物理布局：`app/services/order.py` → `app/services/order/` 包，6 个文件按域拆：
+  - `_base.py` (164) — 构造、共享 repos/services、私有 helpers、`logger`、`generate_order_number`、`ORDER_EXPIRY_HOURS`
+  - `query.py` (86) — `get_order` / `list_orders`
+  - `lifecycle.py` (195) — `create / accept / start / request_start / confirm_start / complete`
+  - `cancel.py` (143) — `cancel_order` / `reject_order`（含 staged 退款）
+  - `payment.py` (85) — `pay_order` / `refund_order`
+  - `expiry.py` (126) — `check_expired_orders`（TD-PAY-01）
+- `__init__.py` 用 `class OrderService(_OrderQueryMixin, _OrderLifecycleMixin, _OrderCancelMixin, _OrderPaymentMixin, _OrderExpiryMixin, _OrderServiceBase)` 组合，并 re-export `logger` / `PaymentService` / `SERVICE_PRICES` / `generate_order_number`。
+- **现存测试零修改**：`patch("app.services.order.PaymentService.create_refund")` / `patch("app.services.order.logger")` / `from app.services.order import OrderService, generate_order_number, SERVICE_PRICES` 全部继续工作。子模块内部通过 `sys.modules["app.services.order"].logger` 懒查找，确保 patch 生效。
+- 新增 `tests/services/test_order_service_contract.py`（4 用例）锁住公开符号集，未来任何破坏性重构会立刻飘红。
+
+### 验证
+
+- **884 passed / 15 skipped / 110s**（基线 880 + 4 contract）
+- 17 个原本依赖 `app.services.order.*` 路径的测试（`test_orders.py` / `test_payment_*` / `test_scheduler.py` / `test_coverage_boost_w18.py` 等）全部继续通过，无需任何改动
+- OpenAPI / docs/api/* 无 drift
+
+### 显式不做（保留单一职责）
+
+`expiry.py` 第 65-110 行原样保留了 `check_expired_orders` 中重复的 "pending close" 块（legacy bug，第二次 try/close 永远不会触发，因为第一次已把 status 改成 failed/closed）。本 PR 是纯结构重构、零行为变更，清理那段死代码单开 PR（已记 TD-ORDER-01）。
