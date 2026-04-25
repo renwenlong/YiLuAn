@@ -3,35 +3,64 @@
     "pages/login/index",
     "pages/role-select/index",
     "pages/profile/setup/index",
+    "pages/profile/index",
     "pages/patient/home/index",
     "pages/companion/home/index",
-    "pages/companion/setup/index",
     "pages/companion/orders/index",
     "pages/companion/chat/index",
     "pages/companion/profile/index",
     "pages/orders/index",
-    "pages/chat/list/index",
-    "pages/profile/index",
-    "pages/profile/edit/index",
-    "pages/patient/create-order/index",
-    "pages/patient/order-detail/index",
-    "pages/patient/pay-result/index",
-    "pages/companion/available-orders/index",
-    "pages/companion/today-orders/index",
-    "pages/companion/order-detail/index",
-    "pages/chat/room/index",
-    "pages/companion-detail/index",
-    "pages/review/write/index",
-    "pages/profile/bind-phone/index",
-    "pages/profile/wallet/index",
-    "pages/profile/emergency-contacts/index",
-    "pages/profile/settings/index",
-    "pages/profile/about/index",
-    "pages/notification/index",
-    "pages/legal/privacy/index",
-    "pages/legal/terms/index",
-    "pages/settings/delete-account/index"
+    "pages/chat/list/index"
   ],
+  "subPackages": [
+    { "root": "pages/patient/create-order",      "name": "p-create-order",   "pages": ["index"] },
+    { "root": "pages/patient/order-detail",      "name": "p-order-detail",   "pages": ["index"] },
+    { "root": "pages/patient/pay-result",        "name": "p-pay-result",     "pages": ["index"] },
+    { "root": "pages/companion-detail",          "name": "p-companion-info", "pages": ["index"] },
+    { "root": "pages/review",                    "name": "p-review",         "pages": ["write/index"] },
+    { "root": "pages/companion/setup",           "name": "c-setup",          "pages": ["index"] },
+    { "root": "pages/companion/available-orders","name": "c-available",      "pages": ["index"] },
+    { "root": "pages/companion/today-orders",    "name": "c-today",          "pages": ["index"] },
+    { "root": "pages/companion/order-detail",    "name": "c-order-detail",   "pages": ["index"] },
+    { "root": "pages/chat/room",                 "name": "chat-room",        "pages": ["index"] },
+    { "root": "pages/profile/edit",              "name": "u-edit",           "pages": ["index"] },
+    { "root": "pages/profile/bind-phone",        "name": "u-bind",           "pages": ["index"] },
+    { "root": "pages/profile/wallet",            "name": "u-wallet",         "pages": ["index"] },
+    { "root": "pages/profile/emergency-contacts","name": "u-emergency",      "pages": ["index"] },
+    { "root": "pages/profile/settings",          "name": "u-settings",       "pages": ["index"] },
+    { "root": "pages/profile/about",             "name": "u-about",          "pages": ["index"] },
+    { "root": "pages/notification",              "name": "u-notice",         "pages": ["index"] },
+    { "root": "pages/legal",                     "name": "u-legal",          "pages": ["privacy/index", "terms/index"] },
+    { "root": "pages/settings",                  "name": "u-danger",         "pages": ["delete-account/index"] }
+  ],
+  "preloadRule": {
+    "pages/patient/home/index": {
+      "network": "all",
+      "packages": ["p-create-order", "p-companion-info"]
+    },
+    "pages/companion/home/index": {
+      "network": "all",
+      "packages": ["c-available", "c-order-detail"]
+    },
+    "pages/orders/index": {
+      "network": "all",
+      "packages": ["p-order-detail"]
+    },
+    "pages/chat/list/index": {
+      "network": "all",
+      "packages": ["chat-room"]
+    },
+    "pages/profile/index": {
+      "network": "wifi",
+      "packages": ["u-edit", "u-settings", "u-wallet"]
+    }
+  },
+  "usingComponents": {
+    "loading-overlay": "/components/loading-overlay/index",
+    "empty-state": "/components/empty-state/index",
+    "patient-tab-bar": "/components/patient-tab-bar/index",
+    "companion-tab-bar": "/components/companion-tab-bar/index"
+  },
   "__usePrivacyCheck__": true,
   "window": {
     "navigationBarTitleText": "医路安",

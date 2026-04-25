@@ -121,7 +121,7 @@
 | `POST` | `/api/v1/notifications/device-token` | 注册设备推送 token |
 | `POST` | `/api/v1/notifications/read-all` | 一键全部已读 |
 | `GET` | `/api/v1/notifications/unread-count` | 未读通知数 |
-| `POST` | `/api/v1/notifications/{notification_id}/read` | 标记单条通知已读 |
+| `POST` | `/api/v1/notifications/{notification_id}/read` | 标记单条通知已读（含深链 target） |
 
 ### [钱包（wallet）](./wallet.md)
 
@@ -149,6 +149,7 @@
 | --- | --- | --- |
 | `GET` | `/api/v1/admin/companions/` | 后台：待审核陪诊师列表 |
 | `POST` | `/api/v1/admin/companions/{companion_id}/approve` | 后台：批准陪诊师入驻 |
+| `POST` | `/api/v1/admin/companions/{companion_id}/certify` | 管理员：设置陪诊师资质认证（F-01） |
 | `POST` | `/api/v1/admin/companions/{companion_id}/reject` | 后台：驳回陪诊师申请 |
 | `GET` | `/api/v1/admin/orders` | 后台：查询全部订单 |
 | `POST` | `/api/v1/admin/orders/{order_id}/admin-refund` | 后台：管理员退款 |
@@ -165,6 +166,7 @@
 | --- | --- | --- |
 | `GET` | `/api/v1/admin/companions/` | 后台：待审核陪诊师列表 |
 | `POST` | `/api/v1/admin/companions/{companion_id}/approve` | 后台：批准陪诊师入驻 |
+| `POST` | `/api/v1/admin/companions/{companion_id}/certify` | 管理员：设置陪诊师资质认证（F-01） |
 | `POST` | `/api/v1/admin/companions/{companion_id}/reject` | 后台：驳回陪诊师申请 |
 
 ### [健康检查（health）](./health.md)
@@ -178,3 +180,15 @@ K8s / ACA 探针使用：
 | `GET` | `/api/v1/readiness` | 就绪检查（readiness） |
 | `GET` | `/health` | 健康检查（liveness, root） |
 | `GET` | `/readiness` | 就绪检查（readiness, root） |
+
+### [emergency](./emergency.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/emergency/contacts` | 紧急联系人列表 |
+| `POST` | `/api/v1/emergency/contacts` | 新增紧急联系人（最多 3 个） |
+| `DELETE` | `/api/v1/emergency/contacts/{contact_id}` | 删除紧急联系人 |
+| `PUT` | `/api/v1/emergency/contacts/{contact_id}` | 更新紧急联系人 |
+| `GET` | `/api/v1/emergency/events` | 我的紧急事件历史 |
+| `POST` | `/api/v1/emergency/events` | 触发紧急事件 |
+| `GET` | `/api/v1/emergency/hotline` | 平台客服热线 |

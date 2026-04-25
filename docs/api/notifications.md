@@ -23,7 +23,7 @@
 | `POST` | `/api/v1/notifications/device-token` | 注册设备推送 token |
 | `POST` | `/api/v1/notifications/read-all` | 一键全部已读 |
 | `GET` | `/api/v1/notifications/unread-count` | 未读通知数 |
-| `POST` | `/api/v1/notifications/{notification_id}/read` | 标记单条通知已读 |
+| `POST` | `/api/v1/notifications/{notification_id}/read` | 标记单条通知已读（含深链 target） |
 
 ## 端点详情
 
@@ -152,9 +152,9 @@ curl -X GET 'https://api.yiluan.example.com/api/v1/notifications/unread-count' \
 
 ---
 
-### `POST /api/v1/notifications/{notification_id}/read` — 标记单条通知已读
+### `POST /api/v1/notifications/{notification_id}/read` — 标记单条通知已读（含深链 target）
 
-将指定通知标记为已读。返回 `{success: true/false}`。
+将指定通知标记为已读，并返回最新的通知（含 `target_type` / `target_id`），前端可据此立刻跳转到对应详情页。
 
 **参数：**
 

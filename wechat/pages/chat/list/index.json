@@ -1,7 +1,3 @@
 {
-  "navigationBarTitleText": "消息",
-  "usingComponents": {
-    "patient-tab-bar": "/components/patient-tab-bar/index",
-    "empty-state": "/components/empty-state/index"
-  }
+  "navigationBarTitleText": "消息"
 }
