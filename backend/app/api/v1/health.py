@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -116,8 +117,34 @@ async def _check_redis(request: Request) -> dict[str, Any]:
         }
 
 
+# Cached at process startup (see prime_alembic_head_cache) so /readiness
+# does NOT pay the alembic-import cost on every probe (~50-200ms saved).
+# Sentinel `_UNSET` distinguishes "not yet primed" from "primed = None".
+_UNSET: Any = object()
+_ALEMBIC_HEAD_CACHE: Any = _UNSET
+
+
+def _readiness_skip_migration_check() -> bool:
+    """Escape hatch: set READINESS_SKIP_MIGRATION_CHECK=1 to bypass the
+    alembic version-drift check during emergency rollouts."""
+    return os.getenv("READINESS_SKIP_MIGRATION_CHECK", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
+
+
 def _alembic_script_head() -> str | None:
-    """Return current head revision id from the bundled alembic scripts."""
+    """Return current head revision id from the bundled alembic scripts.
+
+    Result is cached after the first successful read; call
+    ``prime_alembic_head_cache()`` from app startup to warm it.
+    """
+    global _ALEMBIC_HEAD_CACHE
+    if _ALEMBIC_HEAD_CACHE is not _UNSET:
+        return _ALEMBIC_HEAD_CACHE
+
     from alembic.config import Config
     from alembic.script import ScriptDirectory
 
@@ -134,11 +161,44 @@ def _alembic_script_head() -> str | None:
     heads = script.get_heads()
     if len(heads) > 1:
         raise RuntimeError(f"multiple alembic heads: {heads}")
-    return heads[0] if heads else None
+    head = heads[0] if heads else None
+    _ALEMBIC_HEAD_CACHE = head
+    return head
+
+
+def prime_alembic_head_cache() -> str | None:
+    """Eagerly load and cache the alembic head revision at app startup.
+
+    Failures are swallowed (logged) so a broken alembic config does not
+    block process boot — the on-demand path in `_check_alembic` will retry
+    on the next probe and surface the error as `status: error` then.
+    """
+    global _ALEMBIC_HEAD_CACHE
+    try:
+        head = _alembic_script_head()
+        logger.info("Alembic head cached at startup: %s", head)
+        return head
+    except Exception as exc:  # noqa: BLE001
+        # Reset so the next probe will retry (and report the error).
+        _ALEMBIC_HEAD_CACHE = _UNSET
+        logger.warning("Failed to prime alembic head cache: %s", exc)
+        return None
+
+
+def _reset_alembic_head_cache() -> None:
+    """Test helper: clear the cached head revision."""
+    global _ALEMBIC_HEAD_CACHE
+    _ALEMBIC_HEAD_CACHE = _UNSET
 
 
 async def _check_alembic() -> dict[str, Any]:
     start = time.perf_counter()
+    if _readiness_skip_migration_check():
+        return {
+            "status": "skipped",
+            "reason": "READINESS_SKIP_MIGRATION_CHECK=1",
+            "latency_ms": _ms(start),
+        }
     try:
         async def _do() -> dict[str, Any]:
             head = await asyncio.to_thread(_alembic_script_head)
@@ -162,14 +222,14 @@ async def _check_alembic() -> dict[str, Any]:
                     "status": "error",
                     "current": None,
                     "head": head,
-                    "error": "alembic_version row missing",
+                    "error": f"migration drift: db=None head={head}",
                 }
             if current != head:
                 return {
                     "status": "error",
                     "current": current,
                     "head": head,
-                    "error": "version drift",
+                    "error": f"migration drift: db={current} head={head}",
                 }
             return {"status": "ok", "current": current, "head": head}
 
