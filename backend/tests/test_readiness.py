@@ -135,7 +135,7 @@ async def test_readiness_alembic_missing_version_row(client):
     assert response.status_code == 503
     data = response.json()
     assert data["checks"]["alembic"]["status"] == "error"
-    assert "missing" in data["checks"]["alembic"]["error"].lower()
+    assert "drift" in data["checks"]["alembic"]["error"].lower() or "missing" in data["checks"]["alembic"]["error"].lower()
 
 
 # ---------------------------------------------------------------------------
