@@ -12,6 +12,7 @@ from app.schemas.device_token import (
     UnregisterDeviceRequest,
 )
 from app.schemas.notification import (
+    MarkReadResponse,
     NotificationListResponse,
     NotificationResponse,
     UnreadCountResponse,
@@ -62,12 +63,34 @@ async def unread_count(
 
 @router.post(
     "/{notification_id}/read",
-    summary="标记单条通知已读",
-    description="将指定通知标记为已读。返回 `{success: true/false}`。",
+    response_model=MarkReadResponse,
+    summary="标记单条通知已读（含深链 target）",
+    description=(
+        "将指定通知标记为已读，并返回最新的通知（含 `target_type` / `target_id`），"
+        "前端可据此立刻跳转到对应详情页。"
+    ),
     responses={
         200: {
             "description": "操作结果",
-            "content": {"application/json": {"example": {"success": True}}},
+            "content": {
+                "application/json": {
+                    "example": {
+                        "success": True,
+                        "notification": {
+                            "id": "00000000-0000-0000-0000-000000000000",
+                            "user_id": "00000000-0000-0000-0000-000000000001",
+                            "type": "order_status_changed",
+                            "title": "订单状态更新: 已接单",
+                            "body": "订单 ORD-001 状态已变更为 已接单",
+                            "reference_id": "order-uuid",
+                            "target_type": "order",
+                            "target_id": "order-uuid",
+                            "is_read": True,
+                            "created_at": "2026-04-25T12:00:00+00:00",
+                        },
+                    }
+                }
+            },
         },
         **err(401, 404, 500),
     },
@@ -79,7 +102,15 @@ async def mark_notification_read(
 ):
     service = NotificationService(session)
     success = await service.mark_read(notification_id, current_user)
-    return {"success": success}
+    notification = await service.get_for_user(notification_id, current_user)
+    return MarkReadResponse(
+        success=success,
+        notification=(
+            NotificationResponse.model_validate(notification)
+            if notification is not None
+            else None
+        ),
+    )
 
 
 @router.post(

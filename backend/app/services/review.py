@@ -87,6 +87,7 @@ class ReviewService:
             patient_name=user.display_name or user.phone,
             order_id=order_id,
             rating=data.rating,
+            review_id=review.id,
         )
 
         return review

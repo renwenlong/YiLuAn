@@ -1,15 +1,40 @@
 const { getNotifications, getUnreadCount, markRead, markAllRead } = require('../../services/notification')
 const store = require('../../store/index')
 
+/**
+ * [F-02] 根据通知的 target_type/target_id 计算跳转 URL。
+ * 优先使用新字段 target_type / target_id；为空时回退到旧字段 type / reference_id，
+ * 保证后端尚未回填的历史数据也能跳转。
+ */
 function getNavigationUrl(notification) {
-  var type = notification.type
-  var refId = notification.reference_id
   var state = store.getState()
   var role = (state.user && state.user.role) || 'patient'
   var orderDetailBase = role === 'companion'
     ? '/pages/companion/order-detail/index'
     : '/pages/patient/order-detail/index'
 
+  var targetType = notification.target_type
+  var targetId = notification.target_id
+
+  if (targetType && targetId) {
+    switch (targetType) {
+      case 'order':
+        return orderDetailBase + '?id=' + targetId
+      case 'companion':
+        return '/pages/companion-detail/index?id=' + targetId
+      case 'review':
+        return '/pages/review/write/index?id=' + targetId
+      case 'payment':
+        return '/pages/patient/pay-result/index?id=' + targetId
+      case 'system':
+      default:
+        return null
+    }
+  }
+
+  // ---- 兼容旧字段 ----
+  var type = notification.type
+  var refId = notification.reference_id
   if (!type || !refId) return null
 
   switch (type) {
@@ -73,9 +98,11 @@ Page({
     const id = e.currentTarget.dataset.id
     const isRead = e.currentTarget.dataset.read
     const item = this.data.notifications.find(n => n.id === id)
-    const url = item ? getNavigationUrl(item) : null
 
-    const doNavigate = function () {
+    const self = this
+    const navigateFromItem = function (latest) {
+      const target = latest || item
+      const url = target ? getNavigationUrl(target) : null
       if (url) {
         wx.navigateTo({ url: url })
       }
@@ -83,20 +110,24 @@ Page({
 
     if (!isRead) {
       markRead(id)
-        .then(() => {
-          const notifications = this.data.notifications.map(n => {
-            if (n.id === id) return Object.assign({}, n, { is_read: true })
+        .then(res => {
+          // [F-02] 后端 markRead 现在返回 { success, notification }，用最新通知信息更新本地缓存
+          const latest = (res && res.notification) || null
+          const notifications = self.data.notifications.map(n => {
+            if (n.id === id) {
+              return Object.assign({}, n, latest || { is_read: true })
+            }
             return n
           })
-          this.setData({
+          self.setData({
             notifications: notifications,
-            unreadCount: Math.max(0, this.data.unreadCount - 1),
+            unreadCount: Math.max(0, self.data.unreadCount - 1),
           })
-          doNavigate()
+          navigateFromItem(latest)
         })
         .catch(() => {})
     } else {
-      doNavigate()
+      navigateFromItem(null)
     }
   },
 
