@@ -230,7 +230,11 @@ class TestLateCallbackAfterExpiredOrder:
 
         await authenticated_client.post(f"/api/v1/orders/{order.id}/pay")
 
-        # Simulate the scheduler: order expires before any callback lands.
+        # TD-PAY-01 (now active): the scheduler runs while the pay row is
+        # still pending and the order is past its expires_at. The new
+        # contract is that check_expired_orders marks the pay row 'failed'
+        # itself — no manual fixture pre-flip is needed any more.
+        from datetime import datetime, timedelta, timezone as _tz
         async with test_session_factory() as s:
             from app.models.order import Order as OrderModel
             row_o = (
@@ -238,7 +242,7 @@ class TestLateCallbackAfterExpiredOrder:
                     select(OrderModel).where(OrderModel.id == order.id)
                 )
             ).scalar_one()
-            row_o.status = OrderStatus.expired
+            row_o.expires_at = datetime.now(_tz.utc) - timedelta(hours=1)
             row_pay = (
                 await s.execute(
                     select(Payment).where(
@@ -248,10 +252,15 @@ class TestLateCallbackAfterExpiredOrder:
                 )
             ).scalar_one()
             trade_no = row_pay.trade_no
-            # Mark pay as "failed" — what the expiry job *should* do once
-            # we wire it (today the pay row may be left as "success" from
-            # the mock provider; that is itself a TECH_DEBT entry).
-            row_pay.status = "failed"
+            # Mock provider returns success immediately; force the row
+            # back to pending so we can exercise the scheduler path.
+            row_pay.status = "pending"
+            await s.commit()
+
+        async with test_session_factory() as s:
+            from app.services.order import OrderService
+            svc = OrderService(s)
+            await svc.check_expired_orders()
             await s.commit()
 
         # Late SUCCESS callback arrives.
@@ -284,8 +293,8 @@ class TestLateCallbackAfterExpiredOrder:
             "pay callback."
         )
         assert row_pay.status == "failed", (
-            "Pay row was already terminal (failed) — late SUCCESS must "
-            "not overwrite it."
+            "check_expired_orders must mark the pay row 'failed' when the "
+            "order expires (TD-PAY-01)."
         )
 
     async def test_callback_after_expired_is_logged_for_audit(

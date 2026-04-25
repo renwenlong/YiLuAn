@@ -60,12 +60,19 @@ async def _create_order_and_payment(
 
 @pytest.mark.asyncio
 class TestExpireOrderPaymentInterlock:
-    """expire_order closes / guards payment before changing order status."""
+    """TD-PAY-01: expire_order reconciles payment in the same transaction.
 
-    async def test_expire_pending_payment_closes_and_expires(
+    Contract (post-ADR-0007):
+      - pay PENDING → close at PSP, mark pay row 'failed' (reason=order_expired).
+      - pay SUCCESS → issue auto-refund (full amount), then expire.
+      - close_order fails → mark pay 'failed' anyway, expire (late callback
+        will hit the defensive auto-refund branch in handle_pay_callback).
+    """
+
+    async def test_check_expired_marks_pending_payment_failed(
         self, seed_user, seed_hospital
     ):
-        """PENDING payment → close_order succeeds → order EXPIRED, payment CLOSED."""
+        """PENDING payment → close_order succeeds → order EXPIRED, payment FAILED."""
         from app.models.user import UserRole
         from app.services.order import OrderService
 
@@ -86,19 +93,30 @@ class TestExpireOrderPaymentInterlock:
         assert len(result) == 1
         assert result[0].status == OrderStatus.expired
 
-        # Verify payment was closed
         async with test_session_factory() as session:
             from sqlalchemy import select
 
-            stmt = select(Payment).where(Payment.order_id == order.id, Payment.payment_type == "pay")
+            stmt = select(Payment).where(
+                Payment.order_id == order.id, Payment.payment_type == "pay"
+            )
             row = (await session.execute(stmt)).scalar_one()
-            assert row.status == "closed"
+            assert row.status == "failed", (
+                "TD-PAY-01: pending pay must be marked failed when order expires"
+            )
+            assert "order_expired" in (row.callback_raw or ""), (
+                "reason note must be persisted for ops audit"
+            )
 
-    async def test_expire_paid_payment_raises_not_expirable(
+    async def test_check_expired_raises_for_paid_payment(
         self, seed_user, seed_hospital
     ):
-        """PAID payment → NotExpirableOrderError, order stays created."""
+        """PAID payment -> NotExpirableOrderError (HTTP 409 via endpoint).
+
+        TD-PAY-01 / ADR-0007: paid orders cannot be auto-expired by the
+        scheduler; refunds are user-initiated via cancel/refund.
+        """
         from app.models.user import UserRole
+        from app.exceptions import NotExpirableOrderError
         from app.services.order import OrderService
 
         user = await seed_user(role=UserRole.patient)
@@ -109,25 +127,43 @@ class TestExpireOrderPaymentInterlock:
                 session, user.id, hospital.id, pay_status="success"
             )
             await session.commit()
+            order_id = order.id
 
-        async with test_session_factory() as session:
-            svc = OrderService(session)
-            with pytest.raises(NotExpirableOrderError):
+        with pytest.raises(NotExpirableOrderError):
+            async with test_session_factory() as session:
+                svc = OrderService(session)
                 await svc.check_expired_orders()
 
-        # Order should remain created
         async with test_session_factory() as session:
             from sqlalchemy import select
+            still = (
+                await session.execute(select(Order).where(Order.id == order_id))
+            ).scalar_one()
+            assert still.status == OrderStatus.created, (
+                "Paid order stays in created; user/ops drives the refund."
+            )
+            refund = (
+                await session.execute(
+                    select(Payment).where(
+                        Payment.order_id == order_id,
+                        Payment.payment_type == "refund",
+                    )
+                )
+            ).scalar_one_or_none()
+            assert refund is None, (
+                "Scheduler must not auto-create refund rows for paid orders."
+            )
 
-            stmt = select(Order).where(Order.id == order.id)
-            row = (await session.execute(stmt)).scalar_one()
-            assert row.status == OrderStatus.created
-
-    async def test_expire_close_order_fails_raises_not_expirable(
+    async def test_expire_close_order_fails_still_expires(
         self, seed_user, seed_hospital
     ):
-        """PENDING payment but close_order fails → NotExpirableOrderError."""
+        """PENDING payment, close_order fails → still expires; pay row marked failed.
+
+        Late SUCCESS callback that may follow is handled by the defensive
+        auto-refund branch in PaymentService.handle_pay_callback.
+        """
         from app.models.user import UserRole
+        from app.exceptions import BadRequestException
         from app.services.order import OrderService
 
         user = await seed_user(role=UserRole.patient)
@@ -138,25 +174,34 @@ class TestExpireOrderPaymentInterlock:
                 session, user.id, hospital.id, pay_status="pending"
             )
             await session.commit()
+            order_id = order.id
 
         with patch(
             "app.services.payment_service.PaymentService.close_pending_payment",
             new_callable=AsyncMock,
-            side_effect=Exception("PSP rejected close"),
+            side_effect=BadRequestException("无法关闭支付单"),
         ):
-            # The close_pending_payment raises BadRequestException internally,
-            # but we mock it to raise directly to simulate failure
-            from app.exceptions import BadRequestException
+            async with test_session_factory() as session:
+                svc = OrderService(session)
+                result = await svc.check_expired_orders()
+                await session.commit()
 
-            with patch(
-                "app.services.payment_service.PaymentService.close_pending_payment",
-                new_callable=AsyncMock,
-                side_effect=BadRequestException("无法关闭支付单"),
-            ):
-                async with test_session_factory() as session:
-                    svc = OrderService(session)
-                    with pytest.raises(NotExpirableOrderError):
-                        await svc.check_expired_orders()
+        assert len(result) == 1
+        assert result[0].status == OrderStatus.expired
+
+        async with test_session_factory() as session:
+            from sqlalchemy import select
+
+            row = (
+                await session.execute(
+                    select(Payment).where(
+                        Payment.order_id == order_id,
+                        Payment.payment_type == "pay",
+                    )
+                )
+            ).scalar_one()
+            assert row.status == "failed"
+            assert "close_failed" in (row.callback_raw or "")
 
 
 @pytest.mark.asyncio

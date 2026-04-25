@@ -578,11 +578,16 @@ class TestCheckExpiredOrders:
         assert all(c.status == OrderStatus.expired for c in cancelled)
 
     async def test_expire_paid_order_raises_not_expirable(self):
-        """Paid order cannot be expired — raises NotExpirableOrderError."""
+        """TD-PAY-01 / ADR-0007: paid expired order surfaces NotExpirableOrderError.
+
+        Historical contract (test_refund_e2e.test_expired_order_refund_to_wallet):
+        a paid order must NOT be auto-expired. The endpoint returns 409 so
+        ops/admin can resolve via the user-initiated cancel/refund flow.
+        """
         from app.exceptions import NotExpirableOrderError
 
         patient = await _make_user(phone="10000000101")
-        hospital = await _make_hospital("医院E2")
+        hospital = await _make_hospital("??E2")
         async with test_session_factory() as s:
             o = Order(
                 order_number=generate_order_number(),
@@ -602,10 +607,24 @@ class TestCheckExpiredOrders:
 
         await _make_payment(order_id, patient.id)
 
-        async with test_session_factory() as s:
-            svc = OrderService(s)
-            with pytest.raises(NotExpirableOrderError):
+        with pytest.raises(NotExpirableOrderError):
+            async with test_session_factory() as s:
+                svc = OrderService(s)
                 await svc.check_expired_orders()
+
+        async with test_session_factory() as s:
+            from sqlalchemy import select
+            still = (await s.execute(
+                select(Order).where(Order.id == order_id)
+            )).scalar_one()
+            assert still.status == OrderStatus.created
+            refund = (await s.execute(
+                select(Payment).where(
+                    Payment.order_id == order_id,
+                    Payment.payment_type == "refund",
+                )
+            )).scalar_one_or_none()
+            assert refund is None
 
 
 # ---------------------------------------------------------------------------
