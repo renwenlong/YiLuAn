@@ -24,6 +24,13 @@ class Review(Base):
         Uuid(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
     rating: Mapped[int] = mapped_column(Integer, nullable=False)
+    # F-04 multi-dimension ratings (1~5). Nullable for legacy rows that
+    # haven't been backfilled (the alembic migration backfills with the
+    # legacy `rating` value); ReviewService always writes all 4 on new rows.
+    punctuality_rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    professionalism_rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    communication_rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    attitude_rating: Mapped[int | None] = mapped_column(Integer, nullable=True)
     content: Mapped[str | None] = mapped_column(Text, nullable=True)
     patient_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

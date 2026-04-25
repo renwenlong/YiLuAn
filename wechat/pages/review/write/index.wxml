@@ -1,24 +1,57 @@
 <loading-overlay wx:if="{{loading}}" />
 
 <view class="page-container">
-  <!-- Rating Section -->
+  <!-- F-04: 4-dimension star rating -->
   <view class="section">
     <view class="section-title">服务评分</view>
-    <view class="rating-wrapper">
+
+    <view class="dimension-row">
+      <text class="dimension-label">守时</text>
       <rating-stars
-        value="{{rating}}"
+        value="{{punctuality_rating}}"
         readonly="{{false}}"
-        size="large"
-        bind:change="onRatingChange"
+        size="medium"
+        bind:change="onPunctualityChange"
       />
-      <text class="rating-text">{{rating}}分</text>
+      <text class="dimension-score">{{punctuality_rating}}分</text>
     </view>
-    <view class="rating-labels">
-      <text class="rating-label" wx:if="{{rating === 1}}">非常差</text>
-      <text class="rating-label" wx:if="{{rating === 2}}">较差</text>
-      <text class="rating-label" wx:if="{{rating === 3}}">一般</text>
-      <text class="rating-label" wx:if="{{rating === 4}}">满意</text>
-      <text class="rating-label" wx:if="{{rating === 5}}">非常满意</text>
+
+    <view class="dimension-row">
+      <text class="dimension-label">专业</text>
+      <rating-stars
+        value="{{professionalism_rating}}"
+        readonly="{{false}}"
+        size="medium"
+        bind:change="onProfessionalismChange"
+      />
+      <text class="dimension-score">{{professionalism_rating}}分</text>
+    </view>
+
+    <view class="dimension-row">
+      <text class="dimension-label">沟通</text>
+      <rating-stars
+        value="{{communication_rating}}"
+        readonly="{{false}}"
+        size="medium"
+        bind:change="onCommunicationChange"
+      />
+      <text class="dimension-score">{{communication_rating}}分</text>
+    </view>
+
+    <view class="dimension-row">
+      <text class="dimension-label">态度</text>
+      <rating-stars
+        value="{{attitude_rating}}"
+        readonly="{{false}}"
+        size="medium"
+        bind:change="onAttitudeChange"
+      />
+      <text class="dimension-score">{{attitude_rating}}分</text>
+    </view>
+
+    <view class="overall-rating">
+      <text class="overall-label">总评分</text>
+      <text class="overall-value">{{overallRating}}分</text>
     </view>
   </view>
 

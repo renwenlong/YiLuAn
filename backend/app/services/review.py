@@ -2,6 +2,7 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.exceptions import BadRequestException, ForbiddenException, NotFoundException
 from app.models.order import Order, OrderStatus
 from app.models.review import Review
@@ -39,11 +40,37 @@ class ReviewService:
         if order.companion_id is None:
             raise BadRequestException("Order has no companion to review")
 
+        # F-04: resolve 4 dimension ratings + total. Backward compatible:
+        #  - if any dimension provided => all 4 must be provided (validated in schema)
+        #  - if only legacy `rating` provided => fan out to 4 dimensions
+        if data.punctuality_rating is not None:
+            punctuality = data.punctuality_rating
+            professionalism = data.professionalism_rating
+            communication = data.communication_rating
+            attitude = data.attitude_rating
+        else:
+            assert data.rating is not None  # schema enforces this
+            punctuality = professionalism = communication = attitude = data.rating
+
+        weighted = (
+            punctuality * settings.review_weight_punctuality
+            + professionalism * settings.review_weight_professionalism
+            + communication * settings.review_weight_communication
+            + attitude * settings.review_weight_attitude
+        )
+        # Round to nearest int (1~5) to keep `rating` column an integer and
+        # keep legacy contract intact.
+        total_rating = max(1, min(5, int(round(weighted))))
+
         review = Review(
             order_id=order_id,
             patient_id=user.id,
             companion_id=order.companion_id,
-            rating=data.rating,
+            rating=total_rating,
+            punctuality_rating=punctuality,
+            professionalism_rating=professionalism,
+            communication_rating=communication,
+            attitude_rating=attitude,
             content=data.content,
             patient_name=user.display_name or user.phone,
         )
@@ -86,7 +113,7 @@ class ReviewService:
             companion_id=order.companion_id,
             patient_name=user.display_name or user.phone,
             order_id=order_id,
-            rating=data.rating,
+            rating=total_rating,
             review_id=review.id,
         )
 

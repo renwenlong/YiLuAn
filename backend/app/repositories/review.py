@@ -39,6 +39,30 @@ class ReviewRepository(BaseRepository[Review]):
         result = await self.session.execute(stmt)
         return float(result.scalar() or 0.0)
 
+    async def get_companion_dimension_averages(
+        self, companion_id: UUID
+    ) -> dict[str, float]:
+        """返回 F-04 四个维度的平均分（无评价时均为 0.0）。
+
+        旧数据迁移后维度列会被回填为原 rating，但为防御未迁移 / 边界场景，
+        AVG 在遇到 NULL 时会自动忽略，COALESCE 到 0。
+        """
+        from app.models.review import Review as _R
+
+        stmt = select(
+            func.coalesce(func.avg(_R.punctuality_rating), 0.0),
+            func.coalesce(func.avg(_R.professionalism_rating), 0.0),
+            func.coalesce(func.avg(_R.communication_rating), 0.0),
+            func.coalesce(func.avg(_R.attitude_rating), 0.0),
+        ).where(_R.companion_id == companion_id)
+        row = (await self.session.execute(stmt)).one()
+        return {
+            "punctuality": float(row[0] or 0.0),
+            "professionalism": float(row[1] or 0.0),
+            "communication": float(row[2] or 0.0),
+            "attitude": float(row[3] or 0.0),
+        }
+
     async def count_by_companion(self, companion_id: UUID) -> int:
         stmt = select(func.count()).where(Review.companion_id == companion_id)
         result = await self.session.execute(stmt)

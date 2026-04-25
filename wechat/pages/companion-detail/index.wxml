@@ -60,6 +60,39 @@
     </view>
   </view>
 
+  <!-- F-04: Multi-dimension scores -->
+  <view class="detail-section" wx:if="{{companion.dimensionScores}}">
+    <view class="section-title">服务维度评分</view>
+    <view class="dimension-bar">
+      <text class="dimension-name">守时</text>
+      <view class="bar-track">
+        <view class="bar-fill" style="width: {{companion.dimensionScores.punctuality * 20}}%;"></view>
+      </view>
+      <text class="dimension-num">{{companion.dimensionScores.punctuality}}</text>
+    </view>
+    <view class="dimension-bar">
+      <text class="dimension-name">专业</text>
+      <view class="bar-track">
+        <view class="bar-fill" style="width: {{companion.dimensionScores.professionalism * 20}}%;"></view>
+      </view>
+      <text class="dimension-num">{{companion.dimensionScores.professionalism}}</text>
+    </view>
+    <view class="dimension-bar">
+      <text class="dimension-name">沟通</text>
+      <view class="bar-track">
+        <view class="bar-fill" style="width: {{companion.dimensionScores.communication * 20}}%;"></view>
+      </view>
+      <text class="dimension-num">{{companion.dimensionScores.communication}}</text>
+    </view>
+    <view class="dimension-bar">
+      <text class="dimension-name">态度</text>
+      <view class="bar-track">
+        <view class="bar-fill" style="width: {{companion.dimensionScores.attitude * 20}}%;"></view>
+      </view>
+      <text class="dimension-num">{{companion.dimensionScores.attitude}}</text>
+    </view>
+  </view>
+
   <!-- Reviews -->
   <view class="detail-section">
     <view class="section-title">用户评价 ({{reviews.length}})</view>

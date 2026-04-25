@@ -1,4 +1,4 @@
-// Jest Snapshot v1, https://goo.gl/fbAQLP
+// Jest Snapshot v1, https://jestjs.io/docs/snapshot-testing
 
 exports[`F-01 companion-detail certification badge loadData maps certification fields onto companion view-model 1`] = `
 {

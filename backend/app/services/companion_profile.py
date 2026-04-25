@@ -81,6 +81,16 @@ class CompanionProfileService:
         profile = await self.repo.get_by_id(companion_id)
         if profile is None:
             raise NotFoundException("Companion not found")
+        # F-04: attach dimension averages so CompanionDetailResponse can
+        # populate `dimension_scores` via from_attributes.
+        scores = await self.review_repo.get_companion_dimension_averages(profile.user_id)
+        # Round to 1 decimal for nicer display; pydantic will cast to float.
+        profile.dimension_scores = {  # type: ignore[attr-defined]
+            "punctuality": round(scores["punctuality"], 2),
+            "professionalism": round(scores["professionalism"], 2),
+            "communication": round(scores["communication"], 2),
+            "attitude": round(scores["attitude"], 2),
+        }
         return profile
 
     async def get_detail_by_user(self, user_id: UUID, display_name: str | None = None) -> CompanionProfile:
@@ -89,7 +99,14 @@ class CompanionProfileService:
             # Auto-create profile for users with companion role but no profile record
             real_name = display_name or "未填写"
             profile = CompanionProfile(user_id=user_id, real_name=real_name)
-            return await self.repo.create(profile)
+            profile = await self.repo.create(profile)
+        scores = await self.review_repo.get_companion_dimension_averages(user_id)
+        profile.dimension_scores = {  # type: ignore[attr-defined]
+            "punctuality": round(scores["punctuality"], 2),
+            "professionalism": round(scores["professionalism"], 2),
+            "communication": round(scores["communication"], 2),
+            "attitude": round(scores["attitude"], 2),
+        }
         return profile
 
     async def list_companions(

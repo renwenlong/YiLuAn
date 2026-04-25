@@ -90,6 +90,13 @@ class Settings(BaseSettings):
     ws_chat_pubsub_enabled: bool = True  # 生产多副本必开；本地/测试可关
     ws_chat_pubsub_channel: str = "yiluan:ws:chat"
 
+    # F-04 多维度评分权重（守时 / 专业 / 沟通 / 态度），默认等权 0.25。
+    # 如需运营调整可通过环境变量覆盖；服务层会按权重重算总评分。
+    review_weight_punctuality: float = 0.25
+    review_weight_professionalism: float = 0.25
+    review_weight_communication: float = 0.25
+    review_weight_attitude: float = 0.25
+
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
     @model_validator(mode="after")

@@ -36,7 +36,11 @@ Page({
         certificationNo: rawCompanion.certification_no || '',
         certificationImageUrl: rawCompanion.certification_image_url || '',
         certifiedAt: rawCompanion.certified_at || '',
-        hasCertification: !!(rawCompanion.certification_image_url && rawCompanion.certification_type)
+        hasCertification: !!(rawCompanion.certification_image_url && rawCompanion.certification_type),
+        // F-04: 4-dimension average ratings (server-computed)
+        dimensionScores: rawCompanion.dimension_scores || {
+          punctuality: 0, professionalism: 0, communication: 0, attitude: 0
+        }
       }
       var rawReviews = (reviewsRes && reviewsRes.items) || []
       var reviews = rawReviews.map(function (r) {
