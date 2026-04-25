@@ -13,6 +13,7 @@ from app.exceptions import BadRequestException, ConflictException, NotFoundExcep
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.companion_profile import CompanionProfile, VerificationStatus
 from app.models.user import User
+from app.services.notification import NotificationService
 
 
 class AdminAuditService:
@@ -83,6 +84,16 @@ class AdminAuditService:
         )
         self.session.add(log)
         await self.session.flush()
+
+        # [F-02] 向陪诊师推送审核通过站内信，深链跳到陪诊师详情页
+        try:
+            await NotificationService(self.session).notify_companion_audit_result(
+                companion_user_id=profile.user_id,
+                companion_profile_id=profile.id,
+                approved=True,
+            )
+        except Exception:  # pragma: no cover - 通知失败不应阻断审核
+            pass
         return profile
 
     async def reject_companion(
@@ -108,4 +119,15 @@ class AdminAuditService:
         )
         self.session.add(log)
         await self.session.flush()
+
+        # [F-02] 向陪诊师推送驳回通知，深链跳到陪诊师详情页让其修改资料
+        try:
+            await NotificationService(self.session).notify_companion_audit_result(
+                companion_user_id=profile.user_id,
+                companion_profile_id=profile.id,
+                approved=False,
+                reason=reason,
+            )
+        except Exception:  # pragma: no cover
+            pass
         return profile
