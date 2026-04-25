@@ -82,6 +82,10 @@ enum BackendErrorCode {
     static let verificationRequired = "VERIFICATION_REQUIRED"
 }
 
+/// Compatibility alias used by older call sites and unit tests.
+/// New code should reference ``BackendErrorCode`` directly.
+typealias APIErrorCode = BackendErrorCode
+
 actor APIClient {
     static let shared = APIClient()
 

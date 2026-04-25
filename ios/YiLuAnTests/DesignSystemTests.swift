@@ -1,4 +1,6 @@
 import XCTest
+import SwiftUI
+import UIKit
 @testable import YiLuAn
 
 final class DesignSystemTests: XCTestCase {
