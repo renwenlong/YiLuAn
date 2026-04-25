@@ -26,6 +26,11 @@ class User(Base):
     wechat_unionid: Mapped[str | None] = mapped_column(
         String(128), unique=True, nullable=True, index=True
     )
+    # Apple Sign-In `sub` claim (Apple's stable user identifier).
+    # Nullable + unique: only Apple-linked users have it, but each is unique.
+    apple_sub: Mapped[str | None] = mapped_column(
+        String(128), unique=True, nullable=True, index=True
+    )
     role: Mapped[UserRole | None] = mapped_column(Enum(UserRole), nullable=True)
     roles: Mapped[str | None] = mapped_column(String(50), nullable=True)
     display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)

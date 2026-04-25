@@ -1,4 +1,5 @@
 import SwiftUI
+import AuthenticationServices
 
 struct LoginView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
@@ -92,6 +93,27 @@ struct LoginView: View {
                             .foregroundStyle(Color.danger)
                             .transition(.opacity.combined(with: .move(edge: .top)))
                         }
+
+                        // Apple Sign-In (W18-A) — system component, follows Apple HIG.
+                        SignInWithAppleButton(
+                            .signIn,
+                            onRequest: { request in
+                                request.requestedScopes = [.fullName, .email]
+                            },
+                            onCompletion: { _ in
+                                // Delegate-based path is unused here; we drive the
+                                // flow through AppleSignInService for testability.
+                                Task {
+                                    guard agreedToTerms else { return }
+                                    await authViewModel.loginWithApple()
+                                }
+                            }
+                        )
+                        .signInWithAppleButtonStyle(.black)
+                        .frame(height: 48)
+                        .cornerRadius(CGFloat(CornerRadius.md))
+                        .disabled(!agreedToTerms || authViewModel.isLoading)
+                        .opacity(agreedToTerms ? 1.0 : 0.5)
                     }
                     .padding(.horizontal, Spacing.xl)
                     .opacity(appear ? 1 : 0)
