@@ -303,3 +303,36 @@
   margin-left: 12rpx;
 }
 
+
+/* F-04: Multi-dimension score bars */
+.dimension-bar {
+  display: flex;
+  align-items: center;
+  padding: 12rpx 0;
+}
+.dimension-name {
+  width: 100rpx;
+  font-size: 26rpx;
+  color: #666;
+}
+.bar-track {
+  flex: 1;
+  height: 16rpx;
+  background-color: #f0f0f0;
+  border-radius: 8rpx;
+  margin: 0 16rpx;
+  overflow: hidden;
+}
+.bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #FFB74D, #FF9800);
+  border-radius: 8rpx;
+  transition: width 0.3s;
+}
+.dimension-num {
+  width: 70rpx;
+  font-size: 26rpx;
+  color: #FF9800;
+  font-weight: bold;
+  text-align: right;
+}

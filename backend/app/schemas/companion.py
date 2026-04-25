@@ -24,6 +24,15 @@ class UpdateCompanionProfileRequest(BaseModel):
     service_city: str | None = Field(None, description="服务城市")
 
 
+class DimensionScores(BaseModel):
+    """F-04 多维度评分在陆诊师详情中的平均值展示。"""
+
+    punctuality: float = Field(0.0, description="守时维度平均分", examples=[4.8])
+    professionalism: float = Field(0.0, description="专业维度平均分", examples=[4.9])
+    communication: float = Field(0.0, description="沟通维度平均分", examples=[4.7])
+    attitude: float = Field(0.0, description="态度维度平均分", examples=[5.0])
+
+
 class CompanionListResponse(BaseModel):
     id: UUID = Field(..., description="陪诊师档案 ID")
     user_id: UUID = Field(..., description="对应用户 ID")
@@ -47,6 +56,10 @@ class CompanionDetailResponse(CompanionListResponse):
     certification_image_url: str | None = Field(None, description="证书图片 OSS URL")
     certified_at: datetime | None = Field(None, description="认证通过时间")
     created_at: datetime = Field(..., description="档案创建时间")
+    dimension_scores: DimensionScores = Field(
+        default_factory=DimensionScores,
+        description="F-04 4 个维度的平均评分（无评价时均为 0）",
+    )
 
     model_config = {"from_attributes": True}
 
