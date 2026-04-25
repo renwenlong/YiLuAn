@@ -1,8 +1,14 @@
 # RUNBOOK: 回滚预案 (Rollback)
 
-> **配套文档:** `docs/decisions/ADR-0028-canary-release-and-rollback.md`
+> **配套文档:** `docs/decisions/ADR-0028-canary-release-and-rollback.md`, `docs/ops/INCIDENT_PLAYBOOK.md`(代码以外的应急场景)
+> **配套工具:** `ops/scripts/deploy.sh --rollback [--code <PREV_TAG>]`(入口),`ops/scripts/canary_drill.sh`(mock 演练)
 > **适用阶段:** 灰度发布期间 + 上线后 24h 观察窗口
-> **目标 SLA:** 流量层回滚 ≤ 30 秒；代码回滚 ≤ 5 分钟；DB 回滚 ≤ 30 分钟
+> **目标 SLA:**
+> - 流量层回滚: nginx reload 本身 ≤ 30 秒; **含决策端到端 ≤ 5 分钟**
+> - 代码回滚: ≤ 5 分钟(三台 backend 主机运行 rolling)
+> - DB 回滚: ≤ 30 分钟(含备份 + downgrade + 验证)
+>
+> **前置要求:** curl 版本 ≥ 7.85(场景 A V1 需要 `-w '%{header_*}'`,旧版 curl 不支持 header 调用须改用 `curl -D - -o /dev/null`)。
 
 ---
 
@@ -15,18 +21,18 @@
 
 ---
 
-## 场景 A：流量层回滚（首选, 最快）
+## 场景 A:流量层回滚(首选, 最快)
 
 **适用:** 新版本只是部分指标恶化, 代码与 DB schema 都还能跑, 但需要立即把用户从新版本拉走。
 
-### 触发条件（任一即触发）
+### 触发条件(任一即触发)
 
 | 来源 | 条件 |
 |---|---|
-| 自动 | HTTP 5xx 错误率 > **1%** 持续 **2 分钟**（按 `X-Canary-Pool=backend_new` 维度统计） |
-| 自动 | Prometheus 告警 `ReadinessProbeFailure` 触发（P0, /readiness 失败 > 2 分钟） |
+| 自动 | HTTP 5xx 错误率 > **1%** 持续 **2 分钟**(按 `X-Canary-Pool=backend_new` 维度统计) |
+| 自动 | Prometheus 告警 `ReadinessProbeFailure` 触发(P0, /readiness 失败 > 2 分钟) |
 | 手动 | 任一 P1 告警持续 **5 分钟**未自愈 |
-| 手动 | 业务指标异常但未到自动阈值（如订单创建率下跌 50%, 客户端用户大规模反馈 ≥10 起） |
+| 手动 | 业务指标异常但未到自动阈值(如订单创建率下跌 50%, 客户端用户大规模反馈 ≥10 起) |
 
 ### 精确命令
 
@@ -53,7 +59,7 @@ echo "$(date -Iseconds)  ROLLBACK A executed by $(whoami)" \
     | sudo tee -a /var/log/yiluan/release-events.log
 ```
 
-### 验证（必须 3 项全过才算回滚成功）
+### 验证(必须 3 项全过才算回滚成功)
 
 ```bash
 # V1: 100 次请求采样, backend_new 出现率应 ≈ 0
@@ -71,7 +77,7 @@ done | sort | uniq -c
 # 进入 Alertmanager UI, 确认触发的 P0/P1 告警进入 resolved
 ```
 
-### 通知模板（企业微信值班群）
+### 通知模板(企业微信值班群)
 
 ```
 [ROLLBACK / 场景A 流量层]
@@ -85,14 +91,14 @@ done | sort | uniq -c
 
 ---
 
-## 场景 B：代码回滚（流量层回滚后仍出现问题, 或新代码污染 stable）
+## 场景 B:代码回滚(流量层回滚后仍出现问题, 或新代码污染 stable)
 
-**适用:** 流量切回 stable 后问题仍未消除（可能 stable 也共享了新版本写入的脏数据 / 配置 / 缓存）。也用于灰度结束后才发现的退化。
+**适用:** 流量切回 stable 后问题仍未消除(可能 stable 也共享了新版本写入的脏数据 / 配置 / 缓存)。也用于灰度结束后才发现的退化。
 
 ### 触发条件
 
 - 场景 A 执行后, 5 分钟内业务指标未恢复
-- 灰度已 100% 完成, 但发现新代码导致严重 bug（不影响 schema）
+- 灰度已 100% 完成, 但发现新代码导致严重 bug(不影响 schema)
 - 安全漏洞需立即下线新代码
 
 ### 精确命令
@@ -118,7 +124,10 @@ sleep 10
 docker compose -f docker-compose.prod.yml up -d --no-deps backend_new_1 backend_new_2
 
 # 6. 清 Redis 缓存 (如果新版本写入了不兼容的 cache schema)
-redis-cli -h redis-prod-01 --scan --pattern "v2:*" | xargs -r redis-cli -h redis-prod-01 DEL
+# *** 生产大库务必加 --count 100 避免阻塞:
+redis-cli -h redis-prod-01 --scan --count 100 --pattern "v2:*" \
+    | xargs -r redis-cli -h redis-prod-01 DEL
+# 缓存 schema 前缀约定见 backend/app/services/cache/*.py(按请后端提供)
 ```
 
 ### 验证
@@ -152,14 +161,14 @@ curl -s https://api.yiluan.example.com/health | jq .version
 
 ---
 
-## 场景 C：数据库回滚（最重, 最慎)
+## 场景 C:数据库回滚(最重, 最慎)
 
-**适用:** 新版本伴随了破坏性 schema 变更, 且确认问题源于 schema / 数据。**优先选择前向修复**（hotfix migration）, 只有在前向修复明显不可行时才执行 alembic downgrade。
+**适用:** 新版本伴随了破坏性 schema 变更, 且确认问题源于 schema / 数据。**优先选择前向修复**(hotfix migration), 只有在前向修复明显不可行时才执行 alembic downgrade。
 
 ### 触发条件
 
 - 场景 A + B 都执行后, 旧代码无法兼容新 schema 导致持续 5xx
-- alembic upgrade 后出现数据损坏（如外键不匹配、enum 值未识别）
+- alembic upgrade 后出现数据损坏(如外键不匹配、enum 值未识别)
 - 安全或合规要求立即回退某次 schema 变更
 
 ### ⚠️ 前置必读
@@ -168,10 +177,10 @@ curl -s https://api.yiluan.example.com/health | jq .version
    - 标记 `reversible`: 可执行 `alembic downgrade`
    - 标记 `irreversible` / `manual`: **不要**直接 downgrade, 走"前向修复 + 数据补偿"
 2. **必须有最近一次 PG 全量备份**, 否则禁止任何破坏性 DDL。
-3. **执行前对 PG 主库做一次 `pg_dump`**（差异备份）, 用于事故复盘。
+3. **执行前对 PG 主库做一次 `pg_dump`**(差异备份), 用于事故复盘。
 4. ADR-0028 §4.5 定义的 Expand-Contract 已要求"破坏性变更两步发布", 因此**正常情况下灰度期内不会出现破坏性变更**, 此场景仅作兜底。
 
-### 精确命令（仅当目标 revision 可逆）
+### 精确命令(仅当目标 revision 可逆)
 
 ```bash
 # 0. 锁住写入 (避免回滚过程中出现新数据)
@@ -234,7 +243,7 @@ cd backend && python -m pytest -q tests/test_health.py tests/test_orders.py
 
 ---
 
-## 附录：常用查询
+## 附录:常用查询
 
 ```bash
 # 当前流量灰度比例 (按桶统计 5 分钟 RPS)
@@ -251,4 +260,4 @@ curl -s http://alertmanager:9093/api/v2/alerts | jq '.[] | {alertname: .labels.a
 ---
 
 **版本:**
-- 2026-04-24 v1 初版（ADR-0028 配套）
+- 2026-04-24 v1 初版(ADR-0028 配套)

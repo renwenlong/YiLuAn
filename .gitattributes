@@ -1,0 +1,6 @@
+# Force LF for shell scripts and YAML so Linux CI/runtime won't choke on CRLF.
+# Added 2026-04-25 by GoLive dry-run (P-03).
+*.sh        text eol=lf
+*.bash      text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf

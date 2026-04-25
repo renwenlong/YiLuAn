@@ -2,6 +2,11 @@ version: "3.8"
 
 # Standalone compose for the Alertmanager + wechat-work webhook stack.
 # In production these would live in the main ops compose file.
+#
+# IMPORTANT: 必须从仓库根目录运行,例如:
+#   cd <repo-root>
+#   docker compose -f docker-compose.alertmanager.yml up -d
+# 卷路径相对仓库根写,2026-04-25 GoLive dry-run 修订(原 ../../prometheus 路径在根启动时不存在)。
 
 services:
   alertmanager:
@@ -11,8 +16,8 @@ services:
     ports:
       - "9093:9093"
     volumes:
-      - ../../prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
-      - ../../prometheus/templates:/etc/alertmanager/templates:ro
+      - ./prometheus/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./prometheus/templates:/etc/alertmanager/templates:ro
       - alertmanager-data:/alertmanager
     command:
       - "--config.file=/etc/alertmanager/alertmanager.yml"
