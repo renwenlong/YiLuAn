@@ -81,24 +81,14 @@
   `.github/workflows/ci-smoke.yml`（services: postgres15/redis7）+
   `.pre-commit-config.yaml`（`alembic check` hook via scripts/alembic_check_hook.py）+
   `alembic/env.py` 支持 `ALEMBIC_DATABASE_URL` / `DATABASE_URL` env override。
-
-## TD-OPS-02 `/readiness` 缺少迁移漂移检测 (Migration drift)
-
-- **描述**：当前 `/readiness` 只校验 DB `SELECT 1` 与 Redis `PING`，**不**比对
-  `alembic_version` 与 head revision。如果一次部署带上了新的 model 代码却忘了
-  跑迁移，pod 仍然返回 200 ready，开始接流量并在写入路径上抛 5xx。
-- **风险**：中。CI 已有 `alembic check` 防住绝大多数本地漂移，但生产环境的
-  "代码上了 / 迁移没跑" 仍可能漏过（手动部署、回滚到老 schema 等场景）。
-- **缓解方案**：
-  1. 在 `_run_readiness_checks` 里加入 `alembic_version_head_check`：读
-     `alembic_version` 表，与 `ScriptDirectory.from_config().get_current_head()`
-     比对，不一致即返回 `error: migration drift: db=<x> head=<y>`，整体 503。
-  2. 缓存 head（启动时读一次）以避免每次 readiness 都 import alembic。
-  3. 提供 `READINESS_SKIP_MIGRATION_CHECK=1` 逃生开关，便于灰度切换期跳过。
-- **回归用例**：`backend/tests/smoke/test_readiness_blocker.py::test_readiness_detects_migration_drift`
-  当前为 `xfail(strict=False)`，修复后改成正常断言并移除 xfail 标记。
-- **来源**：P1-7 阻断级测试梳理（Action #7）。
-- **优先级**：P2（紧随 D-021 的下一轮 readiness 加固）
+- **TD-OPS-02 `/readiness` 缺少迁移漂移检测 (Migration drift)** — 2026-04-25 解决。
+  `backend/app/api/v1/health.py::_check_alembic` 比对 `alembic_version` 表当前
+  `version_num` 与 `ScriptDirectory.from_config().get_current_head()`，不一致
+  即返回 `error: migration drift: db=<x> head=<y>`，整体 503；head 在应用启动
+  时通过 `prime_alembic_head_cache()` 缓存一次，避免每次探针都 import alembic；
+  `READINESS_SKIP_MIGRATION_CHECK=1` 提供灰度逃生开关；
+  回归用例 `tests/smoke/test_readiness_blocker.py::test_readiness_detects_migration_drift`
+  已移除 `xfail` 标记，新增 4 个单测覆盖缓存与开关，文件内 16/16 全绿。
 
 ## TD-PAY-01 订单过期时支付状态未联动收尾
 

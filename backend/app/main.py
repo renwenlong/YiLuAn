@@ -10,6 +10,7 @@ from slowapi.errors import RateLimitExceeded
 from prometheus_client import make_asgi_app as _make_metrics_app
 
 from app.api.v1.router import api_v1_router
+from app.api.v1.health import prime_alembic_head_cache
 from app.api.v1.openapi_meta import TAGS_METADATA, API_DESCRIPTION
 from app.config import settings
 from app.core.logging import setup_logging
@@ -31,6 +32,12 @@ async def lifespan(app: FastAPI):
     # Startup
     setup_logging()
     logger.info("Starting %s v%s", settings.app_name, settings.app_version)
+    # Warm the alembic head cache so /readiness probes do not pay the
+    # alembic-import cost on every call (TD-OPS-02).
+    try:
+        prime_alembic_head_cache()
+    except Exception as exc:  # pragma: no cover - never block boot on this
+        logger.warning("prime_alembic_head_cache failed: %s", exc)
     app.state.redis = init_redis()
     # WebSocket Pub/Sub broker (D-019): 多副本通知跨副本 fanout
     try:
