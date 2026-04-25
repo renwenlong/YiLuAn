@@ -26,13 +26,17 @@ from app.models.user import User, UserRole
 from tests.conftest import test_session_factory
 
 
-@pytest.fixture(autouse=True, scope="session")
+@pytest.fixture(autouse=True)
 def _disable_slowapi_limiter():
-    """Disable slowapi per-IP rate limiter for the e2e suite.
+    """Disable slowapi per-IP rate limiter for each e2e test.
 
     Every e2e test hits ``/api/v1/auth/send-otp`` from 127.0.0.1 and
     quickly trips the 5-per-minute cap. Rate limiting is exercised in
     the unit-test suite; e2e is about end-to-end correctness.
+
+    Function scope (not session) so when a single ``pytest`` invocation
+    runs both e2e and unit tests, the limiter is restored before unit
+    tests like ``test_rate_limit.py`` execute.
     """
     try:
         from app.core.rate_limit import limiter
