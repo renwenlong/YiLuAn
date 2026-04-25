@@ -3,7 +3,7 @@
 Covers cancellation at three different timings:
   * before payment (created)
   * after payment, before companion accepts (created + paid)
-  * after companion accepts (accepted) — patient-initiated cancel triggers refund
+  * after companion accepts (accepted) -- patient-initiated cancel triggers refund
 """
 from __future__ import annotations
 
@@ -12,7 +12,16 @@ import pytest
 pytestmark = pytest.mark.e2e
 
 
-async def _create_paid_order(
+# OrderStatus values that count as "cancelled" in this domain.
+_CANCELLED_STATUSES = {
+    "cancelled_by_patient",
+    "cancelled_by_companion",
+    "rejected_by_companion",
+    "expired",
+}
+
+
+async def _create_order(
     e2e_client, p_headers, hospital_id, companion_profile_id=None, pay=True
 ):
     body = {
@@ -34,7 +43,6 @@ async def _create_paid_order(
     return order_id
 
 
-@pytest.mark.xfail(reason="order cancel/refund flow needs deeper fixture setup (companion accept lifecycle) - follow-up", strict=False)
 async def test_cancel_before_payment(
     e2e_client, login_via_otp, seed_hospital_e2e, patient_phone
 ):
@@ -42,16 +50,15 @@ async def test_cancel_before_payment(
     p_headers = {"Authorization": f"Bearer {p_access}"}
 
     hospital = await seed_hospital_e2e()
-    order_id = await _create_paid_order(
+    order_id = await _create_order(
         e2e_client, p_headers, hospital.id, pay=False
     )
 
     r = await e2e_client.post(f"/api/v1/orders/{order_id}/cancel", headers=p_headers)
     assert r.status_code == 200, r.text
-    assert r.json()["status"] == "cancelled"
+    assert r.json()["status"] == "cancelled_by_patient"
 
 
-@pytest.mark.xfail(reason="order cancel/refund flow needs deeper fixture setup (companion accept lifecycle) - follow-up", strict=False)
 async def test_cancel_after_payment_triggers_refund(
     e2e_client, login_via_otp, seed_hospital_e2e, patient_phone
 ):
@@ -59,16 +66,20 @@ async def test_cancel_after_payment_triggers_refund(
     p_headers = {"Authorization": f"Bearer {p_access}"}
 
     hospital = await seed_hospital_e2e()
-    order_id = await _create_paid_order(e2e_client, p_headers, hospital.id, pay=True)
+    order_id = await _create_order(e2e_client, p_headers, hospital.id, pay=True)
 
     # Cancel after payment.
     r = await e2e_client.post(f"/api/v1/orders/{order_id}/cancel", headers=p_headers)
     assert r.status_code == 200, r.text
-    # Order should be cancelled or refunded depending on state machine.
-    assert r.json()["status"] in ("cancelled", "refunded"), r.text
+    assert r.json()["status"] in _CANCELLED_STATUSES, r.text
+
+    # Auto-refund should have been issued -- order detail should report
+    # payment_status == "refunded".
+    rd = await e2e_client.get(f"/api/v1/orders/{order_id}", headers=p_headers)
+    assert rd.status_code == 200, rd.text
+    assert rd.json()["payment_status"] == "refunded", rd.text
 
 
-@pytest.mark.xfail(reason="order cancel/refund flow needs deeper fixture setup (companion accept lifecycle) - follow-up", strict=False)
 async def test_companion_reject_returns_to_created(
     e2e_client,
     login_via_otp,
@@ -77,6 +88,8 @@ async def test_companion_reject_returns_to_created(
     companion_phone,
     admin_headers,
 ):
+    """Patient targets a specific companion; companion rejects -> order ends
+    up in the ``rejected_by_companion`` terminal state and refund is issued."""
     # Setup verified companion.
     c_access, _, _ = await login_via_otp(companion_phone, role="companion")
     c_headers = {"Authorization": f"Bearer {c_access}"}
@@ -100,19 +113,16 @@ async def test_companion_reject_returns_to_created(
     p_access, _, _ = await login_via_otp(patient_phone, role="patient")
     p_headers = {"Authorization": f"Bearer {p_access}"}
     hospital = await seed_hospital_e2e()
-    order_id = await _create_paid_order(
+    order_id = await _create_order(
         e2e_client, p_headers, hospital.id, companion_profile_id=profile_id
     )
 
     # Companion rejects.
     r = await e2e_client.post(f"/api/v1/orders/{order_id}/reject", headers=c_headers)
     assert r.status_code == 200, r.text
-    # After reject, order should be available for re-assignment or cancelled.
-    new_status = r.json()["status"]
-    assert new_status in ("created", "cancelled", "rejected"), r.text
+    assert r.json()["status"] == "rejected_by_companion", r.text
 
 
-@pytest.mark.xfail(reason="order cancel/refund flow needs deeper fixture setup (companion accept lifecycle) - follow-up", strict=False)
 async def test_double_pay_is_idempotent_or_rejected(
     e2e_client, login_via_otp, seed_hospital_e2e, patient_phone
 ):
@@ -120,9 +130,8 @@ async def test_double_pay_is_idempotent_or_rejected(
     p_access, _, _ = await login_via_otp(patient_phone, role="patient")
     p_headers = {"Authorization": f"Bearer {p_access}"}
     hospital = await seed_hospital_e2e()
-    order_id = await _create_paid_order(e2e_client, p_headers, hospital.id, pay=True)
+    order_id = await _create_order(e2e_client, p_headers, hospital.id, pay=True)
 
-    # Second pay attempt — should be idempotent (200) or explicitly rejected (4xx).
+    # Second pay attempt -- should be idempotent (200) or explicitly rejected (4xx).
     r = await e2e_client.post(f"/api/v1/orders/{order_id}/pay", headers=p_headers)
     assert r.status_code in (200, 400, 409), r.text
-
