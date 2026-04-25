@@ -8,12 +8,9 @@ from __future__ import annotations
 
 import pytest
 
-from app.models.user import UserRole
-
 pytestmark = pytest.mark.e2e
 
 
-@pytest.mark.xfail(reason="admin role model differs from test assumption (no admin UserRole; uses X-Admin-Token + roles field) - will revisit in follow-up", strict=False)
 async def test_admin_companion_approve_reject_flow(
     e2e_client,
     login_via_otp,
@@ -63,7 +60,6 @@ async def test_admin_endpoint_rejects_wrong_token(e2e_client):
     assert r.status_code == 401
 
 
-@pytest.mark.xfail(reason="admin role model differs from test assumption (no admin UserRole; uses X-Admin-Token + roles field) - will revisit in follow-up", strict=False)
 async def test_admin_orders_requires_admin_role(
     e2e_client, login_via_otp, patient_phone, assign_role_e2e
 ):
