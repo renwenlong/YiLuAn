@@ -40,5 +40,32 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+
+	<!-- ===== Privacy usage descriptions (App Store required) ===== -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>医路安将访问您的位置，仅用于为您推荐附近的医院与陪诊师，便于就近匹配服务。仅在您使用 App 时获取，您可随时在系统设置中关闭。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>医路安需要访问您的相册，以便您上传头像、就诊凭证、医院单据等图片，仅在您主动选择图片时读取，不会自动扫描相册内容。</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>医路安需要将凭证、订单截图等保存到您的相册，仅在您主动点击保存时执行。</string>
+	<key>NSCameraUsageDescription</key>
+	<string>医路安需要使用您的相机，用于拍摄头像、就诊凭证或陪诊师身份认证材料。仅在您主动使用拍照功能时启用，不会在后台访问相机。</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>医路安需要使用您的麦克风，用于在聊天中发送语音消息或与客服进行语音沟通。仅在您主动按下录音/通话按钮时启用。</string>
+	<key>NSContactsUsageDescription</key>
+	<string>医路安暂不收集您的通讯录；如未来开启紧急联系人快捷选择功能，将仅在您主动点选导入时访问，且仅保存您选中的联系人。</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>医路安使用 Face ID 校验您的身份，以保护账号与支付安全。生物特征信息仅由 iOS 系统在本机处理，不会上传到我们的服务器。</string>
+
+	<!-- ===== App Transport Security ===== -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+	</dict>
+
+	<!-- ===== Encryption export compliance (no custom crypto used) ===== -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
