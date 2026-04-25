@@ -9,6 +9,7 @@ Covers:
 All endpoints require admin role (enforced by get_admin_user dependency).
 """
 
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -114,7 +115,7 @@ async def admin_refund_order(
         raise NotFoundException("Order not found")
 
     payment_svc = PaymentService(session)
-    refund_amount = round(order.price * refund_ratio, 2)
+    refund_amount = (order.price * Decimal(str(refund_ratio))).quantize(Decimal("0.01"))
 
     try:
         result = await payment_svc.create_refund(

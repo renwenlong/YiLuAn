@@ -222,6 +222,45 @@
         "title": "Body_upload_avatar_api_v1_users_me_avatar_post",
         "type": "object"
       },
+      "CertifyCompanionRequest": {
+        "description": "管理员为陪诊师设置资质认证（F-01）。",
+        "properties": {
+          "certification_image_url": {
+            "description": "证书图片 OSS URL",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Certification Image Url",
+            "type": "string"
+          },
+          "certification_no": {
+            "description": "证书编号",
+            "examples": [
+              "NO.20231234"
+            ],
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Certification No",
+            "type": "string"
+          },
+          "certification_type": {
+            "description": "认证类型（护士证 / 健康管理师等）",
+            "examples": [
+              "护士证"
+            ],
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Certification Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "certification_type",
+          "certification_no",
+          "certification_image_url"
+        ],
+        "title": "CertifyCompanionRequest",
+        "type": "object"
+      },
       "ChatMessageListResponse": {
         "properties": {
           "items": {
@@ -334,6 +373,48 @@
             "description": "个人简介",
             "title": "Bio"
           },
+          "certification_image_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "证书图片 OSS URL",
+            "title": "Certification Image Url"
+          },
+          "certification_no": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "证书编号",
+            "examples": [
+              "NO.20231234"
+            ],
+            "title": "Certification No"
+          },
+          "certification_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "认证类型（护士证 / 健康管理师等）",
+            "examples": [
+              "护士证"
+            ],
+            "title": "Certification Type"
+          },
           "certifications": {
             "anyOf": [
               {
@@ -346,11 +427,28 @@
             "description": "资质证书",
             "title": "Certifications"
           },
+          "certified_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "认证通过时间",
+            "title": "Certified At"
+          },
           "created_at": {
             "description": "档案创建时间",
             "format": "date-time",
             "title": "Created At",
             "type": "string"
+          },
+          "dimension_scores": {
+            "$ref": "#/components/schemas/DimensionScores",
+            "description": "F-04 4 个维度的平均评分（无评价时均为 0）"
           },
           "id": {
             "description": "陪诊师档案 ID",
@@ -747,7 +845,42 @@
         "type": "object"
       },
       "CreateReviewRequest": {
+        "description": "提交评价（F-04 多维度评分）。\n\n支持两种模式以保证向后兼容：\n\n1. **旧模式**：仅传 `rating`（1~5），4 个维度自动填同值。\n2. **新模式**：传 4 个维度评分，`rating` 自动 = 加权平均（默认等权 0.25）。\n   兼容传入 `rating` 时以 4 维度加权平均为准（覆盖客户端传值）。",
         "properties": {
+          "attitude_rating": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "态度维度评分 1~5",
+            "examples": [
+              5
+            ],
+            "title": "Attitude Rating"
+          },
+          "communication_rating": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "沟通维度评分 1~5",
+            "examples": [
+              5
+            ],
+            "title": "Communication Rating"
+          },
           "content": {
             "description": "文字评价 5~500 字",
             "examples": [
@@ -758,19 +891,59 @@
             "title": "Content",
             "type": "string"
           },
-          "rating": {
-            "description": "评分 1~5 星",
+          "professionalism_rating": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "专业维度评分 1~5",
             "examples": [
               5
             ],
-            "maximum": 5.0,
-            "minimum": 1.0,
-            "title": "Rating",
-            "type": "integer"
+            "title": "Professionalism Rating"
+          },
+          "punctuality_rating": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "守时维度评分 1~5",
+            "examples": [
+              5
+            ],
+            "title": "Punctuality Rating"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "总评分 1~5 星（兼容字段；若传 4 维度则忽略）",
+            "examples": [
+              5
+            ],
+            "title": "Rating"
           }
         },
         "required": [
-          "rating",
           "content"
         ],
         "title": "CreateReviewRequest",
@@ -808,6 +981,296 @@
           "created_at"
         ],
         "title": "DeviceTokenResponse",
+        "type": "object"
+      },
+      "DimensionScores": {
+        "description": "F-04 多维度评分在陆诊师详情中的平均值展示。",
+        "properties": {
+          "attitude": {
+            "default": 0.0,
+            "description": "态度维度平均分",
+            "examples": [
+              5.0
+            ],
+            "title": "Attitude",
+            "type": "number"
+          },
+          "communication": {
+            "default": 0.0,
+            "description": "沟通维度平均分",
+            "examples": [
+              4.7
+            ],
+            "title": "Communication",
+            "type": "number"
+          },
+          "professionalism": {
+            "default": 0.0,
+            "description": "专业维度平均分",
+            "examples": [
+              4.9
+            ],
+            "title": "Professionalism",
+            "type": "number"
+          },
+          "punctuality": {
+            "default": 0.0,
+            "description": "守时维度平均分",
+            "examples": [
+              4.8
+            ],
+            "title": "Punctuality",
+            "type": "number"
+          }
+        },
+        "title": "DimensionScores",
+        "type": "object"
+      },
+      "EmergencyContactCreate": {
+        "properties": {
+          "name": {
+            "description": "联系人姓名",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "phone": {
+            "description": "联系人手机号",
+            "title": "Phone",
+            "type": "string"
+          },
+          "relationship": {
+            "description": "与患者关系，如 配偶/子女/朋友",
+            "maxLength": 20,
+            "minLength": 1,
+            "title": "Relationship",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "phone",
+          "relationship"
+        ],
+        "title": "EmergencyContactCreate",
+        "type": "object"
+      },
+      "EmergencyContactResponse": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "phone": {
+            "title": "Phone",
+            "type": "string"
+          },
+          "relationship": {
+            "title": "Relationship",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "name",
+          "phone",
+          "relationship",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "EmergencyContactResponse",
+        "type": "object"
+      },
+      "EmergencyContactUpdate": {
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "relationship": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relationship"
+          }
+        },
+        "title": "EmergencyContactUpdate",
+        "type": "object"
+      },
+      "EmergencyEventResponse": {
+        "properties": {
+          "contact_called": {
+            "title": "Contact Called",
+            "type": "string"
+          },
+          "contact_type": {
+            "title": "Contact Type",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "order_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Id"
+          },
+          "patient_id": {
+            "format": "uuid",
+            "title": "Patient Id",
+            "type": "string"
+          },
+          "triggered_at": {
+            "format": "date-time",
+            "title": "Triggered At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "patient_id",
+          "order_id",
+          "contact_called",
+          "contact_type",
+          "location",
+          "triggered_at"
+        ],
+        "title": "EmergencyEventResponse",
+        "type": "object"
+      },
+      "EmergencyTriggerRequest": {
+        "description": "触发紧急事件。\n\n- ``contact_id``: 选定的紧急联系人 ID（与 ``hotline`` 二选一）。\n- ``hotline``: 标记为呼叫平台客服热线，``contact_called`` 由后端从配置注入。\n- ``order_id``: 关联订单（服务进行中通常会有）。\n- ``location``: 可选的位置信息（自由格式字符串）。",
+        "properties": {
+          "contact_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contact Id"
+          },
+          "hotline": {
+            "default": false,
+            "title": "Hotline",
+            "type": "boolean"
+          },
+          "location": {
+            "anyOf": [
+              {
+                "maxLength": 255,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Location"
+          },
+          "order_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Id"
+          }
+        },
+        "title": "EmergencyTriggerRequest",
+        "type": "object"
+      },
+      "EmergencyTriggerResponse": {
+        "properties": {
+          "event": {
+            "$ref": "#/components/schemas/EmergencyEventResponse"
+          },
+          "phone_to_call": {
+            "description": "前端应该 wx.makePhoneCall 拨打的号码",
+            "title": "Phone To Call",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event",
+          "phone_to_call"
+        ],
+        "title": "EmergencyTriggerResponse",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -1073,10 +1536,36 @@
         "title": "HospitalResponse",
         "type": "object"
       },
+      "MarkReadResponse": {
+        "description": "[F-02] 标已读后返回当前 target 信息，便于前端立刻跳转。",
+        "properties": {
+          "notification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NotificationResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "若通知存在则返回最新内容（含 target_type / target_id），否则为 null"
+          },
+          "success": {
+            "description": "是否成功标记为已读",
+            "title": "Success",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "success"
+        ],
+        "title": "MarkReadResponse",
+        "type": "object"
+      },
       "NotificationListResponse": {
         "properties": {
           "items": {
-            "description": "当页通知",
+            "description": "通知列表",
             "items": {
               "$ref": "#/components/schemas/NotificationResponse"
             },
@@ -1084,7 +1573,7 @@
             "type": "array"
           },
           "total": {
-            "description": "总条数",
+            "description": "总数",
             "title": "Total",
             "type": "integer"
           }
@@ -1101,13 +1590,13 @@
           "body": {
             "description": "正文",
             "examples": [
-              "您的订单已被陪诊师张三接单"
+              "您的订单已被接单"
             ],
             "title": "Body",
             "type": "string"
           },
           "created_at": {
-            "description": "发送时间",
+            "description": "创建时间",
             "format": "date-time",
             "title": "Created At",
             "type": "string"
@@ -1132,13 +1621,43 @@
                 "type": "null"
               }
             ],
-            "description": "关联资源 ID（如 order_id）",
+            "description": "关联实体 ID（兼容字段）",
             "title": "Reference Id"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "[F-02] 深链跳转目标 ID",
+            "examples": [
+              "6f1d…"
+            ],
+            "title": "Target Id"
+          },
+          "target_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "[F-02] 深链跳转目标类型: order/companion/system/payment/review",
+            "examples": [
+              "order"
+            ],
+            "title": "Target Type"
           },
           "title": {
             "description": "标题",
             "examples": [
-              "陪诊师已接单"
+              "订单状态更新"
             ],
             "title": "Title",
             "type": "string"
@@ -1146,13 +1665,13 @@
           "type": {
             "description": "通知类型",
             "examples": [
-              "order_accepted"
+              "order_status_changed"
             ],
             "title": "Type",
             "type": "string"
           },
           "user_id": {
-            "description": "接收用户 ID",
+            "description": "用户 ID",
             "format": "uuid",
             "title": "User Id",
             "type": "string"
@@ -1354,9 +1873,9 @@
             "title": "Payment Status"
           },
           "price": {
-            "description": "订单金额（元）",
+            "description": "订单金额（元，字符串形式避免浮点误差）",
             "examples": [
-              199.0
+              "199.00"
             ],
             "title": "Price",
             "type": "number"
@@ -1740,6 +2259,36 @@
       },
       "ReviewResponse": {
         "properties": {
+          "attitude_rating": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "态度维度评分",
+            "examples": [
+              5
+            ],
+            "title": "Attitude Rating"
+          },
+          "communication_rating": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "沟通维度评分",
+            "examples": [
+              5
+            ],
+            "title": "Communication Rating"
+          },
           "companion_id": {
             "description": "陪诊师 ID",
             "format": "uuid",
@@ -1794,8 +2343,38 @@
             "description": "患者昵称（脱敏可选）",
             "title": "Patient Name"
           },
+          "professionalism_rating": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "专业维度评分",
+            "examples": [
+              5
+            ],
+            "title": "Professionalism Rating"
+          },
+          "punctuality_rating": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "守时维度评分",
+            "examples": [
+              5
+            ],
+            "title": "Punctuality Rating"
+          },
           "rating": {
-            "description": "评分",
+            "description": "总评分（4 维度加权平均，四舍五入到整数）",
             "examples": [
               5
             ],
@@ -1937,7 +2516,7 @@
       "UnreadCountResponse": {
         "properties": {
           "count": {
-            "description": "未读通知数",
+            "description": "未读数量",
             "examples": [
               3
             ],
@@ -2463,6 +3042,70 @@
           }
         },
         "summary": "后台：批准陪诊师入驻",
+        "tags": [
+          "admin",
+          "admin-companions"
+        ]
+      }
+    },
+    "/api/v1/admin/companions/{companion_id}/certify": {
+      "post": {
+        "description": "设置认证类型/证书编号/证书图片并戳记 certified_at；写入 admin_audit_log。",
+        "operationId": "certify_companion_api_v1_admin_companions__companion_id__certify_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "companion_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Companion Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CertifyCompanionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanionDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "管理员：设置陪诊师资质认证（F-01）",
         "tags": [
           "admin",
           "admin-companions"
@@ -4245,6 +4888,494 @@
         ]
       }
     },
+    "/api/v1/emergency/contacts": {
+      "get": {
+        "description": "返回当前用户配置的紧急联系人（最多 3 个），按 created_at 升序。",
+        "operationId": "list_contacts_api_v1_emergency_contacts_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EmergencyContactResponse"
+                  },
+                  "title": "Response List Contacts Api V1 Emergency Contacts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "紧急联系人列表",
+        "tags": [
+          "emergency"
+        ]
+      },
+      "post": {
+        "description": "为当前用户新增一位紧急联系人；超过 3 个或重复手机号会返回 409。",
+        "operationId": "create_contact_api_v1_emergency_contacts_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmergencyContactCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyContactResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "新增紧急联系人（最多 3 个）",
+        "tags": [
+          "emergency"
+        ]
+      }
+    },
+    "/api/v1/emergency/contacts/{contact_id}": {
+      "delete": {
+        "description": "软删除指定的紧急联系人；非本人持有返回 403。",
+        "operationId": "delete_contact_api_v1_emergency_contacts__contact_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contact_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Contact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "删除紧急联系人",
+        "tags": [
+          "emergency"
+        ]
+      },
+      "put": {
+        "description": "更新指定 contact_id 的姓名 / 关系 / 手机号；非本人持有返回 403。",
+        "operationId": "update_contact_api_v1_emergency_contacts__contact_id__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contact_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Contact Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmergencyContactUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyContactResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "更新紧急联系人",
+        "tags": [
+          "emergency"
+        ]
+      }
+    },
+    "/api/v1/emergency/events": {
+      "get": {
+        "description": "返回当前用户触发过的紧急事件列表，按 created_at 降序，用于历史回溯审计。",
+        "operationId": "list_events_api_v1_emergency_events_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EmergencyEventResponse"
+                  },
+                  "title": "Response List Events Api V1 Emergency Events Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "我的紧急事件历史",
+        "tags": [
+          "emergency"
+        ]
+      },
+      "post": {
+        "description": "患者点击紧急呼叫后调用：传入 contact_id 或 hotline=true，服务端记录审计并返回前端要 wx.makePhoneCall 的号码。",
+        "operationId": "trigger_event_api_v1_emergency_events_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmergencyTriggerRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyTriggerResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request payload"
+                }
+              }
+            },
+            "description": "请求参数错误"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "触发紧急事件",
+        "tags": [
+          "emergency"
+        ]
+      }
+    },
+    "/api/v1/emergency/hotline": {
+      "get": {
+        "description": "返回平台配置的客服热线，前端用于紧急呼叫弹层。",
+        "operationId": "get_hotline_api_v1_emergency_hotline_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "平台客服热线",
+        "tags": [
+          "emergency"
+        ]
+      }
+    },
     "/api/v1/health": {
       "get": {
         "description": "liveness 探针：进程活着即返回 200，不检查外部依赖。",
@@ -5028,7 +6159,7 @@
     },
     "/api/v1/notifications/{notification_id}/read": {
       "post": {
-        "description": "将指定通知标记为已读。返回 `{success: true/false}`。",
+        "description": "将指定通知标记为已读，并返回最新的通知（含 `target_type` / `target_id`），前端可据此立刻跳转到对应详情页。",
         "operationId": "mark_notification_read_api_v1_notifications__notification_id__read_post",
         "parameters": [
           {
@@ -5047,9 +6178,23 @@
             "content": {
               "application/json": {
                 "example": {
+                  "notification": {
+                    "body": "订单 ORD-001 状态已变更为 已接单",
+                    "created_at": "2026-04-25T12:00:00+00:00",
+                    "id": "00000000-0000-0000-0000-000000000000",
+                    "is_read": true,
+                    "reference_id": "order-uuid",
+                    "target_id": "order-uuid",
+                    "target_type": "order",
+                    "title": "订单状态更新: 已接单",
+                    "type": "order_status_changed",
+                    "user_id": "00000000-0000-0000-0000-000000000001"
+                  },
                   "success": true
                 },
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/MarkReadResponse"
+                }
               }
             },
             "description": "操作结果"
@@ -5100,7 +6245,7 @@
             "HTTPBearer": []
           }
         ],
-        "summary": "标记单条通知已读",
+        "summary": "标记单条通知已读（含深链 target）",
         "tags": [
           "notifications"
         ]

@@ -2,6 +2,7 @@ import logging
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Sequence
 
 from sqlalchemy import select
@@ -332,7 +333,10 @@ class OrderService:
             if old_status in (OrderStatus.created, OrderStatus.accepted):
                 refund_amount = order.price  # 100% refund
             else:
-                refund_amount = round(order.price * 0.5, 2)  # 50% refund
+                # ADR-0030: 使用 Decimal 算术 + 半进位
+                refund_amount = (order.price * Decimal("0.5")).quantize(
+                    Decimal("0.01"), rounding=ROUND_HALF_UP
+                )
             try:
                 await self.payment_svc.create_refund(
                     order_id=order_id,

@@ -1,6 +1,7 @@
 import hashlib
 import logging
 from datetime import datetime, timezone
+from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
 
 from sqlalchemy import select
@@ -120,7 +121,10 @@ class UserService:
                     if old_status == OrderStatus.accepted:
                         refund_amount = order.price  # 100% refund
                     else:
-                        refund_amount = round(order.price * 0.5, 2)  # 50%
+                        # ADR-0030: Decimal 半进位
+                        refund_amount = (order.price * Decimal("0.5")).quantize(
+                            Decimal("0.01"), rounding=ROUND_HALF_UP
+                        )
                     try:
                         await payment_svc.create_refund(
                             order_id=order.id,

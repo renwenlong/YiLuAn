@@ -1,7 +1,8 @@
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 
-from sqlalchemy import DateTime, Float, String, Text, UniqueConstraint, Uuid
+from sqlalchemy import DateTime, Numeric, String, Text, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -22,7 +23,8 @@ class Payment(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), nullable=False
     )
-    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    # ADR-0030: 金额使用 Decimal/Numeric(10,2)
+    amount: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     payment_type: Mapped[str] = mapped_column(
         String(20), nullable=False
     )  # "pay" or "refund"

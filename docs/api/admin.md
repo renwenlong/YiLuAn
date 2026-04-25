@@ -20,6 +20,7 @@
 | --- | --- | --- |
 | `GET` | `/api/v1/admin/companions/` | 后台：待审核陪诊师列表 |
 | `POST` | `/api/v1/admin/companions/{companion_id}/approve` | 后台：批准陪诊师入驻 |
+| `POST` | `/api/v1/admin/companions/{companion_id}/certify` | 管理员：设置陪诊师资质认证（F-01） |
 | `POST` | `/api/v1/admin/companions/{companion_id}/reject` | 后台：驳回陪诊师申请 |
 | `GET` | `/api/v1/admin/orders` | 后台：查询全部订单 |
 | `POST` | `/api/v1/admin/orders/{order_id}/admin-refund` | 后台：管理员退款 |
@@ -76,6 +77,37 @@ curl -X GET 'https://api.yiluan.example.com/api/v1/admin/companions/' \
 
 ```bash
 curl -X POST 'https://api.yiluan.example.com/api/v1/admin/companions/{companion_id}/approve' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `POST /api/v1/admin/companions/{companion_id}/certify` — 管理员：设置陪诊师资质认证（F-01）
+
+设置认证类型/证书编号/证书图片并戳记 certified_at；写入 admin_audit_log。
+
+**参数：**
+
+- `companion_id` (path, string, required=✅) — 
+- `X-Admin-Token` (header, string, required=✅) — 
+
+**请求体（JSON）：**
+
+```json
+""
+```
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X POST 'https://api.yiluan.example.com/api/v1/admin/companions/{companion_id}/certify' \
   -H 'Authorization: Bearer <access_token>'
 ```
 

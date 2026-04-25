@@ -1,9 +1,10 @@
 import enum
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import DateTime, Enum, Float, String, Text, Uuid
+from sqlalchemy import DateTime, Enum, Numeric, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -15,10 +16,11 @@ class ServiceType(str, enum.Enum):
     errand = "errand"
 
 
-SERVICE_PRICES: dict[ServiceType, float] = {
-    ServiceType.full_accompany: 299.0,
-    ServiceType.half_accompany: 199.0,
-    ServiceType.errand: 149.0,
+# ADR-0030: 金额统一使用 Decimal，避免 IEEE 754 浮点误差
+SERVICE_PRICES: dict[ServiceType, Decimal] = {
+    ServiceType.full_accompany: Decimal("299.00"),
+    ServiceType.half_accompany: Decimal("199.00"),
+    ServiceType.errand: Decimal("149.00"),
 }
 
 
@@ -90,7 +92,7 @@ class Order(Base):
     appointment_date: Mapped[str] = mapped_column(String(10), nullable=False)
     appointment_time: Mapped[str] = mapped_column(String(5), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    price: Mapped[float] = mapped_column(Float, nullable=False)
+    price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     hospital_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     companion_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     patient_name: Mapped[str | None] = mapped_column(String(100), nullable=True)

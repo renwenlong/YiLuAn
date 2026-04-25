@@ -1,10 +1,7 @@
 {
   "navigationBarTitleText": "我的订单",
   "usingComponents": {
-    "order-card": "/components/order-card/index",
-    "empty-state": "/components/empty-state/index",
-    "loading-overlay": "/components/loading-overlay/index",
-    "patient-tab-bar": "/components/patient-tab-bar/index"
+    "order-card": "/components/order-card/index"
   },
   "enablePullDownRefresh": true
 }

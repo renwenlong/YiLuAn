@@ -2,7 +2,6 @@
   "navigationBarTitleText": "首页",
   "usingComponents": {
     "service-card": "/components/service-card/index",
-    "companion-card": "/components/companion-card/index",
-    "patient-tab-bar": "/components/patient-tab-bar/index"
+    "companion-card": "/components/companion-card/index"
   }
 }
