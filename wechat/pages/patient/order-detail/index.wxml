@@ -1,6 +1,43 @@
 <loading-overlay wx:if="{{loading}}" />
 
 <view class="page-container" wx:if="{{order}}">
+  <!-- [F-03] Emergency button (in_progress only) -->
+  <view
+    class="emergency-fab"
+    wx:if="{{order.status === 'in_progress'}}"
+    bindtap="onEmergencyTap"
+  >
+    <text class="emergency-icon">⚠️</text>
+    <text class="emergency-label">紧急呼叫</text>
+  </view>
+
+  <!-- Emergency modal -->
+  <view class="em-mask" wx:if="{{showEmergency}}" bindtap="onEmergencyClose" />
+  <view class="em-modal" wx:if="{{showEmergency}}">
+    <view class="em-title">紧急呼叫</view>
+    <view class="em-hint">选择要拨打的联系人</view>
+    <view class="em-list">
+      <view
+        class="em-item"
+        wx:for="{{emergencyContacts}}"
+        wx:key="id"
+        data-id="{{item.id}}"
+        bindtap="onCallContact"
+      >
+        <view class="em-item-name">{{item.name}} <text class="em-rel">{{item.relationship}}</text></view>
+        <view class="em-item-phone">{{item.phone}}</view>
+      </view>
+      <view class="em-empty" wx:if="{{emergencyContacts.length === 0}}">
+        <text>未设置紧急联系人</text>
+        <text class="em-link" bindtap="onManageContacts">去添加</text>
+      </view>
+      <view class="em-item em-hotline" bindtap="onCallHotline">
+        <view class="em-item-name">平台客服热线</view>
+        <view class="em-item-phone">{{emergencyHotline || '加载中...'}}</view>
+      </view>
+    </view>
+    <button class="em-cancel" bindtap="onEmergencyClose">取消</button>
+  </view>
   <!-- Status Header -->
   <view class="status-header status-{{order.status}}">
     <view class="status-header-decor"></view>

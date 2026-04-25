@@ -24,6 +24,7 @@
     "pages/review/write/index",
     "pages/profile/bind-phone/index",
     "pages/profile/wallet/index",
+    "pages/profile/emergency-contacts/index",
     "pages/profile/settings/index",
     "pages/profile/about/index",
     "pages/notification/index",

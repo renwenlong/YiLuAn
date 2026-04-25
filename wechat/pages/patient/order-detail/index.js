@@ -1,5 +1,10 @@
 const { getOrderDetail, orderAction, payOrder, requestWechatPayment } = require('../../../services/order')
 const { getOrderReview } = require('../../../services/review')
+const {
+  listEmergencyContacts,
+  getEmergencyHotline,
+  triggerEmergencyEvent,
+} = require('../../../services/emergency')
 const store = require('../../../store/index')
 const { ORDER_STATUS, SERVICE_TYPES } = require('../../../utils/constants')
 const { formatPrice, formatDate } = require('../../../utils/format')
@@ -20,7 +25,11 @@ Page({
     paymentStatusLabel: '',
     paymentStatusClass: '',
     countdown: '',
-    countdownUrgent: false
+    countdownUrgent: false,
+    // [F-03] Emergency call
+    showEmergency: false,
+    emergencyContacts: [],
+    emergencyHotline: ''
   },
 
   onLoad(options) {
@@ -267,5 +276,58 @@ Page({
       url: '/pages/patient/create-order/index?hospital_id=' + order.hospital_id +
         '&service_type=' + order.service_type
     })
+  },
+
+  // [F-03] Emergency call ----------------------------------------------
+  async onEmergencyTap() {
+    this.setData({ showEmergency: true })
+    try {
+      const [contacts, hotline] = await Promise.all([
+        listEmergencyContacts().catch(() => []),
+        getEmergencyHotline().catch(() => ({ hotline: '' })),
+      ])
+      this.setData({
+        emergencyContacts: contacts || [],
+        emergencyHotline: (hotline && hotline.hotline) || '',
+      })
+    } catch (e) {
+      // surface but keep panel open with whatever loaded
+    }
+  },
+
+  onEmergencyClose() {
+    this.setData({ showEmergency: false })
+  },
+
+  async onCallContact(e) {
+    const { id } = e.currentTarget.dataset
+    await this._fireEmergency({ contact_id: id })
+  },
+
+  async onCallHotline() {
+    await this._fireEmergency({ hotline: true })
+  },
+
+  onManageContacts() {
+    this.setData({ showEmergency: false })
+    wx.navigateTo({ url: '/pages/profile/emergency-contacts/index' })
+  },
+
+  async _fireEmergency(target) {
+    var payload = Object.assign({ order_id: this.orderId }, target)
+    try {
+      const result = await triggerEmergencyEvent(payload)
+      this.setData({ showEmergency: false })
+      if (result && result.phone_to_call) {
+        wx.makePhoneCall({ phoneNumber: result.phone_to_call })
+      }
+    } catch (err) {
+      var msg = '呼叫失败'
+      if (err && err.data && err.data.detail) {
+        var d = err.data.detail
+        msg = (d && d.message) || (typeof d === 'string' ? d : msg)
+      }
+      wx.showToast({ title: msg, icon: 'none' })
+    }
   }
 })
