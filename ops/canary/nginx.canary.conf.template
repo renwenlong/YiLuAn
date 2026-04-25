@@ -1,0 +1,178 @@
+# YiLuAn — Nginx Canary Release Config Template
+#
+# 用途: 灰度发布期间, 把流量按权重切到 backend_new (新版本) / backend_stable (旧版本)。
+# 引用: docs/decisions/ADR-0028-canary-release-and-rollback.md (实施细节 4.1 阶段表)
+#
+# 部署位置:
+#   /etc/nginx/conf.d/yiluan-canary.conf (生产)
+#   或包含到主 server{} 中
+#
+# 切流量改法:
+#   修改 split_clients 中 percents 注释段; 然后:
+#       sudo nginx -t && sudo nginx -s reload
+#   reload 是非中断式的, 不会丢现有连接。
+#
+# 分桶策略:
+#   优先 cookie (canary_bucket) -> 同一用户体验稳定;
+#   cookie 不存在时 fallback 到 client IP 的 hash, 保证无 cookie 客户端 (老 SDK / curl) 也分布稳定。
+
+# ---------------------------------------------------------------------------
+# 1) 上游定义: 新旧两组后端
+# ---------------------------------------------------------------------------
+
+upstream backend_stable {
+    # 当前生产稳定版本 (蓝)
+    server 127.0.0.1:8001 max_fails=3 fail_timeout=10s;
+    server 127.0.0.1:8002 max_fails=3 fail_timeout=10s;
+    keepalive 64;
+}
+
+upstream backend_new {
+    # 灰度新版本 (绿)
+    server 127.0.0.1:9001 max_fails=3 fail_timeout=10s;
+    server 127.0.0.1:9002 max_fails=3 fail_timeout=10s;
+    keepalive 64;
+}
+
+# ---------------------------------------------------------------------------
+# 2) 分桶决策: 先看 cookie, 无 cookie 用 client IP hash
+# ---------------------------------------------------------------------------
+
+# $canary_key:
+#   - 若客户端带了 canary_bucket cookie => 用 cookie 值 ("new" / "stable")
+#   - 否则 => 用 $remote_addr 进 hash, 让 split_clients 决定
+map $cookie_canary_bucket $canary_key {
+    default      $remote_addr;   # 无 cookie -> 走 hash 分流
+    "new"        "__force_new";  # 显式 cookie=new -> 强制新版本
+    "stable"     "__force_stable"; # 显式 cookie=stable -> 强制旧版本
+}
+
+# split_clients: 把 hash 空间切片为 new/stable
+#
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# 改百分比时, 三选一打开, 其它两段保持注释。每次 reload 只改这一处。
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+# Stage 1: 1%  -> backend_new, 99% -> backend_stable
+split_clients "${canary_key}" $canary_pool {
+    1%      "backend_new";
+    *       "backend_stable";
+}
+
+# Stage 2: 10% -> backend_new, 90% -> backend_stable
+# split_clients "${canary_key}" $canary_pool {
+#     10%     "backend_new";
+#     *       "backend_stable";
+# }
+
+# Stage 3: 50% -> backend_new, 50% -> backend_stable
+# split_clients "${canary_key}" $canary_pool {
+#     50%     "backend_new";
+#     *       "backend_stable";
+# }
+
+# Stage 4: 100% -> backend_new (灰度结束)
+# split_clients "${canary_key}" $canary_pool {
+#     *       "backend_new";
+# }
+
+# Rollback (紧急回滚): 0% -> backend_new, 100% -> backend_stable
+# split_clients "${canary_key}" $canary_pool {
+#     *       "backend_stable";
+# }
+
+# ---------------------------------------------------------------------------
+# 3) 显式 cookie 覆盖 (调试/QA 强制走某一桶)
+# ---------------------------------------------------------------------------
+
+map $canary_key $final_pool {
+    default              $canary_pool;
+    "__force_new"        "backend_new";
+    "__force_stable"     "backend_stable";
+}
+
+# ---------------------------------------------------------------------------
+# 4) Server 块
+# ---------------------------------------------------------------------------
+
+server {
+    listen 443 ssl http2;
+    server_name api.yiluan.example.com;
+
+    # TLS 配置见 docs/deployment.md 第 X 节
+    ssl_certificate     /etc/letsencrypt/live/api.yiluan.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/api.yiluan.example.com/privkey.pem;
+
+    # /metrics 白名单 (D-037, 沿用 docs/deployment.md)
+    location = /metrics {
+        allow 10.0.0.0/8;       # Prometheus scrape source
+        allow 127.0.0.1;
+        deny  all;
+        proxy_pass http://$final_pool;
+    }
+
+    # /readiness 与 /health: 不走灰度, 永远打到所有 upstream (用于 LB 健康检查)
+    # 这里简单打到 stable, 可按需要分别探测 new/stable。
+    location = /readiness {
+        proxy_pass http://backend_stable;
+    }
+    location = /health {
+        proxy_pass http://backend_stable;
+    }
+
+    # 业务流量: 按 split_clients 决定
+    location / {
+        # 落桶后种 cookie, 让同一用户后续请求稳定落同一桶
+        # cookie 30 天有效, 仅 HTTPS, HttpOnly 可关 (前端无需读)
+        set $set_canary_cookie "";
+        if ($cookie_canary_bucket = "") {
+            set $set_canary_cookie "canary_bucket=$final_pool; Path=/; Max-Age=2592000; Secure; HttpOnly; SameSite=Lax";
+        }
+        add_header Set-Cookie $set_canary_cookie always;
+
+        # 把当前桶名透传给后端, 用于日志关联与指标 label
+        proxy_set_header X-Canary-Pool   $final_pool;
+        proxy_set_header X-Real-IP       $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Host            $host;
+
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_read_timeout 30s;
+        proxy_send_timeout 30s;
+
+        # final_pool 取值为 "backend_new" 或 "backend_stable" (字符串名)
+        proxy_pass http://$final_pool;
+    }
+
+    # 访问日志带上 canary 桶, 便于按桶统计 5xx
+    log_format canary  '$remote_addr - $remote_user [$time_local] '
+                       '"$request" $status $body_bytes_sent '
+                       'pool=$final_pool rt=$request_time '
+                       'ua="$http_user_agent"';
+    access_log /var/log/nginx/yiluan-canary.access.log canary;
+    error_log  /var/log/nginx/yiluan-canary.error.log warn;
+}
+
+# ---------------------------------------------------------------------------
+# 5) 操作速查
+# ---------------------------------------------------------------------------
+#
+# 进入下一阶段:
+#   sudo vi /etc/nginx/conf.d/yiluan-canary.conf  # 注释当前 stage, 打开下一 stage
+#   sudo nginx -t
+#   sudo nginx -s reload
+#
+# 紧急回滚 (< 30s):
+#   sudo vi /etc/nginx/conf.d/yiluan-canary.conf  # 启用 "Rollback" 段
+#   sudo nginx -t && sudo nginx -s reload
+#   # 详见 docs/RUNBOOK_ROLLBACK.md 场景 A
+#
+# 验证当前权重:
+#   curl -s -o /dev/null -w "%{http_code} pool=%{header_x-canary-pool}\n" \
+#        https://api.yiluan.example.com/api/v1/health
+#   # 重复 100 次后统计 backend_new 出现比例, 应接近当前阶段百分比
+#
+# QA 强制落桶:
+#   curl -H "Cookie: canary_bucket=new"    https://api.yiluan.example.com/...
+#   curl -H "Cookie: canary_bucket=stable" https://api.yiluan.example.com/...
