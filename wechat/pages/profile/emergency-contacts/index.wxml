@@ -1,0 +1,42 @@
+<view class="page">
+  <view class="hint">最多可设置 3 个紧急联系人，紧急情况下可一键呼叫</view>
+
+  <view class="contact-list">
+    <view class="contact-card" wx:for="{{contacts}}" wx:key="id">
+      <view class="contact-info">
+        <view class="contact-name">{{item.name}} <text class="contact-rel">{{item.relationship}}</text></view>
+        <view class="contact-phone">{{item.phone}}</view>
+      </view>
+      <view class="contact-actions">
+        <text class="link-btn" data-id="{{item.id}}" bindtap="onEditTap">编辑</text>
+        <text class="link-btn link-danger" data-id="{{item.id}}" bindtap="onDeleteTap">删除</text>
+      </view>
+    </view>
+    <view class="empty" wx:if="{{!loading && contacts.length === 0}}">还没有紧急联系人</view>
+  </view>
+
+  <button class="add-btn" bindtap="onAddTap" disabled="{{!canAdd}}">
+    {{ canAdd ? '+ 添加紧急联系人' : '已达到上限（3 个）' }}
+  </button>
+
+  <view class="modal-mask" wx:if="{{showForm}}" bindtap="onCancelForm" />
+  <view class="modal" wx:if="{{showForm}}">
+    <view class="modal-title">{{ editingId ? '编辑紧急联系人' : '添加紧急联系人' }}</view>
+    <view class="form-row">
+      <text class="form-label">姓名</text>
+      <input class="form-input" placeholder="如 王芳" value="{{form.name}}" bindinput="onNameInput" maxlength="50" />
+    </view>
+    <view class="form-row">
+      <text class="form-label">手机号</text>
+      <input class="form-input" placeholder="11 位手机号" type="number" value="{{form.phone}}" bindinput="onPhoneInput" maxlength="11" />
+    </view>
+    <view class="form-row">
+      <text class="form-label">关系</text>
+      <input class="form-input" placeholder="如 配偶/子女/朋友" value="{{form.relationship}}" bindinput="onRelationshipInput" maxlength="20" />
+    </view>
+    <view class="modal-actions">
+      <button class="btn-secondary" bindtap="onCancelForm">取消</button>
+      <button class="btn-primary" bindtap="onSubmit">保存</button>
+    </view>
+  </view>
+</view>

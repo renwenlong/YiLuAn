@@ -74,6 +74,10 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: list[str] = ["*"]
 
+    # [F-03] Emergency / 客服热线
+    # 当患者点击紧急呼叫且未配置紧急联系人时使用此号码（占位，由运维注入）。
+    emergency_hotline: str = "4001234567"
+
     # Scheduler (D-018)
     scheduler_enabled: bool = True  # 生产开启；测试/CLI 可关闭
 

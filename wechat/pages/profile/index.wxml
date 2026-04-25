@@ -43,6 +43,10 @@
       <text class="menu-text">我的钱包</text>
       <text class="menu-arrow">></text>
     </view>
+    <view class="menu-item" data-target="/pages/profile/emergency-contacts/index" bindtap="onMenuTap">
+      <text class="menu-text">紧急联系人</text>
+      <text class="menu-arrow">></text>
+    </view>
     <view class="menu-item" data-target="/pages/profile/settings/index" bindtap="onMenuTap">
       <text class="menu-text">设置</text>
       <text class="menu-arrow">></text>
