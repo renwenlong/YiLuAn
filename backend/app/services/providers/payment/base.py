@@ -3,7 +3,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any
+
+
+def _to_decimal(value: Decimal | int | float | str) -> Decimal:
+    """Safely coerce to Decimal. ``float`` is converted via ``str`` to avoid
+    IEEE 754 noise leaking into payment math (ADR-0030)."""
+    if isinstance(value, Decimal):
+        return value
+    if isinstance(value, float):
+        return Decimal(str(value))
+    return Decimal(value)
 
 
 @dataclass
@@ -11,22 +22,32 @@ class OrderDTO:
     """Lightweight order view passed to a provider.
 
     Decoupled from ORM ``Order`` so providers don't depend on DB models.
+    Amounts are ``Decimal`` (yuan) per ADR-0030.
     """
 
     order_number: str
-    amount_yuan: float
+    amount_yuan: Decimal
     description: str = "医路安陪诊服务"
     openid: str | None = None
+
+    def __post_init__(self) -> None:
+        # Accept legacy float/int/str inputs and coerce to Decimal so
+        # downstream provider math is always exact (ADR-0030).
+        self.amount_yuan = _to_decimal(self.amount_yuan)
 
 
 @dataclass
 class RefundDTO:
-    """Refund request data."""
+    """Refund request data. Amounts are ``Decimal`` (yuan) per ADR-0030."""
 
     trade_no: str
     refund_id: str
-    total_yuan: float
-    refund_yuan: float
+    total_yuan: Decimal
+    refund_yuan: Decimal
+
+    def __post_init__(self) -> None:
+        self.total_yuan = _to_decimal(self.total_yuan)
+        self.refund_yuan = _to_decimal(self.refund_yuan)
 
 
 class PaymentProvider:
@@ -74,14 +95,14 @@ class PaymentProvider:
     async def create_prepay(
         self,
         order_number: str,
-        amount_yuan: float,
+        amount_yuan: Decimal,
         description: str,
         openid: str | None = None,
     ) -> dict[str, Any]:
         return await self.create_order(
             OrderDTO(
                 order_number=order_number,
-                amount_yuan=amount_yuan,
+                amount_yuan=_to_decimal(amount_yuan),
                 description=description,
                 openid=openid,
             )
@@ -91,14 +112,14 @@ class PaymentProvider:
         self,
         trade_no: str,
         refund_id: str,
-        total_yuan: float,
-        refund_yuan: float,
+        total_yuan: Decimal,
+        refund_yuan: Decimal,
     ) -> dict[str, Any]:
         return await self.refund(
             RefundDTO(
                 trade_no=trade_no,
                 refund_id=refund_id,
-                total_yuan=total_yuan,
-                refund_yuan=refund_yuan,
+                total_yuan=_to_decimal(total_yuan),
+                refund_yuan=_to_decimal(refund_yuan),
             )
         )

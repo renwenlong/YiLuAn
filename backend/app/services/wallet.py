@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,6 +7,9 @@ from app.models.payment import Payment
 from app.models.user import User, UserRole
 from app.repositories.order import OrderRepository
 from app.repositories.payment import PaymentRepository
+
+
+_ZERO = Decimal("0.00")
 
 
 class WalletService:
@@ -19,9 +23,9 @@ class WalletService:
             return {
                 "balance": total_income,
                 "total_income": total_income,
-                "withdrawn": 0.0,
+                "withdrawn": _ZERO,
             }
-        return {"balance": 0.0, "total_income": 0.0, "withdrawn": 0.0}
+        return {"balance": _ZERO, "total_income": _ZERO, "withdrawn": _ZERO}
 
     async def get_transactions(
         self, user: User, *, page: int = 1, page_size: int = 20

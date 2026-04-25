@@ -22,7 +22,10 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any
+
+from app.services.providers.payment.base import _to_decimal
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -104,11 +107,13 @@ class PaymentService:
         order_id: uuid.UUID,
         order_number: str,
         user_id: uuid.UUID,
-        amount: float,
+        amount: Decimal | int | float | str,
         description: str = "医路安陪诊服务",
         openid: str | None = None,
     ) -> PrepayResult:
         """Create a prepay order. Returns signing params for the client."""
+
+        amount_dec = _to_decimal(amount).quantize(Decimal("0.01"))
 
         existing = await self.repo.get_by_order_and_type(order_id, "pay")
         if existing and existing.status == "success":
@@ -116,7 +121,7 @@ class PaymentService:
 
         result = await self.provider.create_prepay(
             order_number=order_number,
-            amount_yuan=amount,
+            amount_yuan=amount_dec,
             description=description,
             openid=openid,
         )
@@ -128,7 +133,7 @@ class PaymentService:
         payment = Payment(
             order_id=order_id,
             user_id=user_id,
-            amount=amount,
+            amount=amount_dec,
             payment_type="pay",
             status="success" if is_mock else "pending",
             trade_no=trade_no,
@@ -372,10 +377,13 @@ class PaymentService:
         self,
         order_id: uuid.UUID,
         user_id: uuid.UUID,
-        original_amount: float,
-        refund_amount: float,
+        original_amount: Decimal | int | float | str,
+        refund_amount: Decimal | int | float | str,
     ) -> RefundResult:
         """Create a refund for an order."""
+
+        original_dec = _to_decimal(original_amount).quantize(Decimal("0.01"))
+        refund_dec = _to_decimal(refund_amount).quantize(Decimal("0.01"))
 
         existing_refund = await self.repo.get_by_order_and_type(
             order_id, "refund"
@@ -394,8 +402,8 @@ class PaymentService:
             result = await self.provider.create_refund(
                 trade_no=original_pay.trade_no or "",
                 refund_id=refund_number,
-                total_yuan=original_amount,
-                refund_yuan=refund_amount,
+                total_yuan=original_dec,
+                refund_yuan=refund_dec,
             )
         except BadRequestException:
             # Provider explicitly rejected — propagate to caller as-is so
@@ -418,7 +426,7 @@ class PaymentService:
         refund = Payment(
             order_id=order_id,
             user_id=user_id,
-            amount=refund_amount,
+            amount=refund_dec,
             payment_type="refund",
             status="success" if is_mock else "pending",
             trade_no=original_pay.trade_no,

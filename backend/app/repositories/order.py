@@ -1,6 +1,7 @@
+from datetime import datetime
+from decimal import Decimal
 from typing import Sequence
 from uuid import UUID
-from datetime import datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -95,8 +96,11 @@ class OrderRepository(BaseRepository[Order]):
         result = await self.session.execute(stmt)
         return result.scalar_one()
 
-    async def sum_earnings_by_companion(self, companion_id: UUID) -> float:
-        stmt = select(func.coalesce(func.sum(Order.price), 0.0)).where(
+    async def sum_earnings_by_companion(self, companion_id: UUID) -> Decimal:
+        # ADR-0030: 返回 Decimal，避免与 Numeric(10,2) 列做浮点运算
+        stmt = select(
+            func.coalesce(func.sum(Order.price), 0)
+        ).where(
             Order.companion_id == companion_id,
             Order.status.in_([
                 OrderStatus.completed,
@@ -104,7 +108,10 @@ class OrderRepository(BaseRepository[Order]):
             ]),
         )
         result = await self.session.execute(stmt)
-        return float(result.scalar_one())
+        value = result.scalar_one()
+        if isinstance(value, Decimal):
+            return value.quantize(Decimal("0.01"))
+        return Decimal(str(value)).quantize(Decimal("0.01"))
 
     async def list_available(
         self, *, skip: int = 0, limit: int = 20, date: str | None = None, city: str | None = None

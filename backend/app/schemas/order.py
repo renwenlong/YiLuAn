@@ -1,7 +1,13 @@
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
+from pydantic.types import condecimal
+
+
+# ADR-0030: 金额统一使用 Decimal(10,2)；JSON 序列化为字符串避免精度漂移
+MoneyDecimal = condecimal(max_digits=10, decimal_places=2)
 
 
 class CreateOrderRequest(BaseModel):
@@ -34,7 +40,7 @@ class OrderResponse(BaseModel):
     appointment_date: str = Field(..., description="预约日期", examples=["2026-05-01"])
     appointment_time: str = Field(..., description="预约时间", examples=["09:30"])
     description: str | None = Field(None, description="患者补充说明")
-    price: float = Field(..., description="订单金额（元）", examples=[199.00])
+    price: MoneyDecimal = Field(..., description="订单金额（元，字符串形式避免浮点误差）", examples=["199.00"])
     hospital_name: str | None = Field(None, description="医院名称（冗余）", examples=["北京协和医院"])
     companion_name: str | None = Field(None, description="陪诊师姓名（冗余）", examples=["张三"])
     patient_name: str | None = Field(None, description="患者姓名（冗余）", examples=["小明"])
@@ -47,6 +53,11 @@ class OrderResponse(BaseModel):
 
     model_config = {"from_attributes": True}
 
+    @field_serializer("price")
+    def _ser_price(self, v: Decimal) -> float:
+        # ADR-0030: 内部 Decimal，对外保持 number（前端契约不破）
+        return float(Decimal(v).quantize(Decimal("0.01")))
+
 
 class OrderListResponse(BaseModel):
     items: list[OrderResponse] = Field(..., description="当页订单")
@@ -57,9 +68,14 @@ class PaymentResponse(BaseModel):
     id: UUID = Field(..., description="支付/退款记录 ID")
     order_id: UUID = Field(..., description="所属订单 ID")
     user_id: UUID = Field(..., description="发起用户 ID")
-    amount: float = Field(..., description="金额（元）", examples=[199.00])
+    amount: MoneyDecimal = Field(..., description="金额（元）", examples=[199.00])
     payment_type: str = Field(..., description="类型：pay / refund", examples=["pay"])
     status: str = Field(..., description="状态：pending / success / failed", examples=["success"])
     created_at: datetime = Field(..., description="创建时间")
 
     model_config = {"from_attributes": True}
+
+    @field_serializer("amount")
+    def _ser_amount(self, v: Decimal) -> float:
+        # ADR-0030: 内部 Decimal，对外保持 number
+        return float(Decimal(v).quantize(Decimal("0.01")))

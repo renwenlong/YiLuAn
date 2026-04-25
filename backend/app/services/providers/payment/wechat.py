@@ -46,6 +46,7 @@ import logging
 import threading
 import time
 import uuid
+from decimal import ROUND_HALF_UP, Decimal  # noqa: F401  (Decimal used via type hints)
 from typing import Any
 
 from app.config import settings
@@ -98,7 +99,10 @@ class WechatPaymentProvider(PaymentProvider):
 
     @outbound_call(provider="wechat_pay", timeout=5.0, max_retries=2)
     async def create_order(self, order: OrderDTO) -> dict[str, Any]:
-        amount_fen = int(round(order.amount_yuan * 100))
+        # ADR-0030: amount_yuan is Decimal — convert to fen exactly.
+        amount_fen = int(
+            (order.amount_yuan * 100).to_integral_value(rounding=ROUND_HALF_UP)
+        )
 
         if not self._has_credentials:
             # Mirror real response shape with mock data.
@@ -172,8 +176,13 @@ class WechatPaymentProvider(PaymentProvider):
 
     @outbound_call(provider="wechat_pay", timeout=5.0, max_retries=2)
     async def refund(self, refund: RefundDTO) -> dict[str, Any]:
-        total_fen = int(round(refund.total_yuan * 100))
-        refund_fen = int(round(refund.refund_yuan * 100))
+        # ADR-0030: amounts are Decimal — convert to fen exactly.
+        total_fen = int(
+            (refund.total_yuan * 100).to_integral_value(rounding=ROUND_HALF_UP)
+        )
+        refund_fen = int(
+            (refund.refund_yuan * 100).to_integral_value(rounding=ROUND_HALF_UP)
+        )
 
         if not self._has_credentials:
             return {

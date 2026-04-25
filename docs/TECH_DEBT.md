@@ -72,6 +72,19 @@
 每条技术债被解决后，请更新 DECISION_LOG.md 对应 D-xxx 小节并从本文件删除。
 
 ## 已解决的技术债
+- **TD-ARCH-03 金额字段使用 Float（IEEE 754 风险）** — 2026-04-25 解决，见 ADR-0030。
+  `Order.price` / `Payment.amount` Float → `Numeric(10, 2)`；`SERVICE_PRICES`、
+  Provider DTO（`OrderDTO.amount_yuan` / `RefundDTO.total_yuan` / `refund_yuan`）、
+  `PaymentService` / `WalletService` / 退款比例计算全链路切 `Decimal`。
+  Alembic 迁移 `a1d0c0de0030_money_to_decimal_adr_0030.py`（Postgres 用
+  `USING ::numeric(10,2)` 强转，SQLite 走 `batch_alter_table`）。
+  对外契约不变：Pydantic `field_serializer` 把 Decimal 输出为 number，
+  前端（小程序 `formatPrice`）零改动。新增 `tests/unit/test_decimal_money.py`
+  13 用例锁死契约（精度、舍入、yuan→fen、API 序列化形态）。
+  全量 880 passed / 15 skipped / 108s。
+  iOS 端 `Order.price`、`Payment.amount` 已是 `Decimal`（早期完成）；
+  遗留小坑：Swift `Decimal` 默认 Codable 经 Double 中转，需后续提供自定义
+  decoder（暂未触发，金额仅 2 位小数）。
 - **TD-PAY-01 订单过期时支付状态未联动收尾** — 2026-04-25 解决，见 ADR-0029。
 
 - **TD-OPS-01 `/readiness` 端点缺失** — 2026-04-17 解决，见 D-021。
