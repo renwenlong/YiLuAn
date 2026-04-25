@@ -14,6 +14,12 @@
       <text class="profile-name">{{companion.name}}</text>
       <text wx:if="{{companion.is_verified}}" class="verified-badge">已认证</text>
       <text wx:else class="unverified-badge">未认证</text>
+      <text
+        wx:if="{{companion.hasCertification}}"
+        class="certification-badge"
+        bindtap="onPreviewCertification"
+        data-testid="certification-badge"
+      >已认证·{{companion.certificationType}}</text>
     </view>
     <view class="profile-rating" wx:if="{{companion.rating > 0}}">
       <rating-stars value="{{companion.rating}}" readonly="{{true}}" />

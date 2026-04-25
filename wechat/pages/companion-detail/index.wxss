@@ -291,3 +291,15 @@
   opacity: 0.4;
   box-shadow: none;
 }
+
+.certification-badge {
+  display: inline-block;
+  padding: 4rpx 12rpx;
+  background: #fff7e6;
+  color: #d97706;
+  border: 1rpx solid #fcd34d;
+  border-radius: 16rpx;
+  font-size: 22rpx;
+  margin-left: 12rpx;
+}
+

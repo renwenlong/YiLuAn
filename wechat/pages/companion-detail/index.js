@@ -30,7 +30,13 @@ Page({
         serviceArea: rawCompanion.service_area || '',
         experience: rawCompanion.experience || '',
         serviceAreas: rawCompanion.service_area ? rawCompanion.service_area.split('、') : [],
-        is_verified: rawCompanion.verification_status === 'verified'
+        is_verified: rawCompanion.verification_status === 'verified',
+        // F-01: certification display
+        certificationType: rawCompanion.certification_type || '',
+        certificationNo: rawCompanion.certification_no || '',
+        certificationImageUrl: rawCompanion.certification_image_url || '',
+        certifiedAt: rawCompanion.certified_at || '',
+        hasCertification: !!(rawCompanion.certification_image_url && rawCompanion.certification_type)
       }
       var rawReviews = (reviewsRes && reviewsRes.items) || []
       var reviews = rawReviews.map(function (r) {
@@ -65,6 +71,16 @@ Page({
       wx.previewImage({
         urls: [companion.avatar],
         current: companion.avatar
+      })
+    }
+  },
+
+  onPreviewCertification() {
+    const { companion } = this.data
+    if (companion && companion.certificationImageUrl) {
+      wx.previewImage({
+        urls: [companion.certificationImageUrl],
+        current: companion.certificationImageUrl
       })
     }
   }

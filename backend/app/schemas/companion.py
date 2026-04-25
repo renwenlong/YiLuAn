@@ -42,9 +42,21 @@ class CompanionListResponse(BaseModel):
 
 class CompanionDetailResponse(CompanionListResponse):
     certifications: str | None = Field(None, description="资质证书")
+    certification_type: str | None = Field(None, description="认证类型（护士证 / 健康管理师等）", examples=["护士证"])
+    certification_no: str | None = Field(None, description="证书编号", examples=["NO.20231234"])
+    certification_image_url: str | None = Field(None, description="证书图片 OSS URL")
+    certified_at: datetime | None = Field(None, description="认证通过时间")
     created_at: datetime = Field(..., description="档案创建时间")
 
     model_config = {"from_attributes": True}
+
+
+class CertifyCompanionRequest(BaseModel):
+    """管理员为陪诊师设置资质认证（F-01）。"""
+
+    certification_type: str = Field(..., min_length=1, max_length=50, description="认证类型（护士证 / 健康管理师等）", examples=["护士证"])
+    certification_no: str = Field(..., min_length=1, max_length=100, description="证书编号", examples=["NO.20231234"])
+    certification_image_url: str = Field(..., min_length=1, max_length=500, description="证书图片 OSS URL")
 
 
 class CompanionStatsResponse(BaseModel):

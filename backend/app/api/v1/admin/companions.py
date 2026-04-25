@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from app.core.admin_auth import require_admin_token
 from app.dependencies import DBSession
+from app.schemas.companion import CertifyCompanionRequest, CompanionDetailResponse
 from app.services.admin_audit import AdminAuditService
 
 router = APIRouter(
@@ -101,3 +102,25 @@ async def reject_companion(
     svc = AdminAuditService(session)
     await svc.reject_companion(companion_id, operator_id="admin-token", reason=body.reason)
     return OkResponse()
+
+
+@router.post(
+    "/{companion_id}/certify",
+    response_model=CompanionDetailResponse,
+    summary="管理员：设置陪诊师资质认证（F-01）",
+    description="设置认证类型/证书编号/证书图片并戳记 certified_at；写入 admin_audit_log。",
+)
+async def certify_companion(
+    companion_id: UUID,
+    body: CertifyCompanionRequest,
+    session: DBSession,
+):
+    svc = AdminAuditService(session)
+    profile = await svc.certify_companion(
+        companion_id,
+        operator_id="admin-token",
+        certification_type=body.certification_type,
+        certification_no=body.certification_no,
+        certification_image_url=body.certification_image_url,
+    )
+    return profile
