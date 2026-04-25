@@ -137,10 +137,12 @@
   word-break: break-all;
 }
 
+/* P-02: 金额字号统一 (brand orange + bold + 36rpx，对齐 .polish-amount) */
 .info-value.price {
-  color: var(--color-danger);
+  color: var(--color-accent);
   font-weight: 700;
-  font-size: var(--font-size-h2);
+  font-size: 36rpx;
+  font-variant-numeric: tabular-nums;
 }
 
 .info-value.payment-unpaid {
