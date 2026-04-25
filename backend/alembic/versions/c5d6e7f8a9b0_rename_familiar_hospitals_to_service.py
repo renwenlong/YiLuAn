@@ -17,8 +17,37 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.alter_column('companion_profiles', 'familiar_hospitals', new_column_name='service_hospitals')
+    # 幂等：另一分支 12e9862becff 可能已经 ADD COLUMN IF NOT EXISTS 了
+    # service_hospitals。此时不需再 rename；仅在 familiar_hospitals 还存在时 rename。
+    op.execute(
+        "DO $$\n"
+        "BEGIN\n"
+        "  IF EXISTS (\n"
+        "    SELECT 1 FROM information_schema.columns\n"
+        "    WHERE table_name = 'companion_profiles'\n"
+        "      AND column_name = 'familiar_hospitals'\n"
+        "  ) THEN\n"
+        "    ALTER TABLE companion_profiles\n"
+        "      RENAME familiar_hospitals TO service_hospitals;\n"
+        "  END IF;\n"
+        "END$$"
+    )
 
 
 def downgrade() -> None:
-    op.alter_column('companion_profiles', 'service_hospitals', new_column_name='familiar_hospitals')
+    # 幂等：双头合流后另一分支 (12e9862becff) 的 downgrade 可能已先一步
+    # DROP 了 service_hospitals；此时 rename 会报列不存在。
+    # 使用 DO block 在列存在时才 rename。
+    op.execute(
+        "DO $$\n"
+        "BEGIN\n"
+        "  IF EXISTS (\n"
+        "    SELECT 1 FROM information_schema.columns\n"
+        "    WHERE table_name = 'companion_profiles'\n"
+        "      AND column_name = 'service_hospitals'\n"
+        "  ) THEN\n"
+        "    ALTER TABLE companion_profiles\n"
+        "      RENAME service_hospitals TO familiar_hospitals;\n"
+        "  END IF;\n"
+        "END$$"
+    )

@@ -1,25 +1,19 @@
 """
 Production readiness **阻断级**（blocker）tests — P1-7 / Action #7.
 
-These complement ``backend/tests/test_health.py`` which already covers
-the basic DB-down / Redis-down scenarios on both ``/api/v1/readiness``
-and root ``/readiness``. This file adds:
+Updated 2026-04-24 to reflect TD-OPS-01 / TD-OPS-02 closure:
+  * /readiness now returns a richer contract (`ready: bool`, `checks.<name>.{status, latency_ms, ...}`)
+    串了 5 项依赖（db / redis / alembic / payment / sms）.
+  * Alembic drift detection is no longer xfail — it's enforced.
+  * Flat back-compat keys (`db`, `redis` at top-level) were retired in this
+    breaking change because no production probe consumed them; ops dashboards
+    moved to `checks.<name>.status`.
 
-  C1. Both /health endpoints stay 200 (liveness must NEVER cascade to
-      503 from a dependency outage — Kubernetes / ACA would kill the
-      pod and prolong the outage).
-  C2. Readiness 503 happens on BOTH paths uniformly (root + /api/v1).
-  C3. Migration drift (alembic_version != head) — TODO: readiness
-      should return 503 with a clear "migration drift" reason. Until
-      that is implemented, this test is ``xfail`` and the gap is
-      tracked in ``docs/TECH_DEBT.md``.
-  C4. Readiness response shape contract — ops dashboards depend on
-      ``checks.db`` / ``checks.redis`` keys + the flat ``db`` / ``redis``
-      back-compat keys. Any rename without a migration is a blocker.
-
-If any non-xfail test fails: do NOT release — production traffic will
-be served by an unready pod (or a healthy pod will be killed during a
-benign Redis blip).
+What we still guarantee here:
+  C1. /health and /api/v1/health are pure liveness — never cascade to 503.
+  C2. /readiness and /api/v1/readiness behave identically.
+  C3. Migration drift returns 503 with a clear reason.
+  C4. Response shape contract: `ready` + `status` + `checks.{db,redis,alembic,payment,sms}`.
 """
 
 from __future__ import annotations
@@ -29,6 +23,7 @@ from unittest.mock import patch
 
 import pytest
 
+from app.api.v1 import health as health_module
 from tests.conftest import test_session_factory
 
 
@@ -38,12 +33,6 @@ from tests.conftest import test_session_factory
 
 @pytest.mark.asyncio
 class TestLivenessIsolation:
-    """``/health`` and ``/api/v1/health`` are PURE liveness probes —
-    they must return 200 even when DB / Redis are completely down.
-    Otherwise the orchestrator will kill the pod in the middle of an
-    outage, multiplying the impact.
-    """
-
     async def test_root_health_stays_200_when_db_down(self, client):
         @asynccontextmanager
         async def broken_session():
@@ -53,8 +42,7 @@ class TestLivenessIsolation:
         with patch("app.api.v1.health.async_session", broken_session):
             resp = await client.get("/health")
         assert resp.status_code == 200, (
-            "Liveness must not depend on DB — got "
-            f"{resp.status_code}: {resp.text}"
+            f"Liveness must not depend on DB — got {resp.status_code}: {resp.text}"
         )
 
     async def test_root_health_stays_200_when_redis_down(self, client, fake_redis):
@@ -86,11 +74,6 @@ class TestLivenessIsolation:
 
 @pytest.mark.asyncio
 class TestReadinessParity:
-    """Root ``/readiness`` and ``/api/v1/readiness`` must return the
-    same status / shape. They share an internal helper today
-    (``_run_readiness_checks``) — this test prevents accidental
-    divergence on a future refactor.
-    """
 
     @pytest.mark.parametrize("path", ["/readiness", "/api/v1/readiness"])
     async def test_returns_503_when_db_down(self, client, path):
@@ -106,8 +89,9 @@ class TestReadinessParity:
             "this guarantee means failed pods continue to receive traffic."
         )
         body = resp.json()
-        assert body["status"] == "not_ready"
-        assert body["checks"]["db"].startswith("error:")
+        assert body["ready"] is False
+        assert body["checks"]["db"]["status"] == "error"
+        assert "DB down" in body["checks"]["db"]["error"]
 
     @pytest.mark.parametrize("path", ["/readiness", "/api/v1/readiness"])
     async def test_returns_503_when_redis_down(self, client, fake_redis, path):
@@ -121,12 +105,11 @@ class TestReadinessParity:
                 resp = await client.get(path)
         finally:
             fake_redis.ping = original
-        assert resp.status_code == 503, (
-            f"{path} must return 503 when Redis is down."
-        )
+        assert resp.status_code == 503
         body = resp.json()
-        assert body["status"] == "not_ready"
-        assert body["checks"]["redis"].startswith("error:")
+        assert body["ready"] is False
+        assert body["checks"]["redis"]["status"] == "error"
+        assert "Redis down" in body["checks"]["redis"]["error"]
 
     @pytest.mark.parametrize("path", ["/readiness", "/api/v1/readiness"])
     async def test_returns_200_shape_when_healthy(self, client, path):
@@ -134,75 +117,57 @@ class TestReadinessParity:
             resp = await client.get(path)
         assert resp.status_code == 200
         body = resp.json()
-        # Contract: status + checks dict + back-compat flat keys.
+        assert body["ready"] is True
         assert body["status"] == "ready"
-        assert body["checks"] == {"db": "ok", "redis": "ok"}
-        assert body["db"] == "ok"
-        assert body["redis"] == "ok"
+        for k in ("db", "redis", "alembic", "payment", "sms"):
+            assert k in body["checks"], f"missing check {k}"
+            assert body["checks"][k]["status"] in ("ok", "skipped", "degraded")
 
 
 # ---------------------------------------------------------------------------
-# C3. Migration drift detection (currently xfail — see TECH_DEBT)
+# C3. Migration drift detection — TD-OPS-02 closed 2026-04-24, no longer xfail.
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
-@pytest.mark.xfail(
-    reason=(
-        "TECH_DEBT [TD-OPS-02] (re-confirmed 2026-04-21, A21-11): "
-        "/readiness still only runs DB SELECT 1 + Redis PING and does NOT "
-        "compare alembic_version vs head revision (verified: no 'alembic'/"
-        "'migration'/'version' references in app/api/v1/health.py). If a "
-        "deploy lands new model code without running migrations, the pod "
-        "reports ready and starts serving 5xx-on-write. Implementation "
-        "plan and priority (P2, blocked on D-021) tracked in "
-        "docs/TECH_DEBT.md \u2192 TD-OPS-02."
-    ),
-    strict=False,
-)
-async def test_readiness_detects_migration_drift(client):
-    """When the running ``alembic_version`` row is older than the head
-    revision, readiness must return 503 with a clear reason. Today the
-    endpoint only checks ``SELECT 1`` so this scenario currently passes
-    silently — captured here as a regression marker."""
-    # We model "drift" by patching the checker to claim the current
-    # version is stale. The endpoint has no such check yet → the assert
-    # below is expected to fail (xfail).
+async def test_readiness_detects_migration_drift(client, monkeypatch):
+    async def drift():
+        return {
+            "status": "error",
+            "current": "stale_rev",
+            "head": "f4a5b6c7d8e9",
+            "latency_ms": 1,
+            "error": "version drift",
+        }
+
+    monkeypatch.setattr(health_module, "_check_alembic", drift)
     with patch("app.api.v1.health.async_session", test_session_factory):
         resp = await client.get("/api/v1/readiness")
-    body = resp.json()
-    # Desired (post-fix) behaviour:
     assert resp.status_code == 503, (
-        "Migration drift must surface as 503 — see TECH_DEBT for the "
-        "implementation plan."
+        "Migration drift must surface as 503 — TD-OPS-02 closure."
     )
-    # Should mention 'migration' or 'alembic' in the failure detail.
-    detail = " ".join(str(v) for v in body.get("checks", {}).values()).lower()
-    assert "migration" in detail or "alembic" in detail
+    body = resp.json()
+    assert body["checks"]["alembic"]["status"] == "error"
+    assert body["checks"]["alembic"]["current"] != body["checks"]["alembic"]["head"]
+    assert "drift" in body["checks"]["alembic"]["error"].lower()
 
 
 # ---------------------------------------------------------------------------
-# C4. Response-shape contract (back-compat keys)
+# C4. Response-shape contract
 # ---------------------------------------------------------------------------
 
 @pytest.mark.asyncio
 class TestReadinessResponseContract:
-    """Ops dashboards & external probes rely on:
-      * ``status`` ∈ {"ready", "not_ready"}
-      * ``checks`` dict with at least ``db`` and ``redis`` keys
-      * Flat back-compat ``db`` / ``redis`` keys (legacy probes)
-
-    Removing or renaming any of these is a release blocker.
-    """
 
     async def test_healthy_response_has_all_required_keys(self, client):
         with patch("app.api.v1.health.async_session", test_session_factory):
             resp = await client.get("/api/v1/readiness")
         assert resp.status_code == 200
         body = resp.json()
-        for key in ("status", "checks", "db", "redis"):
+        for key in ("ready", "status", "checks"):
             assert key in body, f"Missing key {key!r} in response: {body}"
-        assert "db" in body["checks"]
-        assert "redis" in body["checks"]
+        for k in ("db", "redis", "alembic", "payment", "sms"):
+            assert k in body["checks"]
+            assert "status" in body["checks"][k]
 
     async def test_unhealthy_response_has_all_required_keys(self, client):
         @asynccontextmanager
@@ -214,9 +179,9 @@ class TestReadinessResponseContract:
             resp = await client.get("/api/v1/readiness")
         assert resp.status_code == 503
         body = resp.json()
-        for key in ("status", "checks", "db", "redis"):
+        for key in ("ready", "status", "checks"):
             assert key in body, f"Missing key {key!r} in 503 response: {body}"
+        assert body["ready"] is False
         assert body["status"] == "not_ready"
-        # Flat keys must collapse to ok|error (no half-baked values).
-        assert body["db"] in ("ok", "error")
-        assert body["redis"] in ("ok", "error")
+        for k in ("db", "redis", "alembic", "payment", "sms"):
+            assert k in body["checks"]
