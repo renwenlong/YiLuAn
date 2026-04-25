@@ -1,12 +1,12 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class RegisterDeviceRequest(BaseModel):
-    token: str
-    device_type: str
+    token: str = Field(..., description="设备推送 token（APNs/FCM/微信 OpenID）", examples=["fcm-xxx-yyy-zzz"])
+    device_type: str = Field(..., description="设备类型：ios / android / wechat", examples=["ios"])
 
     @field_validator("device_type")
     @classmethod
@@ -18,13 +18,13 @@ class RegisterDeviceRequest(BaseModel):
 
 
 class UnregisterDeviceRequest(BaseModel):
-    token: str
+    token: str = Field(..., description="待注销的设备 token")
 
 
 class DeviceTokenResponse(BaseModel):
-    id: UUID
-    token: str
-    device_type: str
-    created_at: datetime
+    id: UUID = Field(..., description="记录 ID")
+    token: str = Field(..., description="设备推送 token")
+    device_type: str = Field(..., description="设备类型")
+    created_at: datetime = Field(..., description="注册时间")
 
     model_config = {"from_attributes": True}
