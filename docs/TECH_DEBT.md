@@ -5,13 +5,11 @@
 
 ## TD-MSG-01 聊天消息幂等性
 
-- **描述**：WebSocket 收到重复消息（例如客户端网络抖动触发重传、或同一 payload
-  被多次写入）时，后端无幂等校验，会生成多条 DB 记录。
-- **风险**：轻微。微信 `wx.connectSocket` 本身不会重放上行帧；仅在极端对抗场景下
-  才会出现重复。
-- **缓解方案建议**：让客户端在每条 WS 消息带 `client_nonce`（UUID），服务端在
-  写库前先查 redis `SETNX nonce:{client_nonce} 1 EX 60`，命中则丢弃。
-- **优先级**：P3
+- **状态**：✅ 已解决（2026-04-27，见 ADR-0031）。
+- **解决方式**：WSBase send 时自动注入 16 字符 client nonce + 5 分钟本地 LRU
+  短路；后端 `ChatService.send_message_via_ws` 用 `SET key val NX EX 300`
+  在 Redis（key `chat:nonce:{user_id}:{nonce}`）兜底，命中则不落库不广播。
+- **PR**：feat/c12-ws-dedup → main
 
 ## TD-MSG-02 重连期间消息回补
 
@@ -31,11 +29,12 @@
 
 ## TD-MSG-04 WS 服务端心跳空闲超时
 
-- **描述**：后端 WS endpoint 无 idle timeout，如果 TCP 层 keepalive 失败，连接
-  会残留在 `_local` dict 里直到下次 `send` 失败。
-- **缓解方案建议**：给 WS endpoint 套 `asyncio.wait_for(receive_text, timeout=90s)`，
-  超时即视为僵尸连接并关闭；或使用 uvicorn 的 `ws_ping_interval` 强制 ping。
-- **优先级**：P2
+- **状态**：✅ 已解决（2026-04-27，见 ADR-0031）。
+- **解决方式**：`/ws/notifications` 与 `/ws/chat/{order_id}` 的 receive 循环
+  统一用 `asyncio.wait_for(receive_text, timeout=90)`；超时即 4002 关闭并
+  累加 Prometheus 计数器 `ws_idle_timeout_total{channel}`。客户端心跳 30s，
+  容差 3 次。
+- **PR**：feat/c12-ws-dedup → main
 
 ## TD-MSG-05 消息历史分页使用 offset
 
@@ -72,6 +71,13 @@
 每条技术债被解决后，请更新 DECISION_LOG.md 对应 D-xxx 小节并从本文件删除。
 
 ## 已解决的技术债
+- **C-12 / TD-MSG-04 / TD-MSG-01 WebSocket 双模块统一** — 2026-04-27 解决，
+  见 ADR-0031。后端 `app/api/v1/ws.py` 全部走 `ChatService.send_message_via_ws`；
+  新增 90s asyncio idle timeout + `ws_idle_timeout_total{channel}` 计数器；
+  抽出 `wechat/core/ws-base.js`，`services/websocket.js` 与
+  `services/notificationWs.js` 改造为薄壳，去掉 95% 重复代码；端到端 nonce
+  幂等（客户端 5min LRU + 服务端 Redis SETNX 5min TTL）。pytest 921 passed
+  / 15 skipped；jest 247 passed / 235 baseline。PR：feat/c12-ws-dedup → main。
 - **TD-ARCH-03 金额字段使用 Float（IEEE 754 风险）** — 2026-04-25 解决，见 ADR-0030。
   `Order.price` / `Payment.amount` Float → `Numeric(10, 2)`；`SERVICE_PRICES`、
   Provider DTO（`OrderDTO.amount_yuan` / `RefundDTO.total_yuan` / `refund_yuan`）、
