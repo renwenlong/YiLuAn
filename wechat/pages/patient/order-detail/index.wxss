@@ -1,6 +1,11 @@
 /* ============================================
  * Patient Order Detail — Upgraded UI v2.0
  * ============================================ */
+@import "/styles/order-action.wxss";
+
+/* AI-9: tap area / skeleton 公共 token 走 order-action.wxss；
+ *  本页按钮保持 88rpx 高 = 44pt，已满足最小命中区域。
+ *  disabled 态由 button[disabled] 默认变灰，下文加细节微调。 */
 
 /* A21-05: action-bar 改为跟随内容 + safe-area padding，page 不再需要为 fixed bar 预留底部空间 */
 .page-container {
@@ -396,6 +401,21 @@
 }
 
  
+/* AI-9: 按钮 disabled / loading 态 — 视觉降权 */
+.btn-primary[disabled],
+.btn-primary.button-disabled,
+.btn-secondary[disabled],
+.btn-danger[disabled] {
+  opacity: 0.6;
+  transform: none;
+}
+.btn-primary[loading]::before,
+.btn-danger[loading]::before {
+  margin-right: 8rpx;
+}
+
+/* AI-9: 跨端一致性 — detail-section 与 iOS Spacing.lg(16pt=32rpx) 对齐 */
+
 /* [F-03] Emergency call FAB + modal */
 .emergency-fab {
   position: fixed;

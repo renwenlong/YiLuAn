@@ -1,0 +1,18 @@
+/* ============================================
+ * AI-9: 订单操作公共样式
+ * - tap-target: 撑开点击区域到 ≥88rpx (≈44pt)，不影响视觉尺寸
+ * ============================================ */
+
+/* ---- Tap target (≥44pt) ----
+ * 用法：在可点元素上加 .tap-target，padding 撑开命中区域。
+ * 业务样式若已自带尺寸 (如 emergency-fab) 也可以叠加 tap-target，
+ * 由 min-width / min-height 兜底，不会缩水。
+ */
+.tap-target {
+  min-width: 88rpx;
+  min-height: 88rpx;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}

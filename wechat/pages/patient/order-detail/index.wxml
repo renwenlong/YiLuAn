@@ -3,7 +3,7 @@
 <view class="page-container" wx:if="{{order}}">
   <!-- [F-03] Emergency button (in_progress only) -->
   <view
-    class="emergency-fab"
+    class="emergency-fab tap-target"
     wx:if="{{order.status === 'in_progress'}}"
     bindtap="onEmergencyTap"
   >
@@ -18,7 +18,7 @@
     <view class="em-hint">选择要拨打的联系人</view>
     <view class="em-list">
       <view
-        class="em-item"
+        class="em-item tap-target"
         wx:for="{{emergencyContacts}}"
         wx:key="id"
         data-id="{{item.id}}"
@@ -29,9 +29,9 @@
       </view>
       <view class="em-empty" wx:if="{{emergencyContacts.length === 0}}">
         <text>未设置紧急联系人</text>
-        <text class="em-link" bindtap="onManageContacts">去添加</text>
+        <text class="em-link tap-target" bindtap="onManageContacts">去添加</text>
       </view>
-      <view class="em-item em-hotline" bindtap="onCallHotline">
+      <view class="em-item em-hotline tap-target" bindtap="onCallHotline">
         <view class="em-item-name">平台客服热线</view>
         <view class="em-item-phone">{{emergencyHotline || '加载中...'}}</view>
       </view>
@@ -118,34 +118,46 @@
     </view>
   </view>
 
-  <!-- Action Buttons -->
+  <!-- Action Buttons (AI-9: actionLoading 锁，避免重复点击) -->
   <view class="action-bar">
     <!-- Created & unpaid: pay + cancel -->
     <block wx:if="{{order.status === 'created' && order.payment_status === 'unpaid'}}">
-      <button class="btn-primary" bindtap="onPay">立即支付 {{order.formattedPrice}}</button>
-      <button class="btn-danger" bindtap="onCancel">取消订单</button>
+      <button class="btn-primary" bindtap="onPay" loading="{{actionLoading}}" disabled="{{actionLoading}}">
+        {{actionLoading ? '处理中...' : '立即支付 ' + order.formattedPrice}}
+      </button>
+      <button class="btn-danger" bindtap="onCancel" loading="{{actionLoading}}" disabled="{{actionLoading}}">
+        {{actionLoading ? '处理中...' : '取消订单'}}
+      </button>
     </block>
 
     <!-- Created & paid: cancel only -->
     <block wx:if="{{order.status === 'created' && order.payment_status === 'paid'}}">
-      <button class="btn-danger" bindtap="onCancel">取消订单</button>
+      <button class="btn-danger" bindtap="onCancel" loading="{{actionLoading}}" disabled="{{actionLoading}}">
+        {{actionLoading ? '处理中...' : '取消订单'}}
+      </button>
     </block>
 
-    <!-- Accepted / In Progress: can chat + cancel -->
+    <!-- Accepted: confirm-start + chat + cancel -->
     <block wx:if="{{order.status === 'accepted'}}">
-      <button class="btn-primary" bindtap="onConfirmStart">确认开始服务</button>
-      <button class="btn-secondary" bindtap="onChat">联系陪诊师</button>
-      <button class="btn-danger" bindtap="onCancel">取消订单</button>
+      <button class="btn-primary" bindtap="onConfirmStart" loading="{{actionLoading}}" disabled="{{actionLoading}}">
+        {{actionLoading ? '处理中...' : '确认开始服务'}}
+      </button>
+      <button class="btn-secondary" bindtap="onChat" disabled="{{actionLoading}}">联系陪诊师</button>
+      <button class="btn-danger" bindtap="onCancel" loading="{{actionLoading}}" disabled="{{actionLoading}}">
+        {{actionLoading ? '处理中...' : '取消订单'}}
+      </button>
     </block>
     <block wx:if="{{order.status === 'in_progress'}}">
-      <button class="btn-primary" bindtap="onChat">联系陪诊师</button>
-      <button class="btn-danger" bindtap="onCancelInProgress">取消订单</button>
+      <button class="btn-primary" bindtap="onChat" disabled="{{actionLoading}}">联系陪诊师</button>
+      <button class="btn-danger" bindtap="onCancelInProgress" loading="{{actionLoading}}" disabled="{{actionLoading}}">
+        {{actionLoading ? '处理中...' : '取消订单'}}
+      </button>
     </block>
 
     <!-- Completed without review: can review -->
     <block wx:if="{{order.status === 'completed' && !order.review}}">
-      <button class="btn-primary" bindtap="onReview">写评价</button>
-      <button class="btn-secondary" bindtap="onChat">联系陪诊师</button>
+      <button class="btn-primary" bindtap="onReview" disabled="{{actionLoading}}">写评价</button>
+      <button class="btn-secondary" bindtap="onChat" disabled="{{actionLoading}}">联系陪诊师</button>
     </block>
 
     <!-- Rejected / Expired: reorder -->
