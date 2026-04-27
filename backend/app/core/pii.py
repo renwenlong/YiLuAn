@@ -68,6 +68,15 @@ def mask_phone(phone: str | None) -> str:
     return s[:prefix_len] + "*" * middle + s[-suffix_len:]
 
 
+def mask_id_number(id_number: str | None) -> str:
+    """Alias of :func:`mask_id_card` — preferred name in admin contexts.
+
+    Example: ``110101199001011234`` → ``110101**********34`` (前 4 + 后 4，
+    其余打星)。
+    """
+    return mask_id_card(id_number)
+
+
 def mask_id_card(id_card: str | None) -> str:
     """掩码身份证号：保留前 4 + 后 4，中间全部 *。"""
     if not id_card:
