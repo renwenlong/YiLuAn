@@ -43,10 +43,15 @@ async def _setup_db():
 @pytest.fixture
 def sync_client():
     app.dependency_overrides[get_db] = override_get_db
-    app.state.redis = FakeRedis()
     app.state.ws_broker = None
     app.state.ws_chat_broker = None
     with TestClient(app, raise_server_exceptions=False) as c:
+        # Override AFTER lifespan runs (lifespan calls init_redis(), which in
+        # CI environments without a real Redis would replace our FakeRedis with
+        # a client that fails to connect on the first SETNX).
+        app.state.redis = FakeRedis()
+        app.state.ws_broker = None
+        app.state.ws_chat_broker = None
         yield c
     app.dependency_overrides.clear()
 
