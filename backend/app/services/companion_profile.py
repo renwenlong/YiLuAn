@@ -81,10 +81,10 @@ class CompanionProfileService:
         profile = await self.repo.get_by_id(companion_id)
         if profile is None:
             raise NotFoundException("Companion not found")
-        # F-04: attach dimension averages so CompanionDetailResponse can
-        # populate `dimension_scores` via from_attributes.
-        scores = await self.review_repo.get_companion_dimension_averages(profile.user_id)
-        # Round to 1 decimal for nicer display; pydantic will cast to float.
+        # F-04 / D-045: single-query summary (avg + 4 dimensions) so the
+        # detail endpoint stays at one extra round trip regardless of how
+        # many dimensions are added later.
+        scores = await self.review_repo.get_companion_rating_summary(profile.user_id)
         profile.dimension_scores = {  # type: ignore[attr-defined]
             "punctuality": round(scores["punctuality"], 2),
             "professionalism": round(scores["professionalism"], 2),
@@ -100,7 +100,7 @@ class CompanionProfileService:
             real_name = display_name or "未填写"
             profile = CompanionProfile(user_id=user_id, real_name=real_name)
             profile = await self.repo.create(profile)
-        scores = await self.review_repo.get_companion_dimension_averages(user_id)
+        scores = await self.review_repo.get_companion_rating_summary(user_id)
         profile.dimension_scores = {  # type: ignore[attr-defined]
             "punctuality": round(scores["punctuality"], 2),
             "professionalism": round(scores["professionalism"], 2),

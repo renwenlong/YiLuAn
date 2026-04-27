@@ -42,7 +42,9 @@ from app.utils.outbound import NonRetryableError, reset_circuit_breakers
 # B1. Provider exception is fail-fast (no infinite retry)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.asyncio
+# Note: do NOT decorate this class with @pytest.mark.asyncio — the only test
+# inside is sync (it asserts construction-time ValueError), and asyncio_mode=auto
+# would otherwise emit PytestWarning about a sync test marked asyncio.
 class TestAliyunFailFast:
     """The Aliyun provider must:
 

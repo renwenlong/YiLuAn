@@ -1,10 +1,16 @@
 # =============================================================================
-# iOS CI — XcodeGen + xcodebuild test
+# iOS CI - XcodeGen + xcodebuild test
 # -----------------------------------------------------------------------------
 # Full CI pipeline for iOS: generate project, build, test, cache, artifacts.
 # .xcodeproj is generated from ios/project.yml (gitignored).
 #
-# Runner cost: macos runners cost 10x on private repos (~200 free min/month).
+# Runner cost: macos runners cost 10x on private repos (~200 free min/month
+# at standard tier; a single full run takes ~12-18 min on a warm cache).
+#
+# OPS toggle: set repository variable IOS_CI_ENABLED=true to actually run.
+# This lets OPS gate the workflow without editing the yml when budget /
+# Apple Silicon runner allocation is uncertain (D-039).
+# A `workflow_dispatch` invocation always runs, regardless of the variable.
 # =============================================================================
 
 name: iOS CI
@@ -28,6 +34,10 @@ concurrency:
 jobs:
   build-and-test:
     name: Build & Test (iOS Simulator)
+    # Skip automatic runs unless OPS has flipped IOS_CI_ENABLED. Manual dispatch
+    # always runs so engineers can validate without the toggle.
+    # See docs/ios-ci.md for the enable checklist (D-039).
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.IOS_CI_ENABLED == 'true' }}
     runs-on: macos-14
     timeout-minutes: 30
 
@@ -95,6 +105,16 @@ jobs:
           echo "Picked simulator UDID: $UDID"
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
+      - name: Pre-boot simulator (warm-up)
+        shell: bash
+        run: |
+          # Pre-booting cuts ~30-60s of wall time off the first xcodebuild test
+          # invocation; CoreSimulator is happier when the device is already up.
+          set +e
+          xcrun simctl boot "${{ steps.sim.outputs.udid }}" || true
+          xcrun simctl bootstatus "${{ steps.sim.outputs.udid }}" -b || true
+          exit 0
+
       - name: Run unit tests
         working-directory: ios
         run: |
@@ -109,11 +129,26 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             | tee xcodebuild.log
 
-      - name: Upload test results (on failure)
-        if: failure()
+      - name: Summarise xcresult
+        if: always()
+        working-directory: ios
+        shell: bash
+        run: |
+          # Lightweight summary: extract test counts from the xcresult bundle so
+          # the GH Actions UI shows pass/fail without needing the artifact.
+          if [ -d TestResults.xcresult ]; then
+            xcrun xcresulttool get --format json --path TestResults.xcresult \
+              | python3 -c "import json,sys; d=json.load(sys.stdin); m=d.get('metrics',{}); print('::notice::iOS tests:', m)" \
+              || echo "::warning::xcresulttool summary failed (non-fatal)"
+          else
+            echo "::warning::TestResults.xcresult not produced"
+          fi
+
+      - name: Upload xcresult artifact
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ios-test-results
+          name: ios-test-results-${{ github.run_id }}
           path: |
             ios/TestResults.xcresult
             ios/xcodebuild.log
