@@ -1054,3 +1054,26 @@ Alertmanager 已经接入 Prometheus，需要选择一个面向 oncall 的通知
 ### 显式不做（保留单一职责）
 
 `expiry.py` 第 65-110 行原样保留了 `check_expired_orders` 中重复的 "pending close" 块（legacy bug，第二次 try/close 永远不会触发，因为第一次已把 status 改成 failed/closed）。本 PR 是纯结构重构、零行为变更，清理那段死代码单开 PR（已记 TD-ORDER-01）。
+
+
+---
+
+## D-043 (2026-04-27) — F-03 紧急呼叫 PII 保留 180 天 + AES-256/KMS 加密 (✅ 已归档至 ADR-0029)
+
+### 背景
+
+F-03 紧急呼叫（PR #32）已上线，`emergency_contacts.phone` / `emergency_events.contact_called` / `emergency_events.location` 三类高敏字段全部明文落库，仅靠 ACL 兜底。隐私政策 §5.2 / §8 缺少对「紧急呼叫 = 行踪轨迹 + 第三方手机号」这条特殊场景的保留期与加密承诺。
+
+晨会上原口径写作「D-042 → ADR-0029」，但仓内 D-042 已被 OrderService 拆分（SP-01）占用，本条改记 **D-043**，ADR-0029 的「决议来源」字段同步指回 D-043。
+
+### 决策
+
+- **地理坐标 + 被呼号码**：保留 **180 天**，到期由 cron 软删（90 天 grace 告警 + 180 天硬清理）；保留事件元数据用于审计与监管协查。
+- **紧急联系人手机号 + 事件中亲属号码**：应用层 **AES-256-GCM** 加密落库，主密钥走云 KMS 信封加密；查重靠 `phone_hash`（沿用 ADR-0026 的 `hash_phone` 实现）。
+- **audit_event payload** 中的 PII 字段同样 180 天就地脱敏；事件元数据保留。
+- **用户主动注销 → 立即硬删** `emergency_contacts` / `emergency_events`，不等 30 天保留期。
+- **PM 合规口径**：首次启用紧急呼叫弹窗告知（`emergency_pii_consent_v1`）+ 数据导出 / 删除 SLA 72 小时 + 不单独备案（纳入医疗陪诊总体合规框架）。
+
+### 归档
+
+详细论证、备选方案、Follow-ups（cron 实现 / KMS 接入 / 隐私政策同步 / 存量回填）见 `docs/adr/ADR-0029-emergency-pii-retention.md`。
