@@ -1,7 +1,7 @@
 # ADR-0029 F-03 紧急呼叫的地理坐标 + PII 字段保留 180 天 + 加密落地策略
 
 - 日期：2026-04-27
-- 状态：Accepted
+- 状态：Accepted (Implementation: PR #N - 2026-04-27)
 - 决议来源：D-043（DECISION_LOG，原晨会代号 D-042，与 OrderService 拆分撞号已改记 D-043）
 - 关联：F-03 紧急呼叫（PR #32）、ADR-0026（outbound 可靠性，audit_event 同源）
 - 参与角色：Arch / PM

@@ -93,6 +93,13 @@
   decoder（暂未触发，金额仅 2 位小数）。
 - **TD-PAY-01 订单过期时支付状态未联动收尾** — 2026-04-25 解决，见 ADR-0029。
 
+- **ADR-0029 紧急呼叫 PII 加密 + 180d 保留** — 2026-04-27 部分解决（PR #N）。
+  - ✅ **F-1**: AES-256-GCM envelope encryption + phone_hash 落库（`app/core/pii.py`）
+  - ✅ **F-3**: `delete_account` 联动硬删 `emergency_contacts` / `emergency_events`（`app/services/user.py`）
+  - ✅ **F-4**: cron `cleanup_emergency_pii` 每日 03:00 清理过期 contact (90d grace) + event (180d)
+  - ⏳ **F-2 KMS 密钥轮换**：envelope key 当前从 `settings.pii_envelope_key` 加载（进程内常驻）；真正的 KMS data-key 流程留 W19+，优先级 P1（上生产前必须）。`pii.EnvelopeKey.rotate` 已预留接口。
+
+
 - **TD-OPS-01 `/readiness` 端点缺失** — 2026-04-17 解决，见 D-021。
   根路径 `/readiness` + `/api/v1/readiness` 双挂载；DB(SELECT 1) + Redis(PING)
   健康检查，失败 503 含错误摘要；`/health` 保持纯 liveness 不查依赖。
