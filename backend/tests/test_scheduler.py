@@ -178,12 +178,13 @@ def test_create_scheduler_registers_expired_order_job():
     scheduler = create_scheduler(app)
     try:
         jobs = scheduler.get_jobs()
-        assert len(jobs) == 3
+        assert len(jobs) == 4
         job_ids = {j.id for j in jobs}
         assert job_ids == {
             "scan_expired_orders",
             "cleanup_payment_callback_log",
             "cleanup_sms_send_log",
+            "cleanup_emergency_pii",
         }
         for job in jobs:
             assert job.max_instances == 1

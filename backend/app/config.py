@@ -1,5 +1,11 @@
+import base64
+
 from pydantic import model_validator
 from pydantic_settings import BaseSettings
+
+# ADR-0029: dev 环境用的 envelope key 默认值（32 字节全 'x'，base64 编码）。
+# 生产**必须** override（见 model_validator）。
+_DEV_PII_ENVELOPE_KEY = base64.b64encode(b"x" * 32).decode("ascii")
 
 
 class Settings(BaseSettings):
@@ -71,6 +77,10 @@ class Settings(BaseSettings):
     # 如需未来轮换，请保留旧 salt 兼容历史 hash 数据。
     pii_hash_salt: str = "yiluan-dev-salt-do-not-use-in-prod"
 
+    # ADR-0029: emergency PII 落库加密 envelope key（base64 编码 32 字节 / AES-256）。
+    # dev 默认值仅用于本地 / CI；生产环境必须 override，且应来自 KMS / Secret Manager。
+    pii_envelope_key: str = _DEV_PII_ENVELOPE_KEY
+
     # CORS
     cors_origins: list[str] = ["*"]
 
@@ -134,6 +144,17 @@ class Settings(BaseSettings):
                 raise ValueError(
                     f"生产环境微信支付缺少凭证: {', '.join(missing)}"
                 )
+
+        # ADR-0029: PII 加密 / hash 密钥不得使用 dev 默认值
+        if self.pii_envelope_key == _DEV_PII_ENVELOPE_KEY:
+            raise ValueError(
+                "生产环境禁止使用默认 PII_ENVELOPE_KEY，请从 KMS / Secret "
+                "Manager 注入 base64 编码的 32 字节密钥"
+            )
+        if self.pii_hash_salt == "yiluan-dev-salt-do-not-use-in-prod":
+            raise ValueError(
+                "生产环境禁止使用默认 PII_HASH_SALT，请设置高熵随机串"
+            )
 
         # SMS 凭证完整性检查
         if self.sms_provider != "mock":

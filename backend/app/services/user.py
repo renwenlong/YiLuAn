@@ -1,13 +1,16 @@
 import hashlib
+import json
 import logging
 from datetime import datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import BadRequestException, NotFoundException
+from app.models.admin_audit_log import AdminAuditLog
+from app.models.emergency import EmergencyContact, EmergencyEvent
 from app.models.order import Order, OrderStatus
 from app.models.user import User, UserRole
 from app.repositories.payment import PaymentRepository
@@ -63,14 +66,22 @@ class UserService:
         return await self.user_repo.update(user, {"role": target_role})
 
     async def delete_account(self, user: User) -> None:
-        """Soft-delete account: cancel active orders, anonymize PII, set deleted_at."""
+        """Soft-delete account: cancel active orders, anonymize PII, set deleted_at.
+
+        ADR-0029 / D-043: 在软删账号之前，**硬删** user 名下所有
+        ``emergency_contacts`` 和 ``emergency_events``，不走 90 / 180 天保留期。
+        并写入 audit 日志（action="user_self_delete"）。
+        """
         if user.is_deleted:
             raise BadRequestException("Account is already deleted")
 
         # 1) Cancel in-progress orders (as patient or companion)
         await self._cancel_active_orders(user.id)
 
-        # 2) Anonymize PII
+        # 2) ADR-0029 / D-043: 硬删紧急联系人 + 事件（在匿名化之前）
+        contacts_purged, events_purged = await self._purge_emergency_data(user.id)
+
+        # 3) Anonymize PII
         phone_hash = (
             hashlib.sha256(user.phone.encode()).hexdigest()[:16]
             if user.phone
@@ -86,6 +97,50 @@ class UserService:
             "deleted_at": datetime.now(timezone.utc),
         }
         await self.user_repo.update(user, update_data)
+
+        # 4) ADR-0029: 写 audit
+        audit = AdminAuditLog(
+            target_type="user",
+            target_id=user.id,
+            action="user_self_delete",
+            operator=f"user:{user.id}",
+            reason=json.dumps(
+                {
+                    "emergency_contacts_purged": contacts_purged,
+                    "emergency_events_purged": events_purged,
+                },
+                ensure_ascii=False,
+            ),
+        )
+        self.session.add(audit)
+        await self.session.flush()
+
+    async def _purge_emergency_data(self, user_id: UUID) -> tuple[int, int]:
+        """硬删 user 名下所有 emergency_contacts + emergency_events，返回 (N, M)。"""
+        # 先查个数（为了 audit）
+        contacts_count = (
+            await self.session.execute(
+                select(EmergencyContact).where(EmergencyContact.user_id == user_id)
+            )
+        ).scalars().all()
+        events_count = (
+            await self.session.execute(
+                select(EmergencyEvent).where(EmergencyEvent.patient_id == user_id)
+            )
+        ).scalars().all()
+
+        n = len(contacts_count)
+        m = len(events_count)
+
+        if n:
+            await self.session.execute(
+                delete(EmergencyContact).where(EmergencyContact.user_id == user_id)
+            )
+        if m:
+            await self.session.execute(
+                delete(EmergencyEvent).where(EmergencyEvent.patient_id == user_id)
+            )
+        return n, m
 
     async def _cancel_active_orders(self, user_id: UUID) -> None:
         """Cancel all active orders and trigger refunds per D-009.

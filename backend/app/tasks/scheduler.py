@@ -130,6 +130,7 @@ def create_scheduler(app) -> AsyncIOScheduler:
         cleanup_payment_callback_log,
         cleanup_sms_send_log,
     )
+    from app.cron.cleanup_emergency_pii import cleanup_emergency_pii
 
     scheduler = AsyncIOScheduler(timezone="UTC")
     scheduler.add_job(
@@ -162,6 +163,17 @@ def create_scheduler(app) -> AsyncIOScheduler:
         kwargs={"app": app},
         id="cleanup_sms_send_log",
         name="Cleanup expired SMS send logs",
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=600,
+        replace_existing=True,
+    )
+    # ADR-0029 / D-043: 每日 03:00 清理 emergency PII（contact 90d / event 180d）
+    scheduler.add_job(
+        cleanup_emergency_pii,
+        trigger=CronTrigger(hour=3, minute=0),
+        id="cleanup_emergency_pii",
+        name="Cleanup emergency PII (ADR-0029 retention)",
         coalesce=True,
         max_instances=1,
         misfire_grace_time=600,

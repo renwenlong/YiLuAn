@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.pii import encrypt_phone, phone_hash
 from app.exceptions import (
     BadRequestException,
     ConflictException,
@@ -48,7 +49,8 @@ class EmergencyService:
         contact = EmergencyContact(
             user_id=user_id,
             name=data.name,
-            phone=data.phone,
+            phone_encrypted=encrypt_phone(data.phone),
+            phone_hash=phone_hash(data.phone),
             relationship=data.relationship,
         )
         return await self.contact_repo.create(contact)
@@ -70,6 +72,11 @@ class EmergencyService:
         update_data = data.model_dump(exclude_unset=True)
         if not update_data:
             return contact
+        # ADR-0029: phone 字段走加密路径，不能直接赋明文。
+        if "phone" in update_data:
+            new_phone = update_data.pop("phone")
+            update_data["phone_encrypted"] = encrypt_phone(new_phone)
+            update_data["phone_hash"] = phone_hash(new_phone)
         return await self.contact_repo.update(contact, update_data)
 
     async def delete_contact(self, user_id: UUID, contact_id: UUID) -> None:
@@ -99,7 +106,8 @@ class EmergencyService:
         event = EmergencyEvent(
             patient_id=user_id,
             order_id=data.order_id,
-            contact_called=phone,
+            contact_called_encrypted=encrypt_phone(phone),
+            contact_called_hash=phone_hash(phone),
             contact_type=contact_type,
             location=data.location,
         )

@@ -638,12 +638,15 @@ class TestConfigProductionValidator:
     def _build(self, **overrides):
         from app.config import Settings
 
+        import base64
         base = dict(
             environment="production",
             debug=False,
             jwt_secret_key="strong-prod-secret-1234567890",
             payment_provider="mock",
             sms_provider="mock",
+            pii_envelope_key=base64.b64encode(b"P" * 32).decode(),
+            pii_hash_salt="prod-salt-12345-not-default",
         )
         base.update(overrides)
         return Settings(**base)
