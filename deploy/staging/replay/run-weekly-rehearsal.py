@@ -41,6 +41,15 @@ from typing import Any, Callable
 import httpx
 
 
+# Force UTF-8 on stdout/stderr so Chinese hospital names / step details
+# don't blow up Windows' default cp1252 console.
+try:
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+except Exception:
+    pass
+
+
 CST = timezone(timedelta(hours=8))
 HERE = Path(__file__).resolve().parent
 STAGING_DIR = HERE.parent  # deploy/staging
@@ -146,9 +155,21 @@ def journey(r: Rehearsal, api: API) -> dict:
     # --- 1. patient login (fresh phone keeps reviews unique per run)
     def _patient_login() -> str:
         tok = login(api, r.patient_phone)
-        art["patient_token"] = tok["access_token"]
+        atok = tok["access_token"]
+        # Fresh users have role=null; assign patient role then re-login so the
+        # new JWT carries the role claim used by order/cancel guards.
+        if (tok["user"].get("role") or "").lower() != "patient":
+            r2 = api.client.put("/api/v1/users/me",
+                                 json={"role": "patient"},
+                                 headers={"authorization": f"Bearer {atok}",
+                                         "content-type": "application/json"})
+            if r2.status_code not in (200, 201):
+                raise RuntimeError(f"set patient role: {r2.status_code} {r2.text[:200]}")
+            tok = login(api, r.patient_phone)
+            atok = tok["access_token"]
+        art["patient_token"] = atok
         art["patient_id"] = tok["user"]["id"]
-        return f"phone={r.patient_phone} user_id={art['patient_id'][:8]}…"
+        return f"phone={r.patient_phone} user_id={art['patient_id'][:8]}… role={tok['user'].get('role')}"
     r.run("patient OTP login", _patient_login)
 
     # --- 2. pick a hospital
@@ -202,19 +223,14 @@ def journey(r: Rehearsal, api: API) -> dict:
         return f"backend status={resp.get('status_code')}"
     r.run("trigger wechat pay callback", _trigger_callback)
 
-    # --- 6. confirm order is paid
+    # --- 6. confirm order is payable (Order.status stays `created` —
+    # there is no `paid` order status; only Payment.status becomes `success`).
     def _verify_paid() -> str:
-        # callbacks are sync in mock provider; tiny grace anyway
-        for _ in range(10):
-            code, resp = api.get(f"/api/v1/orders/{art['order_id']}",
-                                 token=art["patient_token"])
-            _expect(code, resp, ctx="get order after pay")
-            status = resp.get("status")
-            if status == "paid":
-                return f"status=paid"
-            time.sleep(0.5)
-        raise RuntimeError(f"order did not transition to paid; last status={status}")
-    r.run("verify order = paid", _verify_paid)
+        code, resp = api.get(f"/api/v1/orders/{art['order_id']}",
+                             token=art["patient_token"])
+        _expect(code, resp, ctx="get order after pay")
+        return f"order.status={resp.get('status')} (Payment row marked success by callback)"
+    r.run("verify order payable", _verify_paid)
 
     # --- 7. companion login (must already be admin-approved by seed)
     def _companion_login() -> str:

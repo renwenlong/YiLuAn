@@ -1,86 +1,47 @@
-# Weekly staging-mock rehearsal (D-044).
+# Weekly staging rehearsal (D-044)
 #
-# Disabled by default: docker compose builds + the mock stack are
-# heavy and flaky on shared GitHub-hosted runners (no docker layer
-# caching across runs, intermittent network for pip wheels). We keep
-# the workflow YAML complete and known-good so flipping `if: false`
-# to `if: true` (or moving to a self-hosted runner — see D-039 for
-# the parallel pattern) is a one-line change.
-#
-# Until then, the runbook
-# (docs/STAGING_REHEARSAL_RUNBOOK.md) tells Ops to run it locally
-# every Wednesday 14:00 GMT+8.
-
+# Runs the full mock-provider patient-journey replay every Wednesday
+# 14:00 GMT+8.  Requires a self-hosted runner with Docker available
+# because the stack binds to 127.0.0.1:18080.  Until a self-hosted
+# runner labelled `staging-mock` is registered, this workflow is
+# DISABLED and the rehearsal is performed manually per
+# docs/STAGING_REHEARSAL_RUNBOOK.md.
 name: staging-rehearsal
 
 on:
-  schedule:
-    # Wednesday 14:00 Asia/Shanghai = 06:00 UTC
-    - cron: "0 6 * * 3"
   workflow_dispatch: {}
-
-permissions:
-  contents: read
+  # DISABLED until a self-hosted runner is registered.  See runbook §7.
+  # schedule:
+  #   - cron: '0 6 * * 3'   # 14:00 GMT+8
 
 jobs:
-  rehearse:
-    # Gated until we have a self-hosted runner that can host the mock
-    # stack reliably. See docs/STAGING_REHEARSAL_RUNBOOK.md → Automation.
-    if: false
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
+  rehearsal:
+    # DISABLED: switch to `[self-hosted, staging-mock]` once runner exists.
+    if: ${{ false }}
+    runs-on: [self-hosted, staging-mock]
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-
-      - name: Install host-side deps
-        run: pip install --no-cache-dir httpx==0.27.*
-
-      - name: Bring staging stack up
+      - name: Bring up staging stack
         working-directory: deploy/staging
-        run: |
-          docker compose -p yiluan-staging \
-            -f docker-compose.staging.yml up -d --build
-
-      - name: Wait for backend healthy (max 5 min)
-        run: |
-          for i in $(seq 1 60); do
-            state=$(docker inspect -f '{{.State.Health.Status}}' yiluan-staging-backend-staging-1 2>/dev/null || echo missing)
-            echo "[$i] backend health: $state"
-            if [ "$state" = "healthy" ]; then exit 0; fi
-            sleep 5
-          done
-          echo "backend never became healthy"
-          docker compose -p yiluan-staging -f deploy/staging/docker-compose.staging.yml logs --tail 200
-          exit 1
+        shell: bash
+        run: ./up.sh
 
       - name: Run weekly rehearsal
-        run: python deploy/staging/replay/run-weekly-rehearsal.py
+        shell: bash
+        run: |
+          python -X utf8 deploy/staging/replay/run-weekly-rehearsal.py --skip-seed
 
-      - name: Upload report + logs (always)
+      - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: staging-rehearsal-${{ github.run_id }}
-          path: |
-            deploy/staging/reports/*.md
-          if-no-files-found: warn
-          retention-days: 30
+          name: rehearsal-report
+          path: deploy/staging/reports/
 
-      - name: Dump container logs on failure
-        if: failure()
-        working-directory: deploy/staging
-        run: |
-          docker compose -p yiluan-staging -f docker-compose.staging.yml ps
-          docker compose -p yiluan-staging -f docker-compose.staging.yml logs --tail 400
-
-      - name: Tear down
+      - name: Tear down stack
         if: always()
         working-directory: deploy/staging
-        run: |
-          docker compose -p yiluan-staging -f docker-compose.staging.yml down -v || true
+        shell: bash
+        run: ./down.sh

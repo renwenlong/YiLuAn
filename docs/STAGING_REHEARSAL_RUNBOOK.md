@@ -1,180 +1,122 @@
-# Staging Mock Rehearsal — Weekly Runbook (D-044)
+# Staging Rehearsal Runbook (D-044)
 
-> Source of truth for the weekly mock-environment rehearsal. ADR background:
-> [`docs/adr/ADR-0030-staging-mock-environment.md`](adr/ADR-0030-staging-mock-environment.md).
+> **Trigger**: 每周三 14:00 GMT+8（UTC 周三 06:00）
+> **Owner**: 当周 on-call DevOps（默认 wenlong）
+> **Why**: 5 个 P0 Blocker（B-01~B-05）等待外部资源期间，用 mock provider
+> 跑完整患者旅程，避免 provider 抽象层 drift、回归手感丢失。
+> 决议来源: D-044。
 
-## What this is
+## 1. 准备
 
-A fully sandboxed **mock staging stack** (Postgres, Redis, backend, nginx,
-mock-pay-stub, mock-sms-stub) plus a host-side replay script that drives
-the full patient journey through the public nginx entrypoint. The goal is
-to catch regressions in the order/payment/companion/review/refund flow
-**before** they touch any real money or SMS provider.
+需要的本地依赖：
 
-All services live in `deploy/staging/` and only nginx publishes a host
-port (`127.0.0.1:18080`). The dev compose stack in `backend/` is left
-untouched.
+- Docker Desktop 已启动
+- Python 3.11+（脚本只依赖 stdlib + httpx）
+- `gh` CLI（如需上报失败到 GitHub Issue）
 
-## Schedule
+## 2. 一键拉起 staging 栈
 
-- **When**: every Wednesday 14:00 (Asia/Shanghai, GMT+8) — `0 6 * * 3` UTC
-- **Primary owner**: Ops on-call
-- **Backup**: Architect on-call
-- **Channel for results**: `#yiluan-ops` (paste the markdown report)
-
-If GitHub Actions runs it (see "Automation" below), the artefact is the
-markdown report. The owner still needs to:
-
-1. Open the artefact within 24h.
-2. If RED, file an issue tagged `staging-rehearsal` and `regression`,
-   ping the corresponding feature owner.
-3. Commit the report into `deploy/staging/reports/` if it was a manual
-   local run (CI artefacts are kept for 30d, no auto-commit).
-
-## Local procedure (manual run)
-
-From a clean checkout on `main`:
+PowerShell（推荐）:
 
 ```powershell
-# 1. start the stack (Windows)
-cd deploy\staging
-.\up.ps1
+cd C:\Users\wenlongren\Desktop\PZAPP\YiLuAn-staging\deploy\staging
+./up.ps1
 ```
 
+bash（macOS/Linux）:
+
 ```bash
-# 1. start the stack (Linux/macOS)
 cd deploy/staging
 ./up.sh
 ```
 
-Wait until `docker compose -p yiluan-staging ps` shows
-`backend-staging` as `healthy` (1–2 min on a cold cache, ~30 s warm).
-`up.ps1` already polls for this, but feel free to spot-check.
+成功标志：
+
+- `docker compose -p yiluan-staging ps` 全部 `healthy`
+- `curl http://127.0.0.1:18080/api/v1/ping` → `{"message":"pong","version":"v1"}`
+- `curl http://127.0.0.1:18080/__staging/mock-pay/health` → `{"status":"ok",...}`
+- `curl http://127.0.0.1:18080/__staging/mock-sms/health` → `{"status":"ok",...}`
+
+## 3. 跑周演练
 
 ```powershell
-# 2. (optional) seed fixtures explicitly. The replay script will call
-#    seed_staging.py itself unless you pass --skip-seed.
-python seed_staging.py
-
-# 3. drive the journey
-python replay\run-weekly-rehearsal.py
+cd C:\Users\wenlongren\Desktop\PZAPP\YiLuAn-staging
+python -X utf8 deploy/staging/replay/run-weekly-rehearsal.py
 ```
 
-```bash
-# Linux/macOS equivalents
-python3 seed_staging.py
-python3 replay/run-weekly-rehearsal.py
-```
+退出码 `0` = 全绿；非零 = 失败，查看末行 `[rehearsal] report:` 指示的报告路径。
 
-Inspect the generated report:
+报告路径示例：`deploy/staging/reports/rehearsal-2026-04-27.md`
 
-```
-deploy/staging/reports/rehearsal-YYYY-MM-DD.md
-```
+报告自动包含：
+- 每步耗时 + 结果
+- 失败步骤的完整 traceback
+- 可重放的 artefact JSON（订单号、payment_id 等）
 
-Each step row is ✅ or ❌ with timing and a short detail. Failures
-include a full traceback at the bottom.
+> **首次运行**：脚本会自动调 `seed_staging.py` 准备 5 个 patient + 3 个 companion +
+> 1 个 admin + 111 家医院。后续如果数据库已 seed，可加 `--skip-seed`。
+
+## 4. 失败时的处理
+
+| 失败位置                 | 第一反应                                               |
+|--------------------------|--------------------------------------------------------|
+| `ping backend`           | `docker logs yiluan-staging-backend-staging-1 --tail=200` |
+| `pick hospital`          | 检查 seed 是否成功；重新 `python deploy/staging/seed_staging.py` |
+| `pay order`              | 看 `payment_service` 日志；mock provider 是否启用      |
+| `trigger wechat callback`| 看 `mock-pay-stub` 日志：`docker logs yiluan-staging-mock-pay-stub-1` |
+| `companion accepts`      | 检查 companion 是否被 admin approve 为 `verified`      |
+| `admin refund`           | 检查 `13900000000` 用户在 DB 中是否含 `admin` 角色      |
+
+升级路径：
+
+1. **本地修：** 在 worktree 起 `branch fix/staging-...`，本地修复后跑过 replay
+   再 PR。
+2. **provider 抽象层 drift（最严重）：** 立即在群里 @架构组，开 P1 Issue，
+   贴报告链接 + 失败步骤截图。
+3. **基础设施抖动**：`./down.ps1 && ./up.ps1` 重起，再跑一遍；连续两次失败
+   才算真失败。
+
+## 5. 报告归档
+
+- 报告自动写到 `deploy/staging/reports/rehearsal-YYYY-MM-DD.md`
+- 每月底（每月最后一周三的下一个工作日）打包提交一次：
+  ```bash
+  git add deploy/staging/reports/
+  git commit -m "ops(D-044): archive staging rehearsal reports YYYY-MM"
+  git push
+  ```
+- 大于 6 个月的报告可以归档到 `deploy/staging/reports/archive/YYYY/`。
+
+## 6. 清理 staging 栈
 
 ```powershell
-# 4. tear it down
-.\down.ps1
+cd C:\Users\wenlongren\Desktop\PZAPP\YiLuAn-staging\deploy\staging
+./down.ps1            # 保留 volume
+./down.ps1 -RemoveVolumes   # 同时删 pgdata，下次首次启动会重建
 ```
 
-```bash
-./down.sh
-```
+## 7. CI 触发（GitHub Actions，可选）
 
-`down.sh` / `down.ps1` only removes the staging compose project — **it
-does not delete the named volume `yiluan-staging-pgdata`** so re-runs
-are fast. To start truly clean:
+`.github/workflows/staging-rehearsal.yml` 配置了 `cron: '0 6 * * 3'`
+（即每周三 14:00 GMT+8），但需要 self-hosted runner（hosted runner 不能跑
+docker compose + 本地 18080 端口的栈）。
 
-```powershell
-docker compose -p yiluan-staging -f docker-compose.staging.yml down -v
-```
+当前状态：**未启用 self-hosted runner**，每周演练靠本 runbook 手动执行。
 
-## What the replay script exercises
+启用方法：
 
-In order (each step prints OK/FAIL + ms in stdout):
+1. 在公司内网机器上注册 self-hosted runner，标签 `staging-mock`。
+2. 把 workflow `runs-on: ubuntu-latest` 改为 `runs-on: [self-hosted, staging-mock]`。
+3. 取消 workflow 文件顶部的 `# DISABLED:` 注释。
 
-1. patient OTP login (`000000` dev bypass)
-2. list hospitals → pick the first
-3. create order (`full_accompany`, +7 days appointment)
-4. `POST /api/v1/orders/{id}/pay` → returns prepay info
-5. `POST /__staging/mock-pay/__trigger-callback` → mock-pay-stub fires
-   the wechat-pay callback into the backend
-6. poll order until `status=paid`
-7. companion OTP login (`13800000101`, pre-approved by `seed_staging.py`)
-8. companion accepts the order
-9. companion `request-start` → patient `confirm-start` (with fallback
-   to direct `/start` if the project is on the legacy state machine)
-10. companion `complete`
-11. patient submits a multidimensional review (4 axes + content)
-12. admin OTP login (`13900000000`) → `POST /api/v1/admin/orders/{id}/admin-refund?refund_ratio=1.0`
+## 8. 验收 checklist（每周跑完贴到群里）
 
-Every patient is created with a fresh phone (`139` + HHMMSSff) so
-re-runs never collide on `unique(order_id)` for reviews or unique
-phone constraints.
+- [ ] `up.ps1` / `up.sh` 一键起栈成功
+- [ ] `replay` 脚本 GREEN
+- [ ] 报告已 commit
+- [ ] 后端 pytest 1161 例 0 failed（每月或 backend 改动后跑一次即可）
+- [ ] 任何失败已建 Issue / 已上报
 
-## Reports & archival
+---
 
-- Reports land in `deploy/staging/reports/rehearsal-YYYY-MM-DD.md`.
-- Commit them weekly (PR title: `ops(staging): rehearsal report YYYY-MM-DD`).
-- Keep at least the last 12 weeks; older reports may be pruned.
-- The first baseline run sits at `rehearsal-2026-04-27.md`.
-
-## Automation
-
-`.github/workflows/staging-rehearsal.yml` runs the same procedure on
-`ubuntu-latest` weekly. If the runner cannot build the mock stubs (no
-egress / docker-in-docker quirks), the workflow is currently **gated
-off** with `if: false` and a comment pointing here; ops must run the
-rehearsal locally until we move it onto a self-hosted runner (see
-D-039 for the parallel pattern).
-
-## Failure triage
-
-When the report is RED, work top→down — earlier steps fail more often
-and cascade.
-
-1. **Login (step 1 / 7 / 12) fails** → backend is up but `ENVIRONMENT`
-   isn't `development`, so the `000000` OTP bypass is off. Check
-   `docker compose -p yiluan-staging exec backend-staging env | grep ENV`.
-2. **Hospital list empty (step 2)** → `seed_staging.py` didn't run or
-   the `/api/v1/hospitals/seed` endpoint changed shape. Re-run with
-   `python seed_staging.py` and inspect stdout.
-3. **Pay callback (step 5) returns ok=false** → mock-pay-stub couldn't
-   reach `backend-staging:8000`. Likely the bridge network is wrong.
-   Check `docker logs yiluan-staging-mock-pay-stub-1`.
-4. **Order never reaches `paid` (step 6)** → callback was accepted but
-   the backend's `OrderStatus` transition died. `docker logs
-   yiluan-staging-backend-staging-1 --tail 200` and look for
-   `payment_callback` or `OrderService.handle_payment_callback`.
-5. **Accept / start / complete (steps 8-10)** → the mixin order
-   service split (PR #35) may have broken state-machine wiring; this
-   is a real backend regression, not a mock issue. File an issue
-   against `services/order/`.
-6. **Review (step 11) 422** → schema regression in `CreateReviewRequest`
-   (`punctuality_rating`, `professionalism_rating`,
-   `communication_rating`, `attitude_rating`).
-7. **Admin refund (step 12)** → either the admin user doesn't have the
-   `admin` role (re-run seed) or `/api/v1/admin/orders/{id}/admin-refund`
-   was renamed; grep `backend/app/api/v1/admin/__init__.py`.
-
-For "is it the mock or the backend?": call the mock control plane
-directly through nginx and check it answered `200`:
-
-```bash
-curl -s http://127.0.0.1:18080/__staging/mock-pay/__sent | jq .
-curl -s http://127.0.0.1:18080/__staging/mock-sms/health
-```
-
-If those are healthy and the request log shows the call landed, the
-fault is downstream in the backend.
-
-## Known issues
-
-_none yet — append here as we learn._
-
-## Change log
-
-- 2026-04-27 — initial runbook (D-044, ADR-0030).
+**最后更新**：2026-04-27（首版，随 D-044 落地）
