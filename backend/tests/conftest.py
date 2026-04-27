@@ -45,6 +45,11 @@ class FakeRedis:
         self._store.clear()
         self._zsets.clear()
 
+    # redis>=5 renamed close → aclose for the async client. Mirror it so
+    # FastAPI lifespan shutdown (which calls app.state.redis.aclose()) works.
+    async def aclose(self) -> None:
+        await self.close()
+
     async def ping(self) -> bool:
         return True
 
