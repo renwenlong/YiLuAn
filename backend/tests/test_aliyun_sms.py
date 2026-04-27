@@ -47,7 +47,10 @@ def _mock_response(status_code: int = 200, json_data: dict | None = None):
 # Tests
 # ---------------------------------------------------------------------------
 
-@pytest.mark.asyncio
+# Note: do NOT decorate the class with @pytest.mark.asyncio — asyncio_mode="auto"
+# already handles async methods, and the class-level mark would also apply to
+# sync methods like ``setup_method`` and ``test_missing_credentials_raises_at_init``,
+# producing a PytestWarning.
 class TestAliyunSMSProviderReal:
     def setup_method(self):
         reset_circuit_breakers()
