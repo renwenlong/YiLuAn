@@ -297,6 +297,7 @@ async def list_orders(
     "/{order_id}",
     response_model=OrderItem,
     summary="后台：订单详情",
+    description="返回单个订单的完整字段（含 patient_display_name / companion_display_name / patient_phone_masked / price），并写入 view_order_detail 审计行。",
 )
 async def get_order(order_id: UUID, session: DBSession):
     repo = OrderRepository(session)

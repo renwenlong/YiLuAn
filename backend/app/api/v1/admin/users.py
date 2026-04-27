@@ -204,6 +204,7 @@ async def list_users(
     "/{user_id}",
     response_model=UserItem,
     summary="后台：用户详情",
+    description="返回单个用户详情；phone 默认脱敏，?reveal=true 返回明文并写 reveal_pii 审计；同时写入 view_user_detail 审计行。",
 )
 async def get_user(
     user_id: UUID,
