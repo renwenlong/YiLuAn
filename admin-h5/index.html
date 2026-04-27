@@ -3,6 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- Security hardening: deny inline JS, restrict origins, prevent framing. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://127.0.0.1:8000 http://localhost:8000 https://api.yiluan.example.com; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self';" />
+  <meta http-equiv="X-Content-Type-Options" content="nosniff" />
   <title>YiLuAn Admin · MVP</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
@@ -19,7 +22,7 @@
   <main id="loginMain" hidden>
     <section id="loginView" class="card login-card">
       <h2>登录</h2>
-      <p class="hint">输入运营后台 Admin Token（环境变量 ADMIN_TOKEN）。Token 仅缓存在本机 localStorage。</p>
+      <p class="hint">输入运营后台 Admin Token（环境变量 ADMIN_TOKEN）。Token 仅缓存在本机 sessionStorage（关闭标签页后失效）。</p>
       <div class="form-row">
         <label for="apiBaseInput">后端地址</label>
         <input id="apiBaseInput" type="text" placeholder="http://127.0.0.1:8000" />

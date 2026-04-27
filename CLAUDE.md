@@ -82,7 +82,7 @@ Dependency injection via `Annotated` types in `app/dependencies.py`:
 
 - **`services/api.js`** — Central HTTP client. Bearer JWT auth, transparent 401 refresh queue (concurrent requests wait for single refresh).
 - **`store/index.js`** — Observer-pattern global state (`getState`, `setState`, `subscribe`, `reset`).
-- **`utils/constants.js`** — `SERVICE_TYPES` and `ORDER_STATUS` enums. **Must stay in sync with backend `SERVICE_PRICES`.**
+- **`utils/constants.js`** — `SERVICE_TYPES` and `ORDER_STATUS` enums. **Must stay in sync with backend `SERVICE_PRICES` (defined in `app/models/order.py`, re-exported by the `app/services/order` package).**
 - **`config/index.js`** — `API_BASE_URL` and `WS_BASE_URL` per environment.
 - **Custom tab bars** — No native `tabBar`. Uses `components/patient-tab-bar` and `components/companion-tab-bar`, navigation via `wx.reLaunch`.
 - **27 pages** organized by role: `pages/patient/*`, `pages/companion/*`, plus shared `pages/profile/*`, `pages/chat/*`, etc.
@@ -106,7 +106,7 @@ These must stay synchronized when modified:
 
 | Concept | Backend | WeChat | iOS |
 |---------|---------|--------|-----|
-| Service types & prices | `app/services/order.py` `SERVICE_PRICES` | `utils/constants.js` `SERVICE_TYPES` | `Core/Models/Order.swift` `ServiceType` |
+| Service types & prices | `app/models/order.py` `SERVICE_PRICES` (re-exported from `app/services/order/__init__.py`) | `utils/constants.js` `SERVICE_TYPES` | `Core/Models/Order.swift` `ServiceType` |
 | Order statuses | `app/models/order.py` `OrderStatus` | `utils/constants.js` `ORDER_STATUS` | `Core/Models/Order.swift` `OrderStatus` |
 | API endpoints | `app/api/v1/router.py` | `services/*.js` | `Core/Networking/APIEndpoint.swift` |
 | WebSocket message format | `app/api/v1/ws.py` | `services/websocket.js` | `Core/Networking/WebSocketClient.swift` |

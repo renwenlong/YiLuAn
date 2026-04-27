@@ -80,3 +80,86 @@ async def test_admin_orders_requires_admin_token(
     body = r.json()
     assert "items" in body and "total" in body
 
+
+async def test_admin_disable_blocks_user_access(
+    e2e_client,
+    login_via_otp,
+    patient_phone,
+    admin_headers,
+):
+    """Closed-loop check that ``POST /admin/users/{id}/disable`` actually
+    blocks the affected user from authenticated endpoints, and ``/enable``
+    restores access. Audit log entries for both transitions must exist.
+    """
+    # 1. Patient registers and verifies the live token.
+    p_access, _, p_user = await login_via_otp(patient_phone, role="patient")
+    p_headers = {"Authorization": f"Bearer {p_access}"}
+    user_id = p_user["id"]
+
+    r = await e2e_client.get("/api/v1/users/me", headers=p_headers)
+    assert r.status_code == 200, r.text
+
+    # 2. Admin disables the user with a reason.
+    r = await e2e_client.post(
+        f"/api/v1/admin/users/{user_id}/disable",
+        headers=admin_headers,
+        json={"reason": "e2e test: confirm disable blocks access"},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["is_active"] is False
+
+    # 3. Existing access token must now be rejected (auth dependency checks is_active).
+    r = await e2e_client.get("/api/v1/users/me", headers=p_headers)
+    assert r.status_code in (401, 403), (
+        f"disabled user should not call /me; got {r.status_code} {r.text}"
+    )
+
+    # 4. Re-login attempt must also fail (verify-otp checks is_active).
+    r = await e2e_client.post(
+        "/api/v1/auth/send-otp", json={"phone": patient_phone}
+    )
+    # send-otp may succeed, hit rate limit (400), or 403; we don't gate on this step.
+    assert r.status_code in (200, 400, 403)
+    r = await e2e_client.post(
+        "/api/v1/auth/verify-otp",
+        json={"phone": patient_phone, "code": "000000"},
+    )
+    assert r.status_code in (401, 403), (
+        f"disabled user should not be able to verify-otp; got {r.status_code} {r.text}"
+    )
+
+    # 5. Admin re-enables.
+    r = await e2e_client.post(
+        f"/api/v1/admin/users/{user_id}/enable",
+        headers=admin_headers,
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["is_active"] is True
+
+    # 6. Login works again.
+    new_access, _, _ = await login_via_otp(patient_phone, role="patient")
+    new_headers = {"Authorization": f"Bearer {new_access}"}
+    r = await e2e_client.get("/api/v1/users/me", headers=new_headers)
+    assert r.status_code == 200, r.text
+
+    # 7. Audit trail: both disable + enable rows exist for this user.
+    from uuid import UUID
+
+    from sqlalchemy import select
+
+    from app.models.admin_audit_log import AdminAuditLog
+    from tests.e2e.conftest import test_session_factory  # type: ignore[attr-defined]
+
+    async with test_session_factory() as session:
+        rows = (
+            await session.execute(
+                select(AdminAuditLog).where(
+                    AdminAuditLog.target_type == "user",
+                    AdminAuditLog.target_id == UUID(str(user_id)),
+                )
+            )
+        ).scalars().all()
+    actions = {r.action for r in rows}
+    assert "disable" in actions, f"missing disable audit: {actions}"
+    assert "enable" in actions, f"missing enable audit: {actions}"
+

@@ -7,10 +7,12 @@
  *  - orders:     订单管理   (#/orders)
  *  - users:      用户管理   (#/users)
  *
- * Auth: header X-Admin-Token, token in localStorage `yiluan.admin.token`
+ * Auth: header X-Admin-Token, token in sessionStorage `yiluan.admin.token`
+ *   (sessionStorage instead of localStorage so the token does not survive
+ *   tab close — narrower XSS exposure window).
  */
 
-const LS_TOKEN_KEY = 'yiluan.admin.token';
+const SS_TOKEN_KEY = 'yiluan.admin.token';
 const LS_API_BASE_KEY = 'yiluan.admin.apiBase';
 const DEFAULT_API_BASE = 'http://127.0.0.1:8000';
 const PAGE_SIZE = 20;
@@ -32,7 +34,7 @@ function statusLabel(v) { return STATUS_LABELS[v] || v || '-'; }
 
 const state = {
   apiBase: localStorage.getItem(LS_API_BASE_KEY) || DEFAULT_API_BASE,
-  token: localStorage.getItem(LS_TOKEN_KEY) || '',
+  token: sessionStorage.getItem(SS_TOKEN_KEY) || '',
   route: '',
   // companions
   companions: { page: 1, total: 0, items: [], pendingRejectId: null },
@@ -111,7 +113,7 @@ async function apiCall(path, options) {
 function handleAuthError(e) {
   if (e && (e.status === 401 || e.status === 403)) {
     toast('Token 无效或无权限，请重新登录', 'error');
-    localStorage.removeItem(LS_TOKEN_KEY);
+    sessionStorage.removeItem(SS_TOKEN_KEY);
     state.token = '';
     showLogin();
     return true;
@@ -612,12 +614,12 @@ function onLogin() {
   state.apiBase = apiBase;
   state.token = token;
   localStorage.setItem(LS_API_BASE_KEY, apiBase);
-  localStorage.setItem(LS_TOKEN_KEY, token);
+  sessionStorage.setItem(SS_TOKEN_KEY, token);
   showShell();
 }
 
 function onLogout() {
-  localStorage.removeItem(LS_TOKEN_KEY);
+  sessionStorage.removeItem(SS_TOKEN_KEY);
   state.token = '';
   showLogin();
 }

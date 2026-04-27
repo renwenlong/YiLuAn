@@ -1,7 +1,12 @@
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
+from pydantic.types import condecimal
+
+# ADR-0030: 金额统一 Decimal(10,2)，JSON 序列化为 number
+MoneyDecimal = condecimal(max_digits=10, decimal_places=2)
 
 
 class ApplyCompanionRequest(BaseModel):
@@ -76,4 +81,12 @@ class CompanionStatsResponse(BaseModel):
     open_orders: int = Field(0, description="进行中订单数", examples=[2])
     total_orders: int = Field(0, description="累计订单数", examples=[126])
     avg_rating: float = Field(0.0, description="平均评分", examples=[4.8])
-    total_earnings: float = Field(0.0, description="累计收入（元）", examples=[12480.50])
+    total_earnings: MoneyDecimal = Field(
+        Decimal("0.00"), description="累计收入（元）", examples=["12480.50"]
+    )
+
+    @field_serializer("total_earnings")
+    def _ser_total_earnings(self, v: Decimal) -> float:
+        # ADR-0030: 内部 Decimal，对外保持 number（同 order.py）
+        # TODO(W19, deadline 2026-06-30 / W26): remove float() coercion. TD-MONEY-01.
+        return float(Decimal(v).quantize(Decimal("0.01")))
