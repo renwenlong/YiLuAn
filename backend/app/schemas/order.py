@@ -56,6 +56,8 @@ class OrderResponse(BaseModel):
     @field_serializer("price")
     def _ser_price(self, v: Decimal) -> float:
         # ADR-0030: 内部 Decimal，对外保持 number（前端契约不破）
+        # TODO(W19, deadline 2026-06-30 / W26): remove float() coercion once mobile
+        # clients ship Decimal-aware parsers. Tracking: TD-MONEY-01.
         return float(Decimal(v).quantize(Decimal("0.01")))
 
 
@@ -78,4 +80,6 @@ class PaymentResponse(BaseModel):
     @field_serializer("amount")
     def _ser_amount(self, v: Decimal) -> float:
         # ADR-0030: 内部 Decimal，对外保持 number
+        # TODO(W19, deadline 2026-06-30 / W26): remove float() coercion once mobile
+        # clients ship Decimal-aware parsers. Tracking: TD-MONEY-01.
         return float(Decimal(v).quantize(Decimal("0.01")))
