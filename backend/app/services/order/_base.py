@@ -52,6 +52,20 @@ class _OrderServiceBase:
         self.chat_repo = ChatMessageRepository(session)
         self.session = session
 
+    @property
+    def logger(self) -> logging.Logger:
+        """Resolve the package-level logger lazily.
+
+        Mixins call ``self.logger.<level>(...)`` instead of the legacy
+        ``sys.modules["app.services.order"].logger`` indirection, but
+        tests still patch ``app.services.order.logger``— so we re-read
+        the package attr on every access. The tiny dict lookup cost is
+        irrelevant compared to the I/O around any log call.
+        """
+        from app.services import order as _pkg
+
+        return _pkg.logger
+
     # --- helpers ---
 
     async def _get_order_or_404(self, order_id: uuid.UUID) -> Order:

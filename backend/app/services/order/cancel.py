@@ -1,7 +1,6 @@
 """Cancellation transitions: cancel_order (patient/companion) and reject_order (companion)."""
 from __future__ import annotations
 
-import sys
 import uuid
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -10,14 +9,6 @@ from app.models.order import Order, OrderStatus
 from app.models.user import User, UserRole
 
 from ._base import _OrderServiceBase
-
-
-def _logger():
-    """Resolve the package-level logger lazily so test patches at
-    `app.services.order.logger` take effect even from this submodule.
-    The package is fully imported by the time any service method runs.
-    """
-    return sys.modules["app.services.order"].logger
 
 
 class _OrderCancelMixin(_OrderServiceBase):
@@ -62,7 +53,7 @@ class _OrderCancelMixin(_OrderServiceBase):
                     refund_amount=refund_amount,
                 )
             except BadRequestException as e:
-                _logger().error(
+                self.logger.error(
                     "auto_refund_failed",
                     extra={
                         "order_id": str(order_id),
@@ -126,7 +117,7 @@ class _OrderCancelMixin(_OrderServiceBase):
                     refund_amount=order.price,
                 )
             except BadRequestException as e:
-                _logger().error(
+                self.logger.error(
                     "auto_refund_failed",
                     extra={
                         "order_id": str(order_id),

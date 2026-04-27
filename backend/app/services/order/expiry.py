@@ -14,17 +14,12 @@ would overwrite the first `[order_expired]` audit trace with
 """
 from __future__ import annotations
 
-import sys
 from datetime import datetime, timezone
 
 from app.exceptions import BadRequestException, NotExpirableOrderError
 from app.models.order import Order, OrderStatus
 
 from ._base import _OrderServiceBase
-
-
-def _logger():
-    return sys.modules["app.services.order"].logger
 
 
 class _OrderExpiryMixin(_OrderServiceBase):
@@ -64,7 +59,7 @@ class _OrderExpiryMixin(_OrderServiceBase):
                 try:
                     await self.payment_svc.close_pending_payment(order.id)
                 except BadRequestException as e:
-                    _logger().warning(
+                    self.logger.warning(
                         "expire_close_payment_failed order=%s reason=%s",
                         order.id,
                         e.detail,
