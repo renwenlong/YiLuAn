@@ -29,3 +29,12 @@ payment_callback_received_total = Counter(
     "Payment callbacks received",
     ["status"],
 )
+
+# WebSocket idle timeout (TD-MSG-04 / C-12).
+# Incremented every time a server-side WS connection is closed because the
+# client failed to send any frame within the idle window (default 90s).
+ws_idle_timeout_total = Counter(
+    "ws_idle_timeout_total",
+    "WebSocket connections closed due to server-side idle timeout",
+    ["channel"],  # "notifications" | "chat"
+)

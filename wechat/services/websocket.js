@@ -1,65 +1,60 @@
+/**
+ * services/websocket.js — 订单聊天 WS 业务薄壳（C-12 重构后）。
+ *
+ * 真正的连接 / 重连 / 心跳 / nonce 由 wechat/core/ws-base 提供。
+ * 本文件只负责：
+ *   - 拼出 /api/v1/ws/chat/{orderId}?token=... 的 URL
+ *   - 把 WSBase 暴露为 connect / send / onMessage / disconnect 的旧 API
+ *
+ * **向后兼容**：调用方（如 pages/chat）现有 require('services/websocket')
+ * 调用形态不变。
+ */
 const config = require('../config/index')
 const { getAccessToken } = require('../utils/token')
+const { WSBase } = require('../core/ws-base')
 
-let _socketTask = null
-let _heartbeatTimer = null
-let _reconnectCount = 0
+let _instance = null
 let _messageCallback = null
-const MAX_RECONNECT = 5
-const HEARTBEAT_INTERVAL = 30000
+let _errorCallback = null
+
+function _getInstance() {
+  if (_instance) return _instance
+  _instance = new WSBase()
+  _instance.on('message', function (data) {
+    if (_messageCallback) _messageCallback(data)
+  })
+  _instance.on('error', function (err) {
+    if (_errorCallback) _errorCallback(err)
+  })
+  return _instance
+}
 
 function connect(options) {
-  let orderId, onErrorCallback
-  if (typeof options === 'object') {
+  let orderId
+  if (typeof options === 'object' && options !== null) {
     orderId = options.orderId
     if (options.onMessage) _messageCallback = options.onMessage
-    onErrorCallback = options.onError || null
+    if (options.onError) _errorCallback = options.onError
   } else {
     orderId = options
   }
 
   const token = getAccessToken()
-  const url = config.WS_BASE_URL + '/api/v1/ws/chat/' + orderId + '?token=' + token
+  const url =
+    config.WS_BASE_URL +
+    '/api/v1/ws/chat/' +
+    orderId +
+    '?token=' +
+    token
 
-  _socketTask = wx.connectSocket({
-    url,
-    success() {},
-    fail(err) {
-      console.error('[WS] connect fail:', err)
-    },
-  })
-
-  _socketTask.onOpen(() => {
-    _reconnectCount = 0
-    _startHeartbeat()
-  })
-
-  _socketTask.onMessage((res) => {
-    const data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data
-    if (_messageCallback) _messageCallback(data)
-  })
-
-  _socketTask.onClose(() => {
-    _stopHeartbeat()
-    if (_reconnectCount < MAX_RECONNECT) {
-      const delay = Math.min(1000 * Math.pow(2, _reconnectCount), 30000)
-      _reconnectCount++
-      setTimeout(() => connect({ orderId, onMessage: _messageCallback, onError: onErrorCallback }), delay)
-    }
-  })
-
-  _socketTask.onError(() => {
-    _stopHeartbeat()
-    if (onErrorCallback) onErrorCallback()
-  })
+  const inst = _getInstance()
+  inst.connect(url)
 }
 
 function send(message) {
-  if (_socketTask) {
-    _socketTask.send({
-      data: JSON.stringify(message),
-    })
-  }
+  const inst = _getInstance()
+  // 透传 — WSBase 会自动注入 nonce 并去重
+  inst.send(message || {})
 }
 
 function onMessage(callback) {
@@ -67,28 +62,11 @@ function onMessage(callback) {
 }
 
 function disconnect() {
-  _stopHeartbeat()
-  _reconnectCount = MAX_RECONNECT
-  if (_socketTask) {
-    _socketTask.close()
-    _socketTask = null
-  }
+  if (!_instance) return
+  _instance.disconnect()
+  _instance = null
+  _messageCallback = null
+  _errorCallback = null
 }
 
-function _startHeartbeat() {
-  _stopHeartbeat()
-  _heartbeatTimer = setInterval(() => {
-    if (_socketTask) {
-      _socketTask.send({ data: JSON.stringify({ type: 'ping' }) })
-    }
-  }, HEARTBEAT_INTERVAL)
-}
-
-function _stopHeartbeat() {
-  if (_heartbeatTimer) {
-    clearInterval(_heartbeatTimer)
-    _heartbeatTimer = null
-  }
-}
-
-module.exports = { connect, send, onMessage, disconnect }
+module.exports = { connect: connect, send: send, onMessage: onMessage, disconnect: disconnect }

@@ -29,13 +29,17 @@ describe('services/websocket', () => {
     expect(callArgs.url).toContain('token=test_token')
   })
 
-  test('send serializes message as JSON', () => {
+  test('send serializes message as JSON (auto-injects client nonce)', () => {
     ws.connect({ orderId: 'order123' })
 
     ws.send({ content: '你好', type: 'text' })
-    expect(mockSocketTask.send).toHaveBeenCalledWith({
-      data: JSON.stringify({ content: '你好', type: 'text' }),
-    })
+    expect(mockSocketTask.send).toHaveBeenCalledTimes(1)
+    const sent = JSON.parse(mockSocketTask.send.mock.calls[0][0].data)
+    expect(sent.content).toBe('你好')
+    expect(sent.type).toBe('text')
+    // C-12 / TD-MSG-01: WSBase auto-attaches a client nonce for idempotency.
+    expect(typeof sent.nonce).toBe('string')
+    expect(sent.nonce.length).toBeGreaterThanOrEqual(8)
   })
 
   test('onMessage sets callback for incoming messages', () => {
