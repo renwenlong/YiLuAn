@@ -1026,6 +1026,22 @@
         "title": "DimensionScores",
         "type": "object"
       },
+      "DisableBody": {
+        "properties": {
+          "reason": {
+            "description": "停用原因",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "DisableBody",
+        "type": "object"
+      },
       "EmergencyContactCreate": {
         "properties": {
           "name": {
@@ -1271,6 +1287,51 @@
           "phone_to_call"
         ],
         "title": "EmergencyTriggerResponse",
+        "type": "object"
+      },
+      "ForceStatusBody": {
+        "properties": {
+          "reason": {
+            "description": "操作原因",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "status": {
+            "description": "目标状态值（OrderStatus 之一）",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "reason"
+        ],
+        "title": "ForceStatusBody",
+        "type": "object"
+      },
+      "ForceStatusResponse": {
+        "properties": {
+          "new_status": {
+            "title": "New Status",
+            "type": "string"
+          },
+          "old_status": {
+            "title": "Old Status",
+            "type": "string"
+          },
+          "order_id": {
+            "title": "Order Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_id",
+          "old_status",
+          "new_status"
+        ],
+        "title": "ForceStatusResponse",
         "type": "object"
       },
       "HTTPValidationError": {
@@ -1701,6 +1762,122 @@
         "title": "OkResponse",
         "type": "object"
       },
+      "OrderItem": {
+        "properties": {
+          "appointment_date": {
+            "description": "预约日期 YYYY-MM-DD",
+            "title": "Appointment Date",
+            "type": "string"
+          },
+          "appointment_time": {
+            "description": "预约时间 HH:MM",
+            "title": "Appointment Time",
+            "type": "string"
+          },
+          "companion_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "陪诊师昵称（来自 User.display_name 或 Order.companion_name 兜底）",
+            "title": "Companion Display Name"
+          },
+          "companion_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "陪诊师 UUID",
+            "title": "Companion Id"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "创建时间 ISO8601",
+            "title": "Created At"
+          },
+          "hospital_id": {
+            "description": "医院 UUID",
+            "title": "Hospital Id",
+            "type": "string"
+          },
+          "id": {
+            "description": "订单 UUID",
+            "title": "Id",
+            "type": "string"
+          },
+          "order_number": {
+            "description": "订单号",
+            "title": "Order Number",
+            "type": "string"
+          },
+          "patient_display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "患者昵称（来自 User.display_name 或 Order.patient_name 兜底）",
+            "title": "Patient Display Name"
+          },
+          "patient_id": {
+            "description": "患者 UUID",
+            "title": "Patient Id",
+            "type": "string"
+          },
+          "patient_phone_masked": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "患者脱敏手机号（永远脱敏）",
+            "title": "Patient Phone Masked"
+          },
+          "price": {
+            "description": "订单金额（元，字符串保两位小数）",
+            "title": "Price",
+            "type": "string"
+          },
+          "status": {
+            "description": "订单状态（OrderStatus 枚举值）",
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "order_number",
+          "patient_id",
+          "hospital_id",
+          "status",
+          "appointment_date",
+          "appointment_time",
+          "price"
+        ],
+        "title": "OrderItem",
+        "type": "object"
+      },
       "OrderListResponse": {
         "properties": {
           "items": {
@@ -1978,6 +2155,68 @@
         "title": "PaginatedCompanions",
         "type": "object"
       },
+      "PaginatedOrders": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/OrderItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "PaginatedOrders",
+        "type": "object"
+      },
+      "PaginatedUsers": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/UserItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "PaginatedUsers",
+        "type": "object"
+      },
       "PatientProfileResponse": {
         "properties": {
           "created_at": {
@@ -2187,6 +2426,71 @@
           "refresh_token"
         ],
         "title": "RefreshTokenResponse",
+        "type": "object"
+      },
+      "RefundBody": {
+        "properties": {
+          "amount": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "退款金额（元）",
+            "title": "Amount"
+          },
+          "reason": {
+            "description": "退款原因",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "amount",
+          "reason"
+        ],
+        "title": "RefundBody",
+        "type": "object"
+      },
+      "RefundResponse": {
+        "properties": {
+          "order_id": {
+            "title": "Order Id",
+            "type": "string"
+          },
+          "payment_id": {
+            "title": "Payment Id",
+            "type": "string"
+          },
+          "refund_amount": {
+            "title": "Refund Amount",
+            "type": "string"
+          },
+          "refund_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Refund Id"
+          }
+        },
+        "required": [
+          "order_id",
+          "refund_amount",
+          "refund_id",
+          "payment_id"
+        ],
+        "title": "RefundResponse",
         "type": "object"
       },
       "RegisterDeviceRequest": {
@@ -2734,6 +3038,96 @@
         "title": "UpdateUserRequest",
         "type": "object"
       },
+      "UserItem": {
+        "properties": {
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "手机号。默认脱敏（前3后2，中间 *）；?reveal=true 时返回完整号码并写 reveal_pii 审计。",
+            "title": "Phone"
+          },
+          "phone_masked": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "脱敏手机号；永远脱敏，可直接绑定 UI。",
+            "title": "Phone Masked"
+          },
+          "role": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Role"
+          },
+          "roles": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roles"
+          }
+        },
+        "required": [
+          "id",
+          "role",
+          "roles",
+          "display_name",
+          "is_active",
+          "created_at"
+        ],
+        "title": "UserItem",
+        "type": "object"
+      },
       "UserResponse": {
         "properties": {
           "avatar_url": {
@@ -2825,6 +3219,24 @@
           "created_at"
         ],
         "title": "UserResponse",
+        "type": "object"
+      },
+      "UserStatusResponse": {
+        "properties": {
+          "is_active": {
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "is_active"
+        ],
+        "title": "UserStatusResponse",
         "type": "object"
       },
       "ValidationError": {
@@ -3178,10 +3590,11 @@
     },
     "/api/v1/admin/orders": {
       "get": {
-        "description": "管理员查看所有订单列表，可按 `status` 过滤。仅 `admin` 角色可调用。",
-        "operationId": "list_orders_admin_api_v1_admin_orders_get",
+        "description": "按状态 / 患者 / 陪诊师 / 预约日期范围分页查询订单。",
+        "operationId": "list_orders_api_v1_admin_orders_get",
         "parameters": [
           {
+            "description": "OrderStatus 之一",
             "in": "query",
             "name": "status",
             "required": false,
@@ -3194,7 +3607,78 @@
                   "type": "null"
                 }
               ],
+              "description": "OrderStatus 之一",
               "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "patient_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Patient Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "companion_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Companion Id"
+            }
+          },
+          {
+            "description": "预约开始日期 YYYY-MM-DD",
+            "in": "query",
+            "name": "date_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "预约开始日期 YYYY-MM-DD",
+              "title": "Date From"
+            }
+          },
+          {
+            "description": "预约结束日期 YYYY-MM-DD",
+            "in": "query",
+            "name": "date_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "预约结束日期 YYYY-MM-DD",
+              "title": "Date To"
             }
           },
           {
@@ -3219,13 +3703,24 @@
               "title": "Page Size",
               "type": "integer"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
           }
         ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedOrders"
+                }
               }
             },
             "description": "Successful Response"
@@ -3241,21 +3736,17 @@
             "description": "Validation Error"
           }
         },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "后台：查询全部订单",
+        "summary": "后台：订单列表",
         "tags": [
-          "admin"
+          "admin",
+          "admin-orders"
         ]
       }
     },
-    "/api/v1/admin/orders/{order_id}/admin-refund": {
-      "post": {
-        "description": "以 `refund_ratio`（0~1）按订单金额按比例退款，1.0 表示全额退。",
-        "operationId": "admin_refund_order_api_v1_admin_orders__order_id__admin_refund_post",
+    "/api/v1/admin/orders/{order_id}": {
+      "get": {
+        "description": "返回单个订单的完整字段（含 patient_display_name / companion_display_name / patient_phone_masked / price），并写入 view_order_detail 审计行。",
+        "operationId": "get_order_api_v1_admin_orders__order_id__get",
         "parameters": [
           {
             "in": "path",
@@ -3268,15 +3759,12 @@
             }
           },
           {
-            "in": "query",
-            "name": "refund_ratio",
-            "required": false,
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": true,
             "schema": {
-              "default": 1.0,
-              "maximum": 1.0,
-              "minimum": 0.0,
-              "title": "Refund Ratio",
-              "type": "number"
+              "title": "X-Admin-Token",
+              "type": "string"
             }
           }
         ],
@@ -3284,7 +3772,9 @@
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/OrderItem"
+                }
               }
             },
             "description": "Successful Response"
@@ -3300,20 +3790,16 @@
             "description": "Validation Error"
           }
         },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
-        "summary": "后台：管理员退款",
+        "summary": "后台：订单详情",
         "tags": [
-          "admin"
+          "admin",
+          "admin-orders"
         ]
       }
     },
     "/api/v1/admin/orders/{order_id}/force-status": {
       "post": {
-        "description": "管理员手动将订单跳转到指定状态，**仅用于运营干预**，不走业务状态机。",
+        "description": "管理员手动覆盖订单状态，**绕过业务状态机**，仅用于运营干预。 必须提供原因；进入禁止转换会 400 + 写 force_status_denied 审计。",
         "operationId": "force_order_status_api_v1_admin_orders__order_id__force_status_post",
         "parameters": [
           {
@@ -3327,20 +3813,32 @@
             }
           },
           {
-            "in": "query",
-            "name": "target_status",
+            "in": "header",
+            "name": "X-Admin-Token",
             "required": true,
             "schema": {
-              "title": "Target Status",
+              "title": "X-Admin-Token",
               "type": "string"
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForceStatusBody"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/ForceStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -3356,22 +3854,146 @@
             "description": "Validation Error"
           }
         },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
         "summary": "后台：强制修改订单状态",
         "tags": [
-          "admin"
+          "admin",
+          "admin-orders"
+        ]
+      }
+    },
+    "/api/v1/admin/orders/{order_id}/refund": {
+      "post": {
+        "description": "管理员发起退款。约束： (1) 订单状态需为 accepted / in_progress / completed / reviewed； (2) 退款金额 ≤ 已支付金额； (3) 同一订单已存在 success 退款时拒绝（依赖 PaymentService 唯一约束）。",
+        "operationId": "refund_order_api_v1_admin_orders__order_id__refund_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：管理员退款",
+        "tags": [
+          "admin",
+          "admin-orders"
         ]
       }
     },
     "/api/v1/admin/users": {
       "get": {
-        "description": "分页查看所有用户（含已停用）。",
-        "operationId": "list_users_admin_api_v1_admin_users_get",
+        "description": "分页查询用户，支持按 role / is_active / phone 模糊过滤。",
+        "operationId": "list_users_api_v1_admin_users_get",
         "parameters": [
+          {
+            "description": "角色 tag，如 patient / companion / admin",
+            "in": "query",
+            "name": "role",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "角色 tag，如 patient / companion / admin",
+              "title": "Role"
+            }
+          },
+          {
+            "in": "query",
+            "name": "is_active",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Is Active"
+            }
+          },
+          {
+            "description": "手机号模糊匹配",
+            "in": "query",
+            "name": "phone",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "手机号模糊匹配",
+              "title": "Phone"
+            }
+          },
+          {
+            "description": "是否返回明文手机号；置 true 会写入 reveal_pii 审计日志。",
+            "in": "query",
+            "name": "reveal",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "是否返回明文手机号；置 true 会写入 reveal_pii 审计日志。",
+              "title": "Reveal",
+              "type": "boolean"
+            }
+          },
           {
             "in": "query",
             "name": "page",
@@ -3394,13 +4016,24 @@
               "title": "Page Size",
               "type": "integer"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
           }
         ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedUsers"
+                }
               }
             },
             "description": "Successful Response"
@@ -3416,20 +4049,82 @@
             "description": "Validation Error"
           }
         },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
         "summary": "后台：用户列表",
         "tags": [
-          "admin"
+          "admin",
+          "admin-users"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{user_id}": {
+      "get": {
+        "description": "返回单个用户详情；phone 默认脱敏，?reveal=true 返回明文并写 reveal_pii 审计；同时写入 view_user_detail 审计行。",
+        "operationId": "get_user_api_v1_admin_users__user_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "是否返回明文手机号；置 true 会写入 reveal_pii 审计日志。",
+            "in": "query",
+            "name": "reveal",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "是否返回明文手机号；置 true 会写入 reveal_pii 审计日志。",
+              "title": "Reveal",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserItem"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：用户详情",
+        "tags": [
+          "admin",
+          "admin-users"
         ]
       }
     },
     "/api/v1/admin/users/{user_id}/disable": {
       "post": {
-        "description": "将指定用户账号设为 `is_active=False`，用于风控处置。",
+        "description": "将指定用户置为 is_active=False。操作必须给出原因，写入 admin_audit_log。",
         "operationId": "disable_user_api_v1_admin_users__user_id__disable_post",
         "parameters": [
           {
@@ -3441,13 +4136,34 @@
               "title": "User Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisableBody"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/UserStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -3463,20 +4179,16 @@
             "description": "Validation Error"
           }
         },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
         "summary": "后台：停用用户",
         "tags": [
-          "admin"
+          "admin",
+          "admin-users"
         ]
       }
     },
     "/api/v1/admin/users/{user_id}/enable": {
       "post": {
-        "description": "重新启用被停用的账号。",
+        "description": "重新启用被停用账号；操作写入 admin_audit_log。",
         "operationId": "enable_user_api_v1_admin_users__user_id__enable_post",
         "parameters": [
           {
@@ -3488,13 +4200,24 @@
               "title": "User Id",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
           }
         ],
         "responses": {
           "200": {
             "content": {
               "application/json": {
-                "schema": {}
+                "schema": {
+                  "$ref": "#/components/schemas/UserStatusResponse"
+                }
               }
             },
             "description": "Successful Response"
@@ -3510,14 +4233,10 @@
             "description": "Validation Error"
           }
         },
-        "security": [
-          {
-            "HTTPBearer": []
-          }
-        ],
         "summary": "后台：启用用户",
         "tags": [
-          "admin"
+          "admin",
+          "admin-users"
         ]
       }
     },
