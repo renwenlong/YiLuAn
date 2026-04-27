@@ -122,3 +122,12 @@
 
 - **已解决（2026-04-25）**：见 ADR-0029。check_expired_orders 对 paid 订单 raise NotExpirableOrderError（HTTP 409），对 pending pay 走 close + fail + 留痕；late SUCCESS 回调由 handle_pay_callback 防御退款分支兜底。
 
+
+
+## TD-ORDER-01 check_expired_orders 中 pending-close 块重复
+
+- **描述**：`backend/app/services/order/expiry.py::check_expired_orders` 第 65-110 行存在两段几乎完全相同的 try/`close_pending_payment`/`flush` 代码。SP-01 拆分时为了保持"零行为变更"原样保留。第二次执行时 `existing_pay.status` 已被第一次 try 块改成 `failed` 或 `closed`，所以 PSP `close_pending_payment` 实际还是会被调用第二次（除非 PSP 端幂等返回失败）。
+- **风险**：低 — 当前 Mock provider 幂等无副作用；上线 wechat 真实 provider 后第二次 close 多半会失败但不会污染状态。
+- **来源**：SP-01 (D-042) 拆分时发现，commit `0af598d` 之前就存在的 legacy bug。
+- **缓解方案**：单 PR 删除第 79-110 行（else 分支末尾到第二次 try 结束的整段重复），辅以 1 个回归用例验证 PSP `close_pending_payment` 在单次 expiry 周期内最多被调用 1 次。
+- **优先级**：P3
