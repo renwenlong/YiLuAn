@@ -3,6 +3,25 @@
 > 消息链路审计（2026-04-17，D-019 Update 后）发现的轻微问题集合。严重 / 重要的问题
 > 已在本次修复，本文件只记录"暂缓处理、但需要在后续迭代中跟踪"的技术债。
 
+## TD-MONEY-01 schemas 主动 `float()` 序列化金额
+
+- **状态**：进行中（2026-04-27 W18 复盘后登记）。
+- **问题描述**：`backend/app/schemas/order.py::_ser_price`、`_ser_amount` 及 `companion.py::_ser_total_earnings` 为兼容老客户端契约，主动将 `Decimal` 转 `float`。侍服上线 Decimal-aware parser 后应迁回原始 Decimal 字符串序列化。
+- **代码位置**：`backend/app/schemas/order.py` `_ser_price` / `_ser_amount`；`backend/app/schemas/companion.py` `_ser_total_earnings`。
+- **修复计划**：WeChat / iOS / admin-h5 都升级为 Decimal-aware parser 后（跟踪于 ADR-0030）删除 `float()` 转换，返回 Pydantic 默认 Decimal 序列化。
+- **优先级**：P2（deadline 2026-06-30 / W26）。
+
+## TD-ORDER-LOGGER-01 OrderService 子模块 logger 间接
+
+- **状态**：✅ 已解决（2026-04-27 chore/post-w18-cleanup）。
+- **原问题**：`cancel.py` / `expiry.py` 原本用 `sys.modules["app.services.order"].logger` 间接取 logger，子模块独立 import 时会 KeyError。
+- **解决方式**：`_OrderServiceBase` 加 `logger` property，走 `from app.services import order as _pkg; return _pkg.logger`，依然兏容 `patch("app.services.order.logger")`。
+- **PR**：chore/post-w18-cleanup
+
+## TD-ADMIN-H5-CSP · admin-h5 token 存储 + CSP
+
+- **状态**：✅ 已解决（2026-04-27）。Token 从 localStorage 迁到 sessionStorage（关闭标签页后失效）；index.html 加 CSP + nosniff。
+
 ## TD-MSG-01 聊天消息幂等性
 
 - **状态**：✅ 已解决（2026-04-27，见 ADR-0031）。
