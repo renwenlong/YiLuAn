@@ -130,10 +130,11 @@
 
 
 
-## TD-ORDER-01 check_expired_orders 中 pending-close 块重复
+## TD-ORDER-01 check_expired_orders 中 pending-close 块重复 ✅ 已完成
 
-- **描述**：`backend/app/services/order/expiry.py::check_expired_orders` 第 65-110 行存在两段几乎完全相同的 try/`close_pending_payment`/`flush` 代码。SP-01 拆分时为了保持"零行为变更"原样保留。第二次执行时 `existing_pay.status` 已被第一次 try 块改成 `failed` 或 `closed`，所以 PSP `close_pending_payment` 实际还是会被调用第二次（除非 PSP 端幂等返回失败）。
-- **风险**：低 — 当前 Mock provider 幂等无副作用；上线 wechat 真实 provider 后第二次 close 多半会失败但不会污染状态。
+- **状态**：✅ 已修复（PR `fix/order-expiry-dedup`）。删除 `expiry.py` 中重复的 pending-close 块；新增 `tests/test_order_expiry.py` 用 mock 计数固化「每个 expired order 一次 expiry 周期内 `close_pending_payment` 仅被调用 1 次」的契约（含批量场景）。
+- **描述（历史）**：`backend/app/services/order/expiry.py::check_expired_orders` 第 65-110 行存在两段几乎完全相同的 try/`close_pending_payment`/`flush` 代码。SP-01 拆分时为了保持"零行为变更"原样保留。第二次执行时 `existing_pay.status` 已被第一次 try 块改成 `failed` 或 `closed`，所以 PSP `close_pending_payment` 实际还是会被调用第二次（除非 PSP 端幂等返回失败）。
+- **风险（修复前）**：Mock provider 幂等无副作用；上线 wechat 真实 provider 后第二次 close 会把第一次 `[order_expired]` 痕迹覆盖成 `close_failed`，事后审计指错根因。
 - **来源**：SP-01 (D-042) 拆分时发现，commit `0af598d` 之前就存在的 legacy bug。
-- **缓解方案**：单 PR 删除第 79-110 行（else 分支末尾到第二次 try 结束的整段重复），辅以 1 个回归用例验证 PSP `close_pending_payment` 在单次 expiry 周期内最多被调用 1 次。
-- **优先级**：P3
+- **优先级**：P3 → 完成
+- **Lessons learned**：mock provider 幂等掩盖 bug 的反模式 — 真实 PSP 切换前必须用真实非幂等 mock 跑回归，否则二次调用 / 重复调用类 bug 会被吞掉直到生产才暴露。
