@@ -1,4 +1,21 @@
-<loading-overlay wx:if="{{loading}}" />
+<!-- AI-9: 加载骨架屏（只在首次加载且无 order 时展示） -->
+<view class="page-container" wx:if="{{loading && !order}}">
+  <view class="skeleton-card skeleton-status"></view>
+  <view class="skeleton-card">
+    <view class="skeleton-line skeleton-line-title"></view>
+    <view class="skeleton-line"></view>
+    <view class="skeleton-line"></view>
+    <view class="skeleton-line skeleton-line-short"></view>
+  </view>
+  <view class="skeleton-card">
+    <view class="skeleton-line skeleton-line-title"></view>
+    <view class="skeleton-line"></view>
+    <view class="skeleton-line skeleton-line-short"></view>
+  </view>
+</view>
+
+<!-- AI-9: 后续刷新仍走轻量 overlay（不再白屏，order 仍渲染） -->
+<loading-overlay wx:if="{{loading && order}}" />
 
 <view class="page-container" wx:if="{{order}}">
   <!-- [F-03] Emergency button (in_progress only) -->

@@ -1,6 +1,7 @@
 /* ============================================
  * AI-9: 订单操作公共样式
  * - tap-target: 撑开点击区域到 ≥88rpx (≈44pt)，不影响视觉尺寸
+ * - skeleton-*: 列表/详情骨架屏 token，跨端一致的灰条
  * ============================================ */
 
 /* ---- Tap target (≥44pt) ----
@@ -15,4 +16,60 @@
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
+}
+
+/* ---- Skeleton ---- */
+.skeleton-card {
+  margin: var(--spacing-md);
+  padding: var(--spacing-lg);
+  background-color: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.skeleton-status {
+  height: 220rpx;
+  margin: 0 0 var(--spacing-md) 0;
+  border-radius: 0;
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-skeleton) 0%,
+    #F0F1F4 50%,
+    var(--color-bg-skeleton) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-line {
+  height: 28rpx;
+  margin-bottom: var(--spacing-md);
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--color-bg-skeleton) 0%,
+    #F0F1F4 50%,
+    var(--color-bg-skeleton) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-line:last-child {
+  margin-bottom: 0;
+}
+
+.skeleton-line-title {
+  width: 40%;
+  height: 36rpx;
+  margin-bottom: var(--spacing-lg);
+}
+
+.skeleton-line-short {
+  width: 60%;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
 }
