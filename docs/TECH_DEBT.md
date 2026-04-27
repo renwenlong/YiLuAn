@@ -11,6 +11,35 @@
   在 Redis（key `chat:nonce:{user_id}:{nonce}`）兜底，命中则不落库不广播。
 - **PR**：feat/c12-ws-dedup → main
 
+## TD-ADMIN-01 force-status 走 refunded 不触发退款
+
+- **描述**：`POST /api/v1/admin/orders/{id}/force-status` 仅以 deny-list 拦住不可逆转换，
+  漏掉了「如果运营手工将状态改为 `refunded`」这条金钱路径。现在只写审计 +
+  变更 `Order.status`，不创建 Refund Payment、不出账、不冻结。
+- **代码错**：`backend/app/api/v1/admin/orders.py::force_order_status`。
+  现存 TODO(W19) 标记在接口体内。
+- **缓解方案**：检测 `new_status == "refunded"` 时调用 `PaymentService.create_refund(原订单全额)`，
+  并联动 wallet 冻结释放；dry-run 模式供财务预览。
+- **优先级**：P1（有财务风险，上线 wechat provider 后严重）。
+
+## TD-ADMIN-02 force-cancel 不通知两方
+
+- **描述**：运营进行 `force-status` 为 `cancelled_by_*` 时，不推送给患者与陪诊师任何
+  WS / 订阅消息。双方只能通过下拉刷新发现订单变更。
+- **代码错**：`backend/app/api/v1/admin/orders.py::force_order_status` 仅写审计未发通知。
+- **缓解方案**：复用 `notification_service.send_to_user(...)`，为 `force-cancel` 动作调用一次；
+  模板 「订单已被运营取消: <reason>」。
+- **优先级**：P1（体验严重损伤）。
+
+## TD-ADMIN-03 force-status 到 completed 不更 companion_profile 计数器
+
+- **描述**：正常完成路径会递增 `CompanionProfile.total_orders`；`force-status` 跳过状态机后
+  此计数器不动，导致后台「陪诊师接单量」与实际订单表不一致。
+- **代码错**：同上 force_order_status。
+- **缓解方案**：在 force 完成路径以及其他应动计数器的转换里走同一个 `OrderStatsService.recompute(order)`
+  （不变量：profile.total_orders == count(orders WHERE companion_id=? AND status∈{completed,reviewed})）。
+- **优先级**：P1（与 W19 一同交付）。
+
 ## TD-MSG-02 重连期间消息回补
 
 - **描述**：WS 断线 → 重连成功之间，如果对方发来新消息，前端不会主动拉取
@@ -58,6 +87,32 @@
   走 JSON over WS 时流量不高，但未来支持图片 base64 / 富文本需要进一步审视。
 - **优先级**：P3（当前仅 text 类型，未启用 image/system 详细字段）
 
+## TD-ADMIN-01 force_status → refunded 时联动触发退款
+
+- **描述**：`POST /api/v1/admin/orders/{id}/force-status` 仅修改
+  `Order.status` 字段，不会主动调用 `PaymentService.create_refund`。
+  若运营人员手动把订单强制改成 `refunded` 状态，钱不会退还给患者。
+- **缓解方案**：force_status 进入 `refunded` 分支时，自动以原支付金额触发退款；
+  或在 H5 上禁用该选项、仅允许走 `/refund` 端点。
+- **优先级**：P1（admin 上线前必须解决）
+
+## TD-ADMIN-02 force-cancel 时通知双方
+
+- **描述**：force_status 把订单改成 `cancelled_by_*` 时，未发送 WS / 推送给
+  患者或陪诊师；用户体验上像被静默取消。
+- **缓解方案**：force_status 在 cancellation 路径上调用现有
+  `NotificationService.broadcast_order_cancelled` 与对应模板消息。
+- **优先级**：P1
+
+## TD-ADMIN-03 completion 时更新 companion total_orders
+
+- **描述**：`force_status → completed` 不会更新 `Companion.total_orders` /
+  `Companion.last_order_at` 等聚合字段；正常 completion path（陪诊师端
+  `complete_service`）会更新这些。
+- **缓解方案**：force_status 进入 completed 分支时复用现有
+  `CompanionService.bump_completed_counter` 逻辑。
+- **优先级**：P1
+
 ## TD-MSG-08 微信订阅消息（Subscribe Message）未接入
 
 - **描述**：当前通知仅通过 WebSocket 实时推送；小程序后台 / 切出时收不到系统弹窗。
@@ -70,7 +125,58 @@
 
 每条技术债被解决后，请更新 DECISION_LOG.md 对应 D-xxx 小节并从本文件删除。
 
+## Lessons learned
+
+### 2026-04-27 · admin-h5 状态枚举漂移
+
+**现象**：MVP 合入后发现 admin H5 select / status badge / refund 弹窗全部使用了
+`pending/paid/serving/cancelled/refunded` 这套「常识性」字符串，但后端 `OrderStatus`
+枚举是 `created/accepted/in_progress/completed/reviewed/cancelled_by_*/rejected_by_companion/expired`。
+后果：除 `completed` 以外列表过滤、改状态全部 400；表格取 `o.patient_name/o.amount/u.nickname/u.mobile`
+全是 undefined，UI 只能显示 UUID。
+
+**根本原因**：
+
+1. **单一事实源丢了**：MVP 带上纯手写 vanilla JS 后台，没有 TypeScript / OpenAPI codegen，纯靠人粘引用后端字段名。 
+2. **无集成测试报警**：admin-h5 历史上无 jest 套件，PR #36/#37 review 也没要求实测。 
+3. **交付验收唯 mock**：下游连联调试被运营门口到才发现，堆后累计成「实战不可用」。
+
+**改进措施**：
+
+- 后端 list / detail response 在代码注释里明确标记为「后台 H5 contract」，变更需同步改 H5。
+- `admin-h5/app.js` 顶部 `STATUS_LABELS` 表与 backend `OrderStatus` 一一对应；代码 review checklist
+  加一项「枚举变更是否同步后台字典」。
+- 后续如果后台启动不再是临时 vanilla JS，优先考虑 OpenAPI 生成 TS DTO。
+- 此事件后 · admin-h5 状态枚举漂移【✅ 已修复（2026-04-27）】。
+
+## Lessons Learned
+
+### H5 ↔ backend 状态枚举漂移（2026-04-27）
+
+admin-h5 早期沿用了 `pending / paid / serving / cancelled / refunded` 等
+**虚构** 的 OrderStatus 字符串，与 backend 真实枚举
+（`created / accepted / in_progress / completed / cancelled_by_* / expired`）
+完全错位；上线前最后一刻才在 contract review 中发现，否则会出现
+「下拉框选不到任何订单」+「force-status 全部 422」的事故。
+
+**结论**：
+- 任何 admin / 内部前端在引用后端 enum 时都不允许硬编码字符串；
+  必须把后端 OpenAPI schema 的 enum 自动导出为 H5 / 小程序常量
+  （建议 CI 步骤：`scripts/gen_status_constants.py` 读取
+  `backend/app/models/order.py::OrderStatus` 生成 `admin-h5/constants.gen.js` 与
+  `wechat/constants/order-status.gen.js`，diff 即 fail）。
+- 同样问题在 `User.is_active` ↔ H5 `status=active|disabled` 也出现过：
+  长期目标是 contract test 自动锁死字段名 + 类型。
+
 ## 已解决的技术债
+- **W18 admin-h5 contract alignment** — 2026-04-27 解决。
+  PR `fix/admin-h5-contract` 一次性解决：(1) admin-h5 的 OrderStatus 枚举
+  对齐后端真实枚举；(2) 字段名对齐（`patient_display_name` / `price` /
+  `phone_masked` / `display_name`）；(3) 后端 admin/orders、admin/users 列表
+  响应补 join User；(4) PII 脱敏默认开 + `?reveal=true` 写 `reveal_pii` 审计；
+  (5) 全部 admin 读端补 `view_*` 审计行；(6) `force_status` 加 deny-list +
+  写 `force_status_denied` 审计。pytest 41/41（test_admin.py）+ 全量
+  ~924 passed。
 - **C-12 / TD-MSG-04 / TD-MSG-01 WebSocket 双模块统一** — 2026-04-27 解决，
   见 ADR-0031。后端 `app/api/v1/ws.py` 全部走 `ChatService.send_message_via_ws`；
   新增 90s asyncio idle timeout + `ws_idle_timeout_total{channel}` 计数器；
