@@ -79,7 +79,10 @@ services:
       context: ../../backend
       dockerfile: Dockerfile
     environment:
-      ENVIRONMENT: staging
+      # NB: backend reads `environment` for the dev-OTP `000000` bypass; we
+      # keep it `development` so the rehearsal script can log in deterministically.
+      # The real prod gate is `environment == "production"` in config.py.
+      ENVIRONMENT: development
       DEBUG: "true"
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@pg-staging:5432/yiluan_staging
       REDIS_URL: redis://redis-staging:6379/0
