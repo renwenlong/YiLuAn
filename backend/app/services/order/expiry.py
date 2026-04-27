@@ -5,10 +5,12 @@ row must be reconciled in the same transaction so we never leave a succeeded
 pay floating against an expired order, and never leave a pending pay open
 at the PSP.
 
-NOTE (SP-01): This file preserves the original `check_expired_orders` body
-*verbatim* (including the duplicated 'pending close' block that exists in
-the legacy file). Cleaning that duplication is tracked separately so this
-PR stays a pure structural refactor with zero behaviour delta.
+TD-ORDER-01 (fixed): an earlier copy of this file contained the
+'pending close' block twice in a row, which caused
+`close_pending_payment` to run twice per expiry tick. The mock PSP's
+idempotency hid the bug; against a real WeChat PSP the second close
+would overwrite the first `[order_expired]` audit trace with
+`close_failed`. The duplicate block has been removed.
 """
 from __future__ import annotations
 
@@ -56,34 +58,6 @@ class _OrderExpiryMixin(_OrderServiceBase):
                     f"订单 {order.order_number} 已支付成功，无法过期"
                 )
             if existing_pay and existing_pay.status == "pending":
-                # Best-effort close at PSP. If PSP rejects (user paid in
-                # the meantime), still mark local row failed so the
-                # late callback's refund branch fires.
-                try:
-                    await self.payment_svc.close_pending_payment(order.id)
-                except BadRequestException as e:
-                    _logger().warning(
-                        "expire_close_payment_failed order=%s reason=%s",
-                        order.id,
-                        e.detail,
-                    )
-                    existing_pay.status = "failed"
-                    _note = "order_expired:close_failed"
-                    existing_pay.callback_raw = (
-                        (existing_pay.callback_raw or "") + f"\n[{_note}]"
-                    )[:4000]
-                    await self.session.flush()
-                else:
-                    # close_pending_payment marks the row 'closed'; tighten
-                    # to 'failed' with reason for TD-PAY-01 contract.
-                    await self.session.refresh(existing_pay)
-                    if existing_pay.status in ("closed", "pending"):
-                        existing_pay.status = "failed"
-                        existing_pay.callback_raw = (
-                            (existing_pay.callback_raw or "")
-                            + "\n[order_expired]"
-                        )[:4000]
-                        await self.session.flush()
                 # Best-effort close at PSP. If PSP rejects (user paid in
                 # the meantime), still mark local row failed so the
                 # late callback's refund branch fires.
