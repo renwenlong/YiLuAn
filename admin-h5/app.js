@@ -15,6 +15,21 @@ const LS_API_BASE_KEY = 'yiluan.admin.apiBase';
 const DEFAULT_API_BASE = 'http://127.0.0.1:8000';
 const PAGE_SIZE = 20;
 
+// OrderStatus enum → 中文标签（与 backend app.models.order.OrderStatus 对齐）
+const STATUS_LABELS = {
+  created: '待支付',
+  accepted: '已接单',
+  in_progress: '服务中',
+  completed: '已完成',
+  reviewed: '已评价',
+  cancelled_by_patient: '患者取消',
+  cancelled_by_companion: '陪诊师取消',
+  rejected_by_companion: '陪诊师拒单',
+  expired: '已过期',
+  refunded: '已退款',
+};
+function statusLabel(v) { return STATUS_LABELS[v] || v || '-'; }
+
 const state = {
   apiBase: localStorage.getItem(LS_API_BASE_KEY) || DEFAULT_API_BASE,
   token: localStorage.getItem(LS_TOKEN_KEY) || '',
@@ -30,7 +45,7 @@ const state = {
   // users
   users: {
     page: 1, total: 0, items: [],
-    filters: { role: '', status: '', phone: '' },
+    filters: { role: '', is_active: '', phone: '' },
     pendingDisableId: null,
   },
 };
@@ -58,10 +73,11 @@ function escapeHtml(s) {
 }
 const escapeAttr = escapeHtml;
 
-function statusPill(value) {
+function statusPill(value, label) {
   const v = value || '-';
+  const text = label != null ? label : v;
   const cls = 'status-pill status-pill--' + escapeAttr(String(v).toLowerCase());
-  return '<span class="' + cls + '">' + escapeHtml(v) + '</span>';
+  return '<span class="' + cls + '">' + escapeHtml(text) + '</span>';
 }
 
 // ---------- API ----------
@@ -257,14 +273,16 @@ const Orders = {
       tbody.innerHTML = '<tr><td colspan="7" class="empty">暂无订单</td></tr>';
     } else {
       tbody.innerHTML = items.map((o) => {
-        const orderNo = o.order_no || o.id || '-';
-        const patient = o.patient_name || o.patient_id || '-';
-        const companion = o.companion_name || o.companion_id || '-';
-        const amount = (o.amount !== undefined && o.amount !== null) ? o.amount : '-';
+        const orderNo = o.order_number || o.order_no || o.id || '-';
+        const patient = o.patient_display_name || o.patient_name || o.patient_id || '-';
+        const companion = o.companion_display_name || o.companion_name || o.companion_id || '-';
+        const amount = (o.price !== undefined && o.price !== null)
+          ? o.price
+          : ((o.amount !== undefined && o.amount !== null) ? o.amount : '-');
         return (
           '<tr>' +
           '<td class="id-cell">' + escapeHtml(orderNo) + '</td>' +
-          '<td>' + statusPill(o.status) + '</td>' +
+          '<td>' + statusPill(o.status, statusLabel(o.status)) + '</td>' +
           '<td>' + escapeHtml(patient) + '</td>' +
           '<td>' + escapeHtml(companion) + '</td>' +
           '<td>' + escapeHtml(amount) + '</td>' +
@@ -315,7 +333,7 @@ const Orders = {
   },
   openForceStatus(id) {
     state.orders.pendingActionId = id;
-    $('#forceStatusSelect').value = 'paid';
+    $('#forceStatusSelect').value = 'accepted';
     $('#forceStatusReason').value = '';
     show($('#forceStatusModal'));
   },
@@ -404,7 +422,7 @@ const Users = {
       page: state.users.page,
       page_size: PAGE_SIZE,
       role: f.role,
-      status: f.status,
+      is_active: f.is_active,
       phone: f.phone,
     });
     try {
@@ -425,12 +443,13 @@ const Users = {
       tbody.innerHTML = '<tr><td colspan="6" class="empty">暂无用户</td></tr>';
     } else {
       tbody.innerHTML = items.map((u) => {
-        const phone = u.phone || u.mobile || '-';
-        const nickname = u.nickname || u.name || '-';
+        const phone = u.phone_masked || u.phone || u.mobile || '-';
+        const nickname = u.display_name || u.nickname || u.name || '-';
         const role = u.role || '-';
-        const status = u.status || '-';
-        const isDisabled = String(status).toLowerCase() === 'disabled';
-        const toggleBtn = isDisabled
+        const isActive = u.is_active !== false; // null/undefined treat as active
+        const statusValue = isActive ? 'active' : 'disabled';
+        const statusText = isActive ? '启用' : '禁用';
+        const toggleBtn = !isActive
           ? '<button class="btn btn-primary btn-sm" data-action="enable" data-id="' + escapeAttr(u.id) + '">启用</button>'
           : '<button class="btn btn-danger btn-sm" data-action="disable" data-id="' + escapeAttr(u.id) + '">禁用</button>';
         return (
@@ -438,7 +457,7 @@ const Users = {
           '<td>' + escapeHtml(phone) + '</td>' +
           '<td>' + escapeHtml(nickname) + '</td>' +
           '<td>' + statusPill(role) + '</td>' +
-          '<td>' + statusPill(status) + '</td>' +
+          '<td>' + statusPill(statusValue, statusText) + '</td>' +
           '<td>' + escapeHtml(u.created_at || '-') + '</td>' +
           '<td class="actions-cell">' +
             '<button class="btn btn-sm" data-action="detail" data-id="' + escapeAttr(u.id) + '">详情</button>' +
@@ -456,7 +475,7 @@ const Users = {
   applyFiltersFromUI() {
     state.users.filters = {
       role: $('#usersFilterRole').value,
-      status: $('#usersFilterStatus').value,
+      is_active: $('#usersFilterStatus').value, // dropdown values: '', 'true', 'false'
       phone: $('#usersFilterPhone').value.trim(),
     };
     state.users.page = 1;
