@@ -1,205 +1,24 @@
 """
-Admin API — platform operations MVP.
+Admin API root — platform operations MVP (B4).
 
-Covers:
-  - Companion verification (approve / reject)
-  - Order management (query / force-status / refund)
-  - User management (disable / enable)
+Sub-routers:
+  - companions (B1)  — verification workflow
+  - orders     (B4)  — order list / force-status / refund
+  - users      (B4)  — user list / disable / enable
 
-All endpoints require admin role (enforced by get_admin_user dependency).
+All endpoints require the ``X-Admin-Token`` header (token-based admin
+auth, see :mod:`app.core.admin_auth`). JWT/OAuth admin login is tracked
+as the v2 follow-up (see ``docs/admin-mvp-scope.md``).
 """
 
-from decimal import Decimal
-from uuid import UUID
+from fastapi import APIRouter
 
-from fastapi import APIRouter, Depends, Query
-
-from app.dependencies import DBSession, get_current_user
-from app.exceptions import ForbiddenException, NotFoundException, BadRequestException
-from app.models.order import Order, OrderStatus
-from app.models.user import User
-from app.repositories.order import OrderRepository
-from app.repositories.user import UserRepository
-from app.services.payment_service import PaymentService
+from app.api.v1.admin.companions import router as companions_router
+from app.api.v1.admin.orders import router as orders_router
+from app.api.v1.admin.users import router as users_router
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-
-async def get_admin_user(
-    current_user: User = Depends(get_current_user),
-) -> User:
-    """Require admin role for all admin endpoints."""
-    if not current_user.has_role("admin"):
-        raise ForbiddenException("Admin access required")
-    return current_user
-
-
-AdminUser = get_admin_user
-
-
-
-# =============================================================================
-# Order Management
-# =============================================================================
-
-
-@router.get(
-    "/orders",
-    summary="后台：查询全部订单",
-    description="管理员查看所有订单列表，可按 `status` 过滤。仅 `admin` 角色可调用。",
-)
-async def list_orders_admin(
-    session: DBSession,
-    _admin: User = Depends(AdminUser),
-    status: str | None = Query(None),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-):
-    """Query all orders with optional status filter."""
-    repo = OrderRepository(session)
-    skip = (page - 1) * page_size
-    order_status = OrderStatus(status) if status else None
-    items, total = await repo.list_all(
-        status=order_status, skip=skip, limit=page_size
-    )
-    return {"items": items, "total": total, "page": page}
-
-
-@router.post(
-    "/orders/{order_id}/force-status",
-    summary="后台：强制修改订单状态",
-    description="管理员手动将订单跳转到指定状态，**仅用于运营干预**，不走业务状态机。",
-)
-async def force_order_status(
-    order_id: UUID,
-    session: DBSession,
-    target_status: str = Query(...),
-    _admin: User = Depends(AdminUser),
-):
-    """Force an order to a specific status (admin override)."""
-    repo = OrderRepository(session)
-    order = await repo.get_by_id(order_id)
-    if order is None:
-        raise NotFoundException("Order not found")
-
-    try:
-        new_status = OrderStatus(target_status)
-    except ValueError:
-        raise BadRequestException(f"Invalid status: {target_status}")
-
-    old_status = order.status
-    order.status = new_status
-    await session.flush()
-    return {
-        "order_id": str(order_id),
-        "old_status": old_status.value,
-        "new_status": new_status.value,
-    }
-
-
-@router.post(
-    "/orders/{order_id}/admin-refund",
-    summary="后台：管理员退款",
-    description="以 `refund_ratio`（0~1）按订单金额按比例退款，1.0 表示全额退。",
-)
-async def admin_refund_order(
-    order_id: UUID,
-    session: DBSession,
-    _admin: User = Depends(AdminUser),
-    refund_ratio: float = Query(1.0, ge=0, le=1),
-):
-    """Admin-initiated refund with configurable ratio."""
-    repo = OrderRepository(session)
-    order = await repo.get_by_id(order_id)
-    if order is None:
-        raise NotFoundException("Order not found")
-
-    payment_svc = PaymentService(session)
-    refund_amount = (order.price * Decimal(str(refund_ratio))).quantize(Decimal("0.01"))
-
-    try:
-        result = await payment_svc.create_refund(
-            order_id=order_id,
-            user_id=order.patient_id,
-            original_amount=order.price,
-            refund_amount=refund_amount,
-        )
-    except BadRequestException:
-        raise BadRequestException("Refund failed — order may already be refunded or unpaid")
-
-    return {
-        "order_id": str(order_id),
-        "refund_amount": refund_amount,
-        "refund_id": str(result.payment_id),
-    }
-
-
-# =============================================================================
-# User Management
-# =============================================================================
-
-
-@router.get(
-    "/users",
-    summary="后台：用户列表",
-    description="分页查看所有用户（含已停用）。",
-)
-async def list_users_admin(
-    session: DBSession,
-    _admin: User = Depends(AdminUser),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-):
-    """List all users."""
-    repo = UserRepository(session)
-    skip = (page - 1) * page_size
-    users, total = await repo.list_all(skip=skip, limit=page_size)
-    return {"items": users, "total": total, "page": page}
-
-
-@router.post(
-    "/users/{user_id}/disable",
-    summary="后台：停用用户",
-    description="将指定用户账号设为 `is_active=False`，用于风控处置。",
-)
-async def disable_user(
-    user_id: UUID,
-    session: DBSession,
-    _admin: User = Depends(AdminUser),
-):
-    """Disable a user account."""
-    repo = UserRepository(session)
-    user = await repo.get_by_id(user_id)
-    if user is None:
-        raise NotFoundException("User not found")
-    user.is_active = False
-    await session.flush()
-    return {"user_id": str(user_id), "is_active": False}
-
-
-@router.post(
-    "/users/{user_id}/enable",
-    summary="后台：启用用户",
-    description="重新启用被停用的账号。",
-)
-async def enable_user(
-    user_id: UUID,
-    session: DBSession,
-    _admin: User = Depends(AdminUser),
-):
-    """Re-enable a disabled user account."""
-    repo = UserRepository(session)
-    user = await repo.get_by_id(user_id)
-    if user is None:
-        raise NotFoundException("User not found")
-    user.is_active = True
-    await session.flush()
-    return {"user_id": str(user_id), "is_active": True}
-
-
-# ---------------------------------------------------------------------------
-# Sub-module routers (A6)
-# ---------------------------------------------------------------------------
-from app.api.v1.admin.companions import router as companions_router  # noqa: E402
-
 router.include_router(companions_router)
+router.include_router(orders_router)
+router.include_router(users_router)
