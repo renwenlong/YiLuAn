@@ -11,6 +11,18 @@ GET    /{user_id}              user detail
 POST   /{user_id}/disable      body {reason} — set is_active=False (audited)
 POST   /{user_id}/enable       set is_active=True (audited)
 
+PII handling (W18 admin-h5 contract fix)
+----------------------------------------
+- ``phone`` is **masked by default** (`138******78`) on every list / detail
+  response; the masked form is also exposed as ``phone_masked`` for UI
+  binding.
+- Pass ``?reveal=true`` to receive the full phone. Each reveal writes an
+  ``AdminAuditLog`` row with ``action="reveal_pii"`` so a security
+  reviewer can answer "who looked up which patient's phone" later.
+- Every list / get also writes a lightweight ``view_*`` audit entry
+  (single row per request; list endpoints record a summary, not per-item)
+  so the read side is no longer a black box.
+
 Self-protection note
 --------------------
 Under token-based auth there is no concept of a "current admin user",
@@ -26,6 +38,7 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from app.core.admin_auth import require_admin_token
+from app.core.pii import mask_phone
 from app.dependencies import DBSession
 from app.exceptions import NotFoundException
 from app.models.admin_audit_log import AdminAuditLog
@@ -39,6 +52,10 @@ router = APIRouter(
 )
 
 
+# Sentinel used for list-scoped audit rows (no single target).
+_LIST_TARGET = UUID("00000000-0000-0000-0000-000000000000")
+
+
 # ---------------------------------------------------------------------------
 # Schemas
 # ---------------------------------------------------------------------------
@@ -46,7 +63,16 @@ router = APIRouter(
 
 class UserItem(BaseModel):
     id: str
-    phone: str | None
+    phone: str | None = Field(
+        None,
+        description=(
+            "手机号。默认脱敏（前3后2，中间 *）；?reveal=true 时返回完整号码并写"
+            " reveal_pii 审计。"
+        ),
+    )
+    phone_masked: str | None = Field(
+        None, description="脱敏手机号；永远脱敏，可直接绑定 UI。"
+    )
     role: str | None
     roles: str | None
     display_name: str | None
@@ -75,16 +101,37 @@ class UserStatusResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _to_item(u: User) -> dict:
+def _to_item(u: User, *, reveal: bool = False) -> dict:
+    masked = mask_phone(u.phone) if u.phone else None
     return {
         "id": str(u.id),
-        "phone": u.phone,
+        "phone": u.phone if reveal else masked,
+        "phone_masked": masked,
         "role": u.role.value if u.role else None,
         "roles": u.roles,
         "display_name": u.display_name,
         "is_active": u.is_active,
         "created_at": u.created_at.isoformat() if u.created_at else None,
     }
+
+
+def _audit(
+    session,
+    *,
+    target_type: str,
+    target_id: UUID,
+    action: str,
+    reason: str | None = None,
+) -> None:
+    session.add(
+        AdminAuditLog(
+            target_type=target_type,
+            target_id=target_id,
+            action=action,
+            operator="admin-token",
+            reason=reason,
+        )
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -103,6 +150,10 @@ async def list_users(
     role: str | None = Query(None, description="角色 tag，如 patient / companion / admin"),
     is_active: bool | None = Query(None),
     phone: str | None = Query(None, description="手机号模糊匹配"),
+    reveal: bool = Query(
+        False,
+        description="是否返回明文手机号；置 true 会写入 reveal_pii 审计日志。",
+    ),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
@@ -115,8 +166,34 @@ async def list_users(
         skip=skip,
         limit=page_size,
     )
+    payload_items = [_to_item(u, reveal=reveal) for u in items]
+
+    summary = (
+        f"role={role} is_active={is_active} phone={phone} "
+        f"page={page} limit={page_size} returned={len(payload_items)} "
+        f"reveal={reveal}"
+    )
+    _audit(
+        session,
+        target_type="user",
+        target_id=_LIST_TARGET,
+        action="view_users_list",
+        reason=summary,
+    )
+    if reveal:
+        for u in items:
+            if u.phone:
+                _audit(
+                    session,
+                    target_type="user",
+                    target_id=u.id,
+                    action="reveal_pii",
+                    reason="field=phone via=list",
+                )
+    await session.flush()
+
     return {
-        "items": [_to_item(u) for u in items],
+        "items": payload_items,
         "total": total,
         "page": page,
         "page_size": page_size,
@@ -128,12 +205,37 @@ async def list_users(
     response_model=UserItem,
     summary="后台：用户详情",
 )
-async def get_user(user_id: UUID, session: DBSession):
+async def get_user(
+    user_id: UUID,
+    session: DBSession,
+    reveal: bool = Query(
+        False,
+        description="是否返回明文手机号；置 true 会写入 reveal_pii 审计日志。",
+    ),
+):
     repo = UserRepository(session)
     user = await repo.get_by_id(user_id)
     if user is None:
         raise NotFoundException("User not found")
-    return _to_item(user)
+
+    _audit(
+        session,
+        target_type="user",
+        target_id=user_id,
+        action="view_user_detail",
+        reason=f"reveal={reveal}",
+    )
+    if reveal and user.phone:
+        _audit(
+            session,
+            target_type="user",
+            target_id=user_id,
+            action="reveal_pii",
+            reason="field=phone via=detail",
+        )
+    await session.flush()
+
+    return _to_item(user, reveal=reveal)
 
 
 @router.post(
@@ -158,15 +260,13 @@ async def disable_user(
         raise NotFoundException("User not found")
 
     user.is_active = False
-
-    log = AdminAuditLog(
+    _audit(
+        session,
         target_type="user",
         target_id=user_id,
         action="disable",
-        operator="admin-token",
         reason=body.reason,
     )
-    session.add(log)
     await session.flush()
 
     return {"user_id": str(user_id), "is_active": False}
@@ -185,14 +285,12 @@ async def enable_user(user_id: UUID, session: DBSession):
         raise NotFoundException("User not found")
 
     user.is_active = True
-
-    log = AdminAuditLog(
+    _audit(
+        session,
         target_type="user",
         target_id=user_id,
         action="enable",
-        operator="admin-token",
     )
-    session.add(log)
     await session.flush()
 
     return {"user_id": str(user_id), "is_active": True}

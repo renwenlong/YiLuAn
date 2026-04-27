@@ -11,7 +11,9 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
 from app.core.admin_auth import require_admin_token
+from app.core.pii import mask_id_number
 from app.dependencies import DBSession
+from app.models.admin_audit_log import AdminAuditLog
 from app.schemas.companion import CertifyCompanionRequest, CompanionDetailResponse
 from app.services.admin_audit import AdminAuditService
 
@@ -20,6 +22,10 @@ router = APIRouter(
     tags=["admin-companions"],
     dependencies=[Depends(require_admin_token)],
 )
+
+
+# Sentinel used for list-scoped audit rows (no single target).
+_LIST_TARGET = UUID("00000000-0000-0000-0000-000000000000")
 
 
 # ---------------------------------------------------------------------------
@@ -55,6 +61,14 @@ class OkResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+def _mask_companion_item(item: dict) -> dict:
+    """Apply id_number masking on a service-returned companion dict."""
+    raw = item.get("id_number")
+    if raw:
+        item = {**item, "id_number": mask_id_number(raw)}
+    return item
+
+
 @router.get(
     "/",
     response_model=PaginatedCompanions,
@@ -66,9 +80,27 @@ async def list_pending_companions(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
-    """List companions pending audit."""
+    """List companions pending audit. id_number is masked on the wire."""
     svc = AdminAuditService(session)
-    return await svc.list_pending_companions(page=page, page_size=page_size)
+    result = await svc.list_pending_companions(page=page, page_size=page_size)
+    items = result.get("items") or []
+    masked = [_mask_companion_item(it) for it in items]
+
+    summary = (
+        f"page={page} limit={page_size} returned={len(masked)} status=pending"
+    )
+    session.add(
+        AdminAuditLog(
+            target_type="companion",
+            target_id=_LIST_TARGET,
+            action="view_companions_list",
+            operator="admin-token",
+            reason=summary,
+        )
+    )
+    await session.flush()
+
+    return {**result, "items": masked}
 
 
 @router.post(

@@ -92,12 +92,15 @@
             <label>状态</label>
             <select id="ordersFilterStatus">
               <option value="">全部</option>
-              <option value="pending">pending</option>
-              <option value="paid">paid</option>
-              <option value="serving">serving</option>
-              <option value="completed">completed</option>
-              <option value="cancelled">cancelled</option>
-              <option value="refunded">refunded</option>
+              <option value="created">待支付</option>
+              <option value="accepted">已接单</option>
+              <option value="in_progress">服务中</option>
+              <option value="completed">已完成</option>
+              <option value="reviewed">已评价</option>
+              <option value="cancelled_by_patient">用户取消</option>
+              <option value="cancelled_by_companion">陪诊师取消</option>
+              <option value="rejected_by_companion">陪诊师拒单</option>
+              <option value="expired">已过期</option>
             </select>
           </div>
           <div class="filter-bar__item">
@@ -168,8 +171,8 @@
             <label>状态</label>
             <select id="usersFilterStatus">
               <option value="">全部</option>
-              <option value="active">active</option>
-              <option value="disabled">disabled</option>
+              <option value="true">启用 (active)</option>
+              <option value="false">禁用 (disabled)</option>
             </select>
           </div>
           <div class="filter-bar__item">
@@ -240,12 +243,14 @@
       <div class="form-row">
         <label>目标状态</label>
         <select id="forceStatusSelect">
-          <option value="pending">pending</option>
-          <option value="paid">paid</option>
-          <option value="serving">serving</option>
-          <option value="completed">completed</option>
-          <option value="cancelled">cancelled</option>
-          <option value="refunded">refunded</option>
+          <option value="created">待支付 (created)</option>
+          <option value="accepted">已接单 (accepted)</option>
+          <option value="in_progress">服务中 (in_progress)</option>
+          <option value="completed">已完成 (completed)</option>
+          <option value="cancelled_by_patient">用户取消 (cancelled_by_patient)</option>
+          <option value="cancelled_by_companion">陪诊师取消 (cancelled_by_companion)</option>
+          <option value="rejected_by_companion">陪诊师拒单 (rejected_by_companion)</option>
+          <option value="expired">已过期 (expired)</option>
         </select>
       </div>
       <div class="form-row">
