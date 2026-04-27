@@ -1,0 +1,147 @@
+# YiLuAn Staging Mock Environment (D-044)
+#
+# Run from: deploy/staging/
+#   docker compose -p yiluan-staging -f docker-compose.staging.yml up -d
+#
+# Network:
+#   * Only nginx-staging exposes a host port (127.0.0.1:18080).
+#   * All other services reachable only inside `yiluan-staging-net`.
+#
+# Volumes are namespaced (`yiluan-staging-*`) so they never collide with
+# the dev compose stack in `backend/docker-compose.yaml`.
+
+name: yiluan-staging
+
+services:
+  pg-staging:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: yiluan_staging
+    volumes:
+      - pgdata-staging:/var/lib/postgresql/data
+    networks:
+      - yiluan-staging-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d yiluan_staging"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis-staging:
+    image: redis:7-alpine
+    networks:
+      - yiluan-staging-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mock-pay-stub:
+    build:
+      context: ./mock-pay-stub
+      dockerfile: Dockerfile
+    environment:
+      BACKEND_URL: http://backend-staging:8000
+      PAY_CALLBACK_PATH: /api/v1/payments/wechat/callback
+    networks:
+      - yiluan-staging-net
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8001/health',timeout=2).status==200 else 1)"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mock-sms-stub:
+    build:
+      context: ./mock-sms-stub
+      dockerfile: Dockerfile
+    networks:
+      - yiluan-staging-net
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8002/health',timeout=2).status==200 else 1)"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend-staging:
+    build:
+      context: ../../backend
+      dockerfile: Dockerfile
+    environment:
+      # NB: backend reads `environment` for the dev-OTP `000000` bypass; we
+      # keep it `development` so the rehearsal script can log in deterministically.
+      # The real prod gate is `environment == "production"` in config.py.
+      ENVIRONMENT: development
+      DEBUG: "true"
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@pg-staging:5432/yiluan_staging
+      REDIS_URL: redis://redis-staging:6379/0
+      JWT_SECRET_KEY: staging-jwt-secret-not-for-prod
+      ADMIN_API_TOKEN: staging-admin-token
+      PAYMENT_PROVIDER: mock
+      SMS_PROVIDER: mock
+      # Mock provider addresses (read by future remote-mock provider; today
+      # the in-process MockProvider does not call out, but the stub still
+      # drives the callback path via /__trigger-callback).
+      MOCK_PAY_BASE_URL: http://mock-pay-stub:8001
+      MOCK_SMS_BASE_URL: http://mock-sms-stub:8002
+      WECHAT_PAY_NOTIFY_URL: http://nginx-staging/api/v1/payments/wechat/callback
+      SCHEDULER_ENABLED: "false"
+      WS_PUBSUB_ENABLED: "true"
+    depends_on:
+      pg-staging:
+        condition: service_healthy
+      redis-staging:
+        condition: service_healthy
+      mock-pay-stub:
+        condition: service_healthy
+      mock-sms-stub:
+        condition: service_healthy
+    networks:
+      - yiluan-staging-net
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/ping',timeout=3).status==200 else 1)"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  nginx-staging:
+    image: nginx:1.27-alpine
+    depends_on:
+      backend-staging:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:18080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    networks:
+      - yiluan-staging-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  yiluan-staging-net:
+    driver: bridge
+    name: yiluan-staging-net
+
+volumes:
+  pgdata-staging:
+    name: yiluan-staging-pgdata

@@ -1,0 +1,47 @@
+# Weekly staging rehearsal (D-044)
+#
+# Runs the full mock-provider patient-journey replay every Wednesday
+# 14:00 GMT+8.  Requires a self-hosted runner with Docker available
+# because the stack binds to 127.0.0.1:18080.  Until a self-hosted
+# runner labelled `staging-mock` is registered, this workflow is
+# DISABLED and the rehearsal is performed manually per
+# docs/STAGING_REHEARSAL_RUNBOOK.md.
+name: staging-rehearsal
+
+on:
+  workflow_dispatch: {}
+  # DISABLED until a self-hosted runner is registered.  See runbook §7.
+  # schedule:
+  #   - cron: '0 6 * * 3'   # 14:00 GMT+8
+
+jobs:
+  rehearsal:
+    # DISABLED: switch to `[self-hosted, staging-mock]` once runner exists.
+    if: ${{ false }}
+    runs-on: [self-hosted, staging-mock]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Bring up staging stack
+        working-directory: deploy/staging
+        shell: bash
+        run: ./up.sh
+
+      - name: Run weekly rehearsal
+        shell: bash
+        run: |
+          python -X utf8 deploy/staging/replay/run-weekly-rehearsal.py --skip-seed
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rehearsal-report
+          path: deploy/staging/reports/
+
+      - name: Tear down stack
+        if: always()
+        working-directory: deploy/staging
+        shell: bash
+        run: ./down.sh
