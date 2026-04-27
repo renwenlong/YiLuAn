@@ -263,7 +263,11 @@ async def verified_companion_client(client, seed_user, seed_companion_profile) -
 
 @pytest.fixture
 async def admin_client(client, seed_user) -> AsyncClient:
-    """Client authenticated as an admin user."""
+    """Client authenticated as an admin user.
+
+    Sends both a JWT (legacy fixture support) and the ``X-Admin-Token``
+    header used by the new B4 admin endpoints.
+    """
     async with test_session_factory() as session:
         user = User(phone="13600136000", roles="admin,patient", is_active=True)
         session.add(user)
@@ -271,6 +275,7 @@ async def admin_client(client, seed_user) -> AsyncClient:
         await session.refresh(user)
     token = create_access_token({"sub": str(user.id), "role": "admin"})
     client.headers["Authorization"] = f"Bearer {token}"
+    client.headers["X-Admin-Token"] = "dev-admin-token"
     client._test_user = user  # type: ignore[attr-defined]
     return client
 

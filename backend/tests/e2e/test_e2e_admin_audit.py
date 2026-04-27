@@ -1,8 +1,8 @@
 """E2E: admin audit flows.
 
-Covers admin endpoints that use ``X-Admin-Token`` (companion approval)
-and the JWT-based admin endpoints (orders/users) for users with the
-``admin`` role.
+After B4, all ``/admin/**`` endpoints share a single auth: the
+``X-Admin-Token`` header (token-based admin). JWT/role-based admin auth
+is deferred to v2 (see ``docs/admin-mvp-scope.md``).
 """
 from __future__ import annotations
 
@@ -60,25 +60,22 @@ async def test_admin_endpoint_rejects_wrong_token(e2e_client):
     assert r.status_code == 401
 
 
-async def test_admin_orders_requires_admin_role(
-    e2e_client, login_via_otp, patient_phone, assign_role_e2e
+async def test_admin_orders_requires_admin_token(
+    e2e_client, admin_headers
 ):
-    """The /admin/orders endpoint uses JWT + admin role, not X-Admin-Token."""
-    access, _, user = await login_via_otp(patient_phone, role="patient")
-    p_headers = {"Authorization": f"Bearer {access}"}
+    """After B4, /admin/orders uses the same X-Admin-Token guard."""
+    # Missing token -> 422 (FastAPI required-header validation).
+    r = await e2e_client.get("/api/v1/admin/orders")
+    assert r.status_code in (401, 422)
 
-    # Patient (no admin role) -> forbidden.
-    r = await e2e_client.get("/api/v1/admin/orders", headers=p_headers)
-    assert r.status_code == 403
-
-    # Promote to admin role -> 200.
-    await assign_role_e2e(user["id"], "admin")
-    # Re-login to refresh roles claim.
-    access2, _, _ = await login_via_otp(patient_phone, role="patient")
+    # Wrong token -> 401.
     r = await e2e_client.get(
-        "/api/v1/admin/orders",
-        headers={"Authorization": f"Bearer {access2}"},
+        "/api/v1/admin/orders", headers={"X-Admin-Token": "wrong"}
     )
+    assert r.status_code == 401
+
+    # Correct token -> 200.
+    r = await e2e_client.get("/api/v1/admin/orders", headers=admin_headers)
     assert r.status_code == 200, r.text
     body = r.json()
     assert "items" in body and "total" in body

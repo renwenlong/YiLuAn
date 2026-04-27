@@ -136,10 +136,10 @@ class TestUsersAPI:
 # api/v1/admin/__init__.py – admin endpoints
 # ---------------------------------------------------------------------------
 class TestAdminAPI:
-    async def test_non_admin_forbidden(self, authenticated_client):
-        """Patient hitting admin endpoint → 403."""
+    async def test_non_admin_no_token_returns_422(self, authenticated_client):
+        """Patient hitting admin endpoint without X-Admin-Token → 422."""
         r = await authenticated_client.get("/api/v1/admin/orders")
-        assert r.status_code == 403
+        assert r.status_code == 422
 
     async def test_admin_list_orders(self, admin_client):
         r = await admin_client.get("/api/v1/admin/orders")
@@ -152,7 +152,8 @@ class TestAdminAPI:
 
     async def test_admin_force_status_not_found(self, admin_client):
         r = await admin_client.post(
-            f"/api/v1/admin/orders/{uuid4()}/force-status?target_status=expired"
+            f"/api/v1/admin/orders/{uuid4()}/force-status",
+            json={"status": "expired", "reason": "test"},
         )
         assert r.status_code == 404
 
@@ -165,7 +166,8 @@ class TestAdminAPI:
         hospital = await seed_hospital()
         order = await seed_order(patient.id, hospital.id, status=OrderStatus.created)
         r = await admin_client.post(
-            f"/api/v1/admin/orders/{order.id}/force-status?target_status=BAD"
+            f"/api/v1/admin/orders/{order.id}/force-status",
+            json={"status": "BAD", "reason": "test"},
         )
         assert r.status_code == 400
 
@@ -178,14 +180,16 @@ class TestAdminAPI:
         hospital = await seed_hospital()
         order = await seed_order(patient.id, hospital.id, status=OrderStatus.created)
         r = await admin_client.post(
-            f"/api/v1/admin/orders/{order.id}/force-status?target_status=expired"
+            f"/api/v1/admin/orders/{order.id}/force-status",
+            json={"status": "expired", "reason": "test"},
         )
         assert r.status_code == 200
         assert r.json()["new_status"] == "expired"
 
     async def test_admin_refund_not_found(self, admin_client):
         r = await admin_client.post(
-            f"/api/v1/admin/orders/{uuid4()}/admin-refund?refund_ratio=1"
+            f"/api/v1/admin/orders/{uuid4()}/refund",
+            json={"amount": "1.00", "reason": "test"},
         )
         assert r.status_code == 404
 
@@ -205,10 +209,11 @@ class TestAdminAPI:
             order.id, patient.id, amount=200.0, status="success"
         )
         r = await admin_client.post(
-            f"/api/v1/admin/orders/{order.id}/admin-refund?refund_ratio=0.5"
+            f"/api/v1/admin/orders/{order.id}/refund",
+            json={"amount": "100.00", "reason": "test"},
         )
         assert r.status_code == 200
-        assert r.json()["refund_amount"] == 100.0
+        assert r.json()["refund_amount"] == "100.00"
 
     async def test_admin_refund_failure(
         self, admin_client, seed_hospital, seed_order
@@ -224,7 +229,8 @@ class TestAdminAPI:
         )
         # No prior pay → refund fails
         r = await admin_client.post(
-            f"/api/v1/admin/orders/{order.id}/admin-refund"
+            f"/api/v1/admin/orders/{order.id}/refund",
+            json={"amount": "50.00", "reason": "test"},
         )
         assert r.status_code == 400
 
@@ -234,12 +240,18 @@ class TestAdminAPI:
             session.add(u)
             await session.commit()
             await session.refresh(u)
-        r = await admin_client.post(f"/api/v1/admin/users/{u.id}/disable")
+        r = await admin_client.post(
+            f"/api/v1/admin/users/{u.id}/disable",
+            json={"reason": "test"},
+        )
         assert r.status_code == 200
         r2 = await admin_client.post(f"/api/v1/admin/users/{u.id}/enable")
         assert r2.status_code == 200
         # Not-found branch
-        r3 = await admin_client.post(f"/api/v1/admin/users/{uuid4()}/disable")
+        r3 = await admin_client.post(
+            f"/api/v1/admin/users/{uuid4()}/disable",
+            json={"reason": "test"},
+        )
         assert r3.status_code == 404
         r4 = await admin_client.post(f"/api/v1/admin/users/{uuid4()}/enable")
         assert r4.status_code == 404

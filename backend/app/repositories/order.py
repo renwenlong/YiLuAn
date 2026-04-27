@@ -170,13 +170,25 @@ class OrderRepository(BaseRepository[Order]):
         self,
         *,
         status: OrderStatus | None = None,
+        patient_id: UUID | None = None,
+        companion_id: UUID | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
         skip: int = 0,
         limit: int = 20,
     ) -> tuple[Sequence[Order], int]:
-        """Admin: list all orders with optional status filter."""
+        """Admin: list all orders with optional filters (status / parties / date range)."""
         where_clause = []
         if status:
             where_clause.append(Order.status == status)
+        if patient_id is not None:
+            where_clause.append(Order.patient_id == patient_id)
+        if companion_id is not None:
+            where_clause.append(Order.companion_id == companion_id)
+        if date_from is not None:
+            where_clause.append(Order.appointment_date >= date_from)
+        if date_to is not None:
+            where_clause.append(Order.appointment_date <= date_to)
 
         count_stmt = select(func.count()).select_from(Order)
         if where_clause:
