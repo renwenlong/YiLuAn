@@ -1,7 +1,10 @@
 import pytest
+from sqlalchemy import event
 from app.core.security import create_access_token
 from app.models.order import OrderStatus
 from app.models.user import UserRole
+from app.repositories.review import ReviewRepository
+from tests.conftest import test_engine, test_session_factory
 
 
 pytestmark = pytest.mark.asyncio
@@ -325,3 +328,98 @@ class TestAvgRatingDenormalization:
         data = resp.json()
         assert data["avg_rating"] == 3.0
         assert data["total_orders"] == 2
+
+
+class TestReviewQueryCount:
+    """D-045: lock in low SQL query counts on hot review paths.
+
+    Uses a SQLAlchemy ``before_cursor_execute`` listener on the test engine to
+    count statements issued for a single repository call. Regressions that
+    re-introduce N+1 patterns will trip these thresholds.
+    """
+
+    async def test_list_companion_reviews_constant_queries(
+        self, seed_user, seed_hospital, seed_order, seed_review
+    ):
+        patient = await seed_user(phone="13800138900", role=UserRole.patient)
+        companion = await seed_user(phone="13700137900", role=UserRole.companion)
+        hospital = await seed_hospital()
+
+        # Seed 10 reviews so the row-fan-out (not the count) drives any N+1.
+        for i in range(10):
+            order = await seed_order(
+                patient.id,
+                hospital.id,
+                companion_id=companion.id,
+                status=OrderStatus.completed,
+            )
+            await seed_review(
+                order.id,
+                patient.id,
+                companion.id,
+                rating=4,
+                content=f"D-045 query-count probe {i}",
+                punctuality_rating=4,
+                professionalism_rating=4,
+                communication_rating=5,
+                attitude_rating=5,
+            )
+
+        sync_engine = test_engine.sync_engine
+        statements: list[str] = []
+
+        def _before_cursor_execute(conn, cursor, statement, parameters, context, executemany):
+            stripped = statement.strip().upper()
+            if stripped.startswith(("SAVEPOINT", "RELEASE", "BEGIN", "COMMIT", "ROLLBACK", "PRAGMA")):
+                return
+            statements.append(statement)
+
+        event.listen(sync_engine, "before_cursor_execute", _before_cursor_execute)
+        try:
+            async with test_session_factory() as session:
+                repo = ReviewRepository(session)
+                items, total = await repo.list_by_companion(
+                    companion.id, skip=0, limit=20
+                )
+        finally:
+            event.remove(sync_engine, "before_cursor_execute", _before_cursor_execute)
+
+        assert total == 10
+        assert len(items) == 10
+        # Expect: 1 COUNT + 1 SELECT page = 2 statements. Allow up to 3 to
+        # absorb a future selectinload (e.g. companion eager load) without
+        # breaking the test, but flag any explosion (10+ would mean N+1).
+        assert len(statements) <= 3, (
+            f"D-045 regression: list_by_companion fired {len(statements)} "
+            "queries (over the 3-query budget); inspect for N+1.\n"
+            + "\n---\n".join(statements)
+        )
+
+    async def test_rating_summary_single_query(self, seed_user):
+        """D-045: combined avg + 4 dimensions must be one round trip."""
+        companion = await seed_user(phone="13700137901", role=UserRole.companion)
+
+        sync_engine = test_engine.sync_engine
+        statements: list[str] = []
+
+        def _before(conn, cursor, statement, parameters, context, executemany):
+            stripped = statement.strip().upper()
+            if stripped.startswith(("SAVEPOINT", "RELEASE", "BEGIN", "COMMIT", "ROLLBACK", "PRAGMA")):
+                return
+            statements.append(statement)
+
+        event.listen(sync_engine, "before_cursor_execute", _before)
+        try:
+            async with test_session_factory() as session:
+                repo = ReviewRepository(session)
+                summary = await repo.get_companion_rating_summary(companion.id)
+        finally:
+            event.remove(sync_engine, "before_cursor_execute", _before)
+
+        assert set(summary.keys()) == {
+            "avg_rating", "punctuality", "professionalism", "communication", "attitude"
+        }
+        assert len(statements) == 1, (
+            "get_companion_rating_summary should be a single SELECT; got "
+            f"{len(statements)}: " + " | ".join(statements)
+        )

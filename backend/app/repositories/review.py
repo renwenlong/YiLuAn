@@ -39,6 +39,34 @@ class ReviewRepository(BaseRepository[Review]):
         result = await self.session.execute(stmt)
         return float(result.scalar() or 0.0)
 
+    async def get_companion_rating_summary(
+        self, companion_id: UUID
+    ) -> dict[str, float]:
+        """D-045: Single-query summary of avg rating + 4 F-04 dimension averages.
+
+        Combines what used to be two round-trips
+        (``get_companion_avg_rating`` + ``get_companion_dimension_averages``)
+        into one ``SELECT`` so the companion-detail path is O(1) round trips
+        regardless of how many dimensions we add later.
+        """
+        from app.models.review import Review as _R
+
+        stmt = select(
+            func.coalesce(func.avg(_R.rating), 0.0),
+            func.coalesce(func.avg(_R.punctuality_rating), 0.0),
+            func.coalesce(func.avg(_R.professionalism_rating), 0.0),
+            func.coalesce(func.avg(_R.communication_rating), 0.0),
+            func.coalesce(func.avg(_R.attitude_rating), 0.0),
+        ).where(_R.companion_id == companion_id)
+        row = (await self.session.execute(stmt)).one()
+        return {
+            "avg_rating": float(row[0] or 0.0),
+            "punctuality": float(row[1] or 0.0),
+            "professionalism": float(row[2] or 0.0),
+            "communication": float(row[3] or 0.0),
+            "attitude": float(row[4] or 0.0),
+        }
+
     async def get_companion_dimension_averages(
         self, companion_id: UUID
     ) -> dict[str, float]:
