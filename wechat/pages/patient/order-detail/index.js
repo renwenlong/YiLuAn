@@ -20,6 +20,8 @@ Page({
   data: {
     order: null,
     loading: true,
+    // AI-9: 操作锁，防止状态切换瞬间用户重复点击
+    actionLoading: false,
     statusList: ORDER_STATUS,
     serviceLabel: '',
     paymentStatusLabel: '',
@@ -146,7 +148,8 @@ Page({
     })
     if (!res.confirm) return
 
-    this.setData({ loading: true })
+    if (this.data.actionLoading) return
+    this.setData({ actionLoading: true })
     try {
       // Step 1: Create prepay order on backend
       var payResult = await payOrder(this.orderId)
@@ -174,7 +177,7 @@ Page({
         })
       }
     } finally {
-      this.setData({ loading: false })
+      this.setData({ actionLoading: false })
     }
   },
 
@@ -187,7 +190,8 @@ Page({
     })
     if (!res.confirm) return
 
-    this.setData({ loading: true })
+    if (this.data.actionLoading) return
+    this.setData({ actionLoading: true })
     try {
       await orderAction(this.orderId, 'confirm-start')
       wx.showToast({ title: '服务已开始', icon: 'success' })
@@ -197,7 +201,7 @@ Page({
       if (err && err.data && err.data.detail) msg = err.data.detail
       wx.showToast({ title: msg, icon: 'none' })
     } finally {
-      this.setData({ loading: false })
+      this.setData({ actionLoading: false })
     }
   },
 
@@ -215,7 +219,8 @@ Page({
     })
     if (!res.confirm) return
 
-    this.setData({ loading: true })
+    if (this.data.actionLoading) return
+    this.setData({ actionLoading: true })
     try {
       await orderAction(this.orderId, 'cancel')
       wx.showToast({ title: '已取消', icon: 'success' })
@@ -223,7 +228,7 @@ Page({
     } catch (err) {
       wx.showToast({ title: '操作失败', icon: 'none' })
     } finally {
-      this.setData({ loading: false })
+      this.setData({ actionLoading: false })
     }
   },
 
@@ -238,7 +243,8 @@ Page({
     })
     if (!res.confirm) return
 
-    this.setData({ loading: true })
+    if (this.data.actionLoading) return
+    this.setData({ actionLoading: true })
     try {
       await orderAction(this.orderId, 'cancel')
       wx.showToast({ title: '已取消', icon: 'success' })
@@ -246,7 +252,7 @@ Page({
     } catch (err) {
       wx.showToast({ title: '操作失败', icon: 'none' })
     } finally {
-      this.setData({ loading: false })
+      this.setData({ actionLoading: false })
     }
   },
 
