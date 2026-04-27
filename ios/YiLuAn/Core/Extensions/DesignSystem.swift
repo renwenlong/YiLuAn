@@ -231,3 +231,60 @@ extension View {
         modifier(BadgeStyle(color: color))
     }
 }
+
+// MARK: - Cross-platform Tokens (AI-10)
+// Source of truth: design/tokens.json
+// 注意：以上现有 token（Spacing / CornerRadius / Font.ds*）保持不动。
+// 这里只新增 tokens.json 里有但 iOS 端缺失的项，命名遵循 tokens.json key。
+
+enum TapArea {
+    /// iOS HIG minimum tappable area
+    static let min: CGFloat = 44
+}
+
+enum LineHeight {
+    static let tight: CGFloat = 1.3
+    static let normal: CGFloat = 1.5
+    static let relaxed: CGFloat = 1.7
+}
+
+enum ButtonSize {
+    /// AI-10 决议：跨端统一主按钮 48pt（小程序 96rpx）
+    static let heightPrimary: CGFloat = 48
+    static let heightSecondary: CGFloat = 40
+    static let heightSmall: CGFloat = 32
+    static let radius: CGFloat = 8
+    static let paddingH: CGFloat = 16
+}
+
+enum NavBar {
+    /// AI-10 决议：iOS HIG 标准 nav bar 44pt
+    static let height: CGFloat = 44
+    static let paddingH: CGFloat = 16
+}
+
+enum TabBar {
+    static let height: CGFloat = 49
+}
+
+enum CardSize {
+    static let padding: CGFloat = 16
+    static let radius: CGFloat = 12
+    static let gap: CGFloat = 12
+}
+
+enum InputSize {
+    static let height: CGFloat = 44
+    static let radius: CGFloat = 8
+    static let paddingH: CGFloat = 12
+}
+
+enum ListItem {
+    static let heightMin: CGFloat = 56
+    static let paddingH: CGFloat = 16
+    static let paddingV: CGFloat = 12
+}
+
+// MARK: - Spacing extras (AI-10)
+// Spacing.xxxl 已存在；这里把 tokens.json 显式列出的别名同步过来（无新增值）。
+// 如未来 tokens.json 新增 spacing 维度，先在 design/tokens.json 改，再手工同步本文件。
