@@ -1214,3 +1214,35 @@ Provider 接口已稳定 16 天等外部凭证（B-01 微信支付商户 / B-02 
   - `backend/app/tasks/scheduler.py`（5 → 7 jobs）
   - `backend/tests/...`（+4 新测试模块，+28 passed）
 - **状态**：已实施，PR-1 待合并；PR-2（Admin 工单 + 双签关单）待开
+
+
+### D-049 PR-2 Admin H5 资金对账工单 + 双签关单 落地（D-048 收尾）
+- **参与角色**：Arch / Backend / Frontend / QA
+- **依据**：D-048 第 7 条「Admin H5 工单 / 双签关单：拆 PR-2」
+- **决策**：
+  1. **后端新增** `/api/v1/admin/reconciliation/*`：
+     - `GET /diffs`（filters: status / kind / provider / order_id / run_id / date_from / date_to + 分页）
+     - `GET /diffs/{id}`（含 actions 时间线）
+     - `POST /diffs/{id}/close-requests`（第一签）
+     - `POST /diffs/{id}/close-confirms`（第二签，必须不同 Operator）
+     - `GET /runs`（对账运行历史，最新优先）
+  2. **新增 `X-Admin-Operator` header + `require_admin_operator` 依赖**（`app/core/admin_auth.py`）。1-64 字符自由文本，落 `admin_audit_logs.operator` + `reconciliation_actions.payload.operator`，作为 OAuth 上线前的可审计身份维度。
+  3. **双签状态机**：
+     - 第一签：``ReconciliationAction(kind=manual_close, outcome="pending_second_sign")``，diff 状态保持
+     - 第二签：必须**不同 Operator**，diff → `closed`，写第二个 manual_close action（payload 含 first_operator + first_action_id）
+     - 单 diff 同时只能有 1 个 pending 第一签
+     - `pending / mismatched / compensated` 才允许走双签；`matched / closed` 拒绝
+  4. **每步都写 admin_audit_log**：`recon_close_request` / `recon_close_confirm`
+  5. **Admin H5 新增"资金对账"导航项**：列表 / 筛选 / 详情 / 双签按钮。登录页加 Operator 输入；token + operator 都缓存在 sessionStorage（关闭标签页失效）
+- **不在本 PR 范围（M3.5+）**：
+  - OAuth 多 admin 账号体系（Operator 暂时纯字符串，未做账号鉴权）
+  - 工单批量操作 / 导出
+  - iOS 端 / 小程序错误码常量同步
+- **测试**：1037 → **1053 passed**（+16 admin recon 测试：auth 3 / list-detail 6 / runs 1 / 双签 6）
+- **影响范围**：
+  - `backend/app/core/admin_auth.py`（+`require_admin_operator`）
+  - `backend/app/api/v1/admin/reconciliation.py`（新增）
+  - `backend/app/api/v1/admin/__init__.py`（注册子路由）
+  - `backend/tests/test_admin_reconciliation.py`（新增）
+  - `admin-h5/{index.html,app.js,README.md}`（新增 reconciliation 模块）
+- **状态**：已实施，PR-2 待合并
