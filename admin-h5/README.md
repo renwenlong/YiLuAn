@@ -5,6 +5,7 @@
 1. **陪诊师审核**（`#/companions`） — [A21-04] 待审核陪诊师 → 通过 / 拒绝
 2. **订单管理**（`#/orders`） — 订单列表、筛选、详情、人工改状态、退款
 3. **用户管理**（`#/users`） — 用户列表、筛选、详情、禁用 / 启用
+4. **资金对账**（`#/reconciliation`） — TD-MONEY-01 M3 PR-2 (D-048)：差异工单列表、筛选、详情查看、**双签关单**（需不同 Operator 标识 完成第二签）
 
 ## 设计目标
 
@@ -54,7 +55,7 @@ npx vite --port 8080
 
 ## 后端要求
 
-需要后端 dev server 运行（默认 `http://127.0.0.1:8000`），后端 CORS 已设为 `*`。所有请求都需 `X-Admin-Token` header（Token 缓存在 localStorage `yiluan.admin.token`）。
+需要后端 dev server 运行（默认 `http://127.0.0.1:8000`），后端 CORS 已设为 `*`。所有请求都需 `X-Admin-Token` header（Token 缓存在 sessionStorage `yiluan.admin.token`）。涉及资金对账双签关单的接口额外要求 `X-Admin-Operator` header（1-64 字符，缓存在 sessionStorage `yiluan.admin.operator`，用于审计 + 双签身份比对）。
 
 ### 接口清单
 
@@ -99,6 +100,16 @@ npx vite --port 8080
 2. Token 缓存在 localStorage（`yiluan.admin.token`），下次自动登录
 3. 左侧栏切换三大模块；URL hash 同步更新
 4. 顶栏「退出」清 token 回到登录
+
+#### 资金对账（D-048）
+
+- `GET  /api/v1/admin/reconciliation/diffs?page=&page_size=&status=&kind=&provider=&order_id=&run_id=&date_from=&date_to=`
+- `GET  /api/v1/admin/reconciliation/diffs/{id}` — 含 `actions[]`
+- `POST /api/v1/admin/reconciliation/diffs/{id}/close-requests` — body `{ reason }`，header 额外 `X-Admin-Operator`
+- `POST /api/v1/admin/reconciliation/diffs/{id}/close-confirms` — body `{ reason }`，header 额外 `X-Admin-Operator`，**必须与第一签为不同 Operator**
+- `GET  /api/v1/admin/reconciliation/runs?page=&page_size=`
+
+差异 status 枚举：`pending / matched / mismatched / compensated / closed`；kind 枚举：`missing_payment / orphan_payment / amount_mismatch / status_mismatch`。仅 `pending / mismatched / compensated` 状态的差异可走双签关单。
 
 ## 不在 MVP 范围
 

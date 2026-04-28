@@ -15,10 +15,12 @@ from fastapi import APIRouter
 
 from app.api.v1.admin.companions import router as companions_router
 from app.api.v1.admin.orders import router as orders_router
+from app.api.v1.admin.reconciliation import router as reconciliation_router
 from app.api.v1.admin.users import router as users_router
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
 router.include_router(companions_router)
 router.include_router(orders_router)
+router.include_router(reconciliation_router)
 router.include_router(users_router)

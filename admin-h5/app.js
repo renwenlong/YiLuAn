@@ -13,6 +13,7 @@
  */
 
 const SS_TOKEN_KEY = 'yiluan.admin.token';
+const SS_OPERATOR_KEY = 'yiluan.admin.operator';
 const LS_API_BASE_KEY = 'yiluan.admin.apiBase';
 const DEFAULT_API_BASE = 'http://127.0.0.1:8000';
 const PAGE_SIZE = 20;
@@ -35,6 +36,7 @@ function statusLabel(v) { return STATUS_LABELS[v] || v || '-'; }
 const state = {
   apiBase: localStorage.getItem(LS_API_BASE_KEY) || DEFAULT_API_BASE,
   token: sessionStorage.getItem(SS_TOKEN_KEY) || '',
+  operator: sessionStorage.getItem(SS_OPERATOR_KEY) || '',
   route: '',
   // companions
   companions: { page: 1, total: 0, items: [], pendingRejectId: null },
@@ -49,6 +51,13 @@ const state = {
     page: 1, total: 0, items: [],
     filters: { role: '', is_active: '', phone: '' },
     pendingDisableId: null,
+  },
+  // reconciliation
+  recon: {
+    page: 1, total: 0, items: [],
+    filters: { status: '', kind: '', provider: '', order_id: '', run_id: '' },
+    pendingCloseDiffId: null,
+    pendingCloseStep: null, // 'request' | 'confirm'
   },
 };
 
@@ -555,12 +564,186 @@ const Users = {
 };
 
 // ===================================================================
+// Module: reconciliation (D-048)
+// ===================================================================
+const RECON_STATUS_LABELS = {
+  pending: '待处理',
+  matched: '已匹配',
+  mismatched: '差异',
+  compensated: '已补偿',
+  closed: '已关闭',
+};
+const RECON_KIND_LABELS = {
+  missing_payment: '缺支付',
+  orphan_payment: '孤儿支付',
+  amount_mismatch: '金额不符',
+  status_mismatch: '状态不符',
+};
+
+async function reconApi(path, options) {
+  options = options || {};
+  // Operator-required calls expect X-Admin-Operator; merge here.
+  const headers = Object.assign({}, options.headers || {});
+  if (options.requireOperator) {
+    if (!state.operator) {
+      throw new Error('请先在右上角设置 Operator 标识');
+    }
+    headers['X-Admin-Operator'] = state.operator;
+  }
+  return apiCall(path, Object.assign({}, options, { headers }));
+}
+
+const Reconciliation = {
+  async load() {
+    const tbody = $('#reconTbody');
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">加载中…</td></tr>';
+    try {
+      const f = state.recon.filters;
+      const qs = buildQuery({
+        status: f.status, kind: f.kind, provider: f.provider,
+        order_id: f.order_id, run_id: f.run_id,
+        page: state.recon.page, page_size: PAGE_SIZE,
+      });
+      const res = await apiCall('/api/v1/admin/reconciliation/diffs' + qs);
+      state.recon.items = res.items || [];
+      state.recon.total = res.total || 0;
+      this.render();
+    } catch (e) {
+      if (handleAuthError(e)) return;
+      toast('加载失败：' + e.message, 'error');
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">加载失败</td></tr>';
+    }
+  },
+  render() {
+    const tbody = $('#reconTbody');
+    const items = state.recon.items;
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">无差异 ✅</td></tr>';
+    } else {
+      tbody.innerHTML = items.map((d) => {
+        const kindLabel = RECON_KIND_LABELS[d.kind] || d.kind;
+        const statusLabel2 = RECON_STATUS_LABELS[d.status] || d.status;
+        const order = d.order_id ? d.order_id.slice(0, 8) + '…' : '-';
+        const amt = (d.business_amount || '-') + ' / ' + (d.payment_amount || '-');
+        const closeable = ['pending','mismatched','compensated'].indexOf(d.status) >= 0;
+        const closeBtn = closeable
+          ? '<button class="btn btn-danger btn-sm" data-action="close-request" data-id="' + escapeAttr(d.id) + '">发起关单</button>'
+            + '<button class="btn btn-primary btn-sm" data-action="close-confirm" data-id="' + escapeAttr(d.id) + '">确认关单</button>'
+          : '';
+        return (
+          '<tr>' +
+          '<td class="id-cell">' + escapeHtml(d.id.slice(0, 8) + '…') + '</td>' +
+          '<td>' + statusPill(d.kind, kindLabel) + '</td>' +
+          '<td>' + statusPill(d.status, statusLabel2) + '</td>' +
+          '<td>' + escapeHtml(d.provider) + '</td>' +
+          '<td>' + escapeHtml(order) + '</td>' +
+          '<td>' + escapeHtml(amt) + '</td>' +
+          '<td>' + escapeHtml((d.created_at || '').slice(0, 19).replace('T', ' ')) + '</td>' +
+          '<td class="actions-cell">' +
+            '<button class="btn btn-sm" data-action="detail" data-id="' + escapeAttr(d.id) + '">详情</button>' +
+            closeBtn +
+          '</td>' +
+          '</tr>'
+        );
+      }).join('');
+    }
+    const totalPages = Math.max(1, Math.ceil(state.recon.total / PAGE_SIZE));
+    $('#reconPageInfo').textContent = '第 ' + state.recon.page + ' / ' + totalPages + ' 页 · 共 ' + state.recon.total + ' 条';
+    $('#reconPrevBtn').disabled = state.recon.page <= 1;
+    $('#reconNextBtn').disabled = state.recon.page >= totalPages;
+  },
+  applyFiltersFromUI() {
+    state.recon.filters = {
+      status: $('#reconFilterStatus').value,
+      kind: $('#reconFilterKind').value,
+      provider: $('#reconFilterProvider').value.trim(),
+      order_id: $('#reconFilterOrderId').value.trim(),
+      run_id: $('#reconFilterRunId').value.trim(),
+    };
+    state.recon.page = 1;
+  },
+  resetFilters() {
+    $('#reconFilterStatus').value = '';
+    $('#reconFilterKind').value = '';
+    $('#reconFilterProvider').value = '';
+    $('#reconFilterOrderId').value = '';
+    $('#reconFilterRunId').value = '';
+    this.applyFiltersFromUI();
+    this.load();
+  },
+  async openDetail(id) {
+    openDetail('对账差异 · ' + id, '加载中…');
+    try {
+      const data = await apiCall('/api/v1/admin/reconciliation/diffs/' + id);
+      openDetail('对账差异 · ' + id, data);
+    } catch (e) {
+      if (handleAuthError(e)) return;
+      toast('加载详情失败：' + e.message, 'error');
+      closeDetail();
+    }
+  },
+  openClose(id, step) {
+    if (!state.operator) { toast('请先在右上角设置 Operator 标识（不同 Operator 双签）', 'error'); return; }
+    state.recon.pendingCloseDiffId = id;
+    state.recon.pendingCloseStep = step;
+    $('#reconCloseTitle').textContent = step === 'request' ? '发起关单（第一签）' : '确认关单（第二签）';
+    $('#reconCloseHint').textContent = step === 'request'
+      ? '当前 Operator：' + state.operator + '。提交后等待另一名 Operator 第二签。'
+      : '当前 Operator：' + state.operator + '。需与第一签为不同 Operator。';
+    $('#reconCloseReason').value = '';
+    show($('#reconCloseModal'));
+  },
+  closeClose() {
+    state.recon.pendingCloseDiffId = null;
+    state.recon.pendingCloseStep = null;
+    hide($('#reconCloseModal'));
+  },
+  async confirmClose() {
+    const reason = ($('#reconCloseReason').value || '').trim();
+    if (!reason) { toast('请填写原因', 'error'); return; }
+    const id = state.recon.pendingCloseDiffId;
+    const step = state.recon.pendingCloseStep;
+    const path = step === 'request' ? '/close-requests' : '/close-confirms';
+    this.closeClose();
+    try {
+      const res = await reconApi(
+        '/api/v1/admin/reconciliation/diffs/' + id + path,
+        { method: 'POST', body: { reason }, requireOperator: true }
+      );
+      toast(step === 'request' ? '已发起关单，等待第二签' : '已关单 ✅', 'success');
+      this.load();
+    } catch (e) {
+      if (handleAuthError(e)) return;
+      toast('操作失败：' + e.message, 'error');
+    }
+  },
+  bind() {
+    $('#reconRefreshBtn').addEventListener('click', () => this.load());
+    $('#reconSearchBtn').addEventListener('click', () => { this.applyFiltersFromUI(); this.load(); });
+    $('#reconResetBtn').addEventListener('click', () => this.resetFilters());
+    $('#reconPrevBtn').addEventListener('click', () => { if (state.recon.page > 1) { state.recon.page--; this.load(); } });
+    $('#reconNextBtn').addEventListener('click', () => { state.recon.page++; this.load(); });
+    $('#reconTbody').addEventListener('click', (ev) => {
+      const btn = ev.target.closest('button[data-action]');
+      if (!btn) return;
+      const a = btn.dataset.action; const id = btn.dataset.id;
+      if (a === 'detail') this.openDetail(id);
+      else if (a === 'close-request') this.openClose(id, 'request');
+      else if (a === 'close-confirm') this.openClose(id, 'confirm');
+    });
+    $('#reconCloseCancelBtn').addEventListener('click', () => this.closeClose());
+    $('#reconCloseConfirmBtn').addEventListener('click', () => this.confirmClose());
+  },
+};
+
+// ===================================================================
 // Router & shell
 // ===================================================================
 const ROUTES = {
-  companions: { view: '#companionsView', mod: Companions },
-  orders:     { view: '#ordersView',     mod: Orders },
-  users:      { view: '#usersView',      mod: Users },
+  companions:     { view: '#companionsView', mod: Companions },
+  orders:         { view: '#ordersView',     mod: Orders },
+  users:          { view: '#usersView',      mod: Users },
+  reconciliation: { view: '#reconView',      mod: Reconciliation },
 };
 
 function parseHash() {
@@ -591,13 +774,14 @@ function showLogin() {
   $('#adminInfo').textContent = '';
   $('#apiBaseInput').value = state.apiBase;
   $('#tokenInput').value = state.token;
+  $('#operatorInput').value = state.operator;
 }
 
 function showShell() {
   hide($('#loginMain'));
   show($('#appShell'));
   show($('#logoutBtn'));
-  $('#adminInfo').textContent = state.apiBase;
+  $('#adminInfo').textContent = state.apiBase + (state.operator ? ' · ' + state.operator : '');
   if (!location.hash) location.hash = '#/companions';
   navigate();
 }
@@ -605,22 +789,37 @@ function showShell() {
 function onLogin() {
   const apiBase = ($('#apiBaseInput').value || '').trim() || DEFAULT_API_BASE;
   const token = ($('#tokenInput').value || '').trim();
+  const operator = ($('#operatorInput').value || '').trim();
   hide($('#loginError'));
   if (!token) {
     $('#loginError').textContent = 'Admin Token 不能为空';
     show($('#loginError'));
     return;
   }
+  if (!operator) {
+    $('#loginError').textContent = 'Operator 不能为空（资金对账双签需要）';
+    show($('#loginError'));
+    return;
+  }
+  if (operator.length > 64) {
+    $('#loginError').textContent = 'Operator 长度不能超过 64 字符';
+    show($('#loginError'));
+    return;
+  }
   state.apiBase = apiBase;
   state.token = token;
+  state.operator = operator;
   localStorage.setItem(LS_API_BASE_KEY, apiBase);
   sessionStorage.setItem(SS_TOKEN_KEY, token);
+  sessionStorage.setItem(SS_OPERATOR_KEY, operator);
   showShell();
 }
 
 function onLogout() {
   sessionStorage.removeItem(SS_TOKEN_KEY);
+  sessionStorage.removeItem(SS_OPERATOR_KEY);
   state.token = '';
+  state.operator = '';
   showLogin();
 }
 
@@ -637,7 +836,8 @@ function init() {
   Companions.bind();
   Orders.bind();
   Users.bind();
-  if (state.token) showShell(); else showLogin();
+  Reconciliation.bind();
+  if (state.token && state.operator) showShell(); else showLogin();
 }
 
 document.addEventListener('DOMContentLoaded', init);

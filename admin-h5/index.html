@@ -32,6 +32,10 @@
         <input id="tokenInput" type="password" placeholder="请输入 X-Admin-Token" />
       </div>
       <div class="form-row">
+        <label for="operatorInput">Operator 标识</label>
+        <input id="operatorInput" type="text" maxlength="64" placeholder="例如 ops-alice（资金对账双签需要）" />
+      </div>
+      <div class="form-row">
         <button id="loginBtn" class="btn btn-primary">登录</button>
       </div>
       <div id="loginError" class="error" hidden></div>
@@ -45,6 +49,7 @@
         <a class="side-nav__item" data-route="companions" href="#/companions">陪诊师审核</a>
         <a class="side-nav__item" data-route="orders" href="#/orders">订单管理</a>
         <a class="side-nav__item" data-route="users" href="#/users">用户管理</a>
+        <a class="side-nav__item" data-route="reconciliation" href="#/reconciliation">资金对账</a>
       </nav>
     </aside>
 
@@ -211,6 +216,79 @@
         </div>
       </section>
 
+      <!-- Reconciliation view (D-048) -->
+      <section id="reconView" class="card route-view" hidden>
+        <div class="list-toolbar">
+          <h2>资金对账 · 差异工单</h2>
+          <div class="toolbar-right">
+            <button id="reconRefreshBtn" class="btn btn-ghost">刷新</button>
+          </div>
+        </div>
+        <div class="filter-bar">
+          <div class="filter-bar__item">
+            <label>状态</label>
+            <select id="reconFilterStatus">
+              <option value="">全部</option>
+              <option value="pending">待处理</option>
+              <option value="matched">已匹配</option>
+              <option value="mismatched">差异</option>
+              <option value="compensated">已补偿</option>
+              <option value="closed">已关闭</option>
+            </select>
+          </div>
+          <div class="filter-bar__item">
+            <label>类型</label>
+            <select id="reconFilterKind">
+              <option value="">全部</option>
+              <option value="missing_payment">缺支付</option>
+              <option value="orphan_payment">孤儿支付</option>
+              <option value="amount_mismatch">金额不符</option>
+              <option value="status_mismatch">状态不符</option>
+            </select>
+          </div>
+          <div class="filter-bar__item">
+            <label>Provider</label>
+            <input id="reconFilterProvider" type="text" placeholder="wechat / alipay" />
+          </div>
+          <div class="filter-bar__item">
+            <label>订单 ID</label>
+            <input id="reconFilterOrderId" type="text" placeholder="order_id (uuid)" />
+          </div>
+          <div class="filter-bar__item">
+            <label>Run ID</label>
+            <input id="reconFilterRunId" type="text" placeholder="run_id (uuid)" />
+          </div>
+          <div class="filter-bar__actions">
+            <button id="reconSearchBtn" class="btn btn-primary">查询</button>
+            <button id="reconResetBtn" class="btn btn-ghost">重置</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width: 100px">ID</th>
+                <th>类型</th>
+                <th>状态</th>
+                <th>Provider</th>
+                <th>订单</th>
+                <th>业务金额 / 支付金额</th>
+                <th>创建时间</th>
+                <th style="width: 320px">操作</th>
+              </tr>
+            </thead>
+            <tbody id="reconTbody">
+              <tr><td colspan="8" class="empty">加载中…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <button id="reconPrevBtn" class="btn btn-ghost">上一页</button>
+          <span id="reconPageInfo">第 1 / 1 页 · 共 0 条</span>
+          <button id="reconNextBtn" class="btn btn-ghost">下一页</button>
+        </div>
+      </section>
+
     </main>
   </div>
 
@@ -299,6 +377,22 @@
       <div class="modal-actions">
         <button id="disableUserCancelBtn" class="btn btn-ghost">取消</button>
         <button id="disableUserConfirmBtn" class="btn btn-danger">确认禁用</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reconciliation close modal (D-048 double-sign) -->
+  <div id="reconCloseModal" class="modal" hidden>
+    <div class="modal-card">
+      <h3 id="reconCloseTitle">关单</h3>
+      <p class="hint" id="reconCloseHint"></p>
+      <div class="form-row">
+        <label>原因</label>
+        <textarea id="reconCloseReason" rows="3" maxlength="500" placeholder="必填，1-500 字"></textarea>
+      </div>
+      <div class="modal-actions">
+        <button id="reconCloseCancelBtn" class="btn btn-ghost">取消</button>
+        <button id="reconCloseConfirmBtn" class="btn btn-primary">提交</button>
       </div>
     </div>
   </div>
