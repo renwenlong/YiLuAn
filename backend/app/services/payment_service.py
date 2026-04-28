@@ -45,6 +45,7 @@ from app.services.providers.payment import (
 from app.services.providers.payment.wechat import (
     _platform_cert_cache,  # noqa: F401  (re-exported for legacy tests)
 )
+from app.services.wallet_ledger_writer import WalletLedgerWriter
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,8 @@ class PaymentService:
         self.repo = PaymentRepository(session)
         self.session = session
         self.provider = get_payment_provider()
+        # [TD-MONEY-01 M1 finishing] 钱包账本写入器
+        self.ledger_writer = WalletLedgerWriter(session)
 
     # -- prepay ---------------------------------------------------------------
 
@@ -149,6 +152,10 @@ class PaymentService:
             payment = existing
         else:
             payment = await self.repo.create(payment)
+
+        # Mock provider 即时成功 → 同步追加 ledger（生产 wechat 等回调）
+        if is_mock and payment.status == "success":
+            await self._append_pay_ledger_safe(payment)
 
         return PrepayResult(
             payment_id=payment.id,
@@ -292,6 +299,10 @@ class PaymentService:
         payment_callback_received_total.labels(status=payment.status).inc()
         if payment.status == "success":
             order_paid_total.labels(service_type="unknown").inc()
+            # [TD-MONEY-01 M1 finishing / D-050]
+            # 支付成功 → 追加 wallet_ledger（in / pay）。
+            # 幂等键：(trade_no, in)；当 trade_no 缺失时 fallback 到 payment.id。
+            await self._append_pay_ledger_safe(payment)
         logger.info(
             "Payment callback processed: trade_no=%s status=%s",
             trade_no,
@@ -454,6 +465,10 @@ class PaymentService:
         )
         refund = await self.repo.create(refund)
 
+        # Mock provider 即时成功 → 同步追加 ledger（生产走 refund callback）
+        if is_mock and refund.status == "success":
+            await self._append_refund_ledger_safe(refund)
+
         return RefundResult(
             payment_id=refund.id,
             provider="mock" if is_mock else "wechat",
@@ -514,4 +529,59 @@ class PaymentService:
             payment.callback_raw = raw_body[:4000]
 
         await self.session.flush()
+
+        # [TD-MONEY-01 M1 finishing / D-050]
+        # 退款成功 → 追加 wallet_ledger（out / refund）。
+        if payment.status == "success":
+            await self._append_refund_ledger_safe(payment)
+
         return payment
+
+    # -- wallet_ledger helpers (TD-MONEY-01 M1 finishing) --------------------
+
+    async def _append_pay_ledger_safe(self, payment: Payment) -> None:
+        """支付成功 → 追加 ledger。失败不抛（不能拖累主业务），只 log。"""
+        provider_txn_id = payment.trade_no or str(payment.id)
+        try:
+            await self.ledger_writer.record_pay_success(
+                user_id=payment.user_id,
+                order_id=payment.order_id,
+                provider_txn_id=provider_txn_id,
+                amount=payment.amount,
+                occurred_at=payment.created_at,
+            )
+        except Exception as exc:  # pragma: no cover - defence only
+            logger.error(
+                "wallet_ledger pay-append failed (non-fatal) payment=%s err=%s",
+                payment.id,
+                exc,
+                exc_info=True,
+            )
+
+    async def _append_refund_ledger_safe(self, refund: Payment) -> None:
+        """退款成功 → 追加 ledger。失败不抛，只 log。
+
+        ``provider_txn_id`` 优先用 ``refund_id``（退款单独的幂等键），
+        fallback 到 ``trade_no + ':refund'`` 避免与原支付的 ledger 冲突。
+        """
+        if refund.refund_id:
+            provider_txn_id = refund.refund_id
+        elif refund.trade_no:
+            provider_txn_id = f"{refund.trade_no}:refund"
+        else:
+            provider_txn_id = f"{refund.id}:refund"
+        try:
+            await self.ledger_writer.record_refund_success(
+                user_id=refund.user_id,
+                order_id=refund.order_id,
+                provider_txn_id=provider_txn_id,
+                amount=refund.amount,
+                occurred_at=refund.created_at,
+            )
+        except Exception as exc:  # pragma: no cover - defence only
+            logger.error(
+                "wallet_ledger refund-append failed (non-fatal) refund=%s err=%s",
+                refund.id,
+                exc,
+                exc_info=True,
+            )

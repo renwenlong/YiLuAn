@@ -1,0 +1,56 @@
+fix(money): TD-MONEY-01 M1 finishing - wire wallet_ledger write paths (D-050)
+
+Background
+----------
+M1 (PR #54) shipped the wallet_ledger table + WalletService read path +
+an offline backfill script, but production write paths were never
+wired. M2/M3 jumped straight to reconciliation, leaving:
+
+  1. wallet_ledger empty in prod (only manual backfill could populate it)
+  2. WalletService.get_summary always falling back to legacy
+     OrderRepository.sum_earnings_by_companion aggregation
+  3. M3 incremental reconciliation would flag every successful payment
+     as MISSING_PAYMENT against an empty ledger -> autofix queue flooded
+
+This PR finishes the M1 design intent.
+
+Changes
+-------
+- New `app/services/wallet_ledger_writer.py` (`WalletLedgerWriter`):
+  single-purpose idempotent appender. (provider_txn_id, direction)
+  unique constraint as backstop; begin_nested SAVEPOINT isolation;
+  caller controls commit boundary.
+
+- PaymentService now appends ledger on three success paths:
+  * mock provider instant pay success
+  * handle_pay_callback success (real wechat path)
+  * mock provider instant refund success
+  * handle_refund_callback success
+  All wrapped in `_append_*_safe` helpers - ledger failures DO NOT
+  break the main payment business logic, only log error.
+
+- Idempotency keys:
+  * pay:    provider_txn_id = trade_no (fallback payment.id)
+  * refund: provider_txn_id = refund_id (fallback "{trade_no}:refund"
+    or "{payment.id}:refund") to avoid clashing with the original pay
+  * adjust: provider_txn_id = "ADJ-{operator}-{uuid8}" (server-generated)
+
+- New admin API for manual adjustments:
+  * POST /api/v1/admin/wallet-ledger/adjustments
+    requires X-Admin-Token + X-Admin-Operator; writes
+    admin_audit_logs row + ledger row in same UoW
+  * GET  /api/v1/admin/wallet-ledger/{user_id}
+    diagnostic list endpoint with paging + reason filter
+
+- WalletLedgerWriter validates manual adjustments strictly:
+  amount > 0, operator non-empty (<=64), reason non-empty (<=500).
+
+Tests
+-----
+1053 -> 1086 passed (+33 new):
+  - 13 writer unit tests (3 entry points, idempotency, validation)
+  - 7 PaymentService -> ledger integration tests (mock + wechat callback)
+  - 13 admin API tests (auth, happy paths, validation, list)
+Full suite green; CI Smoke + Tests expected to stay green.
+
+Refs ADR-0032 / TD-MONEY-01 M1 / D-050
