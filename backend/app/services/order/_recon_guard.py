@@ -97,3 +97,41 @@ def check_reconciliation_block(
 def _iter_values(items: Iterable) -> list:
     """Allow callers to pass either Enum members or raw strings."""
     return [getattr(i, "value", i) for i in items]
+
+
+# ---------------------------------------------------------------------------
+# [M3] Async variant for OrderService.transition() wiring.
+# ---------------------------------------------------------------------------
+async def check_reconciliation_block_async(
+    order_id: UUID,
+    db,  # AsyncSession
+    cutoff: datetime,
+) -> None:
+    """Async version of :func:`check_reconciliation_block` for AsyncSession callers."""
+    if cutoff.tzinfo is None:
+        cutoff = cutoff.replace(tzinfo=timezone.utc)
+
+    stmt = (
+        select(ReconciliationDiff.id)
+        .where(ReconciliationDiff.order_id == order_id)
+        .where(ReconciliationDiff.kind.in_(_iter_values(_BLOCKING_KINDS)))
+        .where(ReconciliationDiff.status.in_(_iter_values(_BLOCKING_STATUSES)))
+        .where(ReconciliationDiff.created_at >= cutoff)
+        .limit(1)
+    )
+    result = await db.execute(stmt)
+    if result.first() is not None:
+        raise OrderBlockedByReconciliationError(
+            f"Order {order_id} has an unresolved amount_mismatch diff",
+        )
+
+
+def _parse_cutoff(value: str | datetime) -> datetime:
+    """Parse settings.reconciliation_cutoff into a tz-aware datetime."""
+    if isinstance(value, datetime):
+        dt = value
+    else:
+        dt = datetime.fromisoformat(str(value))
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt

@@ -132,6 +132,8 @@ def create_scheduler(app) -> AsyncIOScheduler:
     )
     from app.cron.cleanup_emergency_pii import cleanup_emergency_pii
     from app.cron.reconcile_money import reconcile_money_job
+    from app.cron.reconciliation_cleanup import reconciliation_cleanup_job
+    from app.services.reconciliation.incremental import reconcile_incremental_sweep_job
 
     scheduler = AsyncIOScheduler(timezone="UTC")
     scheduler.add_job(
@@ -190,6 +192,30 @@ def create_scheduler(app) -> AsyncIOScheduler:
         coalesce=True,
         max_instances=1,
         misfire_grace_time=1800,
+        replace_existing=True,
+    )
+    # ADR-0032 / D-044 / M3: 增量对账兜底 sweeper — 每 5 分钟扫一次队列
+    scheduler.add_job(
+        reconcile_incremental_sweep_job,
+        trigger=IntervalTrigger(minutes=5),
+        kwargs={"app": app},
+        id="reconcile_money_incremental_sweep",
+        name="Incremental reconciliation queue sweeper (ADR-0032)",
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=60,
+        replace_existing=True,
+    )
+    # ADR-0032 / D-044 Q4 / M3: 5 年保留期清理发现 cron — 每周一 03:00 GMT+8
+    scheduler.add_job(
+        reconciliation_cleanup_job,
+        trigger=CronTrigger(day_of_week="mon", hour=19, minute=0),  # UTC ≈ Mon 03:00 GMT+8
+        kwargs={"app": app},
+        id="reconciliation_cleanup",
+        name="Reconciliation 5y archive discovery (ADR-0032)",
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=3600,
         replace_existing=True,
     )
     return scheduler

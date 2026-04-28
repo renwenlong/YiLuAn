@@ -27,6 +27,11 @@ from app.repositories.order import OrderRepository
 from app.repositories.payment import OrderStatusHistoryRepository, PaymentRepository
 from app.services.notification import NotificationService
 from app.services.payment_service import PaymentService
+from app.services.order._recon_guard import (
+    check_reconciliation_block_async,
+    _parse_cutoff,
+)
+from app.config import settings as _app_settings
 
 # Default: orders expire 4 hours after creation
 ORDER_EXPIRY_HOURS = 4
@@ -88,6 +93,18 @@ class _OrderServiceBase:
             raise BadRequestException(
                 f"Cannot transition from {current.value} to {target.value}"
             )
+
+    async def _check_recon_block(self, order: Order) -> None:
+        """[ADR-0032 / D-044 Q3 / M3] Block forward transitions if an
+        unresolved ``amount_mismatch`` diff exists for this order.
+
+        Diffs older than ``settings.reconciliation_cutoff`` are exempted
+        (historical exemption). Raises
+        :class:`~app.exceptions.OrderBlockedByReconciliationError` (HTTP 409,
+        ``error_code=ORDER_BLOCKED_BY_RECONCILIATION``).
+        """
+        cutoff = _parse_cutoff(_app_settings.reconciliation_cutoff)
+        await check_reconciliation_block_async(order.id, self.session, cutoff)
 
     async def _record_history(
         self,
