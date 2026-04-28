@@ -1246,3 +1246,28 @@ Provider 接口已稳定 16 天等外部凭证（B-01 微信支付商户 / B-02 
   - `backend/tests/test_admin_reconciliation.py`（新增）
   - `admin-h5/{index.html,app.js,README.md}`（新增 reconciliation 模块）
 - **状态**：已实施，PR-2 待合并
+
+
+### D-050 wallet_ledger 写入链路补齐（TD-MONEY-01 M1 收尾）
+- **背景**：M1 阶段（PR #54）落地了 `wallet_ledger` 表 + `WalletService` 读取 + 离线 `backfill_wallet_ledger.py` 脚本，**但生产写入路径一直没接通**。M2/M3 直接跳到对账层，导致：
+  1. 生产环境 `wallet_ledger` 永远是空表（除非手动跑 backfill）
+  2. `WalletService.get_summary` 永远走 fallback 到旧 `OrderRepository.sum_earnings_by_companion` 聚合
+  3. M3 增量对账若 ledger 为空，会把每一笔成功支付都判定为 `MISSING_PAYMENT` → 大量误报 → autofix 队列被冲爆
+- **决策**：补齐 3 个生产写入入口
+  1. **支付成功**：`PaymentService.handle_pay_callback` 真正成功时同步 append `(direction=in, reason=pay)`；mock provider 的即时成功路径也接通
+  2. **退款成功**：`PaymentService.handle_refund_callback` 标记成功时 + mock provider 即时退款也 append `(direction=out, reason=refund)`
+  3. **人工调整**：admin API `POST /api/v1/admin/wallet-ledger/adjustments`，强制 `X-Admin-Token` + `X-Admin-Operator`，落 `admin_audit_logs` + ledger
+- **新增模块**：`app/services/wallet_ledger_writer.py`（`WalletLedgerWriter`，唯一职责：幂等 append；`(provider_txn_id, direction)` 唯一约束兜底；`begin_nested` SAVEPOINT 隔离失败；不持事务）
+- **幂等键约定**：
+  - 支付：`provider_txn_id = trade_no`（fallback `payment.id`）
+  - 退款：`provider_txn_id = refund_id`（fallback `trade_no:refund` → `payment.id:refund`），避免与原支付的 ledger 冲突
+  - 调整：`provider_txn_id = ADJ-{operator}-{uuid8}`，由 server 生成
+- **失败容忍**：3 个写入路径都用 `_append_*_safe` 包装；ledger append 失败**不阻塞主业务**（支付不能因为账本写不进去而回滚），仅 log error
+- **回填策略**：本 PR 不在生产 backfill；维护窗口手动跑 `python -m scripts.backfill_wallet_ledger`，幂等键保证可重复跑
+- **管理端 API**：`POST /api/v1/admin/wallet-ledger/adjustments`、`GET /api/v1/admin/wallet-ledger/{user_id}`（list 带分页 + reason 过滤）
+- **测试**：1053 → 1086 passed（+33：writer 单测 13 / payment 集成 7 / admin API 13）
+- **状态**：已实施，PR 待合并
+- **后续 (M3.5+)**：
+  - admin H5 加「人工调账」UI（需要 sidebar 入口 + 确认弹窗）
+  - 生产维护窗口跑 1 次 backfill，校验 `WalletService.get_summary` 不再走 fallback
+  - M3 对账 cutoff (`reconciliation_cutoff = 2026-04-28T00:00:00+00:00`) 之前的历史订单豁免对照已生效
