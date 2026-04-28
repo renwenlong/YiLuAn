@@ -50,6 +50,7 @@
         <a class="side-nav__item" data-route="orders" href="#/orders">订单管理</a>
         <a class="side-nav__item" data-route="users" href="#/users">用户管理</a>
         <a class="side-nav__item" data-route="reconciliation" href="#/reconciliation">资金对账</a>
+        <a class="side-nav__item" data-route="wallet" href="#/wallet">钱包账本</a>
       </nav>
     </aside>
 
@@ -289,7 +290,59 @@
         </div>
       </section>
 
-    </main>
+    
+      <!-- Wallet ledger view (D-050) -->
+      <section id="walletView" class="card route-view" hidden>
+        <div class="list-toolbar">
+          <h2>钱包账本</h2>
+          <div class="toolbar-right">
+            <button id="walletAdjustBtn" class="btn btn-primary">人工调账</button>
+          </div>
+        </div>
+        <div class="filter-bar">
+          <div class="filter-bar__item">
+            <label>陪诊师 user_id</label>
+            <input id="walletFilterUserId" type="text" placeholder="UUID" />
+          </div>
+          <div class="filter-bar__item">
+            <label>原因</label>
+            <select id="walletFilterReason">
+              <option value="">全部</option>
+              <option value="pay">pay (入账)</option>
+              <option value="refund">refund (退款)</option>
+              <option value="adjust">adjust (人工)</option>
+            </select>
+          </div>
+          <div class="filter-bar__actions">
+            <button id="walletSearchBtn" class="btn btn-primary">查询</button>
+            <button id="walletResetBtn" class="btn btn-ghost">重置</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>发生时间</th>
+                <th>方向</th>
+                <th>原因</th>
+                <th style="text-align:right">金额</th>
+                <th>provider_txn_id</th>
+                <th>order_id</th>
+              </tr>
+            </thead>
+            <tbody id="walletTbody">
+              <tr><td colspan="6" class="empty">输入 user_id 后点查询</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <button id="walletPrevBtn" class="btn btn-ghost">上一页</button>
+          <span id="walletPageInfo">第 1 / 1 页 · 共 0 条</span>
+          <button id="walletNextBtn" class="btn btn-ghost">下一页</button>
+        </div>
+      </section>
+
+</main>
   </div>
 
   <!-- Reject reason modal (companions) -->
@@ -401,5 +454,48 @@
   <div id="toast" class="toast" hidden></div>
 
   <script src="./app.js"></script>
+
+  <!-- Wallet adjustment modal (D-050) -->
+  <div id="walletAdjustModal" class="modal" hidden>
+    <div class="modal__backdrop" data-close="walletAdjust"></div>
+    <div class="modal__panel">
+      <div class="modal__header">
+        <h3>人工调账</h3>
+        <button class="modal__close" data-close="walletAdjust" aria-label="关闭">×</button>
+      </div>
+      <div class="modal__body">
+        <p class="hint">调账会即时落入 <code>wallet_ledger</code> 并写一条 <code>admin_audit_logs</code>。<strong>不可撤销</strong>，如需冲销请新发一笔反方向调账。</p>
+        <div class="form-row">
+          <label>用户 ID（陪诊师 user_id）</label>
+          <input id="walletAdjustUserId" type="text" placeholder="UUID" />
+        </div>
+        <div class="form-row">
+          <label>方向</label>
+          <select id="walletAdjustDirection">
+            <option value="in">入账（加余额）</option>
+            <option value="out">出账（扣余额）</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label>金额（元，> 0）</label>
+          <input id="walletAdjustAmount" type="text" placeholder="例如 99.00" />
+        </div>
+        <div class="form-row">
+          <label>关联订单 ID（可选）</label>
+          <input id="walletAdjustOrderId" type="text" placeholder="UUID（留空则不关联）" />
+        </div>
+        <div class="form-row">
+          <label>原因（必填，1-500 字）</label>
+          <textarea id="walletAdjustReason" rows="3" placeholder="例：客诉补偿 ORDER-1234 / 财务对账修复"></textarea>
+        </div>
+        <div class="hint">操作人：<strong id="walletAdjustOperator"></strong>（来自登录时填的 Operator）</div>
+      </div>
+      <div class="modal__footer">
+        <button id="walletAdjustCancelBtn" class="btn btn-ghost">取消</button>
+        <button id="walletAdjustConfirmBtn" class="btn btn-primary">确认提交</button>
+      </div>
+    </div>
+  </div>
+
 </body>
 </html>

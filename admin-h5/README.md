@@ -6,6 +6,7 @@
 2. **订单管理**（`#/orders`） — 订单列表、筛选、详情、人工改状态、退款
 3. **用户管理**（`#/users`） — 用户列表、筛选、详情、禁用 / 启用
 4. **资金对账**（`#/reconciliation`） — TD-MONEY-01 M3 PR-2 (D-048)：差异工单列表、筛选、详情查看、**双签关单**（需不同 Operator 标识 完成第二签）
+5. **钱包账本**（`#/wallet`） — TD-MONEY-01 M1 收尾 (D-050)：按 user_id 查 `wallet_ledger` 流水（按 reason 过滤），支持**人工调账**（强制 Operator + 原因，落 `admin_audit_logs`，不可撤销）
 
 ## 设计目标
 

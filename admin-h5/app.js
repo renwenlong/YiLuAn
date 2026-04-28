@@ -59,6 +59,11 @@ const state = {
     pendingCloseDiffId: null,
     pendingCloseStep: null, // 'request' | 'confirm'
   },
+  // wallet ledger (D-050)
+  wallet: {
+    page: 1, total: 0, items: [],
+    filters: { user_id: '', reason: '' },
+  },
 };
 
 // ---------- DOM helpers ----------
@@ -737,6 +742,154 @@ const Reconciliation = {
 };
 
 // ===================================================================
+// ===================================================================
+// Module: wallet ledger (D-050)
+// ===================================================================
+const WALLET_REASON_LABELS = { pay: '支付', refund: '退款', adjust: '人工调整' };
+const WALLET_DIRECTION_LABELS = { 'in': '入账', out: '出账' };
+
+const Wallet = {
+  async load() {
+    // first entry: just show empty hint until user enters user_id
+    if (!state.wallet.filters.user_id) {
+      $('#walletTbody').innerHTML = '<tr><td colspan="6" class="empty">输入 user_id 后点查询</td></tr>';
+      $('#walletPageInfo').textContent = '第 1 / 1 页 · 共 0 条';
+      $('#walletPrevBtn').disabled = true;
+      $('#walletNextBtn').disabled = true;
+      return;
+    }
+    const tbody = $('#walletTbody');
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">加载中…</td></tr>';
+    try {
+      const f = state.wallet.filters;
+      const qs = '?page=' + state.wallet.page + '&page_size=' + PAGE_SIZE
+        + (f.reason ? '&reason=' + encodeURIComponent(f.reason) : '');
+      const res = await apiCall('/api/v1/admin/wallet-ledger/' + encodeURIComponent(f.user_id) + qs);
+      state.wallet.items = res.items || [];
+      state.wallet.total = res.total || 0;
+      this.render();
+    } catch (e) {
+      if (handleAuthError(e)) return;
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">加载失败：' + escapeHtml(e.message) + '</td></tr>';
+    }
+  },
+  render() {
+    const tbody = $('#walletTbody');
+    const items = state.wallet.items;
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty">无数据</td></tr>';
+    } else {
+      tbody.innerHTML = items.map((r) => {
+        const dirLabel = WALLET_DIRECTION_LABELS[r.direction] || r.direction;
+        const reasonLabel = WALLET_REASON_LABELS[r.reason] || r.reason;
+        const sign = r.direction === 'in' ? '+' : '-';
+        const cls = r.direction === 'in' ? 'amount amount--in' : 'amount amount--out';
+        return '<tr>'
+          + '<td>' + escapeHtml(r.occurred_at) + '</td>'
+          + '<td>' + statusPill(r.direction, dirLabel) + '</td>'
+          + '<td>' + statusPill(r.reason, reasonLabel) + '</td>'
+          + '<td style="text-align:right" class="' + cls + '">' + sign + escapeHtml(r.amount) + '</td>'
+          + '<td><code>' + escapeHtml(r.provider_txn_id) + '</code></td>'
+          + '<td>' + (r.order_id ? '<code>' + escapeHtml(r.order_id) + '</code>' : '<span class="muted">-</span>') + '</td>'
+          + '</tr>';
+      }).join('');
+    }
+    const totalPages = Math.max(1, Math.ceil(state.wallet.total / PAGE_SIZE));
+    $('#walletPageInfo').textContent = '第 ' + state.wallet.page + ' / ' + totalPages + ' 页 · 共 ' + state.wallet.total + ' 条';
+    $('#walletPrevBtn').disabled = state.wallet.page <= 1;
+    $('#walletNextBtn').disabled = state.wallet.page >= totalPages;
+  },
+  applyFilters() {
+    state.wallet.filters = {
+      user_id: $('#walletFilterUserId').value.trim(),
+      reason: $('#walletFilterReason').value,
+    };
+    state.wallet.page = 1;
+    this.load();
+  },
+  resetFilters() {
+    $('#walletFilterUserId').value = '';
+    $('#walletFilterReason').value = '';
+    state.wallet.filters = { user_id: '', reason: '' };
+    state.wallet.page = 1;
+    this.load();
+  },
+  openAdjust() {
+    if (!state.operator) {
+      toast('请先在登录界面填 Operator', 'error');
+      return;
+    }
+    // pre-fill user_id from filter if present
+    $('#walletAdjustUserId').value = state.wallet.filters.user_id || '';
+    $('#walletAdjustDirection').value = 'in';
+    $('#walletAdjustAmount').value = '';
+    $('#walletAdjustOrderId').value = '';
+    $('#walletAdjustReason').value = '';
+    $('#walletAdjustOperator').textContent = state.operator;
+    show($('#walletAdjustModal'));
+  },
+  closeAdjust() { hide($('#walletAdjustModal')); },
+  async confirmAdjust() {
+    const userId = $('#walletAdjustUserId').value.trim();
+    const direction = $('#walletAdjustDirection').value;
+    const amount = $('#walletAdjustAmount').value.trim();
+    const orderId = $('#walletAdjustOrderId').value.trim();
+    const reason = $('#walletAdjustReason').value.trim();
+
+    if (!userId) { toast('user_id 不能为空', 'error'); return; }
+    if (!/^[0-9a-fA-F-]{32,36}$/.test(userId)) { toast('user_id 不是合法 UUID', 'error'); return; }
+    if (!amount || !/^[0-9]+(\.[0-9]{1,2})?$/.test(amount) || parseFloat(amount) <= 0) {
+      toast('金额需为 > 0 的数字（最多 2 位小数）', 'error'); return;
+    }
+    if (!reason) { toast('原因必填', 'error'); return; }
+    if (reason.length > 500) { toast('原因不能超过 500 字', 'error'); return; }
+    if (orderId && !/^[0-9a-fA-F-]{32,36}$/.test(orderId)) {
+      toast('order_id 不是合法 UUID', 'error'); return;
+    }
+
+    const body = { user_id: userId, direction, amount, reason };
+    if (orderId) body.order_id = orderId;
+
+    const btn = $('#walletAdjustConfirmBtn');
+    btn.disabled = true;
+    try {
+      const res = await reconApi('/api/v1/admin/wallet-ledger/adjustments', {
+        method: 'POST', body, requireOperator: true,
+      });
+      toast('调账成功 · ledger=' + (res.ledger_id || '-'), 'success');
+      this.closeAdjust();
+      // auto-jump filter to this user_id and refresh
+      $('#walletFilterUserId').value = userId;
+      this.applyFilters();
+    } catch (e) {
+      if (handleAuthError(e)) return;
+      toast('调账失败：' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  },
+  bind() {
+    $('#walletSearchBtn').addEventListener('click', () => this.applyFilters());
+    $('#walletResetBtn').addEventListener('click', () => this.resetFilters());
+    $('#walletAdjustBtn').addEventListener('click', () => this.openAdjust());
+    $('#walletPrevBtn').addEventListener('click', () => {
+      if (state.wallet.page > 1) { state.wallet.page--; this.load(); }
+    });
+    $('#walletNextBtn').addEventListener('click', () => {
+      const totalPages = Math.max(1, Math.ceil(state.wallet.total / PAGE_SIZE));
+      if (state.wallet.page < totalPages) { state.wallet.page++; this.load(); }
+    });
+    $('#walletAdjustCancelBtn').addEventListener('click', () => this.closeAdjust());
+    $('#walletAdjustConfirmBtn').addEventListener('click', () => this.confirmAdjust());
+    document.querySelectorAll('[data-close="walletAdjust"]').forEach((el) =>
+      el.addEventListener('click', () => this.closeAdjust())
+    );
+    $('#walletFilterUserId').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') this.applyFilters();
+    });
+  },
+};
+
 // Router & shell
 // ===================================================================
 const ROUTES = {
@@ -744,6 +897,7 @@ const ROUTES = {
   orders:         { view: '#ordersView',     mod: Orders },
   users:          { view: '#usersView',      mod: Users },
   reconciliation: { view: '#reconView',      mod: Reconciliation },
+  wallet:         { view: '#walletView',     mod: Wallet },
 };
 
 function parseHash() {
@@ -829,6 +983,7 @@ function bindShell() {
   $('#logoutBtn').addEventListener('click', onLogout);
   $('#detailModalCloseBtn').addEventListener('click', closeDetail);
   window.addEventListener('hashchange', navigate);
+  Wallet.bind();
 }
 
 function init() {
