@@ -1271,3 +1271,30 @@ Provider 接口已稳定 16 天等外部凭证（B-01 微信支付商户 / B-02 
   - admin H5 加「人工调账」UI（需要 sidebar 入口 + 确认弹窗）
   - 生产维护窗口跑 1 次 backfill，校验 `WalletService.get_summary` 不再走 fallback
   - M3 对账 cutoff (`reconciliation_cutoff = 2026-04-28T00:00:00+00:00`) 之前的历史订单豁免对照已生效
+
+
+### D-051 wallet_ledger 收益归属修正 + admin H5 人工调账 UI（TD-MONEY-01 M1 收尾延续）
+- **背景**：D-050 完成 ledger 写入链路后，复审发现一个**关键语义 bug**——所有写入路径（`PaymentService._append_pay_ledger_safe` / `_append_refund_ledger_safe` 以及 `backfill_wallet_ledger.py`）都把 `ledger.user_id` 写成 `payment.user_id`（payer / 患者 ID），但 `WalletService.get_summary` 是按**陪诊师 user_id** 查的。结果：
+  1. ledger 写进去也没人看（payer 不会查钱包）
+  2. companion 的 `get_summary` 永远查不到任何 row → 永远走 fallback → ledger 写入等于白做
+  3. M3 对账层若读 ledger 做交叉校验也会全错
+- **决策**：统一语义为「**ledger.user_id = 陪诊师 user_id（收入归属人）**」
+  - `PaymentService` 新增 `_resolve_companion_user_id(order_id)`，在 append 前查 `Order.companion_id`
+  - 订单**未接单**（`companion_id is None`）→ 跳过 ledger（收入归属未定，等接单后由对账层或人工二次回填），**不报错、不阻塞主业务**
+  - `backfill_wallet_ledger.py` 同步修正 + 增加 `no_companion` 计数项 + Order 缓存避免 N+1
+- **新增 UI（admin H5 D-050 收尾）**
+  - 侧栏新增「钱包账本」入口 `#/wallet`
+  - 按 user_id + reason 查 `wallet_ledger` 流水（分页 20 / 页）
+  - 「人工调账」按钮 → 弹窗 → POST `/api/v1/admin/wallet-ledger/adjustments`
+  - 前端校验：UUID 格式 / 金额正则（`> 0`，最多 2 位小数）/ 原因 1-500 字 / Operator 必须存在
+  - 调账成功后 toast 提示 `ledger_id` + 自动跳到该 user_id 的流水视图刷新
+  - 视觉风格沿用现有 AntD Pro 极简 token，零依赖、零构建
+- **测试**
+  - 1086 → **1091 passed**（+5：5 个新增 `WalletService.get_summary` 集成测试，证明 ledger 非空时不再走 fallback）
+  - 原 D-050 的 33 个测试已全部更新为「companion attribution」模式继续 100% 绿
+- **生产 backfill 待办（仍归在 M3.5+）**
+  - 维护窗口手动跑 `python -m scripts.backfill_wallet_ledger --dry-run` 出报表
+  - 确认 `no_companion` 数量在预期内（开发期数据通常很多 patient 直接付款的 dry test）
+  - 实跑 `python -m scripts.backfill_wallet_ledger`
+  - 跑后随机抽 3 名 companion，比对 admin H5 钱包账本 vs `WalletService.get_summary` API 返回
+- **教训**：D-050 测试虽然全绿，但都用 `payment.user_id` 当 ledger 主体，只验证了"写入路径接通"而没验证"写入到正确的人头上"。语义层面的契约缺陷靠单测兜不住，必须用集成层的 `get_summary` 端到端才能暴露

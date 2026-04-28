@@ -15,6 +15,7 @@ from sqlalchemy import select
 
 from app.models.order import OrderStatus
 from app.models.payment import Payment
+from app.models.user import UserRole
 from app.models.wallet_ledger import (
     WalletLedger,
     WalletLedgerDirection,
@@ -34,67 +35,95 @@ async def _ledger_rows_for_user(user_id: uuid.UUID) -> list[WalletLedger]:
         return list(rows)
 
 
+async def _make_companion(seed_user, phone: str = "13900000099") -> uuid.UUID:
+    """Helper: 创建一个 companion 角色用户，返回 id。"""
+    u = await seed_user(phone=phone, role=UserRole.companion)
+    return u.id
+
+
 @pytest.mark.asyncio
 class TestPayAppendsLedger:
-    async def test_mock_pay_appends_in_pay_row(
-        self, authenticated_client: AsyncClient, seed_hospital, seed_order
+    async def test_mock_pay_appends_in_pay_row_under_companion_id(
+        self, authenticated_client: AsyncClient, seed_hospital, seed_order, seed_user
     ):
+        """关键语义：ledger.user_id 必须是 companion (陪诊师)，不是 payer。"""
         user = authenticated_client._test_user
         hospital = await seed_hospital()
-        order = await seed_order(user.id, hospital.id)
+        companion_id = await _make_companion(seed_user, phone="13900000201")
+        order = await seed_order(user.id, hospital.id, companion_id=companion_id)
 
         resp = await authenticated_client.post(f"/api/v1/orders/{order.id}/pay")
         assert resp.status_code == 200
 
-        rows = await _ledger_rows_for_user(user.id)
+        # 陪诊师账本有 1 行 in/pay
+        rows = await _ledger_rows_for_user(companion_id)
         pay_rows = [r for r in rows if r.reason == WalletLedgerReason.pay]
         assert len(pay_rows) == 1
-        row = pay_rows[0]
-        assert row.direction == WalletLedgerDirection.in_
-        assert row.order_id == order.id
+        assert pay_rows[0].direction == WalletLedgerDirection.in_
+        assert pay_rows[0].order_id == order.id
 
-    async def test_double_pay_attempt_does_not_double_ledger(
+        # payer (患者) 账本为空
+        payer_rows = await _ledger_rows_for_user(user.id)
+        assert payer_rows == []
+
+    async def test_pay_without_companion_skips_ledger(
         self, authenticated_client: AsyncClient, seed_hospital, seed_order
     ):
-        """Idempotency: 重复支付 endpoint 被拒，ledger 仍然只有 1 行。"""
+        """订单未接单 → 尚未产生收入归属 → 不写 ledger。不报错。"""
         user = authenticated_client._test_user
         hospital = await seed_hospital()
-        order = await seed_order(user.id, hospital.id)
+        order = await seed_order(user.id, hospital.id, companion_id=None)
+
+        resp = await authenticated_client.post(f"/api/v1/orders/{order.id}/pay")
+        assert resp.status_code == 200  # 支付仍然成功
+
+        # 但 ledger 为空（难判定归属人，跳过）
+        async with test_session_factory() as s:
+            count = (await s.execute(select(WalletLedger))).scalars().all()
+            assert len(count) == 0
+
+    async def test_double_pay_attempt_does_not_double_ledger(
+        self, authenticated_client: AsyncClient, seed_hospital, seed_order, seed_user
+    ):
+        user = authenticated_client._test_user
+        hospital = await seed_hospital()
+        companion_id = await _make_companion(seed_user, phone="13900000202")
+        order = await seed_order(user.id, hospital.id, companion_id=companion_id)
 
         await authenticated_client.post(f"/api/v1/orders/{order.id}/pay")
-        # 第二次 endpoint 会 400，但即使绕过它，writer 也会去重
-        rows1 = await _ledger_rows_for_user(user.id)
+        rows1 = await _ledger_rows_for_user(companion_id)
         assert len([r for r in rows1 if r.reason == WalletLedgerReason.pay]) == 1
 
 
 @pytest.mark.asyncio
 class TestRefundAppendsLedger:
-    async def test_mock_refund_appends_out_refund_row(
-        self, authenticated_client: AsyncClient, seed_hospital, seed_order
+    async def test_mock_refund_appends_out_refund_row_under_companion(
+        self, authenticated_client: AsyncClient, seed_hospital, seed_order, seed_user
     ):
         user = authenticated_client._test_user
         hospital = await seed_hospital()
-        order = await seed_order(user.id, hospital.id)
+        companion_id = await _make_companion(seed_user, phone="13900000203")
+        order = await seed_order(user.id, hospital.id, companion_id=companion_id)
 
         await authenticated_client.post(f"/api/v1/orders/{order.id}/pay")
-        # 取消已支付订单触发自动退款
         resp = await authenticated_client.post(
             f"/api/v1/orders/{order.id}/cancel",
             json={"reason": "test refund ledger append"},
         )
         assert resp.status_code in (200, 204)
 
-        rows = await _ledger_rows_for_user(user.id)
+        rows = await _ledger_rows_for_user(companion_id)
         refund_rows = [r for r in rows if r.reason == WalletLedgerReason.refund]
         assert len(refund_rows) == 1
         assert refund_rows[0].direction == WalletLedgerDirection.out
 
     async def test_pay_then_refund_yields_two_directions(
-        self, authenticated_client: AsyncClient, seed_hospital, seed_order
+        self, authenticated_client: AsyncClient, seed_hospital, seed_order, seed_user
     ):
         user = authenticated_client._test_user
         hospital = await seed_hospital()
-        order = await seed_order(user.id, hospital.id)
+        companion_id = await _make_companion(seed_user, phone="13900000204")
+        order = await seed_order(user.id, hospital.id, companion_id=companion_id)
 
         await authenticated_client.post(f"/api/v1/orders/{order.id}/pay")
         await authenticated_client.post(
@@ -102,7 +131,7 @@ class TestRefundAppendsLedger:
             json={"reason": "x"},
         )
 
-        rows = await _ledger_rows_for_user(user.id)
+        rows = await _ledger_rows_for_user(companion_id)
         directions = sorted({r.direction for r in rows})
         assert WalletLedgerDirection.in_ in directions
         assert WalletLedgerDirection.out in directions
@@ -112,17 +141,17 @@ class TestRefundAppendsLedger:
 class TestWechatCallbackAppendsLedger:
     """模拟生产 wechat 回调路径（pending → handle_pay_callback success）。"""
 
-    async def test_callback_success_appends_ledger(
+    async def test_callback_success_appends_ledger_under_companion(
         self, seed_hospital, seed_order, seed_user
     ):
-        # 准备一个 pending 的 Payment 行（绕过 prepay 走非 mock 路径）
-        user = await seed_user()
+        payer = await seed_user(phone="13800000301")
+        companion_id = await _make_companion(seed_user, phone="13900000301")
         hospital = await seed_hospital()
-        order = await seed_order(user.id, hospital.id)
+        order = await seed_order(payer.id, hospital.id, companion_id=companion_id)
         async with test_session_factory() as s:
             p = Payment(
                 order_id=order.id,
-                user_id=user.id,
+                user_id=payer.id,
                 amount=Decimal("99.00"),
                 payment_type="pay",
                 status="pending",
@@ -143,21 +172,24 @@ class TestWechatCallbackAppendsLedger:
             assert updated is not None
             assert updated.status == "success"
 
-        rows = await _ledger_rows_for_user(user.id)
+        rows = await _ledger_rows_for_user(companion_id)
         pay_rows = [r for r in rows if r.reason == WalletLedgerReason.pay]
         assert len(pay_rows) == 1
         assert pay_rows[0].provider_txn_id == "WX-TEST-CB-1"
+        # payer 账本仍然为空
+        assert await _ledger_rows_for_user(payer.id) == []
 
     async def test_callback_failure_does_not_append(
         self, seed_hospital, seed_order, seed_user
     ):
-        user = await seed_user()
+        payer = await seed_user(phone="13800000302")
+        companion_id = await _make_companion(seed_user, phone="13900000302")
         hospital = await seed_hospital()
-        order = await seed_order(user.id, hospital.id)
+        order = await seed_order(payer.id, hospital.id, companion_id=companion_id)
         async with test_session_factory() as s:
             p = Payment(
                 order_id=order.id,
-                user_id=user.id,
+                user_id=payer.id,
                 amount=Decimal("99.00"),
                 payment_type="pay",
                 status="pending",
@@ -176,27 +208,26 @@ class TestWechatCallbackAppendsLedger:
             )
             await s.commit()
 
-        rows = await _ledger_rows_for_user(user.id)
-        assert len(rows) == 0
+        assert await _ledger_rows_for_user(companion_id) == []
 
 
 @pytest.mark.asyncio
 class TestRefundCallbackAppendsLedger:
-    async def test_refund_callback_success_appends_out_row(
+    async def test_refund_callback_success_appends_out_row_under_companion(
         self, seed_hospital, seed_order, seed_user
     ):
-        user = await seed_user()
+        payer = await seed_user(phone="13800000303")
+        companion_id = await _make_companion(seed_user, phone="13900000303")
         hospital = await seed_hospital()
-        order = await seed_order(user.id, hospital.id)
-        # 先有成功的支付
+        order = await seed_order(payer.id, hospital.id, companion_id=companion_id)
         async with test_session_factory() as s:
             pay = Payment(
-                order_id=order.id, user_id=user.id,
+                order_id=order.id, user_id=payer.id,
                 amount=Decimal("100"), payment_type="pay",
                 status="success", trade_no="WX-PAY-RFND-1",
             )
             refund = Payment(
-                order_id=order.id, user_id=user.id,
+                order_id=order.id, user_id=payer.id,
                 amount=Decimal("100"), payment_type="refund",
                 status="pending", trade_no="WX-PAY-RFND-1",
                 refund_id="REFUND-CB-1",
@@ -212,7 +243,7 @@ class TestRefundCallbackAppendsLedger:
             )
             await s.commit()
 
-        rows = await _ledger_rows_for_user(user.id)
+        rows = await _ledger_rows_for_user(companion_id)
         refund_rows = [r for r in rows if r.reason == WalletLedgerReason.refund]
         assert len(refund_rows) == 1
         assert refund_rows[0].direction == WalletLedgerDirection.out

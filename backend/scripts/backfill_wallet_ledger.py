@@ -9,10 +9,10 @@
 - 从 ``payments`` 表里把 ``status='success'`` 且尚未在 ``wallet_ledger`` 出现的流水
   按 ``(provider_txn_id, direction)`` 唯一键追加进账本
 - ``payment_type='pay'``  → direction=in,  reason=pay
-- ``payment_type='refund'`` → direction=out, reason=refund（即对陪诊师而言，
-  患者退款 = 商家钱包出账）
-- ``user_id`` 取 ``payments.user_id``（payer），订单的「应入账人」实际是
-  陪诊师，但 M1 只追加原始流水，让 cron 后续按业务规则做归集（M2 任务）
+- ``payment_type='refund'`` → direction=out, reason=refund
+- **``user_id`` 取订单的 ``companion_id``（陪诊师），不是 ``payments.user_id``（payer/患者）**。
+  钱包账本以陪诊师为收益主体；订单尚未接单（无 companion）→ 跳过该笔流水（视作
+  收入归属未定，等接单后由 cron/对账层自行追加，或在维护窗口手动二次回填）。
 
 幂等：靠 ``(provider_txn_id, direction)`` 唯一索引兜底，重复跑不会写脏数据。
 """
@@ -30,6 +30,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import async_session_maker  # type: ignore[attr-defined]
+from app.models.order import Order
 from app.models.payment import Payment
 from app.models.wallet_ledger import (
     WalletLedger,
@@ -58,12 +59,32 @@ def _reason_for(payment_type: str) -> WalletLedgerReason:
 
 
 async def backfill(session: AsyncSession, *, dry_run: bool) -> dict[str, int]:
-    """主流程。返回 ``{scanned, written, skipped}``。"""
+    """主流程。返回 ``{scanned, written, skipped, no_companion}``。"""
     stmt = select(Payment).where(Payment.status == "success")
     rows = (await session.execute(stmt)).scalars().all()
     written = 0
     skipped = 0
+    no_companion = 0
+    # 缓存 order -> companion_id 避免每行 N+1
+    order_cache: dict[uuid.UUID, uuid.UUID | None] = {}
     for p in rows:
+        if p.order_id is None:
+            no_companion += 1
+            continue
+        if p.order_id in order_cache:
+            companion_user_id = order_cache[p.order_id]
+        else:
+            order = (
+                await session.execute(
+                    select(Order).where(Order.id == p.order_id)
+                )
+            ).scalar_one_or_none()
+            companion_user_id = order.companion_id if order else None
+            order_cache[p.order_id] = companion_user_id
+        if companion_user_id is None:
+            no_companion += 1
+            continue
+
         provider_txn_id = p.trade_no or p.refund_id or str(p.id)
         direction = _direction_for(p.payment_type)
         reason = _reason_for(p.payment_type)
@@ -82,7 +103,7 @@ async def backfill(session: AsyncSession, *, dry_run: bool) -> dict[str, int]:
             session.add(
                 WalletLedger(
                     id=uuid.uuid4(),
-                    user_id=p.user_id,
+                    user_id=companion_user_id,
                     order_id=p.order_id,
                     provider_txn_id=provider_txn_id,
                     amount=p.amount,
@@ -96,7 +117,12 @@ async def backfill(session: AsyncSession, *, dry_run: bool) -> dict[str, int]:
         except IntegrityError:
             await session.rollback()
             skipped += 1
-    return {"scanned": len(rows), "written": written, "skipped": skipped}
+    return {
+        "scanned": len(rows),
+        "written": written,
+        "skipped": skipped,
+        "no_companion": no_companion,
+    }
 
 
 async def _amain(dry_run: bool) -> None:

@@ -33,6 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.exceptions import BadRequestException
+from app.models.order import Order
 from app.models.payment import Payment
 from app.models.payment_callback_log import PaymentCallbackLog
 from app.repositories.payment import PaymentRepository
@@ -539,12 +540,41 @@ class PaymentService:
 
     # -- wallet_ledger helpers (TD-MONEY-01 M1 finishing) --------------------
 
+    async def _resolve_companion_user_id(self, order_id: uuid.UUID | None) -> uuid.UUID | None:
+        """查订单 companion_id。None = 订单不存在 / 尚未匹配陪诊师。
+
+        钱包账本是以**陪诊师**为主体的。payer (患者) 付钱、陪诊师收钱，
+        所以 ledger.user_id 要写 companion，不是 payment.user_id (患者)。
+        订单还没接单者 → 跳过 ledger（预付还没产生收入归属）。
+        """
+        if order_id is None:
+            return None
+        order = (
+            await self.session.execute(
+                select(Order).where(Order.id == order_id)
+            )
+        ).scalar_one_or_none()
+        if order is None:
+            return None
+        return order.companion_id
+
     async def _append_pay_ledger_safe(self, payment: Payment) -> None:
-        """支付成功 → 追加 ledger。失败不抛（不能拖累主业务），只 log。"""
+        """支付成功 → 追加 ledger。失败不抛（不能拖累主业务），只 log。
+
+        ``user_id`` = 订单的 companion_id（陪诊师），不是 payer。
+        订单未接单 → 跳过（收入还没归属）。
+        """
+        companion_user_id = await self._resolve_companion_user_id(payment.order_id)
+        if companion_user_id is None:
+            logger.info(
+                "wallet_ledger pay-skip: order=%s has no companion yet",
+                payment.order_id,
+            )
+            return
         provider_txn_id = payment.trade_no or str(payment.id)
         try:
             await self.ledger_writer.record_pay_success(
-                user_id=payment.user_id,
+                user_id=companion_user_id,
                 order_id=payment.order_id,
                 provider_txn_id=provider_txn_id,
                 amount=payment.amount,
@@ -561,9 +591,16 @@ class PaymentService:
     async def _append_refund_ledger_safe(self, refund: Payment) -> None:
         """退款成功 → 追加 ledger。失败不抛，只 log。
 
-        ``provider_txn_id`` 优先用 ``refund_id``（退款单独的幂等键），
-        fallback 到 ``trade_no + ':refund'`` 避免与原支付的 ledger 冲突。
+        ``user_id`` = 陪诊师。退款意味着陪诊师账本出账。
+        ``provider_txn_id`` 优先用 ``refund_id``，与原支付 ledger 不冲突。
         """
+        companion_user_id = await self._resolve_companion_user_id(refund.order_id)
+        if companion_user_id is None:
+            logger.info(
+                "wallet_ledger refund-skip: order=%s has no companion",
+                refund.order_id,
+            )
+            return
         if refund.refund_id:
             provider_txn_id = refund.refund_id
         elif refund.trade_no:
@@ -572,7 +609,7 @@ class PaymentService:
             provider_txn_id = f"{refund.id}:refund"
         try:
             await self.ledger_writer.record_refund_success(
-                user_id=refund.user_id,
+                user_id=companion_user_id,
                 order_id=refund.order_id,
                 provider_txn_id=provider_txn_id,
                 amount=refund.amount,

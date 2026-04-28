@@ -1,56 +1,53 @@
-fix(money): TD-MONEY-01 M1 finishing - wire wallet_ledger write paths (D-050)
+fix(money): TD-MONEY-01 M1 finishing follow-up - companion attribution + admin H5 wallet UI (D-051)
 
 Background
 ----------
-M1 (PR #54) shipped the wallet_ledger table + WalletService read path +
-an offline backfill script, but production write paths were never
-wired. M2/M3 jumped straight to reconciliation, leaving:
+After D-050 wired wallet_ledger write paths, code review found a critical
+semantic bug: all writers (PaymentService _append_pay/refund_ledger_safe
+and the backfill script) wrote ledger.user_id = payment.user_id (payer
+/ patient ID), but WalletService.get_summary queries by **companion**
+user_id. Net effect:
 
-  1. wallet_ledger empty in prod (only manual backfill could populate it)
-  2. WalletService.get_summary always falling back to legacy
-     OrderRepository.sum_earnings_by_companion aggregation
-  3. M3 incremental reconciliation would flag every successful payment
-     as MISSING_PAYMENT against an empty ledger -> autofix queue flooded
+  1. ledger rows are written under the payer (no one queries them)
+  2. companion get_summary always falls back to the legacy aggregation
+  3. wallet_ledger writes were effectively a no-op for the read path
+  4. M3 reconciliation cross-checks against ledger would all fail
 
-This PR finishes the M1 design intent.
+This PR fixes the attribution and adds the missing admin H5 UI.
 
-Changes
--------
-- New `app/services/wallet_ledger_writer.py` (`WalletLedgerWriter`):
-  single-purpose idempotent appender. (provider_txn_id, direction)
-  unique constraint as backstop; begin_nested SAVEPOINT isolation;
-  caller controls commit boundary.
+Backend changes
+---------------
+- PaymentService gains `_resolve_companion_user_id(order_id)`
+- Both `_append_pay_ledger_safe` and `_append_refund_ledger_safe` now
+  resolve the companion before writing; if order has no companion yet
+  (not accepted), they SKIP the ledger row (income attribution undecided)
+  rather than write it under the payer. Skip is a non-fatal log line —
+  the main payment business logic still succeeds.
+- backfill script updated symmetrically: writes under companion_id from
+  the related order, skips orders with no companion, returns a new
+  `no_companion` count, and caches order lookups to avoid N+1.
+- Existing D-050 integration tests rewritten to seed an explicit
+  companion via `seed_user(role=UserRole.companion)` + pass
+  `companion_id=` to `seed_order`. Tests now also assert the payer
+  ledger remains empty.
 
-- PaymentService now appends ledger on three success paths:
-  * mock provider instant pay success
-  * handle_pay_callback success (real wechat path)
-  * mock provider instant refund success
-  * handle_refund_callback success
-  All wrapped in `_append_*_safe` helpers - ledger failures DO NOT
-  break the main payment business logic, only log error.
-
-- Idempotency keys:
-  * pay:    provider_txn_id = trade_no (fallback payment.id)
-  * refund: provider_txn_id = refund_id (fallback "{trade_no}:refund"
-    or "{payment.id}:refund") to avoid clashing with the original pay
-  * adjust: provider_txn_id = "ADJ-{operator}-{uuid8}" (server-generated)
-
-- New admin API for manual adjustments:
-  * POST /api/v1/admin/wallet-ledger/adjustments
-    requires X-Admin-Token + X-Admin-Operator; writes
-    admin_audit_logs row + ledger row in same UoW
-  * GET  /api/v1/admin/wallet-ledger/{user_id}
-    diagnostic list endpoint with paging + reason filter
-
-- WalletLedgerWriter validates manual adjustments strictly:
-  amount > 0, operator non-empty (<=64), reason non-empty (<=500).
+Admin H5 UI (D-050 follow-up)
+-----------------------------
+- New sidebar entry `钱包账本` (#/wallet)
+- Lookup wallet_ledger rows by user_id + reason filter (paged 20/page)
+- "人工调账" button opens a modal that POSTs to the existing
+  /api/v1/admin/wallet-ledger/adjustments endpoint
+- Frontend validation: UUID shape, amount > 0 with up to 2 decimals,
+  reason 1-500 chars, requires Operator (login)
+- After successful adjustment: toast with ledger_id, auto-jumps the
+  filter to that user_id and refreshes the table
+- Zero deps, zero build, follows existing AntD-Pro-style minimal CSS
 
 Tests
 -----
-1053 -> 1086 passed (+33 new):
-  - 13 writer unit tests (3 entry points, idempotency, validation)
-  - 7 PaymentService -> ledger integration tests (mock + wechat callback)
-  - 13 admin API tests (auth, happy paths, validation, list)
-Full suite green; CI Smoke + Tests expected to stay green.
+1086 -> 1092 passed (+6). New `tests/services/test_wallet_summary.py`
+proves get_summary now reads from ledger (no fallback) once rows exist
+and that adjust direction signs are correctly applied.
+Full suite green (1092 passed, 16 skipped, 5 deselected).
 
-Refs ADR-0032 / TD-MONEY-01 M1 / D-050
+Refs ADR-0032 / TD-MONEY-01 M1 / D-050 / D-051
