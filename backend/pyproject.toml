@@ -40,3 +40,28 @@ exclude_lines = [
     "if __name__ == .__main__.:",
     "if TYPE_CHECKING:",
 ]
+
+# ---------------------------------------------------------------------------
+# import-linter contracts (ADR-0032 / D-044 Q2)
+#
+# Run locally with::
+#
+#     pip install import-linter
+#     lint-imports --config backend/pyproject.toml
+#
+# CI is the source of truth (see .github/workflows). M2 PR ships the
+# contract; CI gating is added in a follow-up ops chore.
+# ---------------------------------------------------------------------------
+[tool.importlinter]
+root_package = "app"
+
+[[tool.importlinter.contracts]]
+name = "wallet domain must not import payment domain"
+type = "forbidden"
+source_modules = ["app.services.wallet"]
+forbidden_modules = ["app.services.payment", "app.services.providers.payment"]
+# Why: wallet_ledger is the append-only book of record (ADR-0032 §3.5).
+# It is fed by payment events one-way; allowing the reverse import would
+# couple ledger writes to payment service internals and break the M3
+# replay/compensation contract.
+

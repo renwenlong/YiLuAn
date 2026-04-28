@@ -104,6 +104,12 @@ class Settings(BaseSettings):
     ws_chat_pubsub_enabled: bool = True  # 生产多副本必开；本地/测试可关
     ws_chat_pubsub_channel: str = "yiluan:ws:chat"
 
+    # ADR-0032 / D-044 Q3: 资金对账历史豁免 cutoff。
+    # 早于该时刻产生的 amount_mismatch diff 视为已豁免，guard 不阻断订单
+    # 状态机迁移。默认值 = ADR-0032 Accepted 的 UTC 时刻；生产部署可通过
+    # ``RECONCILIATION_CUTOFF`` 环境变量覆盖（ISO-8601 字符串）。
+    reconciliation_cutoff: str = "2026-04-28T00:00:00+00:00"
+
     # F-04 多维度评分权重（守时 / 专业 / 沟通 / 态度），默认等权 0.25。
     # 如需运营调整可通过环境变量覆盖；服务层会按权重重算总评分。
     review_weight_punctuality: float = 0.25

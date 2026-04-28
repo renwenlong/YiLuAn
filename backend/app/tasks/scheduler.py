@@ -131,6 +131,7 @@ def create_scheduler(app) -> AsyncIOScheduler:
         cleanup_sms_send_log,
     )
     from app.cron.cleanup_emergency_pii import cleanup_emergency_pii
+    from app.cron.reconcile_money import reconcile_money_job
 
     scheduler = AsyncIOScheduler(timezone="UTC")
     scheduler.add_job(
@@ -177,6 +178,18 @@ def create_scheduler(app) -> AsyncIOScheduler:
         coalesce=True,
         max_instances=1,
         misfire_grace_time=600,
+        replace_existing=True,
+    )
+    # ADR-0032 / D-044: T+1 资金全量对账——每日 02:00 GMT+8 (= 18:00 UTC 前一日)
+    scheduler.add_job(
+        reconcile_money_job,
+        trigger=CronTrigger(hour=18, minute=0),  # UTC; 对应 GMT+8 02:00
+        kwargs={"app": app},
+        id="reconcile_money_t1",
+        name="T+1 money reconciliation (ADR-0032)",
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=1800,
         replace_existing=True,
     )
     return scheduler

@@ -1,0 +1,88 @@
+# Prometheus alerting rules for ADR-0032 money reconciliation (D-044 Q5).
+#
+# Routing convention (set in Alertmanager top-level config, NOT here):
+#   - Alerts with label env="prod"    → receiver: wechat_oncall
+#   - Alerts with label env="staging" → receiver: slack_dev (#yiluan-dev)
+# The `env` label is emitted by the cron itself via the
+# reconciliation_diff_count / reconciliation_lag_seconds /
+# reconciliation_run_total Prometheus metrics
+# (app/observability/reconciliation_metrics.py).
+#
+# This file is **not auto-deployed** in M2; ops applies it manually.
+# Tracking: ADR-0032 §8 M2 exit, D-044 Q5.
+groups:
+  - name: yiluan-money-reconciliation
+    interval: 1m
+    rules:
+      # 1) Any reconciliation diff stuck at status=mismatched for >15 min.
+      #    Catches drift where M3 auto-replay either is not enabled yet or
+      #    is failing.
+      - alert: ReconciliationMismatchedDiffPersistent
+        expr: |
+          sum by (env, kind, provider) (
+            reconciliation_diff_count{status="mismatched"}
+          ) > 0
+        for: 15m
+        labels:
+          severity: P2
+          team: backend
+          component: money-reconciliation
+        annotations:
+          summary: "对账存在 mismatched diff（>15min）"
+          description: |
+            env={{ $labels.env }} kind={{ $labels.kind }}
+            provider={{ $labels.provider }} 处于 mismatched 状态超过 15 分钟。
+            登录 admin → 资金对账工单查看详情（M3 上线后可用）。
+
+      # 2) Amount mismatch is the bright-red diff: business / payments /
+      #    ledger 三者金额不齐。任何一例都立刻 P1。
+      - alert: ReconciliationAmountMismatch
+        expr: |
+          sum by (env, status, provider) (
+            reconciliation_diff_count{kind="amount_mismatch"}
+          ) > 0
+        for: 0m
+        labels:
+          severity: P1
+          team: backend
+          component: money-reconciliation
+        annotations:
+          summary: "对账发现 amount_mismatch（资金不一致）"
+          description: |
+            env={{ $labels.env }} status={{ $labels.status }}
+            provider={{ $labels.provider }} 出现 amount_mismatch。
+            参考 ADR-0032 §2.3 的 diff taxonomy；同时检查 wallet_ledger
+            最近 24h 的写入是否完整。
+
+      # 3) Latest run finished too long after window_end → cron 卡住或失败。
+      #    >4h 视为严重滞后（窗口本身只有 24h，超过 4h 就有补偿空窗）。
+      - alert: ReconciliationLagTooHigh
+        expr: |
+          reconciliation_lag_seconds{kind="full_t1"} > 4 * 3600
+        for: 5m
+        labels:
+          severity: P2
+          team: backend
+          component: money-reconciliation
+        annotations:
+          summary: "T+1 对账滞后超过 4h"
+          description: |
+            env={{ $labels.env }} 的 T+1 对账 finished_at - window_end
+            = {{ $value | humanizeDuration }}，cron 可能卡住或失败。
+
+      # 4) cron run 失败计数增长 → 立刻 P1（说明本次跑不出来，资金口径
+      #    暂时缺失）。使用 increase() 捕获新失败而不是绝对值。
+      - alert: ReconciliationCronFailed
+        expr: |
+          increase(reconciliation_run_total{status="failed"}[10m]) > 0
+        for: 0m
+        labels:
+          severity: P1
+          team: backend
+          component: money-reconciliation
+        annotations:
+          summary: "T+1 对账 cron 失败"
+          description: |
+            env={{ $labels.env }} kind={{ $labels.kind }} 在最近 10 分钟内
+            出现 {{ $value }} 次失败。检查 reconciliation_runs 表最新一行
+            的 notes 字段获取 last_error。
