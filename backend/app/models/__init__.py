@@ -14,9 +14,24 @@ from app.models.order_status_history import OrderStatusHistory
 from app.models.patient_profile import PatientProfile
 from app.models.payment import Payment
 from app.models.payment_callback_log import PaymentCallbackLog
+from app.models.reconciliation import (
+    ReconActionKind,
+    ReconciliationAction,
+    ReconciliationDiff,
+    ReconciliationRun,
+    ReconDiffKind,
+    ReconDiffStatus,
+    ReconRunKind,
+    ReconRunStatus,
+)
 from app.models.review import Review
 from app.models.sms_send_log import SmsSendLog
 from app.models.user import User, UserRole
+from app.models.wallet_ledger import (
+    WalletLedger,
+    WalletLedgerDirection,
+    WalletLedgerReason,
+)
 
 __all__ = [
     "AdminAuditLog",
@@ -43,4 +58,15 @@ __all__ = [
     "DeviceToken",
     "EmergencyContact",
     "EmergencyEvent",
+    "ReconciliationRun",
+    "ReconciliationDiff",
+    "ReconciliationAction",
+    "ReconRunKind",
+    "ReconRunStatus",
+    "ReconDiffKind",
+    "ReconDiffStatus",
+    "ReconActionKind",
+    "WalletLedger",
+    "WalletLedgerDirection",
+    "WalletLedgerReason",
 ]
