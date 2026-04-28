@@ -70,3 +70,21 @@ class NotExpirableOrderError(AppException):
 
     def __init__(self, detail: str = "Order cannot be expired", *, error_code: str | None = None):
         super().__init__(status.HTTP_409_CONFLICT, detail, error_code=error_code)
+
+
+class OrderBlockedByReconciliationError(AppException):
+    """[ADR-0032 / D-044 Q3] Order state-machine transition blocked because
+    an unresolved ``amount_mismatch`` diff exists for this order.
+
+    The block lifts automatically once an admin closes the diff via the
+    M3 admin H5 worklist. Diffs older than ``settings.reconciliation_cutoff``
+    are exempt (historical data).
+    """
+
+    def __init__(
+        self,
+        detail: str = "Order is blocked by an open reconciliation diff",
+        *,
+        error_code: str | None = "ORDER_BLOCKED_BY_RECONCILIATION",
+    ):
+        super().__init__(status.HTTP_409_CONFLICT, detail, error_code=error_code)
