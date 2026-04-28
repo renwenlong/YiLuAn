@@ -2,7 +2,7 @@
 
 - 编号：ADR-0032（原任务卡 TD-MONEY-01 中暂定 ADR-0030，已与现有 `ADR-0030-staging-mock-environment.md` 撞号，本稿改记 ADR-0032，待 Arch 评审时一并确认编号归档）
 - 日期：2026-04-28
-- 状态：Proposed
+- 状态：Accepted（5 个 Open Question 决议见 §7，2026-04-28 Arch + PM 评审通过）
 - 关联：TD-MONEY-01、ADR-0029（紧急呼叫 PII 加密 / KMS 信封加密）、ADR-0026（outbound 可靠性，audit_event 同源）、`app/services/payment_service.py` 与 `payment.provider` 接口
 - 参与角色：Arch / 后端 / Finance / SRE
 
@@ -295,13 +295,49 @@ def diff_orders(
 
 ---
 
-## 7. Open Questions（待 Arch 评审拍板）
+## 7. Open Questions — 评审决议（2026-04-28，Arch + PM 通过 / DECISION_LOG D-044）
 
-1. **ADR 编号**：本稿因撞号改记 ADR-0032，是否就此确认？或将现有 `ADR-0030-staging-mock-environment.md` 重新编号？
-2. **`wallet_ledger` 的所有权**：账本表归属「支付域」还是「钱包域」？影响后续 `app/services/` 子目录拆分。当前默认放 `app/services/wallet/`，与 `payment_service.py` 解耦。
-3. **`AMOUNT_MISMATCH` 是否阻断订单状态机**：默认阻断（拒绝下一次 `ORDER_TRANSITIONS`），但可能影响极端边界订单（如已 reviewed 的历史订单 backfill 出 diff）。需要 Finance 确认接受度。
-4. **对账数据保留期**：`reconciliation_runs / diffs / actions` 是否参考 ADR-0029 设 180 天滚动清理？倾向是 **审计类不清**，但需要 PM 给合规口径。
-5. **mock provider 是否纳入对账**：staging 环境是否对 mock 流水也跑 cron？倾向跑（验证算法），但 metric 与告警分通道，避免污染生产告警。
+### Q1 · ADR 编号归档 → **保留 ADR-0032**
+
+- ADR 编号是追加式审计流水号，不是优先级；已发布编号重排会破坏 git history、PR、文档外链引用。
+- 0030（staging-mock）和 0031（WS 统一）已在 4/27 落库且被代码引用，回头改号成本远大于价值。
+- **TODO**：M2 前在 `docs/adr/README.md` 增设「ADR 编号注册表」，并在 PR 模板加一行「下一可用编号 = `ls docs/adr/ADR-*.md | wc -l + 1`」，避免再次撞号（D-045）。
+
+### Q2 · `wallet_ledger` 所有权 → **归属钱包域，支付域只发事件**
+
+- 物理位置：`app/services/wallet/ledger.py`（钱包域），唯一对外写入 API：`WalletLedgerService.append(event)`。
+- 支付域是事件源（`pay.success` / `refund.success`），通过领域事件触发账本追加，**不直接持有账本写入权**。
+- 依赖方向锁定：`payment` 可 import `wallet`；`wallet` **禁止** import `payment`。M2 阶段加 import-linter 规则强制执行。
+- 设计意义：未来如要加「积分账本」「佣金账本」，模式可复制，每个账本挂在自己的领域下，单一写入路径原则不破。
+
+### Q3 · `AMOUNT_MISMATCH` 阻断订单状态机 → **默认阻断 + 双逃生口**
+
+1. **默认阻断**：`OrderService.transition()` 检查若该订单存在 `status ∈ ('pending','mismatched')` 的对账 diff → 抛 `OrderBlockedByReconciliationError`。
+2. **历史豁免窗口**：`reconciliation_diffs.created_at < ADR-0032 上线时刻` 的 diff 自动标 `closed`，并写一条 `reconciliation_actions.kind='manual_close', actor=system, payload={reason:'historical_backfill'}`。
+3. **单笔解锁**：admin H5 工单页面提供「强制关单」按钮，需运营 + 财务双签（M3 范围）。
+4. **告警**：阻断订单未关单超过 24h → P1 告警。
+5. Finance 已确认接受该口径（不接受 = 上线日全平台金额不齐时业务直接瘫痪）。
+
+### Q4 · 对账数据保留期 → **分级保留**
+
+| 表 | 保留期 | 理由 |
+| --- | --- | --- |
+| `reconciliation_runs` | **永久** | 体量小（每天 ~290 行/年，10 年 < 3K 行），是审计入口 |
+| `reconciliation_diffs`（`status='closed'`） | **5 年在线**，5 年后转冷库（S3 parquet） | 对齐《非银行支付机构网络支付业务管理办法》第 33 条「交易记录至少保存 5 年」 |
+| `reconciliation_diffs`（`status≠'closed'`） | **永久（在线）** | 未关单的 diff 必须可在线查询，不进清理范围 |
+| `reconciliation_actions` | **跟随 diffs** | `ON DELETE CASCADE` 保证一致性 |
+
+- 不套用 ADR-0029 的 180 天策略：那是 PII 最小化要求；资金类反向（合规要求留存）。
+- M1 / M2 阶段不上 cleanup cron；M3 阶段再排期，DDL 不需要改。
+
+### Q5 · Mock provider 纳入对账 → **纳入，独立 metric + 独立告警路由**
+
+- **必须纳入**：M2 出口条件之一是 staging mock 流量跑 7 天验证对账算法，不入对账等于核心算法上线前没有真实数据验证，违背 §5.1 的「Provider 切换信心」目标。
+- **必须分通道**：staging mock 用例会刻意制造异常路径，diff 噪声高，与生产共用指标会污染告警。
+- 实现：
+  - Prometheus label 加 `provider="wechat|mock"`、`env="prod|staging"`
+  - Alertmanager 路由：`env="prod"` → 企业微信 P1/P2；`env="staging"` → 仅发 `#yiluan-dev` 频道
+  - 自动补偿：`provider="mock"` 走单独开关 `RECON_MOCK_AUTO_FIX_ENABLED`，默认开启，失败不告警
 
 ---
 
