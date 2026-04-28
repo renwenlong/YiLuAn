@@ -91,6 +91,7 @@ class _OrderLifecycleMixin(_OrderServiceBase):
                 error_code=error_codes.VERIFICATION_REQUIRED,
             )
         self._validate_transition(order.status, OrderStatus.accepted)
+        await self._check_recon_block(order)
 
         update_data = {
             "status": OrderStatus.accepted,
@@ -120,6 +121,7 @@ class _OrderLifecycleMixin(_OrderServiceBase):
                 error_code=error_codes.PAYMENT_REQUIRED,
             )
         self._validate_transition(order.status, OrderStatus.in_progress)
+        await self._check_recon_block(order)
 
         order = await self.order_repo.update(
             order, {"status": OrderStatus.in_progress}
@@ -160,6 +162,7 @@ class _OrderLifecycleMixin(_OrderServiceBase):
                 error_code=error_codes.PAYMENT_REQUIRED,
             )
         self._validate_transition(order.status, OrderStatus.in_progress)
+        await self._check_recon_block(order)
 
         order = await self.order_repo.update(
             order, {"status": OrderStatus.in_progress}
@@ -181,6 +184,7 @@ class _OrderLifecycleMixin(_OrderServiceBase):
         if order.companion_id != user.id:
             raise ForbiddenException("Not your order")
         self._validate_transition(order.status, OrderStatus.completed)
+        await self._check_recon_block(order)
 
         order = await self.order_repo.update(
             order, {"status": OrderStatus.completed}

@@ -332,6 +332,26 @@ class PaymentService:
                     exc_info=True,
                 )
 
+        # [ADR-0032 / TD-MONEY-01 M3 / D-044] 增量对账事件：回调落盘后丢进进程
+        # 内队列，供 5min sweeper 拉走对账 + autofix。
+        # Fire-and-forget：入队失败不能影响主业务 — sweeper 还会走
+        # payment_callback_log lookback 兑底。
+        try:
+            from app.services.reconciliation.incremental import (
+                enqueue_incremental_event,
+            )
+            await enqueue_incremental_event(
+                order_id=payment.order_id,
+                provider=getattr(payment, "provider", None) or "unknown",
+                transaction_id=trade_no,
+            )
+        except Exception as exc:  # pragma: no cover - defence only
+            logger.warning(
+                "reconciliation enqueue failed (non-fatal) trade_no=%s err=%s",
+                trade_no,
+                exc,
+            )
+
         return payment
 
     # -- close order -----------------------------------------------------------

@@ -1177,3 +1177,40 @@ Provider 接口已稳定 16 天等外部凭证（B-01 微信支付商户 / B-02 
 - 晨会 2026-04-28 Top 3 + Sprint W18 范围
 - D-038（上线前 polish 冻结）— 本决议是 D-038 的 W18 加强版
 
+
+
+---
+
+## 2026-04-28（W18 Day 2 续）
+
+### D-048 TD-MONEY-01 M3 落地（增量对账 + 自动补偿 + Q3 guard 接入）
+- **参与角色**：Arch / Backend / QA
+- **依据**：ADR-0032 + D-044（5 OQ 决议）+ D-046（Provider 签名冻结）+ D-047（W18 feat 冻结例外条款）
+- **背景**：M2 已落 T+1 全量对账 + Prometheus + Alertmanager + Q3 guard 骨架（不接入）；M3 收口三件事：① 5 min 增量对账 + 进程内队列 + sweeper 兜底；② 4 类 diff 自动补偿（含 24h × 3 次/订单 上限）；③ Q3 guard 真正接入 OrderService 关键转移路径。
+- **决策**：
+  1. **增量队列**：进程内 `deque` + 5 min APScheduler sweeper；payment_callback 落 `payment_callback_log` 后 `enqueue_incremental_event` fire-and-forget；sweeper 兼读 1h 内 `payment_callback_log` 兜底。M3+ 升级 Redis Streams / Outbox。
+  2. **自动补偿策略矩阵**：
+     - `MISSING_PAYMENT` / `STATUS_MISMATCH` → `auto_replay`（M3 仅记账层 replay；真正调 `provider.query_order` 留 M3+）
+     - `AMOUNT_MISMATCH` / `ORPHAN_PAYMENT` → `escalate`（保守，必须人工）
+     - 同订单 24h 内 ≥ 3 次 `auto_replay` action 后强制 escalate（`auto_retry_cap_reached`）
+  3. **Q3 guard 接入点**：`OrderServiceBase._check_recon_block(order)`，在 lifecycle `accept_order` / `confirm_start_service` / `start_order` / `complete_order` 调用前置；系统驱动路径（`expiry.py`）刻意绕过 guard。
+  4. **历史豁免**：早于 `settings.reconciliation_cutoff`（默认 `2026-04-28T00:00:00+00:00`）的 diff 一律豁免阻塞，避免 W18 之前的脏数据炸生产关单。
+  5. **Cleanup cron**：每周一 03:00 GMT+8 跑 `reconciliation_cleanup_job`，**只发现不删**，写 `reconciliation_archive_candidates` Gauge；真正归档 / DELETE 留 M3.5+（需 OSS NDJSON pipeline + DR 演练）。
+  6. **Scheduler**：5 → 7 个 job（新增 `reconcile_money_incremental_sweep` 5 min + `reconciliation_cleanup` 周一 03:00）。
+  7. **Admin H5 工单 / 双签关单**：本次 PR **不做**（拆 PR-2，独立交付，避免 PR-1 体量过大）。
+- **不做（M3 显式不超范围）**：
+  - 真实数据 backfill / 历史脏数据清理
+  - 替换事件总线（继续用 in-process queue）
+  - Admin H5 视觉 / 工单页（PR-2）
+  - iOS 端 / 小程序错误码常量同步（跟在 PR-2 一起）
+- **D-046 contract test 锁住的签名**：M3 未触碰 Provider 签名；contract test 继续保护。
+- **D-047 W18 feat 冻结合规性**：本 PR 属 ADR-0032 在案授权范围（M1/M2/M3 三段已在 D-044 拍板时纳入），符合"在案授权"例外。
+- **测试**：1009 → 1037 passed（+28：autofix 11 / incremental 8 / cleanup 4 / async guard 5），M2 randomly flake 由 scheduler 注册顺序无关后自然消失。
+- **影响范围**：
+  - `backend/app/services/reconciliation/{autofix,incremental}.py`（新增）
+  - `backend/app/cron/reconciliation_cleanup.py`（新增）
+  - `backend/app/services/order/{_base,_recon_guard,lifecycle}.py`（接入 guard）
+  - `backend/app/services/payment_service.py`（callback 末尾入队事件）
+  - `backend/app/tasks/scheduler.py`（5 → 7 jobs）
+  - `backend/tests/...`（+4 新测试模块，+28 passed）
+- **状态**：已实施，PR-1 待合并；PR-2（Admin 工单 + 双签关单）待开
