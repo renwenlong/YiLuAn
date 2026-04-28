@@ -1077,3 +1077,103 @@ F-03 紧急呼叫（PR #32）已上线，`emergency_contacts.phone` / `emergency
 ### 归档
 
 详细论证、备选方案、Follow-ups（cron 实现 / KMS 接入 / 隐私政策同步 / 存量回填）见 `docs/adr/ADR-0029-emergency-pii-retention.md`。
+
+
+---
+
+## D-044 (2026-04-28) — ADR-0032 资金对账 5 个 Open Question 决议
+
+### 背景
+
+ADR-0032「资金对账机制（Money Reconciliation）」已于今日上午归档，状态 Proposed，文末列了 5 个 Open Question 待 Arch + PM 评审。M1（数据模型 + 纯函数算法 + 单测，PR #54）已合入 main，977 测试全绿。本决议把 5 个 Open Question 一次性拍板，把 ADR 状态从 Proposed 推进到 Accepted，为 M2（cron + Prometheus + Alertmanager）扫清前置。
+
+### 决策
+
+| Q | 决议 | 落地阶段 |
+|---|---|---|
+| Q1 | **保留 ADR-0032**，不动 0030/0031；M2 前补 `docs/adr/README.md` 编号注册表防再次撞号 | M2 前 |
+| Q2 | `wallet_ledger` **归属钱包域**（`app/services/wallet/ledger.py`），唯一写入 API `WalletLedgerService.append(event)`；支付域只发事件不写账本；M2 加 import-linter 锁依赖方向 | M2 |
+| Q3 | `AMOUNT_MISMATCH` **默认阻断订单状态机** + ADR 上线时刻前的历史 diff 自动豁免 + admin H5 双签强制关单 + 阻断 24h 未关单 P1 告警 | M3 工单页面 |
+| Q4 | **分级保留**：`runs` 永久 / `diffs(closed)` 5 年在线再转冷库 / `diffs(≠closed)` 永久在线 / `actions` CASCADE 跟随；M1/M2 不上 cleanup cron | M3 |
+| Q5 | mock provider **纳入对账**（M2 出口条件需 staging mock 流量跑 7 天）；Prometheus label 加 `provider` + `env`；Alertmanager 路由 prod → 企业微信 P1/P2，staging → `#yiluan-dev`；mock 自动补偿走单独开关 `RECON_MOCK_AUTO_FIX_ENABLED` | M2 |
+
+### 影响
+
+- ADR-0032 状态 Proposed → **Accepted**。
+- M2 范围明确：cron T+1 全量 + Prometheus（含 provider/env label）+ Alertmanager 分通道路由 + import-linter wallet→payment 单向规则 + ADR 编号注册表 + Q3 阻断逻辑代码骨架（豁免窗口 cutoff 取上线时刻）。
+- 数据保留口径与 ADR-0029（PII 180 天）显式分离：资金类合规要求**留存**，不套用 PII 最小化策略。
+
+### 关联
+
+- ADR-0032 §7 已同步更新为「评审决议」段落
+- 后续 D-045 用于跟踪「ADR 编号注册表落地」（M2 前完成）
+
+
+---
+
+## D-046 (2026-04-28) — 冻结 `payment.provider` / `sms.provider` 接口签名
+
+### 背景
+
+Provider 接口已稳定 16 天等外部凭证（B-01 微信支付商户 / B-02 阿里云 SMS 凭证）。临近上线时为了「修一点点」改动 Provider 公共接口签名 = 给真实联调引入难以排查的回归风险。当前 957→977 测试全部跑在 mock provider 之上，Stub-Reality Gap 已经够大，再加签名漂移会把这个 gap 炸开。
+
+### 决策
+
+- **冻结对象**：
+  - `backend/app/services/payment/provider.py` 的 `Provider` 抽象类公共方法签名（`create_order` / `query_order` / `refund` / `verify_callback` 等）
+  - `backend/app/services/sms/provider.py` 的 `SMSProvider` 抽象类公共方法签名（`send` / `query_status` 等）
+  - 含返回值的 DTO（`OrderDTO` / `RefundDTO` / `SMSResultDTO`）
+- **冻结时间窗**：从 2026-04-28 起，到 B-01 / B-02 之中**最后一个**真实凭证联调通过为止。
+- **修改流程**：任何对上述签名 / DTO 字段的修改必须新开 ADR（最小 200 字背景 + 决策 + 影响），由 Arch + Backend lead 双签合并，禁止借「顺手改一下」绕过。
+- **允许的修改**：
+  - 实现内部（`WechatPaymentProvider` / `MockProvider` 内部细节）不在冻结范围
+  - 新增**可选**关键字参数（带默认值且不破坏调用方）允许，但需要 PR 描述显式声明「不影响 mock 兼容性」
+  - 添加日志、metric、注释类改动不受限
+- **执行机制**：M2 PR 中加一个 contract test（参考 `tests/services/test_order_service_contract.py` 风格），锁住 `Provider.__abstractmethods__` 与方法签名集合，签名改动会立刻飘红。
+
+### 影响
+
+- 解锁前任何「为了配合上线再改一下接口」的冲动会被 contract test 拦下。
+- 对正在并行推进的 `payment_service.py` 内部重构无影响（内部实现可继续优化）。
+- TD-MONEY-01 M2/M3 涉及的 `payment_service` 内部 handler 可正常迭代，但若需要扩 Provider 接口，必须按 ADR 流程走。
+
+### 关联
+
+- TD-MONEY-01 / ADR-0032
+- D-003（支付架构重构 Phase 2 — 真实接入）
+
+
+---
+
+## D-047 (2026-04-28) — W18 期间禁 feat 提交（除非 PM + Arch 双签）
+
+### 背景
+
+外部 5 个发布 Blocker（B-01 ~ B-05）已连续阻塞 16 天。工程内部已无内部技术债可还（957→977 测试全绿、PII 收口闭环、admin H5 契约对齐、WS 统一、订单过期去重全部完成）。在这种状态下继续大量 feat 提交，本质是「为了看起来在动而引入新风险」，临到上线集中暴露。
+
+### 决策
+
+- **W18 期间**（2026-04-27 → 2026-05-08，10 工作日）允许的提交类型限定为：
+  - `fix:` — 缺陷修复
+  - `refactor:` — 不改行为的重构
+  - `test:` — 测试补齐
+  - `docs:` — 文档（含 ADR）
+  - `ops:` / `chore:` — 运维 / 工具链 / CI 调整
+  - `feat:` — **仅当 PM + Arch 双签且 PR 描述显式说明「为何 W18 必须做、不能延期」时**
+- **执行机制**：
+  - PR 模板加一个 checkbox：「本 PR 类型 ∈ {fix, refactor, test, docs, ops, chore} 或已附 PM/Arch 双签备注」
+  - GitHub Actions 加一个轻量 lint：检测 PR 标题以 `feat(` 开头但 PR body 不含 `双签:` 或 `signed-off-by: pm` + `signed-off-by: arch` 时，CI 红
+  - 例外：本次 D-044 决策落地的 ADR-0032 M2/M3 实现允许走 `feat:`，因为决议已记录在案
+- **解除条件**：B-01 + B-04 任一解锁，自动解除；或正式启动 5/22 延期窗口时由 PM 重新评估。
+
+### 影响
+
+- 防止 16 天的「等待焦虑」转化成上线前的回归地雷。
+- 强制把团队精力压向：真实联调演练、合规收口、QA 测试空白热力图、提审材料预演、admin 工单页面 polish。
+- TD-MONEY-01 M2/M3 等已立项的 feat 走例外通道，不被卡住。
+
+### 关联
+
+- 晨会 2026-04-28 Top 3 + Sprint W18 范围
+- D-038（上线前 polish 冻结）— 本决议是 D-038 的 W18 加强版
+
