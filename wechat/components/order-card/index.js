@@ -1,4 +1,5 @@
 const { ORDER_STATUS, SERVICE_TYPES } = require('../../utils/constants')
+const { formatCurrency } = require('../../utils/formatCurrency')
 
 Component({
   properties: {
@@ -10,7 +11,8 @@ Component({
 
   data: {
     statusInfo: {},
-    serviceLabel: ''
+    serviceLabel: '',
+    priceText: '¥0.00'
   },
 
   observers: {
@@ -20,7 +22,8 @@ Component({
       var serviceType = SERVICE_TYPES[val.service_type] || {}
       this.setData({
         statusInfo: statusInfo,
-        serviceLabel: serviceType.label || ''
+        serviceLabel: serviceType.label || '',
+        priceText: formatCurrency(val.price)
       })
     }
   },

@@ -8,6 +8,7 @@ const {
 const store = require('../../../store/index')
 const { ORDER_STATUS, SERVICE_TYPES } = require('../../../utils/constants')
 const { formatPrice, formatDate } = require('../../../utils/format')
+const { formatCurrency } = require('../../../utils/formatCurrency')
 const { isCountdownUrgent } = require('../../../utils/countdown')
 
 const PAYMENT_STATUS_MAP = {
@@ -110,7 +111,7 @@ Page({
           ...order,
           review: review,
           formattedDate: formatDate(order.appointment_date),
-          formattedPrice: order.price ? formatPrice(order.price) : '',
+          formattedPrice: order.price !== undefined && order.price !== null ? formatCurrency(order.price) : '',
           timelineIndex: order.timeline_index
         },
         serviceLabel: svc.label || order.service_type,
@@ -139,7 +140,7 @@ Page({
 
   async onPay() {
     var order = this.data.order
-    var priceText = order.formattedPrice || ('¥' + order.price)
+    var priceText = order.formattedPrice || formatCurrency(order.price)
     const res = await wx.showModal({
       title: '确认支付',
       content: '支付 ' + priceText,

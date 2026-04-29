@@ -1,12 +1,12 @@
 const { ORDER_STATUS } = require('./constants')
+const { formatCurrency } = require('./formatCurrency')
 
 // formatPrice
 // ADR-0030: 后端金额内部为 Decimal(10,2)，但 API 出参仍为 number（299.0）以保持契约。
-// 此函数同时兼容 number 和字符串入参（toFixed 前先 Number 转换），无需改动调用方。
+// Action #8: 统一金额展示为「千分位 + 两位小数」（¥1,200.00），转调 formatCurrency。
+// 保持函数名向后兼容；行为变化：'¥1200.00' → '¥1,200.00'。
 function formatPrice(price) {
-  const num = Number(price)
-  if (isNaN(num)) return '¥0.00'
-  return '¥' + num.toFixed(2)
+  return formatCurrency(price)
 }
 
 function formatDate(isoString) {

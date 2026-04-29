@@ -2,6 +2,7 @@ var createOrder = require('../../../services/order').createOrder
 var getCompanionDetail = require('../../../services/companion').getCompanionDetail
 var getCompanions = require('../../../services/companion').getCompanions
 var SERVICE_TYPES = require('../../../utils/constants').SERVICE_TYPES
+var formatCurrency = require('../../../utils/formatCurrency').formatCurrency
 var store = require('../../../store/index')
 
 Page({
@@ -9,6 +10,7 @@ Page({
     serviceType: '',
     serviceTypeName: '',
     servicePrice: 0,
+    servicePriceText: '¥0.00',
     hospitalId: '',
     hospitalName: '',
     companionId: '',
@@ -34,6 +36,7 @@ Page({
       data.serviceType = options.type
       data.serviceTypeName = info.label
       data.servicePrice = info.price
+      data.servicePriceText = formatCurrency(info.price)
     }
 
     if (options.hospital_id) {
