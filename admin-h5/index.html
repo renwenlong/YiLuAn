@@ -301,8 +301,19 @@
         </div>
         <div class="filter-bar">
           <div class="filter-bar__item">
+            <label>陪诊师筛选</label>
+            <input id="walletFilterCompanionQuery" type="text" placeholder="姓名 / 手机号" autocomplete="off" />
+          </div>
+          <div class="filter-bar__item">
+            <label>陪诊师</label>
+            <select id="walletFilterCompanion">
+              <option value="">全部</option>
+            </select>
+            <span id="walletCompanionStatus" class="hint" style="margin-left:8px;color:#888"></span>
+          </div>
+          <div class="filter-bar__item">
             <label>陪诊师 user_id</label>
-            <input id="walletFilterUserId" type="text" placeholder="UUID" />
+            <input id="walletFilterUserId" type="text" placeholder="UUID（手填或选择陪诊师后自动填充）" />
           </div>
           <div class="filter-bar__item">
             <label>原因</label>

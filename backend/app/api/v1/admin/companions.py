@@ -9,11 +9,14 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
+from sqlalchemy import or_, select
 
 from app.core.admin_auth import require_admin_token
 from app.core.pii import mask_id_number
 from app.dependencies import DBSession
 from app.models.admin_audit_log import AdminAuditLog
+from app.models.companion_profile import CompanionProfile, VerificationStatus
+from app.models.user import User
 from app.schemas.companion import CertifyCompanionRequest, CompanionDetailResponse
 from app.services.admin_audit import AdminAuditService
 
@@ -54,6 +57,17 @@ class RejectBody(BaseModel):
 
 class OkResponse(BaseModel):
     ok: bool = Field(True, description="是否成功")
+
+
+class CompanionSearchItem(BaseModel):
+    user_id: str = Field(..., description="陪诊师对应的用户 ID（用于钱包账本筛选）")
+    profile_id: str = Field(..., description="陪诊师档案 ID")
+    name: str = Field(..., description="姓名")
+    phone_last4: str | None = Field(None, description="手机号后 4 位")
+
+
+class CompanionSearchResponse(BaseModel):
+    items: list[CompanionSearchItem] = Field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -134,6 +148,49 @@ async def reject_companion(
     svc = AdminAuditService(session)
     await svc.reject_companion(companion_id, operator_id="admin-token", reason=body.reason)
     return OkResponse()
+
+
+@router.get(
+    "/search",
+    response_model=CompanionSearchResponse,
+    summary="后台：陪诊师轻量搜索（钱包账本筛选用）",
+    description=(
+        "按姓名或手机号模糊搜索陪诊师，返回 user_id + 姓名 + 手机号尾 4 位。"
+        "默认仅返回 `verified` 状态；传 `status=all` 取消该过滤。"
+    ),
+)
+async def search_companions(
+    session: DBSession,
+    q: str | None = Query(None, description="姓名或手机号关键字"),
+    status: str = Query("verified", description="verified | all"),
+    limit: int = Query(20, ge=1, le=50),
+):
+    stmt = (
+        select(CompanionProfile, User)
+        .join(User, User.id == CompanionProfile.user_id)
+    )
+    if status != "all":
+        stmt = stmt.where(
+            CompanionProfile.verification_status == VerificationStatus.verified
+        )
+    if q:
+        like = f"%{q.strip()}%"
+        stmt = stmt.where(or_(CompanionProfile.real_name.ilike(like), User.phone.ilike(like)))
+    stmt = stmt.order_by(CompanionProfile.created_at.desc()).limit(limit)
+
+    rows = (await session.execute(stmt)).all()
+    items: list[CompanionSearchItem] = []
+    for profile, user in rows:
+        phone = user.phone or ""
+        items.append(
+            CompanionSearchItem(
+                user_id=str(profile.user_id),
+                profile_id=str(profile.id),
+                name=profile.real_name,
+                phone_last4=phone[-4:] if len(phone) >= 4 else (phone or None),
+            )
+        )
+    return CompanionSearchResponse(items=items)
 
 
 @router.post(

@@ -205,9 +205,22 @@ async def list_user_ledger(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=200),
     reason: Literal["pay", "refund", "adjust"] | None = Query(None),
+    companion_id: uuid.UUID | None = Query(
+        None,
+        description=(
+            "可选，仅接受与路径 user_id 一致的陪诊师 user_id；"
+            "用于后台 H5 从陪诊师选择器传入。不一致返回 422。"
+        ),
+    ),
     session: AsyncSession = Depends(get_db),
 ) -> LedgerListResponse:
     """诊断用：查看某 user 的账本流水。"""
+    if companion_id is not None and companion_id != user_id:
+        from fastapi import HTTPException
+        raise HTTPException(
+            status_code=422,
+            detail="companion_id must match path user_id",
+        )
     base = select(WalletLedger).where(WalletLedger.user_id == user_id)
     count_q = select(func.count()).select_from(WalletLedger).where(
         WalletLedger.user_id == user_id
