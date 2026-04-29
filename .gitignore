@@ -22,6 +22,10 @@ env/
 *.swo
 *~
 
+# Claude / AI tooling local settings
+.claude/settings.local.json
+.claude/cache/
+
 # Environment variables
 .env
 .env.local
