@@ -74,7 +74,7 @@ const state = {
   // wallet ledger (D-050)
   wallet: {
     page: 1, total: 0, items: [],
-    filters: { user_id: '', reason: '' },
+    filters: { user_id: '', reason: '' , companion_id: '' },
   },
 };
 
@@ -775,7 +775,8 @@ const Wallet = {
     try {
       const f = state.wallet.filters;
       const qs = '?page=' + state.wallet.page + '&page_size=' + PAGE_SIZE
-        + (f.reason ? '&reason=' + encodeURIComponent(f.reason) : '');
+        + (f.reason ? '&reason=' + encodeURIComponent(f.reason) : '')
+        + (f.companion_id ? '&companion_id=' + encodeURIComponent(f.companion_id) : '');
       const res = await apiCall('/api/v1/admin/wallet-ledger/' + encodeURIComponent(f.user_id) + qs);
       state.wallet.items = res.items || [];
       state.wallet.total = res.total || 0;
@@ -815,6 +816,7 @@ const Wallet = {
     state.wallet.filters = {
       user_id: $('#walletFilterUserId').value.trim(),
       reason: $('#walletFilterReason').value,
+      companion_id: $('#walletFilterCompanion').value || '',
     };
     state.wallet.page = 1;
     this.load();
@@ -822,9 +824,47 @@ const Wallet = {
   resetFilters() {
     $('#walletFilterUserId').value = '';
     $('#walletFilterReason').value = '';
-    state.wallet.filters = { user_id: '', reason: '' };
+    $('#walletFilterCompanionQuery').value = '';
+    const sel = $('#walletFilterCompanion');
+    if (sel) { sel.innerHTML = '<option value="">全部</option>'; sel.value = ''; }
+    const stat = $('#walletCompanionStatus'); if (stat) stat.textContent = '';
+    state.wallet.filters = { user_id: '', reason: '', companion_id: '' };
     state.wallet.page = 1;
     this.load();
+  },
+  _companionSearchTimer: null,
+  _companionSearchSeq: 0,
+  searchCompanions(q) {
+    if (this._companionSearchTimer) clearTimeout(this._companionSearchTimer);
+    this._companionSearchTimer = setTimeout(() => this._doCompanionSearch(q), 250);
+  },
+  async _doCompanionSearch(q) {
+    const sel = $('#walletFilterCompanion');
+    const stat = $('#walletCompanionStatus');
+    if (!sel) return;
+    const seq = ++this._companionSearchSeq;
+    if (stat) stat.textContent = '加载中…';
+    try {
+      const qs = '?status=verified&limit=20' + (q ? '&q=' + encodeURIComponent(q) : '');
+      const res = await apiCall('/api/v1/admin/companions/search' + qs);
+      if (seq !== this._companionSearchSeq) return; // stale
+      const items = (res && res.items) || [];
+      const opts = ['<option value="">全部</option>'];
+      items.forEach((it) => {
+        const tail = it.phone_last4 ? ' · ' + it.phone_last4 : '';
+        opts.push('<option value="' + escapeAttr(it.user_id) + '">'
+          + escapeHtml(it.name) + escapeHtml(tail) + '</option>');
+      });
+      sel.innerHTML = opts.join('');
+      if (stat) stat.textContent = items.length ? ('共 ' + items.length + ' 人') : '无匹配';
+    } catch (e) {
+      if (handleAuthError(e)) return;
+      if (stat) stat.textContent = '加载失败：' + e.message;
+    }
+  },
+  onCompanionPicked() {
+    const uid = $('#walletFilterCompanion').value || '';
+    if (uid) $('#walletFilterUserId').value = uid;
   },
   openAdjust() {
     if (!state.operator) {
@@ -899,6 +939,12 @@ const Wallet = {
     $('#walletFilterUserId').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this.applyFilters();
     });
+    const cq = $('#walletFilterCompanionQuery');
+    if (cq) cq.addEventListener('input', (e) => this.searchCompanions(e.target.value.trim()));
+    const cs = $('#walletFilterCompanion');
+    if (cs) cs.addEventListener('change', () => this.onCompanionPicked());
+    // Pre-load top verified companions when entering wallet view.
+    this._doCompanionSearch('');
   },
 };
 
