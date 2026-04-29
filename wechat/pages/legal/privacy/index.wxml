@@ -70,6 +70,17 @@
   </view>
 
   <view class="legal-section">
+    <view class="section-title">五之二、资金与对账数据留存（TD-MONEY-01 / D-048）</view>
+    <view class="section-body">本节为资金对账机制上线后新增的专项披露，遵循 D-048 决议：</view>
+    <view class="section-body">
+      <view class="list-item">1. 适用范围：订单流水、支付与退款记录、对账记录（reconciliation diff/run/action）、钱包账本（wallet_ledger）等资金相关数据。</view>
+      <view class="list-item">2. 留存期限：自记录生成之日起 5 年，期满后由系统例行任务删除或匿名化处理。</view>
+      <view class="list-item">3. 法规依据：《中华人民共和国电子商务法》、《非银行支付机构网络支付业务管理办法》及《支付服务管理办法》关于交易记录保存期限不少于 5 年的要求。</view>
+      <view class="list-item">4. 用户权利：上述数据在法定 5 年保存期内不能随账号注销请求同步删除；5 年期满后，您可通过客服邮箱或“联系客服”入口申请删除或匿名化，我们将在 15 个工作日内响应。</view>
+    </view>
+  </view>
+
+  <view class="legal-section">
     <view class="section-title">六、您的权利</view>
     <view class="section-body">您对自己的个人信息享有以下权利：</view>
     <view class="section-body">

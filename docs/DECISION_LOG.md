@@ -1298,3 +1298,20 @@ Provider 接口已稳定 16 天等外部凭证（B-01 微信支付商户 / B-02 
   - 实跑 `python -m scripts.backfill_wallet_ledger`
   - 跑后随机抽 3 名 companion，比对 admin H5 钱包账本 vs `WalletService.get_summary` API 返回
 - **教训**：D-050 测试虽然全绿，但都用 `payment.user_id` 当 ledger 主体，只验证了"写入路径接通"而没验证"写入到正确的人头上"。语义层面的契约缺陷靠单测兜不住，必须用集成层的 `get_summary` 端到端才能暴露
+
+
+## 2026-04-29
+
+### D-052 Provider 抽象进入接口签名冻结期
+- **参与角色**：Arch / Backend
+- **背景**：B-01（微信支付商户号正式接入）与 B-02（阿里云短信正式接入）尚未解锁，Provider 抽象层（`PaymentProvider` / `SMSProvider`）当前签名已被多端依赖（PaymentService、SMS 调用方、对账写入、ledger append 等关键路径）。本周晨会决定进入接口签名冻结期，避免在外部凭证落地前出现被动重构。
+- **决策**：
+  1. **冻结期起算**：自 2026-04-29 起，B-01 / B-02 解锁前不再变更 Provider 抽象接口签名。
+  2. **冻结范围**：`backend/app/services/providers/payment/*` 与 `backend/app/services/providers/sms/*` 中所有公共抽象方法的方法签名（参数列表、返回类型、异常约定）。
+  3. **变更门槛**：任何冻结范围内的签名变更需 **Arch + Backend 双签** 评审，并在本日志登记新的 D-0xx 条目；纯实现层（具体 provider 内部逻辑、`wechat.py` / `aliyun.py` 内部分支）不受此冻结约束。
+  4. **解锁条件**：B-01 / B-02 任一解锁时，由 Arch 触发冻结审查；如需配合真实凭证调整签名，统一在解锁 PR 中一次性完成。
+- **决策日期**：2026-04-29
+- **决策人**：Arch + Backend
+- **关联**：ADR-0028（Provider 抽象，原始决策）、B-01（微信支付商户号）、B-02（阿里云短信）、`docs/PROVIDER_FREEZE.md`（冻结接口清单）
+- **影响范围**：所有 Provider 抽象方法及其调用方；不影响 wallet_ledger / reconciliation / autofix 内部实现迭代
+- **状态**：执行中
