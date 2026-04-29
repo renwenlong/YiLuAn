@@ -270,3 +270,11 @@ admin-h5 早期沿用了 `pending / paid / serving / cancelled / refunded` 等
 - **来源**：SP-01 (D-042) 拆分时发现，commit `0af598d` 之前就存在的 legacy bug。
 - **优先级**：P3 → 完成
 - **Lessons learned**：mock provider 幂等掩盖 bug 的反模式 — 真实 PSP 切换前必须用真实非幂等 mock 跑回归，否则二次调用 / 重复调用类 bug 会被吞掉直到生产才暴露。
+
+---
+
+## 2026-04-29 Snapshot (W18 Day 3)
+
+- 多项 W18 期间的技术债已落地或登记：D-049（admin 对账 worklist + 双签关闭）、D-050（wallet_ledger 写入路径）、D-051（companion attribution）、D-052（隐私保留 5 年 freeze）。
+- 资金对账 TD-MONEY-01 M1–M3 已交付（ADR-0032 / ADR-0033）。
+- 5 项外部 Blocker（B-01~B-05）状态见 \docs/TODO_CREDENTIALS.md\ 与 \PROJECT_STATUS.md\。

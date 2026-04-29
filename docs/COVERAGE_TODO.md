@@ -77,3 +77,9 @@ follow-up PR, or be left uncovered with this document as the rationale:
   `httpx.AsyncClient`, `MockPaymentProvider.verify_callback`).
 - Every new test function carries a docstring.
 - All test data is built via `pytest` fixtures from `tests/conftest.py`.
+
+---
+
+## 2026-04-29 Update
+
+经过 W18 push（TD-MONEY-01 M1–M3、wallet_ledger、autofix 等），后端测试从 853 → **1101 passed**。COVERAGE_TODO 中 ws.py / order.py / admin / payment_callback 等热点持续追加测试，但完整 98% gate 仍未达成，留作 W19 跟进项。

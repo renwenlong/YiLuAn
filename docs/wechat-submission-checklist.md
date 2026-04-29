@@ -296,3 +296,8 @@ rg -n "诊断|诊疗|处方|在线问诊|主治|用药指导" pages\
 
 _最后更新：2026-04-18（PM 主导）_
 _关联 Action Item：今日晨会 #5_
+
+
+---
+
+_2026-04-29 update_：截至 W18 Day 3，提审材料文档侧已基本就绪（隐私政策、Q&A、checklist 全部 Accepted）；仍卡在 B-01/B-02/B-04 外部资源（详见 \docs/TODO_CREDENTIALS.md\），凭证到位后即可按 \docs/runbook-go-live.md\ 完成提交。

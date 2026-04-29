@@ -221,3 +221,20 @@ Azure 资源创建 < 1 小时（自助）；需 Azure 订阅已开通。
 > 当前所有开发使用 mock provider 先行推进，架构已预留切换能力。
 > Provider 抽象详见 `backend/app/services/providers/payment/` 及 `backend/app/services/providers/sms/`。
 > 运维段对齐 `docs/deployment.md` §16 环境变量清单与 `.github/workflows/deploy.yml`。
+
+
+---
+
+## 2026-04-29 状态快照（W18 Day 3）
+
+5 个 Blocker 全部仍 **Pending**，等待外部资源到位：
+
+| Blocker | 等待天数（自 2026-04-10） | Owner |
+|---|---|---|
+| B-01 微信支付 | 19 | PM |
+| B-02 阿里云 SMS | 19 | PM |
+| B-03 ACR / 监控 | 17 | Ops |
+| B-04 ICP 备案 | 19 | PM（关键路径） |
+| B-05 Apple 开发者 | 19 | PM |
+
+所有外部凭证到位后可按 \docs/runbook-go-live.md\ 30 分钟完成上线。

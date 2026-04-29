@@ -2,8 +2,8 @@
 
 连接需要就医陪伴的患者与专业陪诊师，提供全程陪诊、半程陪诊、代办跑腿等服务。
 
-> **最后更新：** 2026-04-21（Sprint W17 / Release Wrap-Up Day 4）
-> **后端测试：** 573 passed / 1 xfailed　**前端测试：** 165 passed / 30 suites　**iOS 测试：** 57 passed (XCTest 离线快照)
+> **最后更新：** 2026-04-29（Sprint W18 Day 3 / Release Wrap-Up）
+> **后端测试：** 1101 passed　**前端测试（微信小程序）：** 256 passed　**iOS 测试：** 57 passed (XCTest 离线快照)
 > **新增子项目：** `admin-h5/`（管理后台 MVP，陪诊师审核）
 > **关键能力新增：** 微信真实支付/退款回调（幂等）、Aliyun SMS、OTP 暴破防护、订单过期自动退款、统一 outbound 可靠性装饰器（timeout + retry + circuit breaker）、`/readiness` 健康探针、APScheduler 部署、WS 同用户连接数限制
 > **关键决策索引：** ADR-0026（outbound 可靠性）/ D-018~D-020（调度+连接限制）/ D-027（callback log TTL + OSS 归档）/ D-028（零提交日告警）/ D-029-D-030（Sprint W17 backlog）/ D-031（fix 与 test 优先级）/ D-032（XcodeGen）

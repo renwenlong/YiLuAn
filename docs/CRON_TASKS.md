@@ -20,3 +20,13 @@
 - `tests/test_scheduler.py::test_create_scheduler_registers_expired_order_job`
 - `tests/test_cron_cleanup_emergency_pii.py`
 - `tests/test_log_retention*.py`
+
+## 2026-04-29 补充（W18 W18 资金对账落地后新增 jobs）
+
+| Job ID | 周期 | 函数 | 说明 |
+| --- | --- | --- | --- |
+| econcile_money_t1 | 每日 02:00 GMT+8 (18:00 UTC 前一日) | pp.cron.reconcile_money.reconcile_money_job | ADR-0032 / D-044：T+1 资金全量对账 |
+| econcile_money_incremental_sweep | 每 5 分钟 | pp.services.reconciliation.incremental.reconcile_incremental_sweep_job | ADR-0032 / M3：增量对账兜底 sweeper |
+| econciliation_cleanup | 每周一 03:00 GMT+8 (Mon 19:00 UTC) | pp.cron.reconciliation_cleanup.reconciliation_cleanup_job | ADR-0032 Q4 / M3：5 年保留期清理发现 |
+
+详细配置以 ackend/app/tasks/scheduler.py::create_scheduler 为准。

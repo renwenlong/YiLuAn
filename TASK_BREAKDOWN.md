@@ -203,8 +203,8 @@
 ### P2. 合规文档准备
 - **优先级**：P0
 - **输出文档**：
-  - `docs/privacy-policy.md`
-  - `docs/terms-of-service.md`
+  - `docs/PRIVACY_POLICY.md`
+  - `docs/TERMS_OF_SERVICE.md`
   - `docs/service-agreement.md`
 - **验收标准**：小程序和 iOS 都可直接引用
 
