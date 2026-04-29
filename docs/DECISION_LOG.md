@@ -48,7 +48,7 @@
   2. 并行组 B（组A部分完成后）：前端审核合规页面（依赖合规文档）/ 生产配置收口
   3. 串行：部署方案（依赖生产配置）→ 小程序提审（依赖全部完成）
   4. config.py 分区约定：SMS、Payment、生产配置各占独立区域，禁止越界修改
-- **详细依赖图见**：`docs/discussions/2026-04-10-parallel-dependency.md`
+- **详细依赖图见**：~~`docs/discussions/2026-04-10-parallel-dependency.md`~~（已于 2026-04-29 docs cleanup 时归档，git 历史可查）
 - **状态**：已确认，执行中
 
 ---

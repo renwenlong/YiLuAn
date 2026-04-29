@@ -6,7 +6,7 @@
 
 ## 背景
 
-2026-04-20 PM Review（docs/reviews/2026-04-20-pm.md Part 3）提出 16 个候选新功能，涵盖 IM 富媒体、代他人下单、资质认证、多维度评分、AI 助手等方向。用户要求一次性收敛决策，明确每个功能的"做 / 不做 / 观察"状态、排期窗口和触发条件。
+2026-04-20 PM Review（docs/REVIEW_2026-04-20.md Part 3 (原 PM Review)）提出 16 个候选新功能，涵盖 IM 富媒体、代他人下单、资质认证、多维度评分、AI 助手等方向。用户要求一次性收敛决策，明确每个功能的"做 / 不做 / 观察"状态、排期窗口和触发条件。
 
 ## 决策矩阵
 
@@ -83,7 +83,7 @@
 ## 关联
 
 - D-029（本周冲刺范围决策）
-- docs/reviews/2026-04-20-pm.md Part 3（16 功能原始提案）
+- docs/REVIEW_2026-04-20.md Part 3 (原 PM Review)（16 功能原始提案）
 - docs/PRODUCT_BACKLOG.md（功能路线图 + 触发条件追踪）
 - docs/TECH_DEBT.md（TD-ARCH-03 Decimal 迁移，F-08/F-10 前置条件）
 - docs/TODO_CREDENTIALS.md（B-03 OSS 凭证，F-06 前置条件）

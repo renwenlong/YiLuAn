@@ -206,4 +206,32 @@
 
 所有 Blocker 解锁后可按 `docs/runbook-go-live.md` 30 分钟完成上线。
 
-Last updated: 2026-04-23 23:55 (Action #12)
+Last updated: 2026-04-29 (W18 Day 3, Release Wrap-Up)
+
+## 本日更新（2026-04-29，Action #5/#6/#7/#8/#9/#10）
+
+> 自 2026-04-23 Sprint W17 收口以来，W18（4/27–5/03）进入「Release Wrap-Up」阶段。
+
+### 测试/覆盖增量
+- 后端：609 → **1101 passed**（+492，TD-MONEY-01 M1–M3 资金对账 / wallet_ledger / autofix 并发与双签负面 / Helm CT 骨架等）
+- 微信小程序：187 → **256 passed**（+69，admin H5 钱包账单 / 货币格式统一 / haptic 补齐）
+- iOS：57 passed（持平）
+- **总计：853 → 1414 passed**（+561）
+
+### W18 主要落地
+- TD-MONEY-01 「资金对账」M1/M2/M3 全部交付（ADR-0032 / ADR-0033）：recon 表与不变式 / T+1 cron / metrics + alertmanager / 增量队列 + autofix + admin 对账 worklist + 双签闭环 + 5y 保留发现
+- D-049 · admin 对账 worklist + 双签关闭 / D-050 · wallet_ledger 写入路径 / D-051 · companion attribution / D-052 · 隐私保留 5 年 freeze
+- Helm production chart 骨架（Action #10）
+- 微信 admin H5 钱包页面 + 陆伴 filter + 货币格式统一（千分位 + 两位小数）
+- recon SOP v0.1 + 微信审核 Q&A 发布版
+
+### 5 个生产 Blocker【截止 2026-04-29】
+| Blocker | 内容 | 等待天数 | Owner |
+|---|---|---|---|
+| B-01 | 微信支付商户号 / APIv3 / 证书 | 19 | PM（走商户审核）|
+| B-02 | 阿里云 SMS 签名与模板 | 19 | PM |
+| B-03 | ACR / 监控对接账号 | 17 | Ops |
+| B-04 | 域名 / SSL / ICP 备案 | 19 | PM |
+| B-05 | Apple 开发者账号 | 19 | PM |
+
+所有 Blocker 解锁后可按 `docs/runbook-go-live.md` 30 分钟完成上线。

@@ -73,3 +73,13 @@
 
 - HTML 覆盖率报告：`backend/.coverage_html/index.html`（本地浏览器打开查看详细行级覆盖）
 - JSON 数据文件：`backend/.coverage.json`
+
+---
+
+## 2026-04-29 Update (W18 Day 3)
+
+- 后端测试：539 → **1101 passed**（+562，主要为 TD-MONEY-01 资金对账 M1–M3、wallet_ledger、autofix 并发与双签负面、Helm CT 骨架等）
+- 微信小程序测试：146 → **256 passed**
+- iOS 测试：57 passed（XCTest 持平）
+- 总测试数：~742 → **1414**
+- 详细 W18 进展见 \PROJECT_STATUS.md\、\docs/CRON_TASKS.md\、\docs/COVERAGE_TODO.md\。

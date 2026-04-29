@@ -2,7 +2,7 @@
 
 ## 决策方法
 
-本 backlog 用于跟踪 PM 2026-04-20 Review（docs/reviews/2026-04-20-pm.md Part 3）提出的所有 16 个候选功能。每个功能有明确的 **做 / 不做 / 观察** 决策、排期窗口、触发条件。决策依据为用户（文龙）4/20 拍板的 A1 方案（D-029）。
+本 backlog 用于跟踪 PM 2026-04-20 Review（docs/REVIEW_2026-04-20.md Part 3 （原 docs/reviews/2026-04-20-pm.md，已合并至总报告））提出的所有 16 个候选功能。每个功能有明确的 **做 / 不做 / 观察** 决策、排期窗口、触发条件。决策依据为用户（文龙）4/20 拍板的 A1 方案（D-029）。
 
 **决策原则**：
 - 任何 P0/P1 新功能开工前必须有 D-XXX 决策记录
@@ -19,7 +19,7 @@
 | F-01 | 陪诊师资质认证展示 | Backend + Frontend | 2d | 陪诊师详情页展示"已认证"徽章 + 证书图片弹窗；Companion 模型含 certification_type/no/image_url |
 | F-02 | 通知深链跳转 | Backend + Frontend | 2d | 点击通知列表项直达对应订单详情页；Notification 含 target_type + target_id |
 
-> 注：另 3 项冲刺为跨角色分歧解决（OrderService 拆分 SP-01、a11y 基础 SP-02、监控告警 SP-03），不属于新功能，详见 SPRINT_PLAN_2026-04-21.md。
+> 注：另 3 项冲刺为跨角色分歧解决（OrderService 拆分 SP-01、a11y 基础 SP-02、监控告警 SP-03），不属于新功能，详见 ~~SPRINT_PLAN_2026-04-21.md~~（已于 2026-04-29 docs cleanup 时归档，git 历史可查）。
 
 ---
 
