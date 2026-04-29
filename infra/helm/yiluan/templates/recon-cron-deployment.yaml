@@ -1,0 +1,39 @@
+{{- if .Values.recon.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "yiluan.fullname" . }}-recon
+  labels:
+    {{- include "yiluan.componentLabels" (dict "ctx" . "component" "recon") | nindent 4 }}
+  annotations:
+    yiluan.io/internal-schedule: {{ .Values.recon.schedule | quote }}
+spec:
+  replicas: {{ .Values.recon.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "yiluan.componentSelectorLabels" (dict "ctx" . "component" "recon") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "yiluan.componentSelectorLabels" (dict "ctx" . "component" "recon") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "yiluan.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: recon
+          image: {{ include "yiluan.image" (dict "img" .Values.recon.image "ctx" .) }}
+          imagePullPolicy: {{ .Values.recon.image.pullPolicy }}
+          {{- with .Values.recon.env }}
+          env:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.recon.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.recon.resources | nindent 12 }}
+{{- end }}

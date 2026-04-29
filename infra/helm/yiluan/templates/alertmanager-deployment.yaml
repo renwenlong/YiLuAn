@@ -1,0 +1,63 @@
+{{- if .Values.alertmanager.enabled }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "yiluan.fullname" . }}-alertmanager-config
+  labels:
+    {{- include "yiluan.componentLabels" (dict "ctx" . "component" "alertmanager") | nindent 4 }}
+data:
+  alertmanager.yml: |
+{{ .Values.alertmanager.config | indent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "yiluan.fullname" . }}-alertmanager
+  labels:
+    {{- include "yiluan.componentLabels" (dict "ctx" . "component" "alertmanager") | nindent 4 }}
+spec:
+  replicas: {{ .Values.alertmanager.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "yiluan.componentSelectorLabels" (dict "ctx" . "component" "alertmanager") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "yiluan.componentSelectorLabels" (dict "ctx" . "component" "alertmanager") | nindent 8 }}
+    spec:
+      containers:
+        - name: alertmanager
+          image: "{{ .Values.alertmanager.image.repository }}:{{ .Values.alertmanager.image.tag }}"
+          imagePullPolicy: {{ .Values.alertmanager.image.pullPolicy }}
+          args:
+            - --config.file=/etc/alertmanager/alertmanager.yml
+            - --storage.path=/alertmanager
+          ports:
+            - containerPort: 9093
+              name: http
+          resources:
+            {{- toYaml .Values.alertmanager.resources | nindent 12 }}
+          volumeMounts:
+            - name: config
+              mountPath: /etc/alertmanager
+      volumes:
+        - name: config
+          configMap:
+            name: {{ include "yiluan.fullname" . }}-alertmanager-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "yiluan.fullname" . }}-alertmanager
+  labels:
+    {{- include "yiluan.componentLabels" (dict "ctx" . "component" "alertmanager") | nindent 4 }}
+spec:
+  type: {{ .Values.alertmanager.service.type }}
+  ports:
+    - port: {{ .Values.alertmanager.service.port }}
+      targetPort: 9093
+      name: http
+  selector:
+    {{- include "yiluan.componentSelectorLabels" (dict "ctx" . "component" "alertmanager") | nindent 4 }}
+{{- end }}

@@ -1,0 +1,138 @@
+{{- if .Values.postgres.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "yiluan.fullname" . }}-postgres-primary
+  labels:
+    {{- include "yiluan.componentLabels" (dict "ctx" . "component" "postgres-primary") | nindent 4 }}
+spec:
+  clusterIP: None
+  ports:
+    - port: 5432
+      name: postgres
+  selector:
+    {{- include "yiluan.componentSelectorLabels" (dict "ctx" . "component" "postgres-primary") | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "yiluan.fullname" . }}-postgres-primary
+  labels:
+    {{- include "yiluan.componentLabels" (dict "ctx" . "component" "postgres-primary") | nindent 4 }}
+spec:
+  serviceName: {{ include "yiluan.fullname" . }}-postgres-primary
+  replicas: {{ .Values.postgres.primary.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "yiluan.componentSelectorLabels" (dict "ctx" . "component" "postgres-primary") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "yiluan.componentSelectorLabels" (dict "ctx" . "component" "postgres-primary") | nindent 8 }}
+    spec:
+      containers:
+        - name: postgres
+          image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+          imagePullPolicy: {{ .Values.postgres.image.pullPolicy }}
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.auth.database | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.auth.username | quote }}
+            {{- if .Values.postgres.auth.existingSecret }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.postgres.auth.existingSecret }}
+                  key: postgres-password
+            {{- end }}
+          resources:
+            {{- toYaml .Values.postgres.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.postgres.persistence.storageClass }}
+        storageClassName: {{ .Values.postgres.persistence.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.postgres.persistence.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "yiluan.fullname" . }}-postgres-replica
+  labels:
+    {{- include "yiluan.componentLabels" (dict "ctx" . "component" "postgres-replica") | nindent 4 }}
+spec:
+  clusterIP: None
+  ports:
+    - port: 5432
+      name: postgres
+  selector:
+    {{- include "yiluan.componentSelectorLabels" (dict "ctx" . "component" "postgres-replica") | nindent 4 }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "yiluan.fullname" . }}-postgres-replica
+  labels:
+    {{- include "yiluan.componentLabels" (dict "ctx" . "component" "postgres-replica") | nindent 4 }}
+spec:
+  serviceName: {{ include "yiluan.fullname" . }}-postgres-replica
+  replicas: {{ .Values.postgres.replica.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "yiluan.componentSelectorLabels" (dict "ctx" . "component" "postgres-replica") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "yiluan.componentSelectorLabels" (dict "ctx" . "component" "postgres-replica") | nindent 8 }}
+    spec:
+      containers:
+        - name: postgres
+          image: "{{ .Values.postgres.image.repository }}:{{ .Values.postgres.image.tag }}"
+          imagePullPolicy: {{ .Values.postgres.image.pullPolicy }}
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRES_DB
+              value: {{ .Values.postgres.auth.database | quote }}
+            - name: POSTGRES_USER
+              value: {{ .Values.postgres.auth.username | quote }}
+            {{- if .Values.postgres.auth.existingSecret }}
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.postgres.auth.existingSecret }}
+                  key: postgres-password
+            {{- end }}
+            - name: PG_ROLE
+              value: replica
+          resources:
+            {{- toYaml .Values.postgres.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.postgres.persistence.storageClass }}
+        storageClassName: {{ .Values.postgres.persistence.storageClass | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ .Values.postgres.persistence.size }}
+{{- end }}
