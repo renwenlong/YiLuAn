@@ -18,6 +18,18 @@ const LS_API_BASE_KEY = 'yiluan.admin.apiBase';
 const DEFAULT_API_BASE = 'http://127.0.0.1:8000';
 const PAGE_SIZE = 20;
 
+// Action #8: 金额展示统一为「千分位 + 两位小数」（¥1,200.00）
+// formatCurrencyUtil 由 admin-h5/formatCurrency.js 提供（index.html 中在 app.js 之前加载）
+function fmtAmount(v) {
+  // ¥- / 表格占位 § 保留
+  if (v === undefined || v === null || v === '' || v === '-') return '-';
+  var n = Number(v);
+  if (isNaN(n)) return String(v);
+  return (typeof formatCurrencyUtil !== 'undefined')
+    ? formatCurrencyUtil.formatCurrency(n)
+    : '¥' + n.toFixed(2);
+}
+
 // OrderStatus enum → 中文标签（与 backend app.models.order.OrderStatus 对齐）
 const STATUS_LABELS = {
   created: '待支付',
@@ -301,7 +313,7 @@ const Orders = {
           '<td>' + statusPill(o.status, statusLabel(o.status)) + '</td>' +
           '<td>' + escapeHtml(patient) + '</td>' +
           '<td>' + escapeHtml(companion) + '</td>' +
-          '<td>' + escapeHtml(amount) + '</td>' +
+          '<td>' + escapeHtml(fmtAmount(amount)) + '</td>' +
           '<td>' + escapeHtml(o.created_at || '-') + '</td>' +
           '<td class="actions-cell">' +
             '<button class="btn btn-sm" data-action="detail" data-id="' + escapeAttr(o.id) + '">详情</button>' +
@@ -629,7 +641,7 @@ const Reconciliation = {
         const kindLabel = RECON_KIND_LABELS[d.kind] || d.kind;
         const statusLabel2 = RECON_STATUS_LABELS[d.status] || d.status;
         const order = d.order_id ? d.order_id.slice(0, 8) + '…' : '-';
-        const amt = (d.business_amount || '-') + ' / ' + (d.payment_amount || '-');
+        const amt = fmtAmount(d.business_amount) + ' / ' + fmtAmount(d.payment_amount);
         const closeable = ['pending','mismatched','compensated'].indexOf(d.status) >= 0;
         const closeBtn = closeable
           ? '<button class="btn btn-danger btn-sm" data-action="close-request" data-id="' + escapeAttr(d.id) + '">发起关单</button>'
@@ -788,7 +800,7 @@ const Wallet = {
           + '<td>' + escapeHtml(r.occurred_at) + '</td>'
           + '<td>' + statusPill(r.direction, dirLabel) + '</td>'
           + '<td>' + statusPill(r.reason, reasonLabel) + '</td>'
-          + '<td style="text-align:right" class="' + cls + '">' + sign + escapeHtml(r.amount) + '</td>'
+          + '<td style="text-align:right" class="' + cls + '">' + sign + escapeHtml(fmtAmount(r.amount)) + '</td>'
           + '<td><code>' + escapeHtml(r.provider_txn_id) + '</code></td>'
           + '<td>' + (r.order_id ? '<code>' + escapeHtml(r.order_id) + '</code>' : '<span class="muted">-</span>') + '</td>'
           + '</tr>';

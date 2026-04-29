@@ -1,13 +1,18 @@
 var store = require('../../../store/index')
 var walletService = require('../../../services/wallet')
+var formatCurrency = require('../../../utils/formatCurrency').formatCurrency
 
 Page({
   data: {
     role: 'patient',
     balance: '0.00',
+    balanceText: '¥0.00',
     totalIncome: '0.00',
+    totalIncomeText: '¥0.00',
     withdrawn: '0.00',
+    withdrawnText: '¥0.00',
     amountOptions: [50, 100, 200, 500, 1000, 2000],
+    amountOptionsText: ['¥50.00', '¥100.00', '¥200.00', '¥500.00', '¥1,000.00', '¥2,000.00'],
     selectedAmount: 0,
     customAmount: '',
     records: []
@@ -33,15 +38,20 @@ Page({
 
       this.setData({
         balance: (summary.balance || 0).toFixed(2),
+        balanceText: formatCurrency(summary.balance || 0),
         totalIncome: (summary.total_income || 0).toFixed(2),
+        totalIncomeText: formatCurrency(summary.total_income || 0),
         withdrawn: (summary.withdrawn || 0).toFixed(2),
+        withdrawnText: formatCurrency(summary.withdrawn || 0),
         records: items.map(function (t) {
           var isRefund = t.payment_type === 'refund'
+          var amt = Number(t.amount) || 0
           return {
             id: t.id,
             title: isRefund ? '订单退款' : (role === 'companion' ? '服务收入' : '订单支付'),
             time: t.created_at ? t.created_at.split('T')[0] : '',
             amount: t.amount ? t.amount.toFixed(2) : '0.00',
+            amountText: formatCurrency(amt),
             type: isRefund ? 'income' : (role === 'companion' ? 'income' : 'expense')
           }
         })

@@ -1,4 +1,5 @@
 const { SERVICE_TYPES } = require('../../utils/constants')
+const { formatCurrency } = require('../../utils/formatCurrency')
 
 Component({
   properties: {
@@ -13,13 +14,15 @@ Component({
   },
 
   data: {
-    info: {}
+    info: {},
+    priceText: '¥0.00'
   },
 
   observers: {
     'type': function (val) {
       if (val && SERVICE_TYPES[val]) {
-        this.setData({ info: SERVICE_TYPES[val] })
+        var info = SERVICE_TYPES[val]
+        this.setData({ info: info, priceText: formatCurrency(info.price) })
       }
     }
   }

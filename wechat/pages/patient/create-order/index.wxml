@@ -4,7 +4,7 @@
     <text class="section-label">服务类型</text>
     <view class="info-card">
       <text class="info-name">{{serviceTypeName}}</text>
-      <text class="info-price">¥{{servicePrice}}</text>
+      <text class="info-price">{{servicePriceText}}</text>
     </view>
   </view>
 
@@ -63,7 +63,7 @@
 
   <!-- 提交按钮 -->
   <view class="submit-area">
-    <button class="submit-btn" bindtap="onSubmit" loading="{{loading}}">确认下单 ¥{{servicePrice}}</button>
+    <button class="submit-btn" bindtap="onSubmit" loading="{{loading}}">确认下单 {{servicePriceText}}</button>
   </view>
 </view>
 
