@@ -1,0 +1,194 @@
+# =============================================================================
+# YiLuAn Helm Chart — values.yaml (skeleton)
+#
+# 所有镜像仓库 / Secret / StorageClass 等真实值待 B-03（ACR 资源）解锁后填充。
+# 当前文件提供完整可配置项清单 + 占位符。
+# =============================================================================
+
+# -- 全局名称覆盖
+nameOverride: ""
+fullnameOverride: ""
+
+# -- 镜像拉取 secret（B-03 解锁后填入 ACR 凭证 secret 名）
+imagePullSecrets: []
+# - name: acr-pull-secret
+
+# -----------------------------------------------------------------------------
+# FastAPI 主服务
+# -----------------------------------------------------------------------------
+api:
+  replicaCount: 2
+  image:
+    repository: PLACEHOLDER_REGISTRY/yiluan-api  # TODO(B-03): 替换为真实 ACR repo
+    tag: ""                                       # 默认走 .Chart.AppVersion
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8000
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  env:
+    - name: APP_ENV
+      value: production
+    - name: LOG_LEVEL
+      value: info
+  envFrom: []
+    # - secretRef:
+    #     name: yiluan-api-secrets
+  podAnnotations: {}
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  livenessProbe:
+    httpGet:
+      path: /healthz
+      port: 8000
+    initialDelaySeconds: 20
+    periodSeconds: 15
+  readinessProbe:
+    httpGet:
+      path: /readyz
+      port: 8000
+    initialDelaySeconds: 10
+    periodSeconds: 10
+
+# -----------------------------------------------------------------------------
+# 资金对账 Cron Worker（独立 pod，便于资源隔离 + 单独排障）
+# -----------------------------------------------------------------------------
+recon:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: PLACEHOLDER_REGISTRY/yiluan-recon  # TODO(B-03)
+    tag: ""
+    pullPolicy: IfNotPresent
+  schedule: "*/15 * * * *"   # 文档化的内置 cron 周期；当前以常驻 worker 形式跑
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  env:
+    - name: WORKER_KIND
+      value: recon
+  envFrom: []
+
+# -----------------------------------------------------------------------------
+# PostgreSQL 主从（先骨架：1 主 + N 从声明，后续接入 patroni / cnpg）
+# -----------------------------------------------------------------------------
+postgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16.3"
+    pullPolicy: IfNotPresent
+  primary:
+    replicaCount: 1
+  replica:
+    replicaCount: 2
+  auth:
+    database: yiluan
+    username: yiluan
+    existingSecret: ""   # TODO: 提供 secret，包含 keys: postgres-password, password
+  persistence:
+    enabled: true
+    size: 50Gi
+    storageClass: ""     # TODO(B-03): 集群提供的 storageClass 名，例如 alicloud-disk-essd
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+
+# -----------------------------------------------------------------------------
+# Redis Sentinel（高可用模式）
+# -----------------------------------------------------------------------------
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: "7.2"
+    pullPolicy: IfNotPresent
+  replicaCount: 3
+  sentinel:
+    enabled: true
+    quorum: 2
+  auth:
+    existingSecret: ""   # TODO: secret with key `redis-password`
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# -----------------------------------------------------------------------------
+# Alertmanager（独立部署，避免与 Prometheus 主进程耦合，便于灰度升级）
+# -----------------------------------------------------------------------------
+alertmanager:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: prom/alertmanager
+    tag: "v0.27.0"
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 9093
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  config: |
+    route:
+      receiver: default
+    receivers:
+      - name: default
+
+# -----------------------------------------------------------------------------
+# Ingress
+# -----------------------------------------------------------------------------
+ingress:
+  enabled: true
+  className: nginx
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  host: api.yiluan.example.com   # TODO: 替换为正式域名
+  path: /
+  pathType: Prefix
+  tls:
+    enabled: false
+    secretName: yiluan-tls
+
+# -----------------------------------------------------------------------------
+# 应用层非敏感配置（注入为 ConfigMap）
+# -----------------------------------------------------------------------------
+config:
+  app:
+    name: yiluan
+    env: production
+  features:
+    payment: provider-stub
+    sms: provider-stub
+
+# -----------------------------------------------------------------------------
+# ServiceAccount
+# -----------------------------------------------------------------------------
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
