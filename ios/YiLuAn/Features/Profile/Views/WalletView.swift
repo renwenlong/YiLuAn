@@ -109,7 +109,7 @@ struct WalletView: View {
                     Text("账户余额（元）")
                         .font(.dsSubheadline)
                         .foregroundStyle(.white.opacity(0.8))
-                    Text(String(format: "%.2f", NSDecimalNumber(decimal: viewModel.summary?.balance ?? 0).doubleValue))
+                    Text(CurrencyFormatter.cny(viewModel.summary?.balance ?? 0))
                         .font(.system(size: 36, weight: .bold))
                         .foregroundStyle(.white)
 
@@ -118,7 +118,7 @@ struct WalletView: View {
                             Text("总收入")
                                 .font(.dsCaption)
                                 .foregroundStyle(.white.opacity(0.7))
-                            Text(String(format: "¥%.2f", NSDecimalNumber(decimal: viewModel.summary?.totalIncome ?? 0).doubleValue))
+                            Text(CurrencyFormatter.cnyWithUnit(viewModel.summary?.totalIncome ?? 0))
                                 .font(.dsHeadline)
                                 .foregroundStyle(.white)
                         }
@@ -126,7 +126,7 @@ struct WalletView: View {
                             Text("已提现")
                                 .font(.dsCaption)
                                 .foregroundStyle(.white.opacity(0.7))
-                            Text(String(format: "¥%.2f", NSDecimalNumber(decimal: viewModel.summary?.withdrawn ?? 0).doubleValue))
+                            Text(CurrencyFormatter.cnyWithUnit(viewModel.summary?.withdrawn ?? 0))
                                 .font(.dsHeadline)
                                 .foregroundStyle(.white)
                         }
@@ -191,7 +191,7 @@ struct WalletView: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: Spacing.xs) {
-                Text("\(tx.amountPrefix)¥\(String(format: "%.2f", NSDecimalNumber(decimal: tx.amount).doubleValue))")
+                Text("\(tx.amountPrefix)" + CurrencyFormatter.cnyWithUnit(tx.amount))
                     .font(.dsHeadline)
                     .foregroundStyle(tx.typeColor)
                 Text(tx.createdAt, style: .date)

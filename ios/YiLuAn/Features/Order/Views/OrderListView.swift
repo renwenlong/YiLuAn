@@ -111,7 +111,7 @@ struct OrderRowView: View {
                 }
             }
 
-            Text("¥\(order.price as NSDecimalNumber)")
+            Text(CurrencyFormatter.cnyWithUnit(order.price))
                 .font(.subheadline.bold())
                 .foregroundStyle(.orange)
         }
