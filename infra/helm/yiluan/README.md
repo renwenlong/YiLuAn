@@ -47,23 +47,68 @@ infra/helm/yiluan/
     └── serviceaccount.yaml
 ```
 
-## 安装命令示例（仅文档，当前不可运行）
+## Quick Start
+
+### Lint & 渲染
 
 ```bash
-# 1. lint
-helm lint infra/helm/yiluan/
-
-# 2. 渲染查看
-helm template yiluan infra/helm/yiluan/ \
-  --namespace yiluan --create-namespace \
-  --set api.image.repository=registry.cn-beijing.aliyuncs.com/yiluan/api \
-  --set api.image.tag=0.1.0
-
-# 3. 安装（B-03 解锁后）
-helm upgrade --install yiluan infra/helm/yiluan/ \
-  --namespace yiluan --create-namespace \
-  --values values.production.yaml
+helm lint infra/helm/yiluan -f infra/helm/yiluan/values.staging.yaml
+helm template test infra/helm/yiluan \
+  -f infra/helm/yiluan/values.staging.yaml > /tmp/staging.yaml
 ```
+
+### Staging 安装
+
+```bash
+helm upgrade --install yiluan ./infra/helm/yiluan \
+  -f infra/helm/yiluan/values.staging.yaml \
+  -n yiluan-staging --create-namespace
+```
+
+### Production 安装
+
+```bash
+# 1. 先把生产凭证装到 Secret（强烈推荐 External Secrets Operator + KMS）
+kubectl -n yiluan-prod create secret generic yiluan-prod-secrets \
+  --from-literal=JWT_SECRET_KEY=... \
+  --from-literal=DATABASE_URL=... \
+  --from-literal=REDIS_URL=... \
+  --from-literal=WECHAT_PAY_APIV3_KEY=... \
+  --from-file=WECHAT_PAY_PRIVATE_KEY=./apiclient_key.pem \
+  --from-literal=WECHAT_PAY_MCH_ID=... \
+  --from-literal=WECHAT_PAY_SERIAL_NO=... \
+  --from-literal=ALIYUN_SMS_ACCESS_KEY_ID=... \
+  --from-literal=ALIYUN_SMS_ACCESS_KEY_SECRET=...
+
+# 2. 安装（values.production.yaml 中已 existingSecret: yiluan-prod-secrets）
+helm upgrade --install yiluan ./infra/helm/yiluan \
+  -f infra/helm/yiluan/values.production.yaml \
+  -n yiluan-prod --create-namespace
+```
+
+## HorizontalPodAutoscaler
+
+v0.2 起加入 `templates/hpa.yaml`，作用于 api Deployment：
+
+- 仅当 `autoscaling.enabled = true` 时渲染（staging 默认关闭，production 默认开启）；
+- 默认目标 CPU 利用率 **70%**、内存利用率 **80%**；
+- 默认副本区间 `minReplicas: 2 / maxReplicas: 10`，production overrides 升至 `3 / 20`；
+- 支持 `autoscaling.behavior` 自定义 scaleUp/scaleDown 策略；
+- 集群必须安装 `metrics-server`，否则内存/CPU 指标无法采集。
+
+开启 HPA 后请确保 `api.replicaCount` 与 `autoscaling.minReplicas` 协调（首次发布以 `minReplicas` 为准）。
+
+## ⚠️ 关于敏感凭证
+
+**禁止**把 JWT_SECRET_KEY、DATABASE_URL、REDIS_URL、WECHAT_PAY_*、ALIYUN_SMS_* 等凭证以明文写入任何提交到 Git 的 `values*.yaml`。
+
+推荐做法（按推荐度排序）：
+
+1. **External Secrets Operator** + 阿里云 KMS / HashiCorp Vault：声明式管理，最易审计；
+2. **SealedSecrets**：可加密提交到 Git；
+3. **`kubectl create secret generic`** 手工创建一次性 Secret，然后在 values 中通过 `secrets.existingSecret` 引用。
+
+Chart 中的 `secrets.data` 字段仅供本地 dev / staging 临时使用；production 必须使用 `existingSecret`。
 
 ## 待办（B-03 ACR 资源到位后）
 

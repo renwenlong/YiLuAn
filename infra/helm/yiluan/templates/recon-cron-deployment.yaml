@@ -30,10 +30,14 @@ spec:
           env:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.recon.envFrom }}
           envFrom:
+            - configMapRef:
+                name: {{ include "yiluan.configMapName" . }}
+            - secretRef:
+                name: {{ include "yiluan.secretName" . }}
+            {{- with .Values.recon.envFrom }}
             {{- toYaml . | nindent 12 }}
-          {{- end }}
+            {{- end }}
           resources:
             {{- toYaml .Values.recon.resources | nindent 12 }}
 {{- end }}

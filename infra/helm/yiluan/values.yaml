@@ -175,15 +175,66 @@ ingress:
     secretName: yiluan-tls
 
 # -----------------------------------------------------------------------------
-# 应用层非敏感配置（注入为 ConfigMap）
+# 应用层非敏感配置（注入为 ConfigMap，并通过 envFrom.configMapRef 注入到容器）
 # -----------------------------------------------------------------------------
 config:
+  # 扁平 key-value，会以环境变量形式注入容器（envFrom.configMapRef）
+  data:
+    ENV: "production"
+    LOG_LEVEL: "info"
+    RECON_SCHEDULE_CRON: "*/15 * * * *"
+    PRIVACY_CLEANUP_CRON: "0 3 * * *"
+    METRICS_ENABLED: "true"
+    TRACING_ENABLED: "false"
+  # 兼容旧的结构化配置（渲染为 ConfigMap 中的 app.yaml 文件）
   app:
     name: yiluan
     env: production
   features:
     payment: provider-stub
     sms: provider-stub
+
+# -----------------------------------------------------------------------------
+# 敏感凭证（Secret）
+#
+# ⚠️  禁止在 values.yaml 中硬编码真实密钥！
+# 推荐做法（按推荐度排序）：
+#   1. 通过 .secrets.existingSecret 引用一个已经用 `kubectl create secret generic`
+#      或 External Secrets Operator / SealedSecrets / Vault 创建的 Secret；
+#   2. 在 values.<env>.yaml 中临时填 .secrets.data（仅 dev/staging）。
+#
+# 预期 Secret 中应包含的 key（详见 templates/secret.yaml）：
+#   JWT_SECRET_KEY, DATABASE_URL, REDIS_URL,
+#   WECHAT_PAY_APIV3_KEY, WECHAT_PAY_PRIVATE_KEY, WECHAT_PAY_MCH_ID,
+#   WECHAT_PAY_SERIAL_NO, ALIYUN_SMS_ACCESS_KEY_ID,
+#   ALIYUN_SMS_ACCESS_KEY_SECRET
+# -----------------------------------------------------------------------------
+secrets:
+  # 引用外部已存在的 Secret 名称；非空时 Chart 不再渲染 templates/secret.yaml
+  existingSecret: ""
+  # 仅在 existingSecret 为空时生效；MUST be overridden in values.<env>.yaml
+  data:
+    JWT_SECRET_KEY: ""                  # MUST be overridden in values.<env>.yaml
+    DATABASE_URL: ""                    # MUST be overridden in values.<env>.yaml
+    REDIS_URL: ""                       # MUST be overridden in values.<env>.yaml
+    WECHAT_PAY_APIV3_KEY: ""            # MUST be overridden in values.<env>.yaml
+    WECHAT_PAY_PRIVATE_KEY: ""          # MUST be overridden in values.<env>.yaml
+    WECHAT_PAY_MCH_ID: ""               # MUST be overridden in values.<env>.yaml
+    WECHAT_PAY_SERIAL_NO: ""            # MUST be overridden in values.<env>.yaml
+    ALIYUN_SMS_ACCESS_KEY_ID: ""        # MUST be overridden in values.<env>.yaml
+    ALIYUN_SMS_ACCESS_KEY_SECRET: ""    # MUST be overridden in values.<env>.yaml
+
+# -----------------------------------------------------------------------------
+# HorizontalPodAutoscaler（仅作用于 api Deployment）
+# -----------------------------------------------------------------------------
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+  # 可选 behavior（scaleUp/scaleDown），保持空表示使用 HPA 默认
+  behavior: {}
 
 # -----------------------------------------------------------------------------
 # ServiceAccount
