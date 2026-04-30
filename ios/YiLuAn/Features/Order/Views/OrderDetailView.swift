@@ -153,7 +153,7 @@ struct OrderDetailView: View {
             if let time = order.appointmentTime {
                 infoRow("预约时间", time)
             }
-            infoRow("费用", "¥\(order.price as NSDecimalNumber)", isPrice: true)
+            infoRow("费用", CurrencyFormatter.cnyWithUnit(order.price), isPrice: true)
             if let desc = order.description, !desc.isEmpty {
                 infoRow("备注", desc)
             }
