@@ -5,5 +5,19 @@ metadata:
   labels:
     {{- include "yiluan.labels" . | nindent 4 }}
 data:
+  {{- /* 扁平 key-value，可被 envFrom.configMapRef 直接注入为环境变量 */}}
+  {{- range $k, $v := .Values.config.data }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}
+  {{- /* 兼容旧的结构化 app.yaml（.Values.config.app + .Values.config.features） */}}
+  {{- if or .Values.config.app .Values.config.features }}
   app.yaml: |
-{{ toYaml .Values.config | indent 4 }}
+    {{- if .Values.config.app }}
+    app:
+{{ toYaml .Values.config.app | indent 6 }}
+    {{- end }}
+    {{- if .Values.config.features }}
+    features:
+{{ toYaml .Values.config.features | indent 6 }}
+    {{- end }}
+  {{- end }}

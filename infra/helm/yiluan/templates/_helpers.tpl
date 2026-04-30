@@ -72,6 +72,25 @@ ServiceAccount name
 {{- end -}}
 
 {{/*
+Resolve the Secret name to use for application credentials.
+If .Values.secrets.existingSecret is set, use it; otherwise use the chart-rendered Secret.
+*/}}
+{{- define "yiluan.secretName" -}}
+{{- if .Values.secrets.existingSecret -}}
+{{- .Values.secrets.existingSecret -}}
+{{- else -}}
+{{- printf "%s-secret" (include "yiluan.fullname" .) -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Resolve the ConfigMap name for non-sensitive application configuration.
+*/}}
+{{- define "yiluan.configMapName" -}}
+{{- printf "%s-config" (include "yiluan.fullname" .) -}}
+{{- end -}}
+
+{{/*
 Image reference helper. Usage: include "yiluan.image" (dict "img" .Values.api.image "ctx" .)
 */}}
 {{- define "yiluan.image" -}}

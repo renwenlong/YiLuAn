@@ -1,0 +1,86 @@
+# =============================================================================
+# YiLuAn Helm Chart — values.staging.yaml
+#
+# Staging 环境 overrides。安装：
+#   helm upgrade --install yiluan ./infra/helm/yiluan \
+#     -f infra/helm/yiluan/values.staging.yaml \
+#     -n yiluan-staging --create-namespace
+#
+# 敏感字段以 placeholder 形式给出；正式调用前请：
+#   kubectl -n yiluan-staging create secret generic yiluan-staging-secrets \
+#     --from-literal=JWT_SECRET_KEY=... \
+#     --from-literal=DATABASE_URL=postgresql://... \
+#     --from-literal=REDIS_URL=redis://... \
+#     --from-literal=WECHAT_PAY_APIV3_KEY=... \
+#     --from-literal=WECHAT_PAY_PRIVATE_KEY="$(cat private_key.pem)" \
+#     --from-literal=WECHAT_PAY_MCH_ID=... \
+#     --from-literal=WECHAT_PAY_SERIAL_NO=... \
+#     --from-literal=ALIYUN_SMS_ACCESS_KEY_ID=... \
+#     --from-literal=ALIYUN_SMS_ACCESS_KEY_SECRET=...
+# 然后把下方 secrets.existingSecret 设为 "yiluan-staging-secrets"。
+# =============================================================================
+
+api:
+  replicaCount: 2
+  image:
+    repository: registry.cn-beijing.aliyuncs.com/yiluan/api
+    tag: ""
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 800m
+      memory: 768Mi
+
+recon:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: registry.cn-beijing.aliyuncs.com/yiluan/recon
+    tag: ""
+
+ingress:
+  enabled: true
+  className: nginx
+  host: staging.yiluan.example.com
+  tls:
+    enabled: true
+    secretName: yiluan-staging-tls
+
+config:
+  data:
+    ENV: "staging"
+    LOG_LEVEL: "debug"
+    RECON_SCHEDULE_CRON: "*/15 * * * *"
+    PRIVACY_CLEANUP_CRON: "0 3 * * *"
+    METRICS_ENABLED: "true"
+    TRACING_ENABLED: "true"
+  app:
+    name: yiluan
+    env: staging
+
+# -----------------------------------------------------------------------------
+# Secrets — staging 默认走 placeholder，部署前请替换成 existingSecret 引用。
+# -----------------------------------------------------------------------------
+secrets:
+  # 推荐做法：先 kubectl create secret generic yiluan-staging-secrets ... 再设此字段：
+  # existingSecret: "yiluan-staging-secrets"
+  existingSecret: ""
+  data:
+    JWT_SECRET_KEY: "REPLACE_ME_STAGING_JWT_SECRET"
+    DATABASE_URL: "postgresql://yiluan:REPLACE_ME@postgres:5432/yiluan"
+    REDIS_URL: "redis://:REPLACE_ME@redis:6379/0"
+    WECHAT_PAY_APIV3_KEY: "REPLACE_ME_APIV3_KEY"
+    WECHAT_PAY_PRIVATE_KEY: "REPLACE_ME_PRIVATE_KEY_PEM"
+    WECHAT_PAY_MCH_ID: "REPLACE_ME_MCH_ID"
+    WECHAT_PAY_SERIAL_NO: "REPLACE_ME_SERIAL_NO"
+    ALIYUN_SMS_ACCESS_KEY_ID: "REPLACE_ME_AK_ID"
+    ALIYUN_SMS_ACCESS_KEY_SECRET: "REPLACE_ME_AK_SECRET"
+
+# Staging 关闭 HPA，固定副本数便于稳定复现问题
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 4

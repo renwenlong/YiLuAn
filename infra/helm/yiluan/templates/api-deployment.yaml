@@ -35,10 +35,14 @@ spec:
           env:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- with .Values.api.envFrom }}
           envFrom:
+            - configMapRef:
+                name: {{ include "yiluan.configMapName" . }}
+            - secretRef:
+                name: {{ include "yiluan.secretName" . }}
+            {{- with .Values.api.envFrom }}
             {{- toYaml . | nindent 12 }}
-          {{- end }}
+            {{- end }}
           livenessProbe:
             {{- toYaml .Values.api.livenessProbe | nindent 12 }}
           readinessProbe:
