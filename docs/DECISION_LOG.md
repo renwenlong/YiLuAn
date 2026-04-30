@@ -1315,3 +1315,38 @@ Provider 接口已稳定 16 天等外部凭证（B-01 微信支付商户 / B-02 
 - **关联**：ADR-0028（Provider 抽象，原始决策）、B-01（微信支付商户号）、B-02（阿里云短信）、`docs/PROVIDER_FREEZE.md`（冻结接口清单）
 - **影响范围**：所有 Provider 抽象方法及其调用方；不影响 wallet_ledger / reconciliation / autofix 内部实现迭代
 - **状态**：执行中
+
+## 2026-04-30
+
+### D-053 W18 Day 4 起新功能合入冻结（feature freeze）
+- **参与角色**：Arch / PM
+- **背景**：5 个外部 Blocker（B-01 微信支付 / B-02 阿里云 SMS / B-03 ACR+k8s / B-04 域名备案 / B-05 Apple 账号）已阻塞 18 天；工程侧就绪 96%。继续在缺乏真实凭证的情况下堆功能，会持续放大回归面，且无法在生产真实凭证下端到端验证；冻结期应聚焦灰度演练、提审材料、Helm v0.2 与生产 Runbook 完善。
+- **决策**：
+  1. **冻结起点**：自 W18 Day 4（2026-04-30）起生效。
+  2. **允许合入**：main 分支只接受 ix / docs / infra / 	est / chore 类提交。
+  3. **禁止合入**：所有"新功能"PR（含 eat: 类、行为新增的重构）一律禁止合入 main，直至解冻。
+  4. **解冻条件**：5 个外部 Blocker（B-01 ~ B-05）解锁后，进入"真实凭证联调"窗口才解冻；解冻由 Arch + PM 共同宣布。
+  5. **例外**：紧急生产修复（hotfix）经 **Arch + PM 双签** 可豁免冻结，并须在本日志单独登记。
+- **决策日期**：2026-04-30
+- **决策人**：Arch + PM
+- **关联**：B-01 / B-02 / B-03 / B-04 / B-05、D-047（W18 期间禁 feat 提交）、D-038（上线前 polish 冻结）
+- **影响范围**：main 分支合入策略、Sprint W18 ~ 解冻窗口期间所有 PR 评审；不影响功能分支自身的开发进度与 PR 草稿。
+- **状态**：Accepted
+
+### D-054 生产部署形态采用 Helm + values 分环境（预备入 ADR-0034）
+- **参与角色**：Arch / Ops
+- **背景**：W18 Day 3 已落地 Helm chart 骨架（PR #63 / #65），Day 4 进入 v0.2（secrets / configmap / HPA + alues.staging.yaml）。当前 docs/deployment.md 仍并行列出"手工 docker-compose"与"裸 k8s manifest"两套备选部署路径；多套路径并行会导致 Runbook 分裂、回滚动作不一致、生产事故时责任面不清。需在 ADR-0034 正式归档前先以决策口径锁定唯一部署形态。
+- **决策**：
+  1. **唯一形态**：生产部署统一以 Helm chart（infra/helm/yiluan）+ alues.{staging,production}.yaml 为唯一部署形态。
+  2. **废弃路径**：docs/deployment.md 中"手工 docker-compose"与"裸 k8s manifest"两套备选路径作废，仅保留为历史参考章节。
+  3. **CI 主链路**：CI 后续以 helm lint + helm template + helm upgrade --install 作为部署主链路；其它形态不再纳入 release pipeline。
+  4. **新增基础设施**：后续新增基础设施（Postgres / Redis / Tailscale ingress 等）必须以 **Helm subchart** 或 **values 注入** 方式加入，不得绕过 chart 单独维护 manifest。
+  5. **文档收口**：docs/deployment.md 须在 Helm v0.2 合入后重写为"以 Helm 为主、其它仅作历史参考"。
+- **待办**：
+  - [ ] Helm v0.2 完成后另起 **ADR-0034** 正式入库（本条 D-054 为 ADR 前置决策）。
+  - [ ] 重写 docs/deployment.md（Helm 主、其它历史参考）。
+- **决策日期**：2026-04-30
+- **决策人**：Arch + Ops
+- **关联**：PR #63 / #65（Helm chart 骨架）、infra/helm/yiluan、docs/deployment.md、ADR-0034（待入库）
+- **影响范围**：所有上线 / 灰度 / 回滚操作、Runbook、CI release pipeline、未来基础设施引入方式
+- **状态**：Accepted
