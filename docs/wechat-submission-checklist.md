@@ -301,3 +301,18 @@ _关联 Action Item：今日晨会 #5_
 ---
 
 _2026-04-29 update_：截至 W18 Day 3，提审材料文档侧已基本就绪（隐私政策、Q&A、checklist 全部 Accepted）；仍卡在 B-01/B-02/B-04 外部资源（详见 \docs/TODO_CREDENTIALS.md\），凭证到位后即可按 \docs/runbook-go-live.md\ 完成提交。
+
+
+## 截图清单与状态
+
+详细清单与拍摄要点见 [docs/review/screenshots/README.md](./review/screenshots/README.md)。
+
+- ⬜ 01 — 首页（screenshot-01-home）
+- ⬜ 02 — 下单流程（screenshot-02-order-create）
+- ⬜ 03 — 支付页（screenshot-03-payment）
+- ⬜ 04 — 订单详情/进行中（screenshot-04-order-detail）
+- ⬜ 05 — 钱包余额页（screenshot-05-wallet）
+- ⬜ 06 — 用户协议页（screenshot-06-terms）
+- ⬜ 07 — 隐私政策页（screenshot-07-privacy）
+- ⬜ 08 — 个人中心（screenshot-08-profile）
+
