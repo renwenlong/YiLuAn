@@ -10,7 +10,7 @@ track window.
 import enum
 from datetime import datetime, timezone
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Enum, String
+from sqlalchemy import BigInteger, Boolean, DateTime, Enum, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -22,10 +22,15 @@ class AdminRole(str, enum.Enum):
     finance = "finance"
 
 
+# SQLite does not autoincrement on plain BIGINT columns; use Integer there
+# (sqlite ROWID still backs us with 64-bit ids in practice).
+_ID_TYPE = BigInteger().with_variant(Integer(), "sqlite")
+
+
 class AdminUser(Base):
     __tablename__ = "admin_users"
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(_ID_TYPE, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(
         String(64), unique=True, nullable=False, index=True
     )

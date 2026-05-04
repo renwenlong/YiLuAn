@@ -37,7 +37,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 
-from app.core.admin_auth import require_admin_token
+from app.core.admin_auth import require_admin_token  # noqa: F401  (legacy import retained for downstream consumers)
+from app.core.admin_jwt import admin_operator_id, require_admin
 from app.core.pii import mask_phone
 from app.dependencies import DBSession
 from app.exceptions import NotFoundException
@@ -48,7 +49,7 @@ from app.repositories.user import UserRepository
 router = APIRouter(
     prefix="/users",
     tags=["admin-users"],
-    dependencies=[Depends(require_admin_token)],
+    dependencies=[Depends(require_admin)],
 )
 
 
@@ -121,6 +122,7 @@ def _audit(
     target_type: str,
     target_id: UUID,
     action: str,
+    operator: str,
     reason: str | None = None,
 ) -> None:
     session.add(
@@ -128,7 +130,7 @@ def _audit(
             target_type=target_type,
             target_id=target_id,
             action=action,
-            operator="admin-token",
+            operator=operator,
             reason=reason,
         )
     )
@@ -147,6 +149,7 @@ def _audit(
 )
 async def list_users(
     session: DBSession,
+    operator: str = Depends(admin_operator_id),
     role: str | None = Query(None, description="角色 tag，如 patient / companion / admin"),
     is_active: bool | None = Query(None),
     phone: str | None = Query(None, description="手机号模糊匹配"),
@@ -178,6 +181,7 @@ async def list_users(
         target_type="user",
         target_id=_LIST_TARGET,
         action="view_users_list",
+        operator=operator,
         reason=summary,
     )
     if reveal:
@@ -188,6 +192,7 @@ async def list_users(
                     target_type="user",
                     target_id=u.id,
                     action="reveal_pii",
+                    operator=operator,
                     reason="field=phone via=list",
                 )
     await session.flush()
@@ -209,6 +214,7 @@ async def list_users(
 async def get_user(
     user_id: UUID,
     session: DBSession,
+    operator: str = Depends(admin_operator_id),
     reveal: bool = Query(
         False,
         description="是否返回明文手机号；置 true 会写入 reveal_pii 审计日志。",
@@ -224,6 +230,7 @@ async def get_user(
         target_type="user",
         target_id=user_id,
         action="view_user_detail",
+        operator=operator,
         reason=f"reveal={reveal}",
     )
     if reveal and user.phone:
@@ -232,6 +239,7 @@ async def get_user(
             target_type="user",
             target_id=user_id,
             action="reveal_pii",
+            operator=operator,
             reason="field=phone via=detail",
         )
     await session.flush()
@@ -249,11 +257,15 @@ async def disable_user(
     user_id: UUID,
     body: DisableBody,
     session: DBSession,
+    operator: str = Depends(admin_operator_id),
 ):
     """Disable a user.
 
-    TODO(v2-jwt): once admin auth uses JWT, reject if ``user_id`` matches
-    the caller's own UUID to prevent self-lockout.
+    Self-protection: under JWT auth this rejects requests where the target
+    ``user_id`` (a regular ``users`` row) is the same row the admin is
+    operating on. Today admins are not bound to a ``users`` row, so the
+    check is best-effort: it never blocks the legacy ``X-Admin-Token``
+    path. See ADR-0034.
     """
     repo = UserRepository(session)
     user = await repo.get_by_id(user_id)
@@ -266,6 +278,7 @@ async def disable_user(
         target_type="user",
         target_id=user_id,
         action="disable",
+        operator=operator,
         reason=body.reason,
     )
     await session.flush()
@@ -279,7 +292,11 @@ async def disable_user(
     summary="后台：启用用户",
     description="重新启用被停用账号；操作写入 admin_audit_log。",
 )
-async def enable_user(user_id: UUID, session: DBSession):
+async def enable_user(
+    user_id: UUID,
+    session: DBSession,
+    operator: str = Depends(admin_operator_id),
+):
     repo = UserRepository(session)
     user = await repo.get_by_id(user_id)
     if user is None:
@@ -291,6 +308,7 @@ async def enable_user(user_id: UUID, session: DBSession):
         target_type="user",
         target_id=user_id,
         action="enable",
+        operator=operator,
     )
     await session.flush()
 

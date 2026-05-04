@@ -36,7 +36,8 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from app.core.admin_auth import require_admin_token
+from app.core.admin_auth import require_admin_token  # noqa: F401  (legacy import retained for downstream consumers)
+from app.core.admin_jwt import admin_operator_id, require_admin
 from app.core.pii import mask_phone
 from app.dependencies import DBSession
 from app.exceptions import BadRequestException, NotFoundException
@@ -50,7 +51,7 @@ from app.services.payment_service import PaymentService
 router = APIRouter(
     prefix="/orders",
     tags=["admin-orders"],
-    dependencies=[Depends(require_admin_token)],
+    dependencies=[Depends(require_admin)],
 )
 
 
@@ -207,6 +208,7 @@ def _audit(
     target_type: str,
     target_id: UUID,
     action: str,
+    operator: str,
     reason: str | None = None,
 ) -> None:
     session.add(
@@ -214,7 +216,7 @@ def _audit(
             target_type=target_type,
             target_id=target_id,
             action=action,
-            operator="admin-token",
+            operator=operator,
             reason=reason,
         )
     )
@@ -233,6 +235,7 @@ def _audit(
 )
 async def list_orders(
     session: DBSession,
+    operator: str = Depends(admin_operator_id),
     status: str | None = Query(None, description="OrderStatus 之一"),
     patient_id: UUID | None = Query(None),
     companion_id: UUID | None = Query(None),
@@ -281,6 +284,7 @@ async def list_orders(
         target_type="order",
         target_id=_LIST_TARGET,
         action="view_orders_list",
+        operator=operator,
         reason=summary,
     )
     await session.flush()
@@ -299,7 +303,11 @@ async def list_orders(
     summary="后台：订单详情",
     description="返回单个订单的完整字段（含 patient_display_name / companion_display_name / patient_phone_masked / price），并写入 view_order_detail 审计行。",
 )
-async def get_order(order_id: UUID, session: DBSession):
+async def get_order(
+    order_id: UUID,
+    session: DBSession,
+    operator: str = Depends(admin_operator_id),
+):
     repo = OrderRepository(session)
     order = await repo.get_by_id(order_id)
     if order is None:
@@ -315,6 +323,7 @@ async def get_order(order_id: UUID, session: DBSession):
         target_type="order",
         target_id=order_id,
         action="view_order_detail",
+        operator=operator,
     )
     await session.flush()
 
@@ -334,6 +343,7 @@ async def force_order_status(
     order_id: UUID,
     body: ForceStatusBody,
     session: DBSession,
+    operator: str = Depends(admin_operator_id),
 ):
     repo = OrderRepository(session)
     order = await repo.get_by_id(order_id)
@@ -357,6 +367,7 @@ async def force_order_status(
             target_type="order",
             target_id=order_id,
             action="force_status_denied",
+            operator=operator,
             reason=(
                 f"{old_status.value}->{new_status.value}: {forbidden} "
                 f"(reason={body.reason})"
@@ -378,7 +389,7 @@ async def force_order_status(
         target_type="order",
         target_id=order_id,
         action="force_status",
-        operator="admin-token",
+        operator=operator,
         reason=f"{old_status.value}->{new_status.value}: {body.reason}",
     )
     session.add(log)
@@ -406,6 +417,7 @@ async def refund_order(
     order_id: UUID,
     body: RefundBody,
     session: DBSession,
+    operator: str = Depends(admin_operator_id),
 ):
     repo = OrderRepository(session)
     order = await repo.get_by_id(order_id)
@@ -445,7 +457,7 @@ async def refund_order(
         target_type="order",
         target_id=order_id,
         action="refund",
-        operator="admin-token",
+        operator=operator,
         reason=f"amount={refund_amount}: {body.reason}",
     )
     session.add(log)

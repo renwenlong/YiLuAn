@@ -113,9 +113,21 @@ async def require_admin(
     Returns the :class:`AdminUser` when JWT is used so routes can audit the
     real operator id; returns :data:`LEGACY_ADMIN_TOKEN_SENTINEL` when the
     caller is still on the old shared-token path.
+
+    A user-side ``Authorization: Bearer ...`` (e.g. a patient access token)
+    is **ignored** rather than rejected when ``X-Admin-Token`` is also
+    provided — this preserves the existing pytest ``admin_client``
+    fixture, which sends both headers, and keeps the door open for an
+    in-app "sudo to admin" UX without breaking dual-auth shells.
     """
     if authorization and authorization.lower().startswith("bearer "):
-        return await _resolve_admin(authorization, session)
+        try:
+            return await _resolve_admin(authorization, session)
+        except UnauthorizedException:
+            # Bearer token wasn't a valid admin JWT; fall through to legacy
+            # header if present. Otherwise re-raise below.
+            if x_admin_token is None:
+                raise
     if x_admin_token is not None:
         # Delegate validation to the legacy helper (raises Unauthorized if
         # the token is wrong). It returns the token string itself; we map
@@ -125,6 +137,26 @@ async def require_admin(
     raise UnauthorizedException(
         "admin auth required: provide Authorization: Bearer <jwt> or X-Admin-Token"
     )
+
+
+async def admin_principal(
+    principal: Union[AdminUser, str] = Depends(require_admin),
+) -> Union[AdminUser, str]:
+    """Alias of :func:`require_admin` exposed as a dependency that routes
+    add explicitly so they can read the principal (e.g. for self-protection
+    rules) without re-resolving the bearer token. FastAPI dependency cache
+    deduplicates underlying header reads."""
+    return principal
+
+
+async def admin_operator_id(
+    principal: Union[AdminUser, str] = Depends(require_admin),
+) -> str:
+    """Per-request operator id string suitable for ``AdminAuditLog.operator``.
+
+    JWT principals → ``str(admin_user.id)``; legacy → ``"admin-token"``.
+    """
+    return operator_id_of(principal)
 
 
 def operator_id_of(principal: Union[AdminUser, str]) -> str:
