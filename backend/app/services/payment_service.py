@@ -33,7 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.exceptions import BadRequestException
-from app.models.order import Order
+from app.models.order import Order, PaymentState, RefundState
 from app.models.payment import Payment
 from app.models.payment_callback_log import PaymentCallbackLog
 from app.repositories.payment import PaymentRepository
@@ -153,6 +153,13 @@ class PaymentService:
             payment = existing
         else:
             payment = await self.repo.create(payment)
+
+        # H2-be: surface fund-side state on the order so the UI can show
+        # “支付中 / 已付款” without coupling to OrderStatus.
+        await self._set_payment_state(
+            order_id,
+            PaymentState.paid if payment.status == "success" else PaymentState.paying,
+        )
 
         # Mock provider 即时成功 → 同步追加 ledger（生产 wechat 等回调）
         if is_mock and payment.status == "success":
@@ -295,6 +302,12 @@ class PaymentService:
 
         payment.status = "success" if success else "failed"
         await self.session.flush()
+
+        # H2-be: mirror callback outcome onto the order's payment_state.
+        await self._set_payment_state(
+            payment.order_id,
+            PaymentState.paid if success else PaymentState.failed,
+        )
 
         from app.utils.metrics import payment_callback_received_total, order_paid_total
         payment_callback_received_total.labels(status=payment.status).inc()
@@ -466,6 +479,13 @@ class PaymentService:
         )
         refund = await self.repo.create(refund)
 
+        # H2-be: refund_state → refunding (mock-success will be flipped
+        # to ``refunded`` immediately below).
+        await self._set_refund_state(
+            order_id,
+            RefundState.refunded if (is_mock and refund.status == "success") else RefundState.refunding,
+        )
+
         # Mock provider 即时成功 → 同步追加 ledger（生产走 refund callback）
         if is_mock and refund.status == "success":
             await self._append_refund_ledger_safe(refund)
@@ -531,6 +551,12 @@ class PaymentService:
 
         await self.session.flush()
 
+        # H2-be: mirror refund outcome on the order's refund_state.
+        await self._set_refund_state(
+            payment.order_id,
+            RefundState.refunded if payment.status == "success" else RefundState.failed,
+        )
+
         # [TD-MONEY-01 M1 finishing / D-050]
         # 退款成功 → 追加 wallet_ledger（out / refund）。
         if payment.status == "success":
@@ -539,6 +565,62 @@ class PaymentService:
         return payment
 
     # -- wallet_ledger helpers (TD-MONEY-01 M1 finishing) --------------------
+
+    # -- H2-be sub-state helpers ---------------------------------------------
+
+    async def _set_payment_state(
+        self, order_id: uuid.UUID | None, state: PaymentState
+    ) -> None:
+        """Best-effort write of ``orders.payment_state``.
+
+        Never raises — fund-side state is auxiliary; missing orders or
+        DB hiccups must not break the payment write path.
+        """
+        if order_id is None:
+            return
+        try:
+            order = (
+                await self.session.execute(
+                    select(Order).where(Order.id == order_id)
+                )
+            ).scalar_one_or_none()
+            if order is None:
+                return
+            if order.payment_state != state:
+                order.payment_state = state
+                await self.session.flush()
+        except Exception as exc:  # pragma: no cover - defence only
+            logger.warning(
+                "payment_state update failed (non-fatal) order=%s state=%s err=%s",
+                order_id,
+                state,
+                exc,
+            )
+
+    async def _set_refund_state(
+        self, order_id: uuid.UUID | None, state: RefundState
+    ) -> None:
+        """Best-effort write of ``orders.refund_state`` (mirror of the helper above)."""
+        if order_id is None:
+            return
+        try:
+            order = (
+                await self.session.execute(
+                    select(Order).where(Order.id == order_id)
+                )
+            ).scalar_one_or_none()
+            if order is None:
+                return
+            if order.refund_state != state:
+                order.refund_state = state
+                await self.session.flush()
+        except Exception as exc:  # pragma: no cover - defence only
+            logger.warning(
+                "refund_state update failed (non-fatal) order=%s state=%s err=%s",
+                order_id,
+                state,
+                exc,
+            )
 
     async def _resolve_companion_user_id(self, order_id: uuid.UUID | None) -> uuid.UUID | None:
         """查订单 companion_id。None = 订单不存在 / 尚未匹配陪诊师。
