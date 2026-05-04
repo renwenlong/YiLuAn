@@ -73,7 +73,21 @@ npx vite --port 8080
 - `POST /api/v1/admin/orders/{id}/force-status` — body `{ "status": "...", "reason": "..." }`
 - `POST /api/v1/admin/orders/{id}/refund` — body `{ "amount": 199.0, "reason": "..." }`
 
-订单字段（前端读取）：`id` / `order_no` / `status` / `patient_id` / `patient_name` / `companion_id` / `companion_name` / `amount` / `created_at`。状态枚举：`pending / paid / serving / completed / cancelled / refunded`。
+订单字段（前端读取）：`id` / `order_number` / `status` / `patient_id` / `patient_name` / `companion_id` / `companion_name` / `amount` / `created_at`。
+
+订单状态枚举（与 `backend/app/models/order.py::OrderStatus` 一致）：
+
+- `created`：已下单，等待陪诊师接单
+- `accepted`：陪诊师已接单
+- `in_progress`：服务进行中
+- `completed`：服务完成
+- `reviewed`：用户已评价
+- `cancelled_by_patient`：用户取消
+- `cancelled_by_companion`：陪诊师取消
+- `rejected_by_companion`：陪诊师拒单
+- `expired`：超时未接单
+
+> 旧文档曾写 `pending / paid / serving / completed / cancelled / refunded`，已废弃，**仅以代码为准**。
 
 #### 用户管理
 
