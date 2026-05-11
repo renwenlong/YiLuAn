@@ -93,3 +93,6 @@ wechat/project.private.config.json
 # pytest-cov annotate scratch files
 *,cover
 
+
+# Local-only docker compose overrides (contains secrets)
+deploy/staging/docker-compose.override.yml
