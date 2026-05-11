@@ -24,9 +24,8 @@
       <h2>登录</h2>
       <p class="hint">输入后端 <code>ADMIN_TOKEN</code> 环境变量的值，会以 <code>X-Admin-Token</code> header 送出。Token 仅缓存在本机 sessionStorage（关闭标签页后失效）。</p>
       <p class="hint" style="color:#888;font-size:12px">
-        后端地址统一填 <code>http://127.0.0.1:18080</code>（留空也行，默认同源）<br/>
-        · staging：<code>staging-admin-token</code><br/>
-        · 本地裸跑 backend：<code>dev-admin-token</code>
+        · staging（这个页面）：后端地址 <code>http://127.0.0.1:18080</code>（或留空），Token <code>staging-admin-token</code><br/>
+        · 本地裸跑 backend：后端地址 <code>http://127.0.0.1:8000</code>，Token <code>dev-admin-token</code>
       </p>
       <div class="form-row">
         <label for="apiBaseInput">后端地址</label>
