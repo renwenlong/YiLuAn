@@ -37,16 +37,17 @@ main { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
 
 /* Filter bar */
 .filter-bar {
-  display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start;
   padding: 12px 16px; background: #fafafa; border: 1px solid #f0f0f0; border-radius: 4px; margin-bottom: 16px;
 }
-.filter-bar__item { display: flex; flex-direction: column; gap: 4px; }
-.filter-bar__item label { font-size: 12px; color: #8c8c8c; }
+.filter-bar__item { display: flex; flex-direction: column; gap: 4px; min-width: 160px; }
+.filter-bar__item label { font-size: 12px; color: #8c8c8c; height: 16px; line-height: 16px; }
 .filter-bar__item input, .filter-bar__item select {
   padding: 6px 10px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 13px; outline: none; min-width: 140px;
 }
 .filter-bar__item input:focus, .filter-bar__item select:focus { border-color: #1890ff; }
-.filter-bar__actions { display: flex; gap: 8px; margin-left: auto; }
+.filter-bar__item .hint { font-size: 11px; color: #8c8c8c; height: 14px; }
+.filter-bar__actions { display: flex; gap: 8px; margin-left: auto; align-self: flex-end; padding-bottom: 2px; }
 
 /* Status pills */
 .status-pill {
