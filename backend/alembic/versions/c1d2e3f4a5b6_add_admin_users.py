@@ -15,6 +15,7 @@ from typing import Sequence, Union
 import bcrypt
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 
 # revision identifiers, used by Alembic.
@@ -28,11 +29,12 @@ _ROLE_VALUES = ("super", "ops", "finance")
 _ENUM_NAME = "admin_role"
 
 
-def _make_enum() -> sa.Enum:
+def _make_enum() -> sa.types.TypeEngine:
     bind = op.get_bind()
     if bind.dialect.name == "postgresql":
-        # Pre-create the type so add_column / create_table can reference it
-        # without auto-creation racing with seed insert.
+        # Use postgresql.ENUM (not sa.Enum) so create_type=False is honored
+        # by SQLAlchemy's _on_table_create hook. Pre-create the type guarded
+        # by EXCEPTION WHEN duplicate_object so a partial prior run is safe.
         op.execute(
             "DO $$ BEGIN "
             f"CREATE TYPE {_ENUM_NAME} AS ENUM ("
@@ -41,7 +43,9 @@ def _make_enum() -> sa.Enum:
             "EXCEPTION WHEN duplicate_object THEN NULL; "
             "END $$;"
         )
-        return sa.Enum(*_ROLE_VALUES, name=_ENUM_NAME, create_type=False)
+        return postgresql.ENUM(
+            *_ROLE_VALUES, name=_ENUM_NAME, create_type=False
+        )
     return sa.Enum(*_ROLE_VALUES, name=_ENUM_NAME)
 
 
@@ -86,6 +90,10 @@ def upgrade() -> None:
     op.execute(
         sa.text(
             "INSERT INTO admin_users "
+            "(username, password_hash, role, is_active, created_at) "
+            "VALUES (:u, :h, CAST(:r AS admin_role), :a, :ts)"
+            if op.get_bind().dialect.name == "postgresql"
+            else "INSERT INTO admin_users "
             "(username, password_hash, role, is_active, created_at) "
             "VALUES (:u, :h, :r, :a, :ts)"
         ).bindparams(

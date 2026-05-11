@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 
 revision = "a1b2c3d4e5f7"
@@ -30,10 +31,16 @@ def upgrade() -> None:
     dialect = bind.dialect.name
 
     if dialect == "postgresql":
-        payment_state = sa.Enum(*PAYMENT_STATES, name="paymentstate")
-        refund_state = sa.Enum(*REFUND_STATES, name="refundstate")
-        payment_state.create(bind, checkfirst=True)
-        refund_state.create(bind, checkfirst=True)
+        sa.Enum(*PAYMENT_STATES, name="paymentstate").create(bind, checkfirst=True)
+        sa.Enum(*REFUND_STATES, name="refundstate").create(bind, checkfirst=True)
+        # Use postgresql.ENUM with create_type=False so add_column does not
+        # try to re-create the type via the _on_table_create hook.
+        payment_state = postgresql.ENUM(
+            *PAYMENT_STATES, name="paymentstate", create_type=False
+        )
+        refund_state = postgresql.ENUM(
+            *REFUND_STATES, name="refundstate", create_type=False
+        )
     else:
         # SQLite/MySQL store enums as VARCHAR-with-CHECK; emit plain Enum.
         payment_state = sa.Enum(*PAYMENT_STATES, name="paymentstate")
