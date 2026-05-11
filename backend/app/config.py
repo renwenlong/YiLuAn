@@ -134,6 +134,17 @@ class Settings(BaseSettings):
         if self.debug:
             raise ValueError("生产环境必须设置 DEBUG=false")
 
+        # CORS 安全：生产环境禁止通配源 + credentials 组合
+        # 背景：Starlette CORSMiddleware 当 allow_origins 含 '*' 且
+        # allow_credentials=True 时，会把 Access-Control-Allow-Origin 反射为
+        # 请求 Origin，等价于「任意源 + 可带凭证」。即便我们目前用的是
+        # bearer token（不在浏览器 credentials 范畴），也禁止此默认配置。
+        if not self.cors_origins or "*" in self.cors_origins:
+            raise ValueError(
+                "生产环境 CORS_ORIGINS 不能为空或包含 '*'，请显式列出可信源"
+                "（如 CORS_ORIGINS='https://admin.example.com,https://app.example.com'）"
+            )
+
         # 微信支付凭证完整性检查
         if self.payment_provider == "wechat":
             missing = [
