@@ -111,6 +111,10 @@ main { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
   position: fixed; inset: 0; background: rgba(0,0,0,0.45);
   display: flex; align-items: center; justify-content: center; z-index: 1000;
 }
+/* The `.modal { display: flex }` rule above has the same specificity as the UA
+   default `[hidden] { display: none }` and comes later, so without this fix
+   *every* modal stays visible by default and overlaps. */
+.modal[hidden] { display: none !important; }
 .modal-card { background: #fff; border-radius: 8px; padding: 24px; width: 480px; max-width: 90vw; }
 .modal-card--wide { width: 720px; }
 .detail-body { background: #fafafa; border: 1px solid #f0f0f0; border-radius: 4px; padding: 12px; max-height: 60vh; overflow: auto; font-size: 12px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; word-break: break-all; margin: 0; }
