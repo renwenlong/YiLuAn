@@ -49,30 +49,42 @@ const Dashboard = {
       : '';
   },
   renderSparkline(trend) {
-    if (!trend.length) return '<div class="empty">暂无数据</div>';
-    const W = 600, H = 80, PAD = 20;
+    if (!trend.length) return '<div class="spark-empty">暂无数据</div>';
+    const totalOrders = trend.reduce((s, p) => s + (p.orders || 0), 0);
+    if (totalOrders === 0) {
+      return '<div class="spark-empty">近 7 日暂无订单。上表可查看明细。</div>';
+    }
+    const W = 720, H = 140;
+    const PAD_L = 12, PAD_R = 12, PAD_T = 22, PAD_B = 28;
     const max = Math.max(1, ...trend.map((p) => p.orders));
-    const stepX = (W - PAD * 2) / Math.max(1, trend.length - 1);
+    const stepX = (W - PAD_L - PAD_R) / Math.max(1, trend.length - 1);
+    const baselineY = H - PAD_B;
     const pts = trend.map((p, i) => {
-      const x = PAD + i * stepX;
-      const y = H - PAD - ((p.orders / max) * (H - PAD * 2));
+      const x = PAD_L + i * stepX;
+      const y = baselineY - ((p.orders / max) * (H - PAD_T - PAD_B));
       return [x, y, p];
     });
     const linePath = pts.map((pt, i) => (i === 0 ? 'M' : 'L') + pt[0].toFixed(1) + ',' + pt[1].toFixed(1)).join(' ');
-    const areaPath = linePath + ' L' + pts[pts.length - 1][0].toFixed(1) + ',' + (H - PAD) + ' L' + pts[0][0].toFixed(1) + ',' + (H - PAD) + ' Z';
+    const areaPath = linePath + ' L' + pts[pts.length - 1][0].toFixed(1) + ',' + baselineY + ' L' + pts[0][0].toFixed(1) + ',' + baselineY + ' Z';
     const dots = pts.map((pt) => (
-      '<circle class="spark-dot" cx="' + pt[0].toFixed(1) + '" cy="' + pt[1].toFixed(1) + '" r="2.5"><title>' +
-      escapeHtml(pt[2].date + ' · ' + pt[2].orders + ' 单') + '</title></circle>'
+      '<circle class="spark-dot" cx="' + pt[0].toFixed(1) + '" cy="' + pt[1].toFixed(1) + '" r="3.5">' +
+        '<title>' + escapeHtml(pt[2].date + ' · ' + pt[2].orders + ' 单') + '</title>' +
+      '</circle>'
     )).join('');
-    const xLabels = pts.map((pt, i) => (
-      (i === 0 || i === pts.length - 1)
-        ? '<text class="spark-label" x="' + pt[0].toFixed(1) + '" y="' + (H - 4) + '" text-anchor="' + (i === 0 ? 'start' : 'end') + '">' + escapeHtml(pt[2].date.slice(5)) + '</text>'
+    const valueLabels = pts.map((pt) => (
+      pt[2].orders > 0
+        ? '<text class="spark-value" x="' + pt[0].toFixed(1) + '" y="' + (pt[1] - 8).toFixed(1) + '" text-anchor="middle">' + pt[2].orders + '</text>'
         : ''
     )).join('');
-    return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' +
+    const xLabels = pts.map((pt) => (
+      '<text class="spark-label" x="' + pt[0].toFixed(1) + '" y="' + (H - 8) + '" text-anchor="middle">' + escapeHtml(pt[2].date.slice(5)) + '</text>'
+    )).join('');
+    const baseline = '<line class="spark-axis" x1="' + PAD_L + '" y1="' + baselineY + '" x2="' + (W - PAD_R) + '" y2="' + baselineY + '"/>';
+    return '<svg viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="xMidYMid meet">' +
+      baseline +
       '<path class="spark-area" d="' + areaPath + '"/>' +
       '<path class="spark-line" d="' + linePath + '"/>' +
-      dots + xLabels +
+      dots + valueLabels + xLabels +
     '</svg>';
   },
   bind() {

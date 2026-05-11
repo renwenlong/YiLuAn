@@ -156,11 +156,15 @@ main { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
 .kpi-card--ok .kpi-card__value { color: #52c41a; }
 
 .card-section { margin-top: 18px; padding-top: 12px; border-top: 1px dashed #eee; }
-.sparkline-wrap svg { width: 100%; height: 80px; display: block; }
+.sparkline-wrap { max-width: 720px; }
+.sparkline-wrap svg { width: 100%; height: 140px; display: block; }
 .sparkline-wrap .spark-line { fill: none; stroke: #1677ff; stroke-width: 2; }
 .sparkline-wrap .spark-area { fill: rgba(22,119,255,0.12); stroke: none; }
 .sparkline-wrap .spark-dot { fill: #1677ff; }
-.sparkline-wrap .spark-label { fill: #6b7280; font-size: 10px; }
+.sparkline-wrap .spark-label { fill: #6b7280; font-size: 11px; }
+.sparkline-wrap .spark-value { fill: #1677ff; font-size: 11px; font-weight: 600; }
+.sparkline-wrap .spark-axis { stroke: #e5e7eb; stroke-width: 1; }
+.sparkline-wrap .spark-empty { padding: 28px; text-align: center; color: #9ca3af; font-size: 13px; border: 1px dashed #e5e7eb; border-radius: 6px; }
 
 .order-detail-grid {
   display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 8px;
