@@ -153,7 +153,8 @@ async function apiCall(path, options) {
 
 function handleAuthError(e) {
   if (e && (e.status === 401 || e.status === 403)) {
-    toast('Token 无效或无权限，请重新登录', 'error');
+    // No toast: just silently clear the bad credentials and bounce to login.
+    // The login form itself is the right place to communicate "please sign in".
     sessionStorage.removeItem(SS_TOKEN_KEY);
     state.token = '';
     showLogin();
