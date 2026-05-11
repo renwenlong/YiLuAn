@@ -9,7 +9,7 @@ const store = require('../../../store/index')
 const { ORDER_STATUS, SERVICE_TYPES } = require('../../../utils/constants')
 const { formatPrice, formatDate } = require('../../../utils/format')
 const { formatCurrency } = require('../../../utils/formatCurrency')
-const { isCountdownUrgent } = require('../../../utils/countdown')
+const { isCountdownUrgent } = require('./utils/countdown')
 
 const PAYMENT_STATUS_MAP = {
   unpaid: '待支付',

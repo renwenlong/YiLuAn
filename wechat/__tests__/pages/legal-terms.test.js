@@ -1,6 +1,6 @@
 // [B4]: \u9a8c\u8bc1\u7528\u6237\u534f\u8bae\u9875\u9762\u52a8\u6001\u7ed1\u5b9a config/legal.js \u4e2d\u7684\u66f4\u65b0\u65f6\u95f4 / \u751f\u6548\u65e5\u671f / \u7248\u672c\u53f7
 
-const { TERMS_UPDATED_AT, TERMS_EFFECTIVE_AT, TERMS_VERSION } = require('../../config/legal')
+const { TERMS_UPDATED_AT, TERMS_EFFECTIVE_AT, TERMS_VERSION } = require('../../pages/legal/config/legal')
 
 const pageDef = (function () {
   var captured = null

@@ -1,4 +1,4 @@
-const { request } = require('./api')
+const { request } = require('../../../../services/api')
 
 function getWalletSummary() {
   return request({ url: 'wallet', method: 'GET' })

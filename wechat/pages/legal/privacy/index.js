@@ -1,5 +1,5 @@
 // A21-06 + [B4]: 隐私协议元信息动态绑定，权威源：config/legal.js
-const { PRIVACY_UPDATED_AT, PRIVACY_EFFECTIVE_AT, PRIVACY_VERSION } = require('../../../config/legal')
+const { PRIVACY_UPDATED_AT, PRIVACY_EFFECTIVE_AT, PRIVACY_VERSION } = require('../config/legal')
 
 Page({
   data: {

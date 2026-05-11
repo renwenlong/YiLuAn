@@ -647,6 +647,9 @@ class TestConfigProductionValidator:
             sms_provider="mock",
             pii_envelope_key=base64.b64encode(b"P" * 32).decode(),
             pii_hash_salt="prod-salt-12345-not-default",
+            # CORS guard added later — supply explicit origins so this
+            # base config can isolate the field actually under test.
+            cors_origins=["https://admin.example.com"],
         )
         base.update(overrides)
         return Settings(**base)

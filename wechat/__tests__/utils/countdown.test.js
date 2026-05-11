@@ -3,7 +3,7 @@
  * 覆盖：紧急阈值（<30min）切换边界
  */
 
-const { isCountdownUrgent, URGENT_THRESHOLD_MS } = require('../../utils/countdown')
+const { isCountdownUrgent, URGENT_THRESHOLD_MS } = require('../../pages/patient/order-detail/utils/countdown')
 
 describe('utils/countdown.isCountdownUrgent', () => {
   test('剩余 >= 30 分钟不进入紧急态', () => {

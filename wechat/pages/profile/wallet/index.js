@@ -1,5 +1,5 @@
 var store = require('../../../store/index')
-var walletService = require('../../../services/wallet')
+var walletService = require('./services/wallet')
 var formatCurrency = require('../../../utils/formatCurrency').formatCurrency
 
 Page({

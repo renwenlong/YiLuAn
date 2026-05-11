@@ -1,5 +1,5 @@
 // [B4]: 用户协议元信息动态绑定，权威源：config/legal.js
-const { TERMS_UPDATED_AT, TERMS_EFFECTIVE_AT, TERMS_VERSION } = require('../../../config/legal')
+const { TERMS_UPDATED_AT, TERMS_EFFECTIVE_AT, TERMS_VERSION } = require('../config/legal')
 
 Page({
   data: {
