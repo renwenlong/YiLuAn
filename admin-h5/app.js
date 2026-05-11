@@ -14,14 +14,14 @@
 
 const SS_TOKEN_KEY = 'yiluan.admin.token';
 const SS_OPERATOR_KEY = 'yiluan.admin.operator';
-const LS_API_BASE_KEY = 'yiluan.admin.apiBase';
-// Default api base. If we are loaded from a non-file:// origin (e.g. served by
-// nginx at /admin/), prefer same-origin so we go through the reverse proxy
-// and avoid CORS / wrong-port issues. Only fall back to the hardcoded local
-// dev port when opened directly from the filesystem.
-const DEFAULT_API_BASE = (typeof location !== 'undefined' && location.protocol.startsWith('http'))
+const LS_API_BASE_KEY = 'yiluan.admin.apiBase'; // legacy, only used to clean up stale value
+if (typeof localStorage !== 'undefined') localStorage.removeItem(LS_API_BASE_KEY);
+// API base is always same-origin (admin-h5 is served by nginx which proxies
+// /api/* to the backend). We deliberately drop the legacy login form field
+// for backend address — fewer footguns, no stale localStorage values.
+const API_BASE = (typeof location !== 'undefined' && location.protocol.startsWith('http'))
   ? location.origin
-  : 'http://127.0.0.1:8000';
+  : 'http://127.0.0.1:18080';
 const PAGE_SIZE = 20;
 
 // Action #8: 金额展示统一为「千分位 + 两位小数」（¥1,200.00）
@@ -52,7 +52,7 @@ const STATUS_LABELS = {
 function statusLabel(v) { return STATUS_LABELS[v] || v || '-'; }
 
 const state = {
-  apiBase: localStorage.getItem(LS_API_BASE_KEY) || DEFAULT_API_BASE,
+  apiBase: API_BASE,
   token: sessionStorage.getItem(SS_TOKEN_KEY) || '',
   operator: sessionStorage.getItem(SS_OPERATOR_KEY) || '',
   route: '',
@@ -993,7 +993,6 @@ function showLogin() {
   hide($('#appShell'));
   hide($('#logoutBtn'));
   $('#adminInfo').textContent = '';
-  $('#apiBaseInput').value = state.apiBase;
   $('#tokenInput').value = state.token;
   $('#operatorInput').value = state.operator;
 }
@@ -1002,13 +1001,12 @@ function showShell() {
   hide($('#loginMain'));
   show($('#appShell'));
   show($('#logoutBtn'));
-  $('#adminInfo').textContent = state.apiBase + (state.operator ? ' · ' + state.operator : '');
+  $('#adminInfo').textContent = state.operator || '';
   if (!location.hash) location.hash = '#/dashboard';
   navigate();
 }
 
 function onLogin() {
-  const apiBase = ($('#apiBaseInput').value || '').trim() || DEFAULT_API_BASE;
   const token = ($('#tokenInput').value || '').trim();
   const operator = ($('#operatorInput').value || '').trim();
   hide($('#loginError'));
@@ -1027,10 +1025,8 @@ function onLogin() {
     show($('#loginError'));
     return;
   }
-  state.apiBase = apiBase;
   state.token = token;
   state.operator = operator;
-  localStorage.setItem(LS_API_BASE_KEY, apiBase);
   sessionStorage.setItem(SS_TOKEN_KEY, token);
   sessionStorage.setItem(SS_OPERATOR_KEY, operator);
   showShell();
