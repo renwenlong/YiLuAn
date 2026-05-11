@@ -6,12 +6,12 @@
   <!-- Security hardening: deny inline JS, restrict origins, prevent framing. -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://127.0.0.1:8000 http://localhost:8000 http://127.0.0.1:18080 http://localhost:18080 https://api.yiluan.example.com; img-src 'self' data:; font-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self';" />
   <meta http-equiv="X-Content-Type-Options" content="nosniff" />
-  <title>YiLuAn Admin · MVP</title>
+  <title>YiLuAn 后台</title>
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
   <header class="topbar">
-    <div class="brand">YiLuAn 后台 <span class="env-tag" id="envTag">MVP</span></div>
+    <div class="brand">YiLuAn 后台</div>
     <div class="actions">
       <span id="adminInfo" class="admin-info"></span>
       <button id="logoutBtn" class="btn btn-ghost" hidden>退出</button>
