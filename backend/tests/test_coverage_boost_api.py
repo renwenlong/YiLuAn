@@ -136,10 +136,10 @@ class TestUsersAPI:
 # api/v1/admin/__init__.py – admin endpoints
 # ---------------------------------------------------------------------------
 class TestAdminAPI:
-    async def test_non_admin_no_token_returns_422(self, authenticated_client):
-        """Patient hitting admin endpoint without X-Admin-Token → 422."""
+    async def test_non_admin_no_token_returns_401(self, authenticated_client):
+        """Patient hitting admin endpoint without X-Admin-Token → 401 (ADR-0034 dual-track)."""
         r = await authenticated_client.get("/api/v1/admin/orders")
-        assert r.status_code == 422
+        assert r.status_code == 401
 
     async def test_admin_list_orders(self, admin_client):
         r = await admin_client.get("/api/v1/admin/orders")

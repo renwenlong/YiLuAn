@@ -138,8 +138,8 @@ async def test_admin_certify_companion_missing_token_rejected(client):
             "certification_image_url": "https://x.com/a.jpg",
         },
     )
-    # Missing required header X-Admin-Token => 422
-    assert resp.status_code == 422
+    # Missing required header X-Admin-Token => 401 (ADR-0034 dual-track)
+    assert resp.status_code == 401
 
 
 @pytest.mark.asyncio

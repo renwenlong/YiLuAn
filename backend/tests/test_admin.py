@@ -36,11 +36,12 @@ HEADERS = {"X-Admin-Token": ADMIN_TOKEN}
 
 @pytest.mark.asyncio
 class TestAdminAuth:
-    async def test_orders_no_token_returns_422(self, client: AsyncClient):
-        # FastAPI rejects requests missing a required Header dependency
-        # with 422 (validation error), matching companions module behaviour.
+    async def test_orders_no_token_returns_401(self, client: AsyncClient):
+        # Dual-track auth (ADR-0034): missing both Authorization and
+        # X-Admin-Token now returns 401 (Unauthorized) rather than the
+        # old single-header 422.
         resp = await client.get("/api/v1/admin/orders")
-        assert resp.status_code == 422
+        assert resp.status_code == 401
 
     async def test_orders_wrong_token_returns_401(self, client: AsyncClient):
         resp = await client.get(
@@ -48,9 +49,9 @@ class TestAdminAuth:
         )
         assert resp.status_code == 401
 
-    async def test_users_no_token_returns_422(self, client: AsyncClient):
+    async def test_users_no_token_returns_401(self, client: AsyncClient):
         resp = await client.get("/api/v1/admin/users")
-        assert resp.status_code == 422
+        assert resp.status_code == 401
 
     async def test_users_wrong_token_returns_401(self, client: AsyncClient):
         resp = await client.get(

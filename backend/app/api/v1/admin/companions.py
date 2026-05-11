@@ -11,7 +11,8 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 
-from app.core.admin_auth import require_admin_token
+from app.core.admin_auth import require_admin_token  # noqa: F401  (legacy import retained for downstream consumers)
+from app.core.admin_jwt import admin_operator_id, require_admin
 from app.core.pii import mask_id_number
 from app.dependencies import DBSession
 from app.models.admin_audit_log import AdminAuditLog
@@ -23,7 +24,7 @@ from app.services.admin_audit import AdminAuditService
 router = APIRouter(
     prefix="/companions",
     tags=["admin-companions"],
-    dependencies=[Depends(require_admin_token)],
+    dependencies=[Depends(require_admin)],
 )
 
 
@@ -91,6 +92,7 @@ def _mask_companion_item(item: dict) -> dict:
 )
 async def list_pending_companions(
     session: DBSession,
+    operator: str = Depends(admin_operator_id),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
@@ -108,7 +110,7 @@ async def list_pending_companions(
             target_type="companion",
             target_id=_LIST_TARGET,
             action="view_companions_list",
-            operator="admin-token",
+            operator=operator,
             reason=summary,
         )
     )
@@ -126,10 +128,11 @@ async def list_pending_companions(
 async def approve_companion(
     companion_id: UUID,
     session: DBSession,
+    operator: str = Depends(admin_operator_id),
 ):
     """Approve a companion."""
     svc = AdminAuditService(session)
-    await svc.approve_companion(companion_id, operator_id="admin-token")
+    await svc.approve_companion(companion_id, operator_id=operator)
     return OkResponse()
 
 
@@ -143,10 +146,11 @@ async def reject_companion(
     companion_id: UUID,
     body: RejectBody,
     session: DBSession,
+    operator: str = Depends(admin_operator_id),
 ):
     """Reject a companion with reason."""
     svc = AdminAuditService(session)
-    await svc.reject_companion(companion_id, operator_id="admin-token", reason=body.reason)
+    await svc.reject_companion(companion_id, operator_id=operator, reason=body.reason)
     return OkResponse()
 
 
@@ -203,11 +207,12 @@ async def certify_companion(
     companion_id: UUID,
     body: CertifyCompanionRequest,
     session: DBSession,
+    operator: str = Depends(admin_operator_id),
 ):
     svc = AdminAuditService(session)
     profile = await svc.certify_companion(
         companion_id,
-        operator_id="admin-token",
+        operator_id=operator,
         certification_type=body.certification_type,
         certification_no=body.certification_no,
         certification_image_url=body.certification_image_url,

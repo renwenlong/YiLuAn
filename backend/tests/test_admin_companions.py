@@ -57,7 +57,7 @@ async def _create_profile(
 @pytest.mark.asyncio
 async def test_no_token_returns_401(client):
     resp = await client.get(f"{BASE}/")
-    assert resp.status_code == 422  # missing required header
+    assert resp.status_code == 401  # ADR-0034 dual-track auth
 
 
 @pytest.mark.asyncio
