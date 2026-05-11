@@ -16,6 +16,12 @@ body { min-height: 100vh; }
 
 main { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
 
+/* Global guard: any element with the HTML "hidden" attribute MUST stay
+   hidden, even if a later display:flex/grid/block rule with the same
+   specificity tries to override the UA `[hidden] { display: none }` default.
+   We hit this twice (modals + .app-shell + <main>); fix it once for all. */
+[hidden] { display: none !important; }
+
 /* App shell with sidebar */
 .app-shell { display: flex; min-height: calc(100vh - 56px); }
 .sidebar { width: 200px; background: #fff; border-right: 1px solid #f0f0f0; flex-shrink: 0; padding: 16px 0; }

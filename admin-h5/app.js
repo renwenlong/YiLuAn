@@ -15,7 +15,13 @@
 const SS_TOKEN_KEY = 'yiluan.admin.token';
 const SS_OPERATOR_KEY = 'yiluan.admin.operator';
 const LS_API_BASE_KEY = 'yiluan.admin.apiBase';
-const DEFAULT_API_BASE = 'http://127.0.0.1:8000';
+// Default api base. If we are loaded from a non-file:// origin (e.g. served by
+// nginx at /admin/), prefer same-origin so we go through the reverse proxy
+// and avoid CORS / wrong-port issues. Only fall back to the hardcoded local
+// dev port when opened directly from the filesystem.
+const DEFAULT_API_BASE = (typeof location !== 'undefined' && location.protocol.startsWith('http'))
+  ? location.origin
+  : 'http://127.0.0.1:8000';
 const PAGE_SIZE = 20;
 
 // Action #8: 金额展示统一为「千分位 + 两位小数」（¥1,200.00）
