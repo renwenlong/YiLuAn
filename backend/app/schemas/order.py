@@ -45,6 +45,16 @@ class OrderResponse(BaseModel):
     companion_name: str | None = Field(None, description="陪诊师姓名（冗余）", examples=["张三"])
     patient_name: str | None = Field(None, description="患者姓名（冗余）", examples=["小明"])
     payment_status: str | None = Field(None, description="支付状态", examples=["success"])
+    payment_state: str | None = Field(
+        None,
+        description="订单资金副状态 - 支付 (none/paying/paid/failed/abnormal)",
+        examples=["paid"],
+    )
+    refund_state: str | None = Field(
+        None,
+        description="订单资金副状态 - 退款 (none/refunding/refunded/failed/manual_review)",
+        examples=["none"],
+    )
     expires_at: datetime | None = Field(None, description="待支付订单的过期时间")
     timeline: list[TimelineItem] | None = Field(None, description="订单时间轴")
     timeline_index: int | None = Field(None, description="当前时间轴索引")

@@ -36,6 +36,32 @@ class OrderStatus(str, enum.Enum):
     expired = "expired"
 
 
+class PaymentState(str, enum.Enum):
+    """Order-level payment **sub-state** (H2-be / ADR-0035 lite).
+
+    Independent of :class:`OrderStatus`; tracks the money side so the UI
+    can show "支付中 / 已付款 / 异常" without coupling to the business
+    state machine. ``ORDER_TRANSITIONS`` is intentionally NOT extended.
+    """
+
+    none = "none"
+    paying = "paying"
+    paid = "paid"
+    failed = "failed"
+    abnormal = "abnormal"
+
+
+class RefundState(str, enum.Enum):
+    """Order-level refund sub-state. ``manual_review`` is set by the
+    reconciliation cron when fund-side anomalies are detected."""
+
+    none = "none"
+    refunding = "refunding"
+    refunded = "refunded"
+    failed = "failed"
+    manual_review = "manual_review"
+
+
 # Valid state transitions: current_status -> set of allowed next statuses
 ORDER_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     OrderStatus.created: {
@@ -88,6 +114,20 @@ class Order(Base):
     )
     status: Mapped[OrderStatus] = mapped_column(
         Enum(OrderStatus), default=OrderStatus.created, nullable=False, index=True
+    )
+    payment_state: Mapped[PaymentState] = mapped_column(
+        Enum(PaymentState),
+        default=PaymentState.none,
+        server_default=PaymentState.none.value,
+        nullable=False,
+        index=True,
+    )
+    refund_state: Mapped[RefundState] = mapped_column(
+        Enum(RefundState),
+        default=RefundState.none,
+        server_default=RefundState.none.value,
+        nullable=False,
+        index=True,
     )
     appointment_date: Mapped[str] = mapped_column(String(10), nullable=False)
     appointment_time: Mapped[str] = mapped_column(String(5), nullable=False)

@@ -34,7 +34,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.core.distributed_lock import acquire_scheduler_lock
 from app.database import async_session
-from app.models.order import Order
+from app.models.order import Order, RefundState
 from app.models.payment import Payment
 from app.models.reconciliation import (
     ReconciliationDiff,
@@ -226,6 +226,7 @@ async def _persist_diffs(
     """Write diff rows, return count actually inserted (skipping duplicates)."""
     inserted = 0
     seen: set[tuple[uuid.UUID | None, str]] = set()
+    affected_order_ids: set[uuid.UUID] = set()
     for d in diffs:
         key = (d.order_id, d.kind.value)
         if key in seen:
@@ -247,7 +248,27 @@ async def _persist_diffs(
         )
         session.add(row)
         inserted += 1
+        if d.order_id is not None:
+            affected_order_ids.add(d.order_id)
     await session.flush()
+
+    # H2-be: a persisted reconciliation diff is by definition a fund-side
+    # anomaly. Flip ``refund_state`` to ``manual_review`` so the user
+    # detail page can show “资金异常审核中”. We deliberately do NOT
+    # overwrite ``refunded`` (the diff may itself be a stale/late event
+    # against an already-settled refund).
+    if affected_order_ids:
+        from sqlalchemy import select as _select
+        rows = (
+            await session.execute(
+                _select(Order).where(Order.id.in_(affected_order_ids))
+            )
+        ).scalars().all()
+        for o in rows:
+            if o.refund_state in (RefundState.none, RefundState.failed):
+                o.refund_state = RefundState.manual_review
+        await session.flush()
+
     return inserted
 
 
