@@ -31,8 +31,13 @@ class AdminUser(Base):
     __tablename__ = "admin_users"
 
     id: Mapped[int] = mapped_column(_ID_TYPE, primary_key=True, autoincrement=True)
+    # NOTE: only ``unique=True`` here. The DB already has both a UNIQUE
+    # constraint (``uq_admin_users_username``) and a non-unique btree index
+    # (``ix_admin_users_username``) from the original c1d2e3f4a5b6 migration.
+    # Adding ``index=True`` here would make SQLA's autogenerate expect a
+    # *unique* index too and produce drift in ``alembic check`` (CI).
     username: Mapped[str] = mapped_column(
-        String(64), unique=True, nullable=False, index=True
+        String(64), unique=True, nullable=False
     )
     # bcrypt hash; never logged.
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
