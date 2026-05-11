@@ -174,6 +174,27 @@ class ChatService:
             order_id, skip=skip, limit=page_size
         )
 
+    async def list_messages_since(
+        self,
+        order_id: uuid.UUID,
+        user: User,
+        *,
+        after_message_id: uuid.UUID | None,
+        limit: int = 100,
+    ) -> list:
+        """H3-be: incremental backfill for WS reconnect.
+
+        Mirrors :meth:`list_messages` permission check; returns messages
+        in ascending ``(created_at, id)`` order strictly after the supplied
+        cursor. Hard-caps ``limit`` to 200 (UI safety net).
+        """
+        await self._get_order_and_validate(order_id, user.id)
+        if limit > 200:
+            limit = 200
+        return await self.chat_repo.list_since(
+            order_id, after_id=after_message_id, limit=limit
+        )
+
     async def mark_read(self, order_id: uuid.UUID, user: User) -> int:
         await self._get_order_and_validate(order_id, user.id)
         return await self.chat_repo.mark_as_read(order_id, user.id)

@@ -5,6 +5,7 @@ from fastapi import APIRouter, Query
 from app.api.v1.openapi_meta import err
 from app.dependencies import CurrentUser, DBSession
 from app.schemas.chat import (
+    ChatMessageBackfillResponse,
     ChatMessageListResponse,
     ChatMessageResponse,
     SendMessageRequest,
@@ -38,6 +39,41 @@ async def list_messages(
     return ChatMessageListResponse(
         items=[ChatMessageResponse.model_validate(m) for m in items],
         total=total,
+    )
+
+
+@router.get(
+    "/{order_id}/messages/backfill",
+    response_model=ChatMessageBackfillResponse,
+    summary="WS 重连后增量回灌聊天消息",
+    description=(
+        "基于游标的增量回灌接口，配合 WebSocket 重连场景使用。\n\n"
+        "- ``after_id`` 为客户端本地最后一条消息 ID；缺省时返回最早 ``limit`` 条。\n"
+        "- 返回顺序严格 ``(created_at ASC, id ASC)``，与 WS 推送顺序一致。\n"
+        "- ``after_id`` 不属于该订单或已被清理时，等价于全量回灌（不报 404）。\n"
+        "- ``limit`` 由服务端硬上限 200。"
+    ),
+    responses={**err(401, 403, 404, 500)},
+)
+async def backfill_messages(
+    order_id: UUID,
+    current_user: CurrentUser,
+    session: DBSession,
+    after_id: UUID | None = Query(
+        None, description="上次最后一条消息 ID；为空则从头开始"
+    ),
+    limit: int = Query(100, ge=1, le=200, description="单次最多返回条数 1~200"),
+):
+    service = ChatService(session)
+    items = await service.list_messages_since(
+        order_id, current_user, after_message_id=after_id, limit=limit
+    )
+    has_more = len(items) >= limit
+    next_after_id = items[-1].id if items and has_more else None
+    return ChatMessageBackfillResponse(
+        items=[ChatMessageResponse.model_validate(m) for m in items],
+        next_after_id=next_after_id,
+        has_more=has_more,
     )
 
 
