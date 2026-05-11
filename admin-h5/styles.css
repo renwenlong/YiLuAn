@@ -89,6 +89,9 @@ main { max-width: 1200px; margin: 24px auto; padding: 0 16px; }
 .btn-danger:hover { background: #ff7875; border-color: #ff7875; color: #fff; }
 .btn-ghost { background: transparent; }
 .btn-ghost:hover { background: rgba(24,144,255,0.06); }
+/* topbar is dark — make ghost buttons readable on it */
+.topbar .btn-ghost { color: #fff; border-color: rgba(255,255,255,0.45); }
+.topbar .btn-ghost:hover { background: rgba(255,255,255,0.12); border-color: #fff; }
 .btn-sm { padding: 2px 10px; font-size: 13px; }
 
 .error { color: #ff4d4f; font-size: 13px; margin-top: 8px; }
