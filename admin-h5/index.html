@@ -46,11 +46,13 @@
   <div id="appShell" class="app-shell" hidden>
     <aside class="sidebar">
       <nav class="side-nav">
+        <a class="side-nav__item" data-route="dashboard" href="#/dashboard">首页</a>
         <a class="side-nav__item" data-route="companions" href="#/companions">陪诊师审核</a>
         <a class="side-nav__item" data-route="orders" href="#/orders">订单管理</a>
         <a class="side-nav__item" data-route="users" href="#/users">用户管理</a>
         <a class="side-nav__item" data-route="reconciliation" href="#/reconciliation">资金对账</a>
         <a class="side-nav__item" data-route="wallet" href="#/wallet">钱包账本</a>
+        <a class="side-nav__item" data-route="audit" href="#/audit">审计日志</a>
       </nav>
     </aside>
 
@@ -353,6 +355,88 @@
         </div>
       </section>
 
+      <!-- Dashboard view (A) -->
+      <section id="dashboardView" class="card route-view" hidden>
+        <div class="list-toolbar">
+          <h2>运营首页</h2>
+          <div class="toolbar-right">
+            <span id="dashboardGeneratedAt" class="hint"></span>
+            <button id="dashboardRefreshBtn" class="btn btn-ghost">刷新</button>
+          </div>
+        </div>
+        <div id="dashboardCards" class="kpi-grid">
+          <div class="empty" style="padding:24px">加载中…</div>
+        </div>
+        <div class="card-section">
+          <h3 style="margin:8px 0 12px">近 7 日订单趋势</h3>
+          <div id="dashboardSparkline" class="sparkline-wrap"></div>
+          <table class="data-table" style="margin-top:12px">
+            <thead><tr><th>日期</th><th style="text-align:right">订单数</th><th style="text-align:right">GMV (¥)</th></tr></thead>
+            <tbody id="dashboardTrendTbody"><tr><td colspan="3" class="empty">加载中…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Audit log view (C) -->
+      <section id="auditView" class="card route-view" hidden>
+        <div class="list-toolbar">
+          <h2>审计日志</h2>
+          <div class="toolbar-right">
+            <button id="auditRefreshBtn" class="btn btn-ghost">刷新</button>
+          </div>
+        </div>
+        <div class="filter-bar">
+          <div class="filter-bar__item">
+            <label>目标类型</label>
+            <input id="auditFilterTargetType" type="text" placeholder="order / user / companion" />
+          </div>
+          <div class="filter-bar__item">
+            <label>目标 ID</label>
+            <input id="auditFilterTargetId" type="text" placeholder="UUID" />
+          </div>
+          <div class="filter-bar__item">
+            <label>动作</label>
+            <input id="auditFilterAction" type="text" placeholder="force_status / refund / reveal_pii ..." />
+          </div>
+          <div class="filter-bar__item">
+            <label>操作员</label>
+            <input id="auditFilterOperator" type="text" placeholder="operator id" />
+          </div>
+          <div class="filter-bar__item">
+            <label>起始时间</label>
+            <input id="auditFilterSince" type="datetime-local" />
+          </div>
+          <div class="filter-bar__item">
+            <label>截止时间</label>
+            <input id="auditFilterUntil" type="datetime-local" />
+          </div>
+          <div class="filter-bar__actions">
+            <button id="auditSearchBtn" class="btn btn-primary">查询</button>
+            <button id="auditResetBtn" class="btn btn-ghost">重置</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width:170px">时间</th>
+                <th>动作</th>
+                <th>目标类型</th>
+                <th>目标 ID</th>
+                <th>操作员</th>
+                <th>原因 / 摘要</th>
+              </tr>
+            </thead>
+            <tbody id="auditTbody"><tr><td colspan="6" class="empty">加载中…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="pagination">
+          <button id="auditPrevBtn" class="btn btn-ghost">上一页</button>
+          <span id="auditPageInfo">第 1 / 1 页 · 共 0 条</span>
+          <button id="auditNextBtn" class="btn btn-ghost">下一页</button>
+        </div>
+      </section>
+
 </main>
   </div>
 
@@ -461,10 +545,41 @@
     </div>
   </div>
 
+  <!-- Order detail drawer (B: timeline + notes + raw) -->
+  <div id="orderDetailModal" class="modal" hidden>
+    <div class="modal-card modal-card--wide">
+      <div class="list-toolbar">
+        <h3 id="orderDetailTitle">订单详情</h3>
+        <div class="toolbar-right">
+          <button id="orderDetailCloseBtn" class="btn btn-ghost">关闭</button>
+        </div>
+      </div>
+      <div class="order-detail-grid">
+        <div class="order-detail-col">
+          <h4>基础信息</h4>
+          <pre id="orderDetailRaw" class="detail-body">加载中…</pre>
+        </div>
+        <div class="order-detail-col">
+          <h4>状态时间轴</h4>
+          <ol id="orderTimelineList" class="timeline"><li class="empty">加载中…</li></ol>
+          <h4 style="margin-top:18px">内部备注</h4>
+          <div id="orderNotesList" class="notes-list"><div class="empty">加载中…</div></div>
+          <div class="form-row">
+            <textarea id="orderNoteInput" rows="3" maxlength="5000" placeholder="新增备注（仅内部可见，会写审计）"></textarea>
+          </div>
+          <div class="modal-actions" style="justify-content:flex-end">
+            <button id="orderNoteSubmitBtn" class="btn btn-primary">添加备注</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div id="toast" class="toast" hidden></div>
 
   <script src="./formatCurrency.js"></script>
+  <script src="./admin-modules.js"></script>
   <script src="./app.js"></script>
 
   <!-- Wallet adjustment modal (D-050) -->

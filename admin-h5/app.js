@@ -76,6 +76,15 @@ const state = {
     page: 1, total: 0, items: [],
     filters: { user_id: '', reason: '' , companion_id: '' },
   },
+  // dashboard (A)
+  dashboard: { loaded: false },
+  // audit log (C)
+  audit: {
+    page: 1, total: 0, items: [],
+    filters: { target_type: '', target_id: '', action: '', operator: '', since: '', until: '' },
+  },
+  // order detail drawer (B)
+  orderDetail: { id: null, raw: null, timeline: [], notes: [] },
 };
 
 // ---------- DOM helpers ----------
@@ -349,15 +358,7 @@ const Orders = {
     this.load();
   },
   async openDetail(id) {
-    openDetail('订单详情 · ' + id, '加载中…');
-    try {
-      const data = await apiCall('/api/v1/admin/orders/' + id);
-      openDetail('订单详情 · ' + id, data);
-    } catch (e) {
-      if (handleAuthError(e)) return;
-      toast('加载详情失败：' + e.message, 'error');
-      closeDetail();
-    }
+    OrderDetailDrawer.open(id);
   },
   openForceStatus(id) {
     state.orders.pendingActionId = id;
@@ -951,16 +952,18 @@ const Wallet = {
 // Router & shell
 // ===================================================================
 const ROUTES = {
+  dashboard:      { view: '#dashboardView', mod: Dashboard },
   companions:     { view: '#companionsView', mod: Companions },
   orders:         { view: '#ordersView',     mod: Orders },
   users:          { view: '#usersView',      mod: Users },
   reconciliation: { view: '#reconView',      mod: Reconciliation },
   wallet:         { view: '#walletView',     mod: Wallet },
+  audit:          { view: '#auditView',      mod: AuditLog },
 };
 
 function parseHash() {
   const h = (location.hash || '').replace(/^#\/?/, '').split('/')[0];
-  return ROUTES[h] ? h : 'companions';
+  return ROUTES[h] ? h : 'dashboard';
 }
 
 function navigate() {
@@ -994,7 +997,7 @@ function showShell() {
   show($('#appShell'));
   show($('#logoutBtn'));
   $('#adminInfo').textContent = state.apiBase + (state.operator ? ' · ' + state.operator : '');
-  if (!location.hash) location.hash = '#/companions';
+  if (!location.hash) location.hash = '#/dashboard';
   navigate();
 }
 
@@ -1050,6 +1053,9 @@ function init() {
   Orders.bind();
   Users.bind();
   Reconciliation.bind();
+  Dashboard.bind();
+  AuditLog.bind();
+  OrderDetailDrawer.bind();
   if (state.token && state.operator) showShell(); else showLogin();
 }
 

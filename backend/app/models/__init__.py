@@ -1,4 +1,5 @@
 from app.models.admin_audit_log import AdminAuditLog
+from app.models.admin_note import AdminNote
 from app.models.admin_user import AdminRole, AdminUser
 from app.models.chat_message import ChatMessage, MessageType
 from app.models.companion_profile import CompanionProfile, VerificationStatus
@@ -36,6 +37,7 @@ from app.models.wallet_ledger import (
 
 __all__ = [
     "AdminAuditLog",
+    "AdminNote",
     "AdminUser",
     "AdminRole",
     "User",
