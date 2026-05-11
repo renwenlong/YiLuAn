@@ -104,11 +104,19 @@ class UserStatusResponse(BaseModel):
 
 def _to_item(u: User, *, reveal: bool = False) -> dict:
     masked = mask_phone(u.phone) if u.phone else None
+    # `users.role` is the legacy single-role enum column; the newer multi-role
+    # signup writes a comma-separated list into `users.roles` instead. Surface
+    # whichever one has a value so the admin UI doesn't show '-' for accounts
+    # that exist via the new path.
+    role_display = (
+        u.role.value if u.role is not None
+        else (u.roles.split(",")[0] if u.roles else None)
+    )
     return {
         "id": str(u.id),
         "phone": u.phone if reveal else masked,
         "phone_masked": masked,
-        "role": u.role.value if u.role else None,
+        "role": role_display,
         "roles": u.roles,
         "display_name": u.display_name,
         "is_active": u.is_active,

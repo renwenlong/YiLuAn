@@ -480,8 +480,8 @@ const Users = {
     } else {
       tbody.innerHTML = items.map((u) => {
         const phone = u.phone_masked || u.phone || u.mobile || '-';
-        const nickname = u.display_name || u.nickname || u.name || '-';
-        const role = u.role || '-';
+        const nickname = u.display_name || u.nickname || u.name;
+        const role = u.role || (u.roles ? u.roles.split(',')[0] : '') || '-';
         const isActive = u.is_active !== false; // null/undefined treat as active
         const statusValue = isActive ? 'active' : 'disabled';
         const statusText = isActive ? '启用' : '禁用';
@@ -491,7 +491,7 @@ const Users = {
         return (
           '<tr>' +
           '<td>' + escapeHtml(phone) + '</td>' +
-          '<td>' + escapeHtml(nickname) + '</td>' +
+          '<td>' + (nickname ? escapeHtml(nickname) : '<span style="color:#bbb">未填写</span>') + '</td>' +
           '<td>' + statusPill(role) + '</td>' +
           '<td>' + statusPill(statusValue, statusText) + '</td>' +
           '<td>' + escapeHtml(u.created_at || '-') + '</td>' +
