@@ -35,3 +35,23 @@ class ChatMessageResponse(BaseModel):
 class ChatMessageListResponse(BaseModel):
     items: list[ChatMessageResponse] = Field(..., description="当页消息列表")
     total: int = Field(..., description="总条数", examples=[42])
+
+
+class ChatMessageBackfillResponse(BaseModel):
+    """H3-be: WS 重连 / 增量回灌响应。
+
+    严格按 ``(created_at ASC, id ASC)`` 返回。客户端可用 ``next_after_id``
+    作为下一次回灌的游标，直到 ``has_more`` 为 ``False``。
+    """
+
+    items: list[ChatMessageResponse] = Field(
+        ..., description="自游标之后的增量消息（升序）"
+    )
+    next_after_id: UUID | None = Field(
+        default=None,
+        description="下一次回灌应使用的游标 ID；为 None 表示已无更多",
+    )
+    has_more: bool = Field(
+        default=False,
+        description="是否仍有更多消息（即本批已被 limit 截断）",
+    )
