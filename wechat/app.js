@@ -99,6 +99,33 @@ App({
   },
 
   onLaunch() {
+    // 全局都底：捕获未处理的 Promise reject（包括 wx 内部 timeout）与
+    // 同步异常。主要场景：devtools 下 ws://localhost 走不通、后台临时
+    // 5xx、某条业务代码忘写 .catch 等 —— 之前这种会冲到控制
+    // 台变成匠名其妙的 `Error: timeout`，现在统一收拢到可读日志。
+    if (typeof wx !== 'undefined') {
+      if (typeof wx.onUnhandledRejection === 'function') {
+        wx.onUnhandledRejection(function (res) {
+          // res = { reason, promise }。reason 可能是 Error / 字符串 / 任意对象。
+          var reason = res && res.reason
+          var msg =
+            reason instanceof Error
+              ? reason.message
+              : typeof reason === 'string'
+              ? reason
+              : (function () {
+                  try { return JSON.stringify(reason) } catch (e) { return String(reason) }
+                })()
+          console.warn('[App] Unhandled promise rejection:', msg, reason)
+        })
+      }
+      if (typeof wx.onError === 'function') {
+        wx.onError(function (err) {
+          console.warn('[App] wx.onError:', err)
+        })
+      }
+    }
+
     const accessToken = getAccessToken()
     if (accessToken && !isTokenExpired(accessToken)) {
       store.setState({ isAuthenticated: true })
