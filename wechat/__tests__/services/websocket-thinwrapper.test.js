@@ -5,7 +5,7 @@
  */
 
 describe('services/websocket — thin wrapper public API', () => {
-  const ws = require('../../services/websocket')
+  const ws = require('../../pages/chat/room/services/websocket')
 
   test('exports connect / send / onMessage / disconnect', () => {
     expect(typeof ws.connect).toBe('function')

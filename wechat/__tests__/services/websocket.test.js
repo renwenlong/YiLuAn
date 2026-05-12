@@ -1,4 +1,4 @@
-const ws = require('../../services/websocket')
+const ws = require('../../pages/chat/room/services/websocket')
 
 let mockSocketTask
 

@@ -1,6 +1,6 @@
 const { getChatMessages, markRead } = require('../../../services/chat')
 const { getOrderDetail, orderAction } = require('../../../services/order')
-const ws = require('../../../services/websocket')
+const ws = require('./services/websocket')
 const store = require('../../../store/index')
 
 Page({

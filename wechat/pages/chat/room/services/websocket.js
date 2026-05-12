@@ -9,9 +9,9 @@
  * **向后兼容**：调用方（如 pages/chat）现有 require('services/websocket')
  * 调用形态不变。
  */
-const config = require('../config/index')
-const { getAccessToken } = require('../utils/token')
-const { WSBase } = require('../core/ws-base')
+const config = require('../../../../config/index')
+const { getAccessToken } = require('../../../../utils/token')
+const { WSBase } = require('../../../../core/ws-base')
 
 let _instance = null
 let _messageCallback = null
