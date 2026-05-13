@@ -1,8 +1,12 @@
 const config = require('../config/index')
 const { getAccessToken, setAccessToken, setRefreshToken, getRefreshToken, clearTokens } = require('../utils/token')
 
-let _isRefreshing = false
-let _refreshQueue = []
+// Single in-flight refresh promise. All 401s that land while a refresh is in
+// progress await this same promise instead of being queued raw, which avoids
+// the old bug where a refresh-network-failure left every queued caller in
+// permanent pending (forever spinner). Resolves with new access_token on
+// success; rejects with the upstream error on failure.
+let _refreshPromise = null
 
 function request({ url, method = 'GET', data, auth = true, _skipGuardHandlers = false, _skipPhoneRequiredHandler = false }) {
   // `_skipPhoneRequiredHandler` 保留为向后兼容的参数。如果备调用流不希望自动触发 guard 弹窗，
@@ -120,53 +124,70 @@ function _handleVerificationRequired(payload, reject) {
 }
 
 function _handleUnauthorized(originalRequest, resolve, reject) {
-  if (_isRefreshing) {
-    _refreshQueue.push({ originalRequest, resolve, reject })
-    return
-  }
-
-  _isRefreshing = true
-  const refreshToken = getRefreshToken()
-  if (!refreshToken) {
-    _isRefreshing = false
-    _forceLogout()
-    reject({ statusCode: 401, data: { detail: 'No refresh token' } })
-    return
-  }
-
-  wx.request({
-    url: config.API_BASE_URL + '/auth/refresh',
-    method: 'POST',
-    data: { refresh_token: refreshToken },
-    header: { 'Content-Type': 'application/json' },
-    success(res) {
-      if (res.statusCode === 200 && res.data.access_token) {
-        setAccessToken(res.data.access_token)
-        setRefreshToken(res.data.refresh_token)
-        _isRefreshing = false
-
-        // Retry original request
-        request(originalRequest).then(resolve).catch(reject)
-
-        // Retry queued requests
-        _refreshQueue.forEach(item => {
-          request(item.originalRequest).then(item.resolve).catch(item.reject)
-        })
-        _refreshQueue = []
-      } else {
-        _isRefreshing = false
-        _refreshQueue = []
-        _forceLogout()
-        reject({ statusCode: 401, data: res.data })
-      }
+  // Coalesce: if a refresh is already in flight, every concurrent 401 awaits
+  // the same promise. On success, we re-fire the original request. On
+  // failure, we propagate the same rejection to every waiter — nobody is
+  // left hanging.
+  _ensureRefresh().then(
+    () => {
+      // Token has been updated in storage by _ensureRefresh; just retry.
+      request(originalRequest).then(resolve).catch(reject)
     },
-    fail() {
-      _isRefreshing = false
-      _refreshQueue = []
+    (err) => {
+      reject(err)
+    },
+  )
+}
+
+function _ensureRefresh() {
+  if (_refreshPromise) return _refreshPromise
+
+  _refreshPromise = new Promise((resolveRefresh, rejectRefresh) => {
+    const refreshToken = getRefreshToken()
+    if (!refreshToken) {
       _forceLogout()
-      reject({ statusCode: 0, data: { detail: 'Network error during refresh' } })
-    },
+      rejectRefresh({ statusCode: 401, data: { detail: 'No refresh token' } })
+      return
+    }
+
+    wx.request({
+      url: config.API_BASE_URL + '/auth/refresh',
+      method: 'POST',
+      data: { refresh_token: refreshToken },
+      header: { 'Content-Type': 'application/json' },
+      success(res) {
+        if (res.statusCode === 200 && res.data && res.data.access_token) {
+          setAccessToken(res.data.access_token)
+          setRefreshToken(res.data.refresh_token)
+          resolveRefresh(res.data.access_token)
+        } else {
+          // Refresh server-rejected (e.g. token expired / revoked / reuse
+          // detected). Force logout and propagate to every waiter.
+          _forceLogout()
+          rejectRefresh({ statusCode: res.statusCode, data: res.data })
+        }
+      },
+      fail() {
+        // Network failure during refresh. Previously this dropped every
+        // queued caller on the floor (permanent pending). Now we reject
+        // them all with a uniform error and let UI surface a retry hint.
+        // We do NOT force-logout on a transient network blip — the user
+        // can retry once connectivity returns.
+        rejectRefresh({
+          statusCode: 0,
+          data: { detail: 'Network error during refresh' },
+        })
+      },
+    })
   })
+
+  // Always clear the cached promise after settle so the next 401 can start
+  // a fresh refresh attempt (e.g. after the user reconnects).
+  const clear = () => {
+    _refreshPromise = null
+  }
+  _refreshPromise.then(clear, clear)
+  return _refreshPromise
 }
 
 function _forceLogout() {

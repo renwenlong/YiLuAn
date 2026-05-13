@@ -177,4 +177,70 @@ describe('services/api', () => {
     })
     expect(wx.showModal).not.toHaveBeenCalled()
   })
+
+  // Test 12: concurrent 401s share a single refresh; all callers resolve
+  // (Regression for the old _refreshQueue race.)
+  test('concurrent 401s coalesce into one refresh and all retry', async () => {
+    wx.setStorageSync('yiluan_access_token', 'old')
+    wx.setStorageSync('yiluan_refresh_token', 'good_refresh')
+
+    let refreshCalls = 0
+    let businessCalls = 0
+    wx.request.mockImplementation((options) => {
+      if (options.url.endsWith('/auth/refresh')) {
+        refreshCalls++
+        // Resolve refresh asynchronously so both 401s land in the queue.
+        setTimeout(() => {
+          options.success({
+            statusCode: 200,
+            data: { access_token: 'new', refresh_token: 'new_r' },
+          })
+        }, 0)
+        return
+      }
+      businessCalls++
+      // First call from each request returns 401; retry returns 200.
+      const isRetry = options.header && options.header.Authorization === 'Bearer new'
+      if (isRetry) {
+        options.success({ statusCode: 200, data: { ok: true, n: businessCalls } })
+      } else {
+        options.success({ statusCode: 401, data: {} })
+      }
+    })
+
+    const [a, b] = await Promise.all([
+      request({ url: 'a', method: 'GET' }),
+      request({ url: 'b', method: 'GET' }),
+    ])
+    expect(a.ok).toBe(true)
+    expect(b.ok).toBe(true)
+    // Exactly ONE refresh fired despite two parallel 401s.
+    expect(refreshCalls).toBe(1)
+  })
+
+  // Test 13: refresh network failure rejects every concurrent waiter
+  // (no permanent-pending / infinite-spinner regression).
+  test('refresh network failure rejects all queued requests', async () => {
+    wx.setStorageSync('yiluan_access_token', 'old')
+    wx.setStorageSync('yiluan_refresh_token', 'r')
+
+    wx.request.mockImplementation((options) => {
+      if (options.url.endsWith('/auth/refresh')) {
+        setTimeout(() => options.fail({ errMsg: 'request:fail' }), 0)
+        return
+      }
+      options.success({ statusCode: 401, data: {} })
+    })
+
+    const results = await Promise.allSettled([
+      request({ url: 'a', method: 'GET' }),
+      request({ url: 'b', method: 'GET' }),
+      request({ url: 'c', method: 'GET' }),
+    ])
+    // All three must settle as rejections — not hang forever.
+    expect(results.every((r) => r.status === 'rejected')).toBe(true)
+    for (const r of results) {
+      expect(r.reason.statusCode).toBe(0)
+    }
+  })
 })
