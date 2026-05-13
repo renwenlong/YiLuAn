@@ -1,3 +1,4 @@
+import uuid
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -15,10 +16,18 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     return jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
-def create_refresh_token(data: dict) -> str:
+def create_refresh_token(data: dict, jti: str | None = None) -> str:
+    """Issue a refresh JWT with a unique ``jti`` claim.
+
+    The ``jti`` is required to support server-side rotation / revocation via
+    Redis (see ``app.services.refresh_tokens.RefreshTokenStore``). If callers
+    don't pass one, we generate a fresh uuid4.
+    """
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + timedelta(days=settings.jwt_refresh_token_expire_days)
-    to_encode.update({"exp": expire, "type": "refresh"})
+    if jti is None:
+        jti = uuid.uuid4().hex
+    to_encode.update({"exp": expire, "type": "refresh", "jti": jti})
     return jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 

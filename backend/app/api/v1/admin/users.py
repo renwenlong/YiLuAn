@@ -34,7 +34,7 @@ against the caller's ``sub`` claim and rejects with 403.
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 
 from app.core.admin_auth import require_admin_token  # noqa: F401  (legacy import retained for downstream consumers)
@@ -45,6 +45,7 @@ from app.exceptions import NotFoundException
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.user import User
 from app.repositories.user import UserRepository
+from app.services.auth import AuthService
 
 router = APIRouter(
     prefix="/users",
@@ -265,6 +266,7 @@ async def disable_user(
     user_id: UUID,
     body: DisableBody,
     session: DBSession,
+    request: Request,
     operator: str = Depends(admin_operator_id),
 ):
     """Disable a user.
@@ -290,6 +292,11 @@ async def disable_user(
         reason=body.reason,
     )
     await session.flush()
+
+    # Revoke every active refresh token so the disabled user can't keep
+    # rotating credentials. Access tokens will expire on their own.
+    auth_service = AuthService(session, request.app.state.redis)
+    await auth_service.revoke_all_refresh_tokens(user_id)
 
     return {"user_id": str(user_id), "is_active": False}
 

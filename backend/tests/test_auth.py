@@ -159,9 +159,24 @@ class TestVerifyOTP:
 # POST /api/v1/auth/refresh
 # ===========================================================================
 class TestRefreshToken:
+    async def _issue_refresh(self, client, user):
+        """Mint a refresh token AND register its jti in FakeRedis.
+
+        Mirrors what AuthService._issue_token_pair does in real flows. Tests
+        that need a 'genuinely valid' refresh should use this helper instead
+        of calling create_refresh_token directly.
+        """
+        from app.services.refresh_tokens import RefreshTokenStore
+
+        jti = uuid.uuid4().hex
+        token = create_refresh_token({"sub": str(user.id), "role": None}, jti=jti)
+        store = RefreshTokenStore(client._transport.app.state.redis)
+        await store.issue(str(user.id), jti, ttl_seconds=3600)
+        return token, jti
+
     async def test_refresh_success(self, client, seed_user):
         user = await seed_user(phone="13800138000")
-        refresh = create_refresh_token({"sub": str(user.id), "role": None})
+        refresh, _jti = await self._issue_refresh(client, user)
         response = await client.post(
             "/api/v1/auth/refresh", json={"refresh_token": refresh}
         )
@@ -169,10 +184,78 @@ class TestRefreshToken:
         data = response.json()
         assert "access_token" in data
         assert "refresh_token" in data
-        # New tokens should be valid
         new_access = decode_token(data["access_token"])
         assert new_access["sub"] == str(user.id)
         assert new_access["type"] == "access"
+        # New refresh must carry a fresh jti, not the old one.
+        new_refresh = decode_token(data["refresh_token"])
+        assert new_refresh["type"] == "refresh"
+        assert "jti" in new_refresh
+
+    async def test_refresh_rotates_jti_and_invalidates_old(self, client, seed_user):
+        """Single-use guarantee: replaying the old refresh after a successful
+        rotation must be rejected (and triggers revoke_all under the hood).
+        """
+        user = await seed_user(phone="13800138001")
+        refresh, _ = await self._issue_refresh(client, user)
+        first = await client.post(
+            "/api/v1/auth/refresh", json={"refresh_token": refresh}
+        )
+        assert first.status_code == 200
+        # Replay old refresh -> reuse detected -> 401
+        replay = await client.post(
+            "/api/v1/auth/refresh", json={"refresh_token": refresh}
+        )
+        assert replay.status_code == 401
+        assert "reuse" in replay.json()["detail"].lower()
+
+    async def test_refresh_reuse_revokes_all_sessions(self, client, seed_user):
+        """After reuse-detection, every other live refresh for the same user
+        must also be invalidated (kill-all-sessions strategy / RFC 6819).
+        """
+        user = await seed_user(phone="13800138002")
+        # Two independent logins (two devices).
+        refresh_a, _ = await self._issue_refresh(client, user)
+        refresh_b, _ = await self._issue_refresh(client, user)
+        # Rotate A successfully.
+        ok = await client.post(
+            "/api/v1/auth/refresh", json={"refresh_token": refresh_a}
+        )
+        assert ok.status_code == 200
+        # Replay A => reuse => kill all (including B).
+        replay = await client.post(
+            "/api/v1/auth/refresh", json={"refresh_token": refresh_a}
+        )
+        assert replay.status_code == 401
+        # B should now also be dead.
+        b_resp = await client.post(
+            "/api/v1/auth/refresh", json={"refresh_token": refresh_b}
+        )
+        assert b_resp.status_code == 401
+
+    async def test_refresh_legacy_token_without_jti_rejected(
+        self, client, seed_user
+    ):
+        """Tokens minted before the rotation feature (no ``jti`` claim) must
+        be rejected so we don't leave a 7-day replay hole during rollout.
+        """
+        user = await seed_user(phone="13800138003")
+        legacy = create_refresh_token({"sub": str(user.id), "role": None})
+        # Strip jti by re-encoding manually.
+        import jwt as _jwt
+
+        payload = _jwt.decode(
+            legacy, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm]
+        )
+        payload.pop("jti", None)
+        no_jti = _jwt.encode(
+            payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm
+        )
+        response = await client.post(
+            "/api/v1/auth/refresh", json={"refresh_token": no_jti}
+        )
+        assert response.status_code == 401
+        assert "jti" in response.json()["detail"].lower()
 
     async def test_refresh_invalid_token(self, client):
         response = await client.post(
@@ -182,11 +265,11 @@ class TestRefreshToken:
 
     async def test_refresh_expired_token(self, client, seed_user):
         user = await seed_user(phone="13800138000")
-        # Craft an already-expired refresh token
         expired_payload = {
             "sub": str(user.id),
             "role": None,
             "type": "refresh",
+            "jti": uuid.uuid4().hex,
             "exp": datetime.now(timezone.utc) - timedelta(hours=1),
         }
         expired_token = jwt.encode(

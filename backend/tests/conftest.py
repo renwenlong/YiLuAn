@@ -27,6 +27,7 @@ class FakeRedis:
     def __init__(self):
         self._store: dict[str, str] = {}
         self._zsets: dict[str, dict[str, float]] = {}
+        self._sets: dict[str, set[str]] = {}
 
     async def get(self, key: str) -> str | None:
         return self._store.get(key)
@@ -37,13 +38,25 @@ class FakeRedis:
     async def setex(self, key: str, ttl: int, value: str) -> None:
         self._store[key] = str(value)
 
-    async def delete(self, key: str) -> None:
-        self._store.pop(key, None)
-        self._zsets.pop(key, None)
+    async def delete(self, *keys: str) -> int:
+        # Real redis-py accepts varargs; tests previously only passed one.
+        removed = 0
+        for key in keys:
+            if key in self._store:
+                self._store.pop(key, None)
+                removed += 1
+            if key in self._zsets:
+                self._zsets.pop(key, None)
+                removed += 1
+            if key in self._sets:
+                self._sets.pop(key, None)
+                removed += 1
+        return removed
 
     async def close(self) -> None:
         self._store.clear()
         self._zsets.clear()
+        self._sets.clear()
 
     # redis>=5 renamed close → aclose for the async client. Mirror it so
     # FastAPI lifespan shutdown (which calls app.state.redis.aclose()) works.
@@ -91,6 +104,68 @@ class FakeRedis:
         for m in to_remove:
             zset.pop(m, None)
         return len(to_remove)
+
+    # --- SET commands (refresh-token jti whitelist) ----------------------
+    async def sadd(self, key: str, *members: str) -> int:
+        s = self._sets.setdefault(key, set())
+        added = 0
+        for m in members:
+            if m not in s:
+                s.add(m)
+                added += 1
+        return added
+
+    async def srem(self, key: str, *members: str) -> int:
+        s = self._sets.get(key)
+        if not s:
+            return 0
+        removed = 0
+        for m in members:
+            if m in s:
+                s.discard(m)
+                removed += 1
+        if not s:
+            self._sets.pop(key, None)
+        return removed
+
+    async def sismember(self, key: str, member: str) -> bool:
+        return member in self._sets.get(key, set())
+
+    async def smembers(self, key: str):
+        return set(self._sets.get(key, set()))
+
+    # --- pipeline (executed sequentially) --------------------------------
+    def pipeline(self):
+        return _FakeRedisPipeline(self)
+
+
+class _FakeRedisPipeline:
+    """Best-effort sync-then-async pipeline shim.
+
+    redis-py's pipeline queues commands synchronously and awaits the whole
+    batch on ``execute()``. We mirror that surface by recording (method,
+    args, kwargs) tuples and replaying them via ``getattr`` on the underlying
+    FakeRedis instance.
+    """
+
+    def __init__(self, client: "FakeRedis"):
+        self._client = client
+        self._ops: list[tuple[str, tuple, dict]] = []
+
+    def __getattr__(self, name: str):
+        def _record(*args, **kwargs):
+            self._ops.append((name, args, kwargs))
+            return self
+
+        return _record
+
+    async def execute(self):
+        results = []
+        for name, args, kwargs in self._ops:
+            fn = getattr(self._client, name)
+            results.append(await fn(*args, **kwargs))
+        self._ops.clear()
+        return results
 
 
 # ---------------------------------------------------------------------------

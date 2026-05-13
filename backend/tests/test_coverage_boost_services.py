@@ -388,14 +388,19 @@ class TestAuthServiceBranches:
 
     async def test_refresh_token_success(self):
         from app.core.security import create_refresh_token
+        from app.services.refresh_tokens import RefreshTokenStore
+        import uuid as _uuid
 
         async with test_session_factory() as session:
             user = User(phone="13888880003", role=UserRole.patient, roles="patient")
             session.add(user)
             await session.commit()
             await session.refresh(user)
-            tok = create_refresh_token({"sub": str(user.id)})
-            svc = AuthService(session, FakeRedis())
+            jti = _uuid.uuid4().hex
+            tok = create_refresh_token({"sub": str(user.id)}, jti=jti)
+            redis = FakeRedis()
+            await RefreshTokenStore(redis).issue(str(user.id), jti, ttl_seconds=3600)
+            svc = AuthService(session, redis)
             res = await svc.refresh_token(tok)
             assert isinstance(res, RefreshTokenResponse)
             assert res.access_token and res.refresh_token

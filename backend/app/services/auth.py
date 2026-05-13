@@ -1,5 +1,6 @@
 import random
 import string
+import uuid
 from uuid import UUID
 
 import redis.asyncio as aioredis
@@ -11,6 +12,7 @@ from app.exceptions import BadRequestException, ConflictException, TooManyReques
 from app.models.user import User
 from app.repositories.user import UserRepository
 from app.schemas.auth import RefreshTokenResponse, TokenResponse, UserResponse
+from app.services.refresh_tokens import RefreshTokenStore
 from app.services.wechat import WeChatAPIClient
 from app.services.providers.sms import (
     SMSRateLimiter,
@@ -31,6 +33,29 @@ class AuthService:
         self.user_repo = UserRepository(session)
         self.redis = redis_client
         self.session = session
+        self.refresh_store = RefreshTokenStore(redis_client)
+
+    # ----- refresh-token helpers (server-side rotation/revocation) ---------
+    @property
+    def _refresh_ttl_seconds(self) -> int:
+        return settings.jwt_refresh_token_expire_days * 24 * 3600
+
+    async def _issue_token_pair(self, user: User) -> tuple[str, str]:
+        """Mint access+refresh and register the refresh jti in Redis.
+
+        Single source of truth for every login / register / wechat / apple /
+        switch-role path so we never forget to whitelist the jti.
+        """
+        token_data = {
+            "sub": str(user.id),
+            "role": user.role.value if user.role else None,
+            "roles": user.get_roles(),
+        }
+        access_token = create_access_token(token_data)
+        jti = uuid.uuid4().hex
+        refresh_token = create_refresh_token(token_data, jti=jti)
+        await self.refresh_store.issue(str(user.id), jti, self._refresh_ttl_seconds)
+        return access_token, refresh_token
 
     async def send_otp(self, phone: str) -> None:
         # Per-phone rate limiting (60s + 1h windows). Backed by Redis;
@@ -104,9 +129,7 @@ class AuthService:
         if not user.is_active:
             raise UnauthorizedException("Account is disabled")
 
-        token_data = {"sub": str(user.id), "role": user.role.value if user.role else None, "roles": user.get_roles()}
-        access_token = create_access_token(token_data)
-        refresh_token = create_refresh_token(token_data)
+        access_token, refresh_token = await self._issue_token_pair(user)
 
         return TokenResponse(
             access_token=access_token,
@@ -120,6 +143,13 @@ class AuthService:
             await self.redis.expire(fail_key, OTP_FAIL_LOCK_SECONDS)
 
     async def refresh_token(self, refresh_token_str: str) -> RefreshTokenResponse:
+        """Rotate a refresh token.
+
+        Server-side state lives in Redis (``RefreshTokenStore``). A refresh
+        token is single-use: presenting it retires its ``jti`` and issues a
+        new pair. Replaying an already-rotated jti is treated as a credential
+        compromise — we revoke **every** active refresh for that user.
+        """
         payload = decode_token(refresh_token_str)
         if payload is None:
             raise UnauthorizedException("Invalid refresh token")
@@ -130,6 +160,13 @@ class AuthService:
         user_id = payload.get("sub")
         if not user_id:
             raise UnauthorizedException("Invalid token: missing subject")
+
+        old_jti = payload.get("jti")
+        if not old_jti:
+            # Legacy tokens minted before the rotation feature (no jti claim)
+            # cannot be trusted — they were freely replayable for 7 days. Force
+            # the client to re-authenticate.
+            raise UnauthorizedException("Refresh token missing jti; please log in again")
 
         try:
             uid = UUID(user_id)
@@ -144,11 +181,33 @@ class AuthService:
         if not user.is_active:
             raise UnauthorizedException("Account is disabled")
 
-        token_data = {"sub": str(user.id), "role": user.role.value if user.role else None, "roles": user.get_roles()}
+        # Attempt atomic rotation. ``rotate`` returns False if old_jti is not
+        # in the active set => replay/reuse detection.
+        new_jti = uuid.uuid4().hex
+        rotated = await self.refresh_store.rotate(
+            str(user.id), old_jti, new_jti, self._refresh_ttl_seconds
+        )
+        if not rotated:
+            # Reuse detected. Kill every active refresh for this user (per
+            # OAuth refresh-rotation best practice / RFC 6819 §5.2.2.3).
+            await self.refresh_store.revoke_all(str(user.id))
+            raise UnauthorizedException(
+                "Refresh token reuse detected; all sessions revoked"
+            )
+
+        token_data = {
+            "sub": str(user.id),
+            "role": user.role.value if user.role else None,
+            "roles": user.get_roles(),
+        }
         new_access = create_access_token(token_data)
-        new_refresh = create_refresh_token(token_data)
+        new_refresh = create_refresh_token(token_data, jti=new_jti)
 
         return RefreshTokenResponse(access_token=new_access, refresh_token=new_refresh)
+
+    async def revoke_all_refresh_tokens(self, user_id: UUID | str) -> int:
+        """Public hook for logout / account-disable / soft-delete paths."""
+        return await self.refresh_store.revoke_all(str(user_id))
 
     async def wechat_login(self, code: str) -> TokenResponse:
         DEV_WX_CODE = "dev_test_code"
@@ -173,9 +232,7 @@ class AuthService:
         if not user.is_active:
             raise UnauthorizedException("Account is disabled")
 
-        token_data = {"sub": str(user.id), "role": user.role.value if user.role else None, "roles": user.get_roles()}
-        access_token = create_access_token(token_data)
-        refresh_token = create_refresh_token(token_data)
+        access_token, refresh_token = await self._issue_token_pair(user)
 
         return TokenResponse(
             access_token=access_token,
@@ -210,13 +267,7 @@ class AuthService:
                 "Account is disabled", error_code="APPLE_USER_REVOKED"
             )
 
-        token_data = {
-            "sub": str(user.id),
-            "role": user.role.value if user.role else None,
-            "roles": user.get_roles(),
-        }
-        access_token = create_access_token(token_data)
-        refresh_token = create_refresh_token(token_data)
+        access_token, refresh_token = await self._issue_token_pair(user)
 
         return TokenResponse(
             access_token=access_token,

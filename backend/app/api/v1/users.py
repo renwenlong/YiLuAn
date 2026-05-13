@@ -1,11 +1,11 @@
-from fastapi import APIRouter, UploadFile
+from fastapi import APIRouter, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.api.v1.openapi_meta import err
-from app.core.security import create_access_token, create_refresh_token
 from app.dependencies import CurrentUser, DBSession
 from app.schemas.auth import TokenResponse, UserResponse
 from app.schemas.user import AvatarUploadResponse, SwitchRoleRequest, UpdateUserRequest
+from app.services.auth import AuthService
 from app.services.upload import UploadService
 from app.services.user import UserService
 
@@ -77,16 +77,13 @@ async def switch_role(
     body: SwitchRoleRequest,
     current_user: CurrentUser,
     session: DBSession,
+    request: Request,
 ):
     service = UserService(session)
     user = await service.switch_role(current_user, body.role)
-    token_data = {
-        "sub": str(user.id),
-        "role": user.role.value if user.role else None,
-        "roles": user.get_roles(),
-    }
-    access_token = create_access_token(token_data)
-    refresh_token = create_refresh_token(token_data)
+    # Issue via AuthService so the new refresh jti is registered in Redis.
+    auth_service = AuthService(session, request.app.state.redis)
+    access_token, refresh_token = await auth_service._issue_token_pair(user)
     return TokenResponse(
         access_token=access_token,
         refresh_token=refresh_token,
@@ -106,9 +103,14 @@ async def switch_role(
 async def delete_account(
     current_user: CurrentUser,
     session: DBSession,
+    request: Request,
 ):
     service = UserService(session)
     await service.delete_account(current_user)
+    # Kill every active refresh token so a leaked/cached one cannot resurrect
+    # the account post-deletion. Access tokens will expire on their own.
+    auth_service = AuthService(session, request.app.state.redis)
+    await auth_service.revoke_all_refresh_tokens(current_user.id)
     return JSONResponse(
         status_code=200,
         content={"message": "Account deleted successfully"},
