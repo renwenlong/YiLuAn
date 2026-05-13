@@ -20,6 +20,13 @@ def _prod(**overrides) -> dict:
         payment_provider="mock",  # avoid wechat-cred branch
         pii_envelope_key=_PROD_PII_KEY,
         pii_hash_salt="a-very-long-random-prod-salt-not-the-default-value",
+        # 2026-05-13: prod now rejects sms_provider=mock; supply real-looking
+        # aliyun creds so unrelated tests don't trip on this guard.
+        sms_provider="aliyun",
+        sms_access_key="AK",
+        sms_access_secret="SK",
+        sms_sign_name="YL",
+        sms_template_code="SMS_1",
     )
     base.update(overrides)
     return base

@@ -174,6 +174,13 @@ class Settings(BaseSettings):
             )
 
         # SMS 凭证完整性检查
+        # 先拒绝 mock provider：生产环境上 mock = 什么也不发但谎报成功，用户收不到
+        # 验证码还以为是运营问题。上古遗留 app/services/sms.py 的 silent
+        # fallback 已被移除，这里是 defense-in-depth。
+        if self.sms_provider == "mock":
+            raise ValueError(
+                "生产环境禁止 SMS_PROVIDER=mock，请设为 aliyun / tencent"
+            )
         if self.sms_provider != "mock":
             missing = [
                 name

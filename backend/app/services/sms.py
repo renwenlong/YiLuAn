@@ -28,12 +28,18 @@ class SMSProvider:
 
 
 class MockSMSProvider(SMSProvider):
-    """Prints OTP to console. For development and testing only."""
+    """Logs OTP only; never prints PII to stdout.
+
+    Legacy provider kept alive for the old ``app.services.sms`` import path.
+    The active production code path uses ``app.services.providers.sms.mock``.
+    """
 
     async def send(self, phone: str, code: str) -> bool:
-        logger.info("[MOCK SMS] OTP for %s: ******", mask_phone(phone))
-        # DEV 屏幕打印保留明文以方便本地联调；生产用真实提供商不会走到这里
-        print(f"[DEV] OTP for {phone}: {code}")
+        # Never print phone or code: container stdout typically lands in
+        # ELK / journald, which would leak PII + active OTP to anyone with
+        # log read access. Use the masked phone in the log line; the OTP
+        # itself is in Redis if a developer needs to look it up.
+        logger.info("[MOCK SMS] OTP queued for %s", mask_phone(phone))
         return True
 
 
@@ -57,11 +63,23 @@ class AliyunSMSProvider(SMSProvider):
 
     async def send(self, phone: str, code: str) -> bool:
         if not self._has_credentials:
+            # Fail-closed: never silently "succeed" when creds are missing.
+            # In production this is a config error and must surface.
+            if settings.environment == "production":
+                logger.error(
+                    "Aliyun SMS credentials missing for %s; refusing to send",
+                    mask_phone(phone),
+                )
+                raise RuntimeError(
+                    "Aliyun SMS credentials not configured (production)"
+                )
+            # Non-production: log and fail — do NOT print OTP/phone.
             logger.warning(
-                "Aliyun SMS credentials not configured, falling back to mock"
+                "Aliyun SMS credentials not configured (env=%s); send skipped for %s",
+                settings.environment,
+                mask_phone(phone),
             )
-            print(f"[DEV-FALLBACK] OTP for {phone}: {code}")
-            return True
+            return False
 
         try:
             import httpx
@@ -151,11 +169,20 @@ class TencentSMSProvider(SMSProvider):
 
     async def send(self, phone: str, code: str) -> bool:
         if not self._has_credentials:
+            if settings.environment == "production":
+                logger.error(
+                    "Tencent SMS credentials missing for %s; refusing to send",
+                    mask_phone(phone),
+                )
+                raise RuntimeError(
+                    "Tencent SMS credentials not configured (production)"
+                )
             logger.warning(
-                "Tencent SMS credentials not configured, falling back to mock"
+                "Tencent SMS credentials not configured (env=%s); send skipped for %s",
+                settings.environment,
+                mask_phone(phone),
             )
-            print(f"[DEV-FALLBACK] OTP for {phone}: {code}")
-            return True
+            return False
 
         try:
             import httpx

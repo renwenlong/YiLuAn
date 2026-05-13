@@ -644,7 +644,14 @@ class TestConfigProductionValidator:
             debug=False,
             jwt_secret_key="strong-prod-secret-1234567890",
             payment_provider="mock",
-            sms_provider="mock",
+            # 2026-05-13: prod now rejects sms_provider=mock outright.
+            # Earlier tests set this to "mock"; we now supply a real-looking
+            # aliyun config so unrelated branches can be exercised.
+            sms_provider="aliyun",
+            sms_access_key="AK",
+            sms_access_secret="SK",
+            sms_sign_name="YL",
+            sms_template_code="SMS_1",
             pii_envelope_key=base64.b64encode(b"P" * 32).decode(),
             pii_hash_salt="prod-salt-12345-not-default",
             # CORS guard added later — supply explicit origins so this
@@ -681,6 +688,14 @@ class TestConfigProductionValidator:
                 sms_sign_name="",
                 sms_template_code="",
             )
+
+    async def test_sms_provider_mock_in_production_rejected(self):
+        """2026-05-13: production must NEVER select the mock SMS provider —
+        users wouldn't receive OTPs and the legacy ``app.services.sms`` mock
+        used to print PII to stdout.
+        """
+        with pytest.raises(ValueError, match="mock"):
+            self._build(sms_provider="mock")
 
     async def test_production_with_all_credentials_passes(self):
         s = self._build(

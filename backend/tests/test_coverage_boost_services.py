@@ -135,16 +135,23 @@ class TestLegacySMSProviders:
         """MockSMSProvider always returns True."""
         assert await MockSMSProvider().send("13800138000", "123456") is True
 
-    async def test_aliyun_no_credentials_falls_back(self, monkeypatch):
-        """Without access_key/secret, send returns True via fallback."""
+    async def test_aliyun_no_credentials_returns_false(self, monkeypatch):
+        """Without access_key/secret, send must fail-closed (not silently True).
+
+        Was previously asserting the OPPOSITE; flipped 2026-05-13 with the
+        legacy ``app.services.sms`` PII-leak / silent-success fix.
+        """
         from app.services import sms as sms_mod
 
         monkeypatch.setattr(sms_mod.settings, "sms_access_key", "", raising=False)
         monkeypatch.setattr(sms_mod.settings, "sms_access_secret", "", raising=False)
         monkeypatch.setattr(sms_mod.settings, "sms_sign_name", "x", raising=False)
         monkeypatch.setattr(sms_mod.settings, "sms_template_code", "x", raising=False)
+        monkeypatch.setattr(
+            sms_mod.settings, "environment", "development", raising=False
+        )
         provider = AliyunSMSProvider()
-        assert await provider.send("13800138000", "111111") is True
+        assert await provider.send("13800138000", "111111") is False
 
     async def test_aliyun_send_ok(self, monkeypatch):
         """Mock httpx response → OK code → True."""
@@ -220,12 +227,15 @@ class TestLegacySMSProviders:
         with patch("httpx.AsyncClient", BadClient):
             assert await AliyunSMSProvider().send("13800138000", "1") is False
 
-    async def test_tencent_no_credentials_falls_back(self, monkeypatch):
+    async def test_tencent_no_credentials_returns_false(self, monkeypatch):
         from app.services import sms as sms_mod
 
         monkeypatch.setattr(sms_mod.settings, "sms_access_key", "", raising=False)
         monkeypatch.setattr(sms_mod.settings, "sms_access_secret", "", raising=False)
-        assert await TencentSMSProvider().send("13800138000", "1") is True
+        monkeypatch.setattr(
+            sms_mod.settings, "environment", "development", raising=False
+        )
+        assert await TencentSMSProvider().send("13800138000", "1") is False
 
     async def test_tencent_send_ok(self, monkeypatch):
         from app.services import sms as sms_mod

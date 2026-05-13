@@ -43,9 +43,12 @@ class MockSMSProvider(SMSProvider):
         masked = mask_phone_sms(phone)
         logger.info("[mock-sms] OTP queued for %s (template=%s)", masked, template_id or "default")
         if settings.environment == "development":
-            # Local-dev convenience print. Never executed in prod
-            # (and prod would never select the mock provider anyway).
-            print(f"[DEV] OTP for {phone}: {code}")
+            # Local-dev convenience: print MASKED phone + code only. We used
+            # to print the full phone, which leaked PII to stdout / journald
+            # if a dev container ever shipped logs upstream. The 万能
+            # OTP "000000" still works in dev, so most flows don't need this
+            # at all.
+            print(f"[DEV] OTP for {masked}: {code}")
         return SMSResult(ok=True, provider=self.name, extra={"masked_phone": masked})
 
     async def send_notification(

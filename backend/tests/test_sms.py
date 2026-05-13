@@ -34,13 +34,17 @@ class TestMockSMSProvider:
         assert await provider.send("13900139000", "999999") is True
         assert await provider.send("18600186000", "000000") is True
 
-    async def test_send_prints_output(self, capsys):
-        """Mock provider prints OTP to stdout."""
+    async def test_send_does_not_print_pii(self, capsys):
+        """Mock provider must NOT print phone or OTP to stdout (PII leak).
+
+        Was previously asserting the OPPOSITE; flipped 2026-05-13 with the
+        legacy ``app.services.sms`` PII-leak fix.
+        """
         provider = MockSMSProvider()
         await provider.send("13800138000", "654321")
         captured = capsys.readouterr()
-        assert "13800138000" in captured.out
-        assert "654321" in captured.out
+        assert "13800138000" not in captured.out
+        assert "654321" not in captured.out
 
 
 # =============================================================================
@@ -83,28 +87,76 @@ class TestGetSMSProvider:
 
 @pytest.mark.asyncio
 class TestProviderFallback:
-    """Providers without credentials should fall back gracefully."""
+    """Providers without credentials must fail-closed (no PII print, no
+    silent success). See security fix 2026-05-13: previously they printed
+    OTP+phone to stdout and returned True, which leaked PII via container
+    logs and made the caller think the SMS went out.
+    """
 
-    async def test_aliyun_no_credentials_falls_back(self, monkeypatch):
-        """Aliyun provider without credentials prints fallback and returns True."""
+    async def test_aliyun_no_credentials_returns_false_in_dev(
+        self, monkeypatch, capsys
+    ):
         monkeypatch.setattr("app.services.sms.settings.sms_access_key", "")
         monkeypatch.setattr("app.services.sms.settings.sms_access_secret", "")
         monkeypatch.setattr("app.services.sms.settings.sms_sign_name", "")
         monkeypatch.setattr("app.services.sms.settings.sms_template_code", "")
+        monkeypatch.setattr(
+            "app.services.sms.settings.environment", "development"
+        )
         provider = AliyunSMSProvider()
         result = await provider.send("13800138000", "123456")
-        assert result is True
+        assert result is False
+        # Must NOT print OTP or phone anywhere.
+        captured = capsys.readouterr()
+        assert "123456" not in captured.out
+        assert "13800138000" not in captured.out
 
-    async def test_tencent_no_credentials_falls_back(self, monkeypatch):
-        """Tencent provider without credentials prints fallback and returns True."""
+    async def test_aliyun_no_credentials_raises_in_production(
+        self, monkeypatch
+    ):
+        monkeypatch.setattr("app.services.sms.settings.sms_access_key", "")
+        monkeypatch.setattr("app.services.sms.settings.sms_access_secret", "")
+        monkeypatch.setattr("app.services.sms.settings.sms_sign_name", "")
+        monkeypatch.setattr("app.services.sms.settings.sms_template_code", "")
+        monkeypatch.setattr(
+            "app.services.sms.settings.environment", "production"
+        )
+        provider = AliyunSMSProvider()
+        with pytest.raises(RuntimeError, match="credentials not configured"):
+            await provider.send("13800138000", "123456")
+
+    async def test_tencent_no_credentials_returns_false_in_dev(
+        self, monkeypatch, capsys
+    ):
         monkeypatch.setattr("app.services.sms.settings.sms_access_key", "")
         monkeypatch.setattr("app.services.sms.settings.sms_access_secret", "")
         monkeypatch.setattr("app.services.sms.settings.sms_sign_name", "")
         monkeypatch.setattr("app.services.sms.settings.sms_template_code", "")
         monkeypatch.setattr("app.services.sms.settings.sms_sdk_app_id", "")
+        monkeypatch.setattr(
+            "app.services.sms.settings.environment", "development"
+        )
         provider = TencentSMSProvider()
         result = await provider.send("13800138000", "123456")
-        assert result is True
+        assert result is False
+        captured = capsys.readouterr()
+        assert "123456" not in captured.out
+        assert "13800138000" not in captured.out
+
+    async def test_tencent_no_credentials_raises_in_production(
+        self, monkeypatch
+    ):
+        monkeypatch.setattr("app.services.sms.settings.sms_access_key", "")
+        monkeypatch.setattr("app.services.sms.settings.sms_access_secret", "")
+        monkeypatch.setattr("app.services.sms.settings.sms_sign_name", "")
+        monkeypatch.setattr("app.services.sms.settings.sms_template_code", "")
+        monkeypatch.setattr("app.services.sms.settings.sms_sdk_app_id", "")
+        monkeypatch.setattr(
+            "app.services.sms.settings.environment", "production"
+        )
+        provider = TencentSMSProvider()
+        with pytest.raises(RuntimeError, match="credentials not configured"):
+            await provider.send("13800138000", "123456")
 
 
 # =============================================================================
