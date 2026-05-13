@@ -94,10 +94,24 @@ def create_app() -> FastAPI:
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
     # CORS
+    # Defense-in-depth: 当 origins 含通配 '*' 时，强制 allow_credentials=False。
+    # 背景：Starlette CORSMiddleware 在 '*' + credentials=True 时会把
+    # Access-Control-Allow-Origin 反射为请求 Origin，等价于「任意源 + 可带凭证」。
+    # config.validate_production_config 已在 environment=production 时拦截该组合，
+    # 这里再加一道运行时保险，避免 staging/dev 或环境字段错配时绕过。
+    _cors_origins = settings.cors_origins or []
+    _cors_allow_credentials = True
+    if "*" in _cors_origins:
+        _cors_allow_credentials = False
+        logger.warning(
+            "CORS allow_origins contains '*'; forcing allow_credentials=False "
+            "to prevent Origin reflection (env=%s)",
+            settings.environment,
+        )
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins,
-        allow_credentials=True,
+        allow_origins=_cors_origins,
+        allow_credentials=_cors_allow_credentials,
         allow_methods=["*"],
         allow_headers=["*"],
     )
