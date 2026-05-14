@@ -47,6 +47,11 @@ function WSBase(options) {
   this._backoffLadder = options.backoffLadder || DEFAULT_BACKOFF_LADDER_MS
   this._maxReconnect = options.maxReconnect != null ? options.maxReconnect : 5
   this._nonceTtlMs = options.nonceTtlMs || DEFAULT_NONCE_TTL_MS
+  // authPayload: function () => object|null — invoked right after onOpen to
+  // send the first-frame auth handshake. Returning null/undefined skips it
+  // (legacy callers that still embed the token in the URL).
+  this._authPayloadFactory =
+    typeof options.authPayload === 'function' ? options.authPayload : null
   this._setTimeout =
     options.setTimeout ||
     (typeof setTimeout !== 'undefined' ? setTimeout : null)
@@ -106,6 +111,19 @@ WSBase.prototype.connect = function (url) {
 
   this._socket.onOpen(function () {
     self._reconnectCount = 0
+    // First-frame auth handshake (server expects {type:"auth", token:"..."}
+    // within 5s of accept). Sent BEFORE we start heartbeat / emit 'open' so
+    // the server's idle timer doesn't race with us.
+    if (self._authPayloadFactory) {
+      try {
+        var payload = self._authPayloadFactory()
+        if (payload && self._socket && self._socket.send) {
+          self._socket.send({ data: JSON.stringify(payload) })
+        }
+      } catch (e) {
+        console.error('[WSBase] auth payload error:', e)
+      }
+    }
     self._startHeartbeat()
     self._emit('open')
   })
@@ -118,6 +136,7 @@ WSBase.prototype.connect = function (url) {
       return
     }
     if (data && data.type === 'pong') return // swallow
+    if (data && data.type === 'auth_ok') return // swallow handshake ack
     self._emit('message', data)
   })
 
