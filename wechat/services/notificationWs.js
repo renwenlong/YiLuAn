@@ -13,9 +13,18 @@ let _notificationCallback = null
 
 function _getInstance() {
   if (_instance) return _instance
-  _instance = new WSBase()
+  _instance = new WSBase({
+    // First-frame auth handshake (replaces ?token= query param). The token
+    // is resolved lazily on each (re)connect so it always reflects the
+    // latest access token after a refresh.
+    authPayload: function () {
+      var token = getAccessToken()
+      if (!token) return null
+      return { type: 'auth', token: token }
+    },
+  })
   _instance.on('message', function (data) {
-    // pong 已被 WSBase 吞掉
+    // pong / auth_ok 已被 WSBase 吞掉
     if (_notificationCallback) _notificationCallback(data)
   })
   return _instance
@@ -28,8 +37,9 @@ function connect(options) {
   const token = getAccessToken()
   if (!token) return
 
-  const url =
-    config.WS_BASE_URL + '/api/v1/ws/notifications?token=' + token
+  // Token 不再出现在 URL 里 — 生产环境避免被 nginx access log /
+  // 代理 trace / 抓包工具记录。鉴权走 onOpen 后的 authPayload。
+  const url = config.WS_BASE_URL + '/api/v1/ws/notifications'
 
   const inst = _getInstance()
   inst.connect(url)

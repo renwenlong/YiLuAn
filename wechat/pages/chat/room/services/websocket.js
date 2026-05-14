@@ -3,7 +3,8 @@
  *
  * 真正的连接 / 重连 / 心跳 / nonce 由 wechat/core/ws-base 提供。
  * 本文件只负责：
- *   - 拼出 /api/v1/ws/chat/{orderId}?token=... 的 URL
+ *   - 拼出 /api/v1/ws/chat/{orderId} 的 URL（token 不再出现在
+ *     query string，鉴权走 onOpen 后的首帧 {type:"auth"} 握手）
  *   - 把 WSBase 暴露为 connect / send / onMessage / disconnect 的旧 API
  *
  * **向后兼容**：调用方（如 pages/chat）现有 require('services/websocket')
@@ -19,7 +20,15 @@ let _errorCallback = null
 
 function _getInstance() {
   if (_instance) return _instance
-  _instance = new WSBase()
+  _instance = new WSBase({
+    // First-frame auth handshake (replaces ?token= query param). Resolved
+    // lazily so it always reflects the latest access token after refresh.
+    authPayload: function () {
+      var token = getAccessToken()
+      if (!token) return null
+      return { type: 'auth', token: token }
+    },
+  })
   _instance.on('message', function (data) {
     if (_messageCallback) _messageCallback(data)
   })
@@ -39,13 +48,9 @@ function connect(options) {
     orderId = options
   }
 
-  const token = getAccessToken()
-  const url =
-    config.WS_BASE_URL +
-    '/api/v1/ws/chat/' +
-    orderId +
-    '?token=' +
-    token
+  // Token 不再出现在 URL 里 — 生产环境避免被 nginx access log /
+  // 代理 trace / 抓包工具记录。鉴权走 onOpen 后的 authPayload。
+  const url = config.WS_BASE_URL + '/api/v1/ws/chat/' + orderId
 
   const inst = _getInstance()
   inst.connect(url)

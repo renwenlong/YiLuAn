@@ -41,12 +41,13 @@ describe('services/notificationWs — connect routes through WSBase', () => {
     }))
   })
 
-  test('connect builds the notifications URL with token', () => {
+  test('connect builds the notifications URL WITHOUT token in query', () => {
     notifWs.connect({ onNotification: () => {} })
     expect(wx.connectSocket).toHaveBeenCalledTimes(1)
     const url = wx.connectSocket.mock.calls[0][0].url
     expect(url).toContain('/api/v1/ws/notifications')
-    expect(url).toContain('token=tk-1')
+    // WS-AUTH-HANDSHAKE: token never appears in URL.
+    expect(url).not.toContain('token=')
     notifWs.disconnect()
   })
 

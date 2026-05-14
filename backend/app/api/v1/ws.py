@@ -1,16 +1,28 @@
-"""WebSocket endpoints (C-12 / TD-MSG-04 重构后).
+"""WebSocket endpoints (C-12 / TD-MSG-04 / WS-AUTH-HANDSHAKE).
 
 所有写路径统一走 `ChatService`，handler 只负责：
-1. JWT 鉴权 + 参与方校验
-2. asyncio idle timeout（默认 90s，超时主动关闭并打 metric）
-3. nonce 透传到 ChatService（TD-MSG-01 客户端幂等）
-4. broker fanout（本地 + Redis Pub/Sub）
+1. accept 后通过首帧 ``{type: "auth", token: "<jwt>"}`` 鉴权
+   （5s 超时 → close 4011；旧客户端的 ``?token=`` 查询参数仍兼容，但会
+   打 deprecated metric / warning log，将在客户端全量升级后下线）
+2. 参与方校验（chat 通道）
+3. asyncio idle timeout（默认 90s，超时主动关闭并打 metric）
+4. nonce 透传到 ChatService（TD-MSG-01 客户端幂等）
+5. broker fanout（本地 + Redis Pub/Sub）
 
 不破坏现有 frame 契约：
-- 上行：`{type: "ping"}` → 下行 `{type: "pong"}`
-- 上行：`{type: "text"|"image"|"system", content: "...", nonce?: "..."}`
-- 下行（broadcast）：`{id, order_id, sender_id, type, content, is_read,
-   created_at, nonce?}`
+- 上行：``{type: "auth", token: "..."}``                ← 新增，必须为首帧
+- 上行：``{type: "ping"}`` → 下行 ``{type: "pong"}``
+- 上行：``{type: "text"|"image"|"system", content: "...", nonce?: "..."}``
+- 下行：``{type: "auth_ok"}`` 立刻回，便于客户端区分鉴权完成
+- 下行（broadcast）：``{id, order_id, sender_id, type, content, is_read,
+   created_at, nonce?}``
+
+Close codes:
+- 4001  invalid token (任一路径)
+- 4003  not a participant (chat)
+- 4004  order not found (chat)
+- 4008  evicted by newer connection (per-user cap)
+- 4011  auth handshake timeout / invalid auth frame
 """
 import asyncio
 import json
@@ -25,7 +37,7 @@ from app.database import async_session
 from app.models.chat_message import MessageType
 from app.repositories.user import UserRepository
 from app.services.chat import ChatService
-from app.utils.metrics import ws_idle_timeout_total
+from app.utils.metrics import ws_auth_handshake_total, ws_idle_timeout_total
 from app.ws.pubsub import (
     WsPubSubBroker,
     get_ws_broker_from_app,
@@ -39,6 +51,11 @@ router = APIRouter()
 # Server-side idle timeout for WS connections (TD-MSG-04).
 # Client sends PING every 30s; we tolerate ~3 misses.
 WS_IDLE_TIMEOUT_SECONDS = 90
+
+# Server-side timeout for the auth handshake (first frame after accept()).
+# Generous enough for poor mobile networks but short enough to thwart
+# squatting connections.
+WS_AUTH_HANDSHAKE_TIMEOUT_SECONDS = 5
 
 
 # ---------------------------------------------------------------------------
@@ -80,9 +97,8 @@ async def push_notification_to_user(app, user_id: UUID, notification_data: dict)
     await broker.push_to_user(user_id, notification_data)
 
 
-def _decode_user(websocket: WebSocket) -> UUID | None:
-    """Return user_id parsed from ?token=, or None on invalid."""
-    token = websocket.query_params.get("token")
+def _user_id_from_token(token: str | None) -> UUID | None:
+    """Decode an access JWT and return the bound user_id, or None on failure."""
     if not token:
         return None
     payload = decode_token(token)
@@ -97,15 +113,99 @@ def _decode_user(websocket: WebSocket) -> UUID | None:
         return None
 
 
+async def _authenticate(websocket: WebSocket, channel: str) -> UUID | None:
+    """Resolve user_id for an inbound WS connection.
+
+    Order of resolution:
+      1. Legacy ``?token=<jwt>`` query param — kept for the migration
+         window so already-released miniprogram builds keep working. Marked
+         with ``ws_auth_handshake_total{result="legacy_query"}`` and a
+         WARNING log so we can confirm rollout before removal.
+      2. First-frame handshake ``{type:"auth", token:"..."}`` — preferred
+         path. Token never leaves the WS payload, so it does not land in
+         nginx access logs / proxy traces.
+
+    On any failure the websocket is closed with an appropriate code and
+    ``None`` is returned. Caller must early-return on ``None``.
+    """
+    # ---- (1) Legacy query path -------------------------------------------
+    # Resolve BEFORE accept(): if the legacy token is invalid we can reject
+    # with the historical 4001 code and skip the handshake entirely.
+    legacy_token = websocket.query_params.get("token")
+    if legacy_token:
+        user_id = _user_id_from_token(legacy_token)
+        if user_id is None:
+            ws_auth_handshake_total.labels(channel=channel, result="invalid_token").inc()
+            await websocket.close(code=4001, reason="Invalid token")
+            return None
+        await websocket.accept()
+        ws_auth_handshake_total.labels(channel=channel, result="legacy_query").inc()
+        logger.warning(
+            "ws.auth.legacy_query",
+            extra={"channel": channel, "user_id": str(user_id)},
+        )
+        return user_id
+
+    # ---- (2) First-frame handshake ---------------------------------------
+    await websocket.accept()
+    try:
+        raw = await asyncio.wait_for(
+            websocket.receive_text(),
+            timeout=WS_AUTH_HANDSHAKE_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError:
+        ws_auth_handshake_total.labels(channel=channel, result="timeout").inc()
+        logger.info("ws.auth.timeout", extra={"channel": channel})
+        try:
+            await websocket.close(code=4011, reason="auth_timeout")
+        except Exception:
+            pass
+        return None
+    except WebSocketDisconnect:
+        ws_auth_handshake_total.labels(channel=channel, result="invalid_frame").inc()
+        return None
+
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError):
+        data = None
+    if not isinstance(data, dict) or data.get("type") != "auth":
+        ws_auth_handshake_total.labels(channel=channel, result="invalid_frame").inc()
+        try:
+            await websocket.close(code=4011, reason="auth_required")
+        except Exception:
+            pass
+        return None
+
+    user_id = _user_id_from_token(data.get("token"))
+    if user_id is None:
+        ws_auth_handshake_total.labels(channel=channel, result="invalid_token").inc()
+        try:
+            await websocket.close(code=4001, reason="Invalid token")
+        except Exception:
+            pass
+        return None
+
+    ws_auth_handshake_total.labels(channel=channel, result="success").inc()
+    # Tell the client auth is done so it can flush any queued frames.
+    try:
+        await websocket.send_text(json.dumps({"type": "auth_ok"}))
+    except Exception:
+        # Connection closed mid-handshake; treat as failed.
+        return None
+    return user_id
+
+
 @router.websocket("/ws/notifications")
 async def websocket_notifications(websocket: WebSocket):
-    """Global notification WebSocket. Connect with ?token=<jwt>."""
-    user_id = _decode_user(websocket)
-    if user_id is None:
-        await websocket.close(code=4001, reason="Invalid token")
-        return
+    """Global notification WebSocket.
 
-    await websocket.accept()
+    Auth: first frame ``{type:"auth", token:"<jwt>"}`` (preferred) OR
+    legacy ``?token=<jwt>`` query param (deprecated, see _authenticate).
+    """
+    user_id = await _authenticate(websocket, channel="notifications")
+    if user_id is None:
+        return
 
     broker = _get_or_create_broker(websocket.app)
     cap = settings.ws_max_connections_per_user
@@ -154,10 +254,14 @@ async def websocket_notifications(websocket: WebSocket):
 
 @router.websocket("/ws/chat/{order_id}")
 async def websocket_chat(websocket: WebSocket, order_id: UUID):
-    """Order-scoped chat WebSocket. 全部走 ChatService。"""
-    user_id = _decode_user(websocket)
+    """Order-scoped chat WebSocket. 全部走 ChatService。
+
+    Auth: same handshake-or-legacy contract as ``/ws/notifications``.
+    Pre-flight authorisation (order exists + user is participant) runs
+    AFTER auth completes, so we can return a precise close code.
+    """
+    user_id = await _authenticate(websocket, channel="chat")
     if user_id is None:
-        await websocket.close(code=4001, reason="Invalid token")
         return
 
     # Pre-flight authorisation: order exists + user is participant.
@@ -175,8 +279,6 @@ async def websocket_chat(websocket: WebSocket, order_id: UUID):
         if user is None:
             await websocket.close(code=4001, reason="User not found")
             return
-
-    await websocket.accept()
 
     chat_broker = _get_or_create_chat_broker(websocket.app)
     await chat_broker.register(order_id, websocket)

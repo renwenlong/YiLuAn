@@ -92,10 +92,17 @@ def _patch_async_session():
 
 class TestNotificationsWs:
     def test_missing_token_rejected(self, sync_client):
-        """No token → close 4001."""
-        with pytest.raises(Exception):
-            with sync_client.websocket_connect("/api/v1/ws/notifications"):
-                pass
+        """No token in query AND no auth frame → close 4011 (auth_timeout).
+
+        Under the WS-AUTH-HANDSHAKE contract the server now accepts the
+        handshake first and waits for ``{type:"auth"}`` as the first frame.
+        Connecting without a frame keeps the channel open until the server
+        idle-closes it; we verify the client sees a disconnect on read.
+        """
+        with sync_client.websocket_connect("/api/v1/ws/notifications") as ws:
+            ws.send_text(json.dumps({"type": "not_auth"}))
+            with pytest.raises(Exception):
+                ws.receive_text()
 
     def test_invalid_token_rejected(self, sync_client):
         """Bad JWT → close 4001."""
@@ -197,11 +204,12 @@ class TestNotificationsWs:
 class TestChatWs:
     @pytest.mark.asyncio
     async def test_missing_token_rejected(self, sync_client):
-        """No token → close."""
+        """No token in query AND first frame is not auth → close 4011."""
         order_id = uuid.uuid4()
-        with pytest.raises(Exception):
-            with sync_client.websocket_connect(f"/api/v1/ws/chat/{order_id}"):
-                pass
+        with sync_client.websocket_connect(f"/api/v1/ws/chat/{order_id}") as ws:
+            ws.send_text(json.dumps({"type": "not_auth"}))
+            with pytest.raises(Exception):
+                ws.receive_text()
 
     @pytest.mark.asyncio
     async def test_invalid_token_rejected(self, sync_client):
@@ -212,13 +220,19 @@ class TestChatWs:
 
     @pytest.mark.asyncio
     async def test_order_not_found(self, sync_client):
-        """Valid token but nonexistent order → close 4004."""
+        """Valid token but nonexistent order → close 4004 after accept.
+
+        Note: with the WS-AUTH-HANDSHAKE rollout the server now accepts the
+        socket *before* preflight (so it can send a structured close code
+        rather than refusing the websocket handshake). We assert the
+        disconnect manifests on the next read.
+        """
         user_id = uuid.uuid4()
         token = _make_token(user_id)
         order_id = uuid.uuid4()
-        with pytest.raises(Exception):
-            with sync_client.websocket_connect(f"/api/v1/ws/chat/{order_id}?token={token}"):
-                pass
+        with sync_client.websocket_connect(f"/api/v1/ws/chat/{order_id}?token={token}") as ws:
+            with pytest.raises(Exception):
+                ws.receive_text()
 
     @pytest.mark.asyncio
     async def test_not_participant_rejected(self, sync_client):
@@ -239,9 +253,9 @@ class TestChatWs:
         order = await _seed_order(patient.id, hospital.id, companion_id=companion.id)
         token = _make_token(outsider.id)
 
-        with pytest.raises(Exception):
-            with sync_client.websocket_connect(f"/api/v1/ws/chat/{order.id}?token={token}"):
-                pass
+        with sync_client.websocket_connect(f"/api/v1/ws/chat/{order.id}?token={token}") as ws:
+            with pytest.raises(Exception):
+                ws.receive_text()
 
     @pytest.mark.asyncio
     async def test_participant_connects_and_ping(self, sync_client):
@@ -329,3 +343,86 @@ class TestChatWs:
             assert resp["sender_id"] == str(patient.id)
             assert resp["order_id"] == str(order.id)
             assert resp["type"] == "text"
+
+
+# ===================================================================
+# WS-AUTH-HANDSHAKE: first-frame auth path (replaces ?token=)
+# ===================================================================
+
+
+class TestWsAuthHandshake:
+    """New first-frame ``{type:"auth"}`` rollout.
+
+    The legacy ``?token=`` query param is still accepted (transitional)
+    but bumps the ``ws_auth_handshake_total{result="legacy_query"}``
+    counter. Cases here exercise the new path explicitly.
+    """
+
+    def test_handshake_success_notifications(self, sync_client):
+        user_id = uuid.uuid4()
+        token = _make_token(user_id)
+        with sync_client.websocket_connect("/api/v1/ws/notifications") as ws:
+            ws.send_text(json.dumps({"type": "auth", "token": token}))
+            ack = json.loads(ws.receive_text())
+            assert ack == {"type": "auth_ok"}
+            # Channel works post-handshake
+            ws.send_text(json.dumps({"type": "ping"}))
+            assert json.loads(ws.receive_text()) == {"type": "pong"}
+
+    def test_handshake_invalid_frame_closes(self, sync_client):
+        with sync_client.websocket_connect("/api/v1/ws/notifications") as ws:
+            ws.send_text(json.dumps({"type": "ping"}))  # not auth
+            with pytest.raises(Exception):
+                ws.receive_text()
+
+    def test_handshake_non_json_closes(self, sync_client):
+        with sync_client.websocket_connect("/api/v1/ws/notifications") as ws:
+            ws.send_text("definitely not json")
+            with pytest.raises(Exception):
+                ws.receive_text()
+
+    def test_handshake_invalid_token_closes(self, sync_client):
+        with sync_client.websocket_connect("/api/v1/ws/notifications") as ws:
+            ws.send_text(json.dumps({"type": "auth", "token": "bad.jwt.token"}))
+            with pytest.raises(Exception):
+                ws.receive_text()
+
+    @pytest.mark.asyncio
+    async def test_handshake_success_chat(self, sync_client):
+        from app.models.hospital import Hospital
+
+        async with test_session_factory() as session:
+            hospital = Hospital(name="Test", address="Addr", level="三甲")
+            session.add(hospital)
+            await session.commit()
+            await session.refresh(hospital)
+
+        patient = await _seed_user("13800000099", UserRole.patient)
+        order = await _seed_order(patient.id, hospital.id)
+        token = _make_token(patient.id)
+
+        with sync_client.websocket_connect(f"/api/v1/ws/chat/{order.id}") as ws:
+            ws.send_text(json.dumps({"type": "auth", "token": token}))
+            ack = json.loads(ws.receive_text())
+            assert ack == {"type": "auth_ok"}
+            ws.send_text(json.dumps({"type": "text", "content": "hi"}))
+            broadcast = json.loads(ws.receive_text())
+            assert broadcast["content"] == "hi"
+
+    def test_legacy_query_still_works_and_metric_bumped(self, sync_client):
+        from app.utils.metrics import ws_auth_handshake_total
+
+        before = ws_auth_handshake_total.labels(
+            channel="notifications", result="legacy_query"
+        )._value.get()
+        user_id = uuid.uuid4()
+        token = _make_token(user_id)
+        with sync_client.websocket_connect(
+            f"/api/v1/ws/notifications?token={token}"
+        ) as ws:
+            ws.send_text(json.dumps({"type": "ping"}))
+            assert json.loads(ws.receive_text()) == {"type": "pong"}
+        after = ws_auth_handshake_total.labels(
+            channel="notifications", result="legacy_query"
+        )._value.get()
+        assert after == before + 1

@@ -139,4 +139,42 @@ describe('core/ws-base', () => {
     expect(() => sock._msg({ data: '{not json' })).not.toThrow()
     expect(msgs).toEqual([])
   })
+
+  test('authPayload is sent as the very first frame after onOpen', () => {
+    const sock = makeMockSocket()
+    const ws = new WSBase({
+      socketFactory: () => sock,
+      authPayload: () => ({ type: 'auth', token: 'jwt-xyz' }),
+    })
+    ws.connect('ws://x')
+    sock._open()
+
+    expect(sock.send).toHaveBeenCalledTimes(1)
+    const frame = JSON.parse(sock.send.mock.calls[0][0].data)
+    expect(frame).toEqual({ type: 'auth', token: 'jwt-xyz' })
+  })
+
+  test('authPayload returning null skips the handshake (legacy callers)', () => {
+    const sock = makeMockSocket()
+    const ws = new WSBase({
+      socketFactory: () => sock,
+      authPayload: () => null,
+    })
+    ws.connect('ws://x')
+    sock._open()
+    expect(sock.send).not.toHaveBeenCalled()
+  })
+
+  test('auth_ok server frame is swallowed and not exposed to subscribers', () => {
+    const sock = makeMockSocket()
+    const msgs = []
+    const ws = new WSBase({ socketFactory: () => sock })
+    ws.on('message', (d) => msgs.push(d))
+    ws.connect('ws://x')
+    sock._open()
+    sock._msg({ data: JSON.stringify({ type: 'auth_ok' }) })
+    sock._msg({ data: JSON.stringify({ type: 'pong' }) })
+    sock._msg({ data: JSON.stringify({ type: 'new_order', id: 1 }) })
+    expect(msgs).toEqual([{ type: 'new_order', id: 1 }])
+  })
 })

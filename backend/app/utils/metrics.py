@@ -38,3 +38,20 @@ ws_idle_timeout_total = Counter(
     "WebSocket connections closed due to server-side idle timeout",
     ["channel"],  # "notifications" | "chat"
 )
+
+# WebSocket auth handshake outcome (PR: WS auth via first frame).
+# Replaces the legacy `?token=***` query-string auth path.
+# `result` values:
+#   - success         : first frame was a valid {type:"auth", token:"..."}
+#   - timeout         : no frame within WS_AUTH_HANDSHAKE_TIMEOUT_SECONDS
+#   - invalid_frame   : first frame was not a valid auth payload (bad json /
+#                       wrong type / missing token)
+#   - invalid_token   : token decode/role check failed
+#   - legacy_query    : connection authed via deprecated ?token= query param
+#                       (transitional; will be removed once miniprogram
+#                       rollout completes)
+ws_auth_handshake_total = Counter(
+    "ws_auth_handshake_total",
+    "WebSocket auth-handshake outcomes (first-frame token rollout)",
+    ["channel", "result"],
+)

@@ -1,5 +1,19 @@
 const config = require('../config/index')
 const { getAccessToken, setAccessToken, setRefreshToken, getRefreshToken, clearTokens } = require('../utils/token')
+const { sanitizeText } = require('../utils/sanitizeText')
+
+// Default request timeout (ms). wx.request defaults to 60s, which on flaky
+// 4G / hospital wifi looks like the app froze. 15s is responsive enough
+// while surviving normal latency spikes; per-call overrides via opts.timeout.
+const DEFAULT_REQUEST_TIMEOUT_MS = 15000
+
+// Generate a short, URL-safe trace id for X-Request-Id propagation. Backend
+// echoes / logs it so a user complaint can be correlated with a server log
+// line in seconds. Format: <millis36>-<rand6> (<= 16 chars).
+function _generateRequestId() {
+  const rand = Math.random().toString(36).slice(2, 8)
+  return Date.now().toString(36) + '-' + rand
+}
 
 // Single in-flight refresh promise. All 401s that land while a refresh is in
 // progress await this same promise instead of being queued raw, which avoids
@@ -8,12 +22,16 @@ const { getAccessToken, setAccessToken, setRefreshToken, getRefreshToken, clearT
 // success; rejects with the upstream error on failure.
 let _refreshPromise = null
 
-function request({ url, method = 'GET', data, auth = true, _skipGuardHandlers = false, _skipPhoneRequiredHandler = false }) {
+function request({ url, method = 'GET', data, auth = true, timeout, _skipGuardHandlers = false, _skipPhoneRequiredHandler = false }) {
   // `_skipPhoneRequiredHandler` 保留为向后兼容的参数。如果备调用流不希望自动触发 guard 弹窗，
   // 建议使用 `_skipGuardHandlers: true`。
   const skipGuards = _skipGuardHandlers || _skipPhoneRequiredHandler
+  const requestId = _generateRequestId()
   return new Promise((resolve, reject) => {
-    const header = { 'Content-Type': 'application/json' }
+    const header = {
+      'Content-Type': 'application/json',
+      'X-Request-Id': requestId,
+    }
     if (auth) {
       const token = getAccessToken()
       if (token) {
@@ -26,6 +44,7 @@ function request({ url, method = 'GET', data, auth = true, _skipGuardHandlers = 
       method,
       data,
       header,
+      timeout: timeout || DEFAULT_REQUEST_TIMEOUT_MS,
       success(res) {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve(res.data)
@@ -47,7 +66,9 @@ function request({ url, method = 'GET', data, auth = true, _skipGuardHandlers = 
         }
       },
       fail(err) {
-        reject({ statusCode: 0, data: err })
+        // Surface request id so callers / logger can correlate with
+        // backend logs even on transport failures (timeout, DNS, TLS).
+        reject({ statusCode: 0, data: err, requestId: requestId })
       },
     })
   })
@@ -83,7 +104,7 @@ function _handlePhoneRequired(payload, reject) {
 
   wx.showModal({
     title: '请先绑定手机号',
-    content: message,
+    content: sanitizeText(message),
     confirmText: '去绑定',
     cancelText: '取消',
     success(res) {
@@ -103,7 +124,7 @@ function _handlePaymentRequired(payload, reject) {
   const message = (detail && detail.message) || '订单尚未支付'
   wx.showModal({
     title: '订单尚未支付',
-    content: message,
+    content: sanitizeText(message),
     confirmText: '知道了',
     showCancel: false,
   })
@@ -116,7 +137,7 @@ function _handleVerificationRequired(payload, reject) {
   const message = (detail && detail.message) || '陪诊师资质未审核通过'
   wx.showModal({
     title: '资质审核中',
-    content: message,
+    content: sanitizeText(message),
     confirmText: '知道了',
     showCancel: false,
   })
@@ -197,4 +218,4 @@ function _forceLogout() {
   wx.reLaunch({ url: '/pages/login/index' })
 }
 
-module.exports = { request }
+module.exports = { request, _generateRequestId }

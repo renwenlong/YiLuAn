@@ -120,14 +120,22 @@ def create_app() -> FastAPI:
     @app.middleware("http")
     async def log_requests(request: Request, call_next):
         start = time.time()
+        # X-Request-Id propagation: trust client-supplied id (capped to 64
+        # chars to avoid log injection / unbounded memory) and echo it back
+        # in the response so end-to-end correlation works without forcing
+        # every log line to carry a server-generated id.
+        req_id = (request.headers.get("x-request-id") or "")[:64]
         response: Response = await call_next(request)
         duration_ms = (time.time() - start) * 1000
+        if req_id:
+            response.headers["X-Request-Id"] = req_id
         logger.info(
-            "%s %s %s %.1fms",
+            "%s %s %s %.1fms rid=%s",
             request.method,
             request.url.path,
             response.status_code,
             duration_ms,
+            req_id or "-",
         )
         return response
 

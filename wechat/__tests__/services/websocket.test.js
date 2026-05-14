@@ -20,13 +20,25 @@ beforeEach(() => {
 })
 
 describe('services/websocket', () => {
-  test('connect creates WebSocket with correct URL', () => {
+  test('connect creates WebSocket with correct URL (no token in query)', () => {
     ws.connect({ orderId: 'order123' })
 
     expect(wx.connectSocket).toHaveBeenCalledTimes(1)
     const callArgs = wx.connectSocket.mock.calls[0][0]
     expect(callArgs.url).toContain('ws/chat/order123')
-    expect(callArgs.url).toContain('token=test_token')
+    // WS-AUTH-HANDSHAKE: token must NOT appear in URL anymore.
+    expect(callArgs.url).not.toContain('token=')
+  })
+
+  test('first frame after onOpen is the auth handshake', () => {
+    ws.connect({ orderId: 'order123' })
+    // Trigger onOpen — WSBase should immediately push {type:"auth"}.
+    const onOpenFn = mockSocketTask.onOpen.mock.calls[0][0]
+    onOpenFn()
+    expect(mockSocketTask.send).toHaveBeenCalled()
+    const firstFrame = JSON.parse(mockSocketTask.send.mock.calls[0][0].data)
+    expect(firstFrame.type).toBe('auth')
+    expect(firstFrame.token).toBe('test_token')
   })
 
   test('send serializes message as JSON (auto-injects client nonce)', () => {

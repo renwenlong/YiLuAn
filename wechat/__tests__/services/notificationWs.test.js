@@ -38,7 +38,7 @@ describe('services/notificationWs', () => {
     expect(wx.connectSocket).not.toHaveBeenCalled()
   })
 
-  test('connect 有 token 时发起 WebSocket 连接并附带 token query', () => {
+  test('connect 有 token 时发起 WebSocket 连接（token 不再出现在 query）', () => {
     wx.setStorageSync('yiluan_access_token', 'tok_abc')
     const task = _buildSocketTask()
     wx.connectSocket.mockImplementation(() => task)
@@ -47,10 +47,12 @@ describe('services/notificationWs', () => {
 
     expect(wx.connectSocket).toHaveBeenCalledTimes(1)
     const callArgs = wx.connectSocket.mock.calls[0][0]
-    expect(callArgs.url).toMatch(/\/api\/v1\/ws\/notifications\?token=tok_abc/)
+    expect(callArgs.url).toMatch(/\/api\/v1\/ws\/notifications$/)
+    // WS-AUTH-HANDSHAKE: token 不再走 query string
+    expect(callArgs.url).not.toContain('token=')
   })
 
-  test('onOpen 后每 30s 发送 ping 心跳', () => {
+  test('onOpen 后首帧发鉴权 {type:"auth"}，之后才是 30s ping', () => {
     wx.setStorageSync('yiluan_access_token', 'tok')
     const task = _buildSocketTask()
     wx.connectSocket.mockImplementation(() => task)
@@ -58,14 +60,20 @@ describe('services/notificationWs', () => {
     notificationWs.connect({ onNotification: jest.fn() })
     task._handlers.open()
 
+    // 首帧应为 auth
+    expect(task.send).toHaveBeenCalledTimes(1)
+    const authFrame = JSON.parse(task.send.mock.calls[0][0].data)
+    expect(authFrame.type).toBe('auth')
+    expect(authFrame.token).toBe('tok')
+
     // 心跳 30s 触发一次
     jest.advanceTimersByTime(30000)
-    expect(task.send).toHaveBeenCalledTimes(1)
-    const sent = JSON.parse(task.send.mock.calls[0][0].data)
-    expect(sent.type).toBe('ping')
+    expect(task.send).toHaveBeenCalledTimes(2)
+    const pingFrame = JSON.parse(task.send.mock.calls[1][0].data)
+    expect(pingFrame.type).toBe('ping')
 
     jest.advanceTimersByTime(30000)
-    expect(task.send).toHaveBeenCalledTimes(2)
+    expect(task.send).toHaveBeenCalledTimes(3)
   })
 
   test('onMessage 过滤 pong，其他通知交给回调', () => {
