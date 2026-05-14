@@ -33,6 +33,47 @@ describe('services/api', () => {
     expect(callArgs.header['Content-Type']).toBe('application/json')
   })
 
+  // Trace + timeout (PR: wx.request defaults)
+  test('injects X-Request-Id header on every request', async () => {
+    wx.setStorageSync('yiluan_access_token', 'tok')
+    __mockWxRequest(200, { ok: true })
+    await request({ url: 'orders' })
+    const callArgs = wx.request.mock.calls[0][0]
+    expect(typeof callArgs.header['X-Request-Id']).toBe('string')
+    expect(callArgs.header['X-Request-Id'].length).toBeGreaterThan(4)
+  })
+
+  test('X-Request-Id is unique per call', async () => {
+    wx.setStorageSync('yiluan_access_token', 'tok')
+    __mockWxRequest(200, { ok: true })
+    await request({ url: 'a' })
+    await request({ url: 'b' })
+    const id1 = wx.request.mock.calls[0][0].header['X-Request-Id']
+    const id2 = wx.request.mock.calls[1][0].header['X-Request-Id']
+    expect(id1).not.toBe(id2)
+  })
+
+  test('default request timeout is 15s, override is honoured', async () => {
+    wx.setStorageSync('yiluan_access_token', 'tok')
+    __mockWxRequest(200, { ok: true })
+    await request({ url: 'a' })
+    expect(wx.request.mock.calls[0][0].timeout).toBe(15000)
+
+    await request({ url: 'b', timeout: 3000 })
+    expect(wx.request.mock.calls[1][0].timeout).toBe(3000)
+  })
+
+  test('transport failure surfaces requestId for log correlation', async () => {
+    wx.setStorageSync('yiluan_access_token', 'tok')
+    wx.request.mockImplementation((options) => {
+      options.fail({ errMsg: 'request:fail timeout' })
+    })
+    await expect(request({ url: 'slow' })).rejects.toMatchObject({
+      statusCode: 0,
+      requestId: expect.any(String),
+    })
+  })
+
   // Test 3: 401 triggers refresh then retry
   test('retries with new token after 401 + successful refresh', async () => {
     wx.setStorageSync('yiluan_access_token', 'old_token')

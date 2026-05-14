@@ -88,6 +88,11 @@ Page({
 
     update()
     this._countdownTimer = setInterval(update, 60000)
+    // 测试运行时别让 timer 钉住 node 事件环（jest "open handle" warnings）。
+    // 小程序运行时 setInterval 返回整数，不存在 .unref 方法，这个 check 安全。
+    if (this._countdownTimer && typeof this._countdownTimer.unref === 'function') {
+      this._countdownTimer.unref()
+    }
   },
 
   async loadOrder() {

@@ -164,6 +164,10 @@ WSBase.prototype._scheduleReconnect = function () {
     self._emit('reconnect', { attempt: self._reconnectCount, delay: delay })
     self.connect()
   }, delay)
+  // See _startHeartbeat: don't let pending reconnect timers pin jest open.
+  if (this._reconnectTimer && typeof this._reconnectTimer.unref === 'function') {
+    this._reconnectTimer.unref()
+  }
 }
 
 WSBase.prototype.reconnect = function () {
@@ -241,6 +245,12 @@ WSBase.prototype._startHeartbeat = function () {
       }
     }
   }, this._heartbeatMs)
+  // Node test runtime only: don't let the heartbeat keep the event loop
+  // alive past test completion. Mini-program runtime returns plain ints
+  // and ignores .unref(). (Fix for jest "open handle" warnings.)
+  if (this._heartbeatTimer && typeof this._heartbeatTimer.unref === 'function') {
+    this._heartbeatTimer.unref()
+  }
 }
 
 WSBase.prototype._stopHeartbeat = function () {
