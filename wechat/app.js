@@ -5,6 +5,25 @@ const { logout } = require('./services/auth')
 const notificationWs = require('./services/notificationWs')
 const { syncTabBarBadge } = require('./utils/badge')
 
+// 把任意 reject reason 序列化成可读字符串：抓 Error 的 name+message+stack，
+// 抓 wx fail 风格的 {errMsg,errno,...}，抓所有可枚举字段。目的是让一条
+// `Error: timeout` 能告诉你「谁 throw 的、在哪条 stack」。
+function _dumpReason(reason) {
+  if (reason == null) return String(reason)
+  if (typeof reason === 'string') return reason
+  try {
+    if (reason instanceof Error) {
+      var extra = {}
+      Object.keys(reason).forEach(function (k) { extra[k] = reason[k] })
+      var extraStr = Object.keys(extra).length ? ' extra=' + JSON.stringify(extra) : ''
+      return (reason.name || 'Error') + ': ' + reason.message + extraStr + '\nstack: ' + (reason.stack || '(no stack)')
+    }
+    return JSON.stringify(reason)
+  } catch (e) {
+    return String(reason)
+  }
+}
+
 // 全局通知订阅者列表
 const _notificationSubscribers = []
 
@@ -99,29 +118,27 @@ App({
   },
 
   onLaunch() {
-    // 全局都底：捕获未处理的 Promise reject（包括 wx 内部 timeout）与
-    // 同步异常。主要场景：devtools 下 ws://localhost 走不通、后台临时
-    // 5xx、某条业务代码忘写 .catch 等 —— 之前这种会冲到控制
-    // 台变成匠名其妙的 `Error: timeout`，现在统一收拢到可读日志。
+    // 全局兜底：捕获未处理的 Promise reject（包括 wx 框架内部 timeout）与
+    // 同步异常。主要场景：devtools 下 ws://localhost 走不通、后台临时 5xx、
+    // 某条业务代码忘写 .catch、wx.login / wx.request / wx.connectSocket
+    // 触发框架级 timeout 但调用方丢了 catch —— 之前这些会冲到控制台变成
+    // 匿名 `Error: timeout`，现在统一抓回来 + 落 dump 到可读日志。
     if (typeof wx !== 'undefined') {
       if (typeof wx.onUnhandledRejection === 'function') {
         wx.onUnhandledRejection(function (res) {
-          // res = { reason, promise }。reason 可能是 Error / 字符串 / 任意对象。
-          var reason = res && res.reason
-          var msg =
-            reason instanceof Error
-              ? reason.message
-              : typeof reason === 'string'
-              ? reason
-              : (function () {
-                  try { return JSON.stringify(reason) } catch (e) { return String(reason) }
-                })()
-          console.warn('[App] Unhandled promise rejection:', msg, reason)
+          console.warn('[App] Unhandled promise rejection:', _dumpReason(res && res.reason))
         })
       }
       if (typeof wx.onError === 'function') {
         wx.onError(function (err) {
-          console.warn('[App] wx.onError:', err)
+          var s = typeof err === 'string' ? err : (err && err.stack) || String(err)
+          console.warn('[App] wx.onError:', s)
+          if (/timeout/i.test(s)) {
+            try {
+              var cfg = require('./config/index')
+              console.warn('[App] ^^ matches /timeout/. likely wx.{login|request|connectSocket} framework timeout — check reachability of', cfg.API_BASE_URL, '/', cfg.WS_BASE_URL)
+            } catch (e) {}
+          }
         })
       }
     }
@@ -133,7 +150,10 @@ App({
       this.connectNotificationWs()
       getMe().then(user => {
         store.setState({ user })
-      }).catch(() => {
+      }).catch(err => {
+        // 之前是裸 .catch(() => logout())，吞掉 reason → 没人知道是 401 还是 timeout。
+        // 现在打印根因再下线。
+        console.warn('[App] onLaunch getMe failed → logout:', _dumpReason(err))
         this.disconnectNotificationWs()
         logout()
       })

@@ -27,6 +27,19 @@ function _getInstance() {
     // pong / auth_ok 已被 WSBase 吞掉
     if (_notificationCallback) _notificationCallback(data)
   })
+  // 之前没注册 error/close/reconnect → WS 异常静默被吞，devtools 里只能看到
+  // 上层调用挂死。把这些日志拉出来，配合全局 unhandledRejection 兜底一起
+  // 定位 `Error: timeout` 真实根因。
+  _instance.on('error', function (err) {
+    var msg = err && (err.errMsg || err.message) || ''
+    console.warn('[notificationWs] error:', msg, err)
+  })
+  _instance.on('close', function (evt) {
+    console.info('[notificationWs] close:', evt || '(no detail)')
+  })
+  _instance.on('reconnect', function (info) {
+    console.info('[notificationWs] reconnect attempt=' + info.attempt + ' delay=' + info.delay + 'ms')
+  })
   return _instance
 }
 
