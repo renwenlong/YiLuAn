@@ -100,6 +100,15 @@ WSBase.prototype.connect = function (url) {
   if (!this._url) throw new Error('WSBase.connect: missing url')
   this._stopped = false
 
+  // 保险：连接前先干掉旧 socket。wx 最多只允许 2 个并发 SocketTask；
+  // 旧版本丢掉 _socket 引用但不 close 它 → 累积后报
+  // 「同时最多发起 2 个 socket 请求」。
+  if (this._socket) {
+    try { if (this._socket.close) this._socket.close({}) } catch (e) {}
+    this._socket = null
+  }
+  this._stopHeartbeat()
+
   const self = this
   this._socket = this._socketFactory({
     url: this._url,
@@ -142,6 +151,9 @@ WSBase.prototype.connect = function (url) {
 
   this._socket.onClose(function (evt) {
     self._stopHeartbeat()
+    // 释放引用，下一次 send/heartbeat 会 short-circuit 而不是往死面 socket 写 →
+    // 避免 `SocketTask.send:fail SocketTask.readyState is not OPEN`。
+    self._socket = null
     self._emit('close', evt)
     if (!self._stopped) self._scheduleReconnect()
   })
@@ -215,7 +227,17 @@ WSBase.prototype.send = function (payload, opts) {
   if (!this._socket || !this._socket.send) {
     return { sent: false, deduped: false, nonce: payload.nonce }
   }
-  this._socket.send({ data: JSON.stringify(payload) })
+  // wx SocketTask 暴露 readyState（1=OPEN）。close 后 _socket 会被 nullify，
+  // 但 onOpen 之前 / onError 之后那一矬调用者可能赶到 socket=不为空但不 open。
+  // 显式拦掉，避免 `readyState is not OPEN` 报错冗余底。
+  if (typeof this._socket.readyState === 'number' && this._socket.readyState !== 1) {
+    return { sent: false, deduped: false, nonce: payload.nonce, reason: 'not_open' }
+  }
+  try {
+    this._socket.send({ data: JSON.stringify(payload) })
+  } catch (e) {
+    return { sent: false, deduped: false, nonce: payload.nonce, reason: 'send_threw' }
+  }
   return { sent: true, deduped: false, nonce: payload.nonce }
 }
 
@@ -237,7 +259,7 @@ WSBase.prototype._startHeartbeat = function () {
   if (!this._setInterval) return
   const self = this
   this._heartbeatTimer = this._setInterval(function () {
-    if (self._socket && self._socket.send) {
+    if (self._socket && self._socket.send && (typeof self._socket.readyState !== 'number' || self._socket.readyState === 1)) {
       try {
         self._socket.send({ data: JSON.stringify({ type: 'ping' }) })
       } catch (e) {
