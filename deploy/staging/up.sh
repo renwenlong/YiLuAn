@@ -4,7 +4,15 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 echo "==> docker compose up -d (build mocks if needed)"
-docker compose -p yiluan-staging -f docker-compose.staging.yml up -d --build
+# NOTE: 必须显式 -f override，否则 docker compose 在带 -f 主文件时
+# 不会自动加载同目录的 docker-compose.override.yml → WECHAT_APP_ID/SECRET
+# 等本地敏感变量丢失，wx.login() 走真 weixin.qq.com 拿 errcode=40013 → 400。
+COMPOSE_FILES=( -f docker-compose.staging.yml )
+if [ -f docker-compose.override.yml ]; then
+  COMPOSE_FILES+=( -f docker-compose.override.yml )
+  echo "   (loading docker-compose.override.yml for local secrets)"
+fi
+docker compose -p yiluan-staging "${COMPOSE_FILES[@]}" up -d --build
 
 echo "==> waiting for backend healthcheck..."
 deadline=$(( $(date +%s) + 180 ))
@@ -17,7 +25,7 @@ while [ "$(date +%s)" -lt "$deadline" ]; do
 done
 
 echo "==> running alembic upgrade head"
-docker compose -p yiluan-staging -f docker-compose.staging.yml exec -T backend-staging alembic upgrade head
+docker compose -p yiluan-staging "${COMPOSE_FILES[@]}" exec -T backend-staging alembic upgrade head
 
 echo "==> seeding staging fixtures"
 python3 seed_staging.py --base http://127.0.0.1:18080 --admin-token staging-admin-token --compose-project yiluan-staging
