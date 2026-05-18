@@ -1350,3 +1350,18 @@ Provider 接口已稳定 16 天等外部凭证（B-01 微信支付商户 / B-02 
 - **关联**：PR #63 / #65（Helm chart 骨架）、infra/helm/yiluan、docs/deployment.md、ADR-0034（待入库）
 - **影响范围**：所有上线 / 灰度 / 回滚操作、Runbook、CI release pipeline、未来基础设施引入方式
 - **状态**：Accepted
+## 2026-05-18
+
+### D-055 d32372d WS 重连守卫不在 iOS 端同步
+- **参与角色**：iOS / Architect
+- **背景**：commit `d32372d`（2026-05-18）在 `wechat/core/ws-base.js` 加了两个守卫——重连前主动 `close()` 旧 socket，以及 `send()` 时检查 `readyState === 1`。今日晨会 Action #4 要求 iOS 对照确认是否需要同步。
+- **检查结论**：**不需要同步**。理由：
+  1. iOS `WebSocketClient` 基于 `URLSessionWebSocketTask` + actor 隔离；`URLSession` 自身管理 socket 生命周期，没有 wx "最多 2 个并发 SocketTask" 这种平台硬上限——多个未关闭的旧 task 不会触发 "max concurrent" 类错误。
+  2. iOS `send(text:)` 走 `try await task.send(.string)`，底层 throws 取代了 `readyState is not OPEN` 这类同步错误码——读 socket 状态守卫属于过度防御。
+  3. 已登记的 iOS-WS 真实风险是 **TD-MSG-06**（`WebSocketClient.reconnect()` 只 sleep 不主动重连，调用方未订阅 `isConnected`），与本次微信端守卫**正交**，不应混在一个 commit 解决。
+- **后续动作**：保持现状；TD-MSG-06 仍按既定 P2（iOS 侧）排期。
+- **决策日期**：2026-05-18
+- **决策人**：Architect + iOS（PM 确认）
+- **关联**：commit `d32372d`、`wechat/core/ws-base.js`、`ios/YiLuAn/Core/Networking/WebSocketClient.swift`、`docs/TECH_DEBT.md` TD-MSG-06
+- **影响范围**：iOS WebSocket 客户端实现策略（保持不动）
+- **状态**：Accepted

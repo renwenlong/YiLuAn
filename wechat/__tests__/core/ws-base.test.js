@@ -165,6 +165,97 @@ describe('core/ws-base', () => {
     expect(sock.send).not.toHaveBeenCalled()
   })
 
+  // ---------------------------------------------------------------------------
+  // d32372d: close stale socket before reconnect + readyState guard on send().
+  // Minimum unit coverage requested in the 2026-05-18 standup.
+  // ---------------------------------------------------------------------------
+
+  test('connect() closes the previous stale socket before opening a new one', () => {
+    // Simulate the reconnect path: first connect builds socket A, the wx
+    // SocketTask goes silent (no onClose fires — exactly the bug d32372d
+    // patches), and a second connect() is invoked. ws-base must close A so
+    // the wx "max 2 concurrent SocketTask" limit doesn't accumulate.
+    const sockets = []
+    const factory = jest.fn(() => {
+      const s = makeMockSocket()
+      sockets.push(s)
+      return s
+    })
+    const ws = new WSBase({ socketFactory: factory })
+    ws.connect('ws://x')
+    expect(sockets).toHaveLength(1)
+    // Second connect() (manual reconnect / auth refresh) must close A first.
+    ws.connect('ws://x')
+    expect(sockets).toHaveLength(2)
+    expect(sockets[0].close).toHaveBeenCalledTimes(1)
+  })
+
+  test('connect() tolerates a stale socket whose close() throws', () => {
+    const sockets = []
+    const factory = jest.fn(() => {
+      const s = makeMockSocket()
+      s.close = jest.fn(() => { throw new Error('already gone') })
+      sockets.push(s)
+      return s
+    })
+    const ws = new WSBase({ socketFactory: factory })
+    ws.connect('ws://x')
+    expect(() => ws.connect('ws://x')).not.toThrow()
+    expect(sockets).toHaveLength(2)
+  })
+
+  test('send() short-circuits when socket.readyState is not OPEN (1)', () => {
+    const sock = makeMockSocket()
+    sock.readyState = 0 // CONNECTING — handshake still in flight
+    const ws = new WSBase({ socketFactory: () => sock })
+    ws.connect('ws://x')
+    sock._open()
+    // onOpen flips internal state but the mock readyState stays at 0 to
+    // simulate a race where the caller fires send() before the socket has
+    // actually transitioned to OPEN on the wx side.
+    const r = ws.send({ content: 'hi', type: 'text' })
+    expect(r.sent).toBe(false)
+    expect(r.reason).toBe('not_open')
+    expect(sock.send).not.toHaveBeenCalled()
+  })
+
+  test('send() succeeds when readyState === 1 (OPEN)', () => {
+    const sock = makeMockSocket()
+    sock.readyState = 1
+    const ws = new WSBase({ socketFactory: () => sock })
+    ws.connect('ws://x')
+    sock._open()
+    const r = ws.send({ content: 'hi', type: 'text' })
+    expect(r.sent).toBe(true)
+    expect(sock.send).toHaveBeenCalledTimes(1)
+  })
+
+  test('send() ignores readyState guard when the field is absent (legacy mock)', () => {
+    const sock = makeMockSocket() // no readyState field
+    const ws = new WSBase({ socketFactory: () => sock })
+    ws.connect('ws://x')
+    sock._open()
+    const r = ws.send({ content: 'hi', type: 'text' })
+    expect(r.sent).toBe(true)
+  })
+
+  test('onClose nullifies _socket so subsequent send() short-circuits cleanly', () => {
+    const sock = makeMockSocket()
+    sock.readyState = 1
+    const ws = new WSBase({
+      socketFactory: () => sock,
+      setTimeout: jest.fn(() => 1), // capture reconnect timer but don't fire
+      clearTimeout: jest.fn(),
+    })
+    ws.connect('ws://x')
+    sock._open()
+    sock._close({ code: 1006 })
+    const r = ws.send({ content: 'late', type: 'text' })
+    expect(r.sent).toBe(false)
+    // Original socket.send must NOT be called after onClose nulled the ref.
+    expect(sock.send).not.toHaveBeenCalled()
+  })
+
   test('auth_ok server frame is swallowed and not exposed to subscribers', () => {
     const sock = makeMockSocket()
     const msgs = []
