@@ -45,9 +45,9 @@ def upgrade() -> None:
     op.create_table(
         "followup_reminders",
         sa.Column("id", sa.Uuid(as_uuid=True), primary_key=True, nullable=False),
-        sa.Column("user_id", sa.Uuid(as_uuid=True), nullable=False, index=True),
-        sa.Column("order_id", sa.Uuid(as_uuid=True), nullable=False, index=True),
-        sa.Column("remind_at", sa.DateTime(timezone=True), nullable=False, index=True),
+        sa.Column("user_id", sa.Uuid(as_uuid=True), nullable=False),
+        sa.Column("order_id", sa.Uuid(as_uuid=True), nullable=False),
+        sa.Column("remind_at", sa.DateTime(timezone=True), nullable=False),
         status_col,
         sa.Column("attempts", sa.Integer(), nullable=False, server_default="0"),
         sa.Column("last_error", sa.Text(), nullable=True),
