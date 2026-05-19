@@ -25,7 +25,7 @@ describe('app.json 分包结构', () => {
   test('总页面数 = 主包 + 所有分包', () => {
     const total = app.pages.length +
       app.subPackages.reduce((acc, sp) => acc + sp.pages.length, 0);
-    expect(total).toBe(31);
+    expect(total).toBe(32);
   });
 
   test('subPackages.root 与主包 pages 不重叠', () => {

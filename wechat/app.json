@@ -27,6 +27,7 @@
     { "root": "pages/profile/bind-phone",        "name": "u-bind",           "pages": ["index"] },
     { "root": "pages/profile/wallet",            "name": "u-wallet",         "pages": ["index"] },
     { "root": "pages/profile/emergency-contacts","name": "u-emergency",      "pages": ["index"] },
+    { "root": "pages/profile/family-members",   "name": "u-family",         "pages": ["index"] },
     { "root": "pages/profile/settings",          "name": "u-settings",       "pages": ["index"] },
     { "root": "pages/profile/about",             "name": "u-about",          "pages": ["index"] },
     { "root": "pages/notification",              "name": "u-notice",         "pages": ["index"] },

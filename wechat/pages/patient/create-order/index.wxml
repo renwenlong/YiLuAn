@@ -16,6 +16,17 @@
     </view>
   </view>
 
+  <!-- [F-05] 给谁下单 -->
+  <view class="info-section">
+    <view class="section-header">
+      <text class="section-label">给谁下单</text>
+      <text class="change-btn" bindtap="onManageFamilyMembers">管理家人</text>
+    </view>
+    <picker mode="selector" range="{{familyMemberOptions}}" value="{{familyMemberIndex}}" bindchange="onFamilyMemberChange">
+      <view class="picker-value">{{familyMemberOptions[familyMemberIndex]}}</view>
+    </picker>
+  </view>
+
   <!-- 指定陪诊师 -->
   <view class="info-section">
     <view class="section-header">

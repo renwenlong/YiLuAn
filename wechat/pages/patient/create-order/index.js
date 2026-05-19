@@ -1,6 +1,8 @@
 var createOrder = require('../../../services/order').createOrder
 var getCompanionDetail = require('../../../services/companion').getCompanionDetail
 var getCompanions = require('../../../services/companion').getCompanions
+var listFamilyMembers = require('../../../services/familyMember').listFamilyMembers
+var relationLabel = require('../../../utils/familyRelation').relationLabel
 var SERVICE_TYPES = require('../../../utils/constants').SERVICE_TYPES
 var formatCurrency = require('../../../utils/formatCurrency').formatCurrency
 var store = require('../../../store/index')
@@ -21,7 +23,12 @@ Page({
     loading: false,
     showCompanionPicker: false,
     companionList: [],
-    loadingCompanions: false
+    loadingCompanions: false,
+    // [F-05] family member picker (代他人下单)
+    familyMembers: [],            // {id, name, relation, relation_label}
+    familyMemberOptions: ['本人'], // display labels for <picker>
+    familyMemberIndex: 0,         // 0 = 本人
+    familyMemberId: ''
   },
 
   onLoad(options) {
@@ -51,6 +58,39 @@ Page({
     if (options.companion_id) {
       this.loadCompanion(options.companion_id)
     }
+
+    this.loadFamilyMembers()
+  },
+
+  // [F-05] 拉取当前用户的家人列表，填充 picker
+  loadFamilyMembers: function () {
+    var self = this
+    listFamilyMembers()
+      .then(function (res) {
+        var items = (res && res.items) || []
+        var options = ['本人'].concat(items.map(function (m) {
+          return m.name + '（' + relationLabel(m.relation) + '）'
+        }))
+        self.setData({
+          familyMembers: items,
+          familyMemberOptions: options,
+          familyMemberIndex: 0,
+          familyMemberId: ''
+        })
+      })
+      .catch(function () {
+        // 静默失败：家人列表只是增强项，不需要阻断下单
+      })
+  },
+
+  onFamilyMemberChange: function (e) {
+    var idx = Number(e.detail.value)
+    var id = idx === 0 ? '' : (this.data.familyMembers[idx - 1] && this.data.familyMembers[idx - 1].id) || ''
+    this.setData({ familyMemberIndex: idx, familyMemberId: id })
+  },
+
+  onManageFamilyMembers: function () {
+    wx.navigateTo({ url: '/pages/profile/family-members/index' })
   },
 
   loadCompanion(companionId) {
@@ -188,6 +228,8 @@ Page({
     }
     if (d.notes) orderData.description = d.notes
     if (d.companionId) orderData.companion_id = d.companionId
+    // [F-05] 代他人下单：仅在选中具体家人时传
+    if (d.familyMemberId) orderData.family_member_id = d.familyMemberId
 
     var self = this
     createOrder(orderData)

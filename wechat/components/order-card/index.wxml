@@ -18,6 +18,10 @@
       <text class="order-label">患者</text>
       <text class="order-value">{{order.patient_name}}</text>
     </view>
+    <view class="order-row" wx:if="{{familyMemberText}}">
+      <text class="order-label">实际就诊人</text>
+      <text class="order-value">{{familyMemberText}}</text>
+    </view>
     <view class="order-desc" wx:if="{{order.description}}">
       <text class="order-desc-text">{{order.description}}</text>
     </view>
