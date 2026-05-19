@@ -146,7 +146,11 @@ async def list_diffs(
     }
 
 
-@router.get("/diffs/{diff_id}")
+@router.get(
+    "/diffs/{diff_id}",
+    summary="后台：差异详情",
+    description="返回指定 reconciliation diff 详情 + 全部动作记录（按 created_at 升序）。",
+)
 async def get_diff(
     diff_id: UUID,
     session: DBSession,
@@ -307,7 +311,11 @@ async def confirm_close(
 # ---------------------------------------------------------------------------
 # Runs (list)
 # ---------------------------------------------------------------------------
-@router.get("/runs")
+@router.get(
+    "/runs",
+    summary="后台：对账 run 列表",
+    description="按 started_at 倒序分页返回对账批次（run）列表，供审计查看历史对账状态。",
+)
 async def list_runs(
     session: DBSession,
     page: int = Query(default=1, ge=1),

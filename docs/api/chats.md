@@ -23,6 +23,7 @@ WS 单条消息正文上限 4000 字符，HTTP 与之保持一致。
 | --- | --- | --- |
 | `GET` | `/api/v1/chats/{order_id}/messages` | 获取订单聊天历史 |
 | `POST` | `/api/v1/chats/{order_id}/messages` | 发送一条聊天消息（HTTP 兜底） |
+| `GET` | `/api/v1/chats/{order_id}/messages/backfill` | WS 重连后增量回灌聊天消息 |
 | `POST` | `/api/v1/chats/{order_id}/read` | 批量标记订单消息为已读 |
 
 ## 端点详情
@@ -89,6 +90,41 @@ curl -X GET 'https://api.yiluan.example.com/api/v1/chats/{order_id}/messages' \
 
 ```bash
 curl -X POST 'https://api.yiluan.example.com/api/v1/chats/{order_id}/messages' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `GET /api/v1/chats/{order_id}/messages/backfill` — WS 重连后增量回灌聊天消息
+
+基于游标的增量回灌接口，配合 WebSocket 重连场景使用。
+
+- ``after_id`` 为客户端本地最后一条消息 ID；缺省时返回最早 ``limit`` 条。
+- 返回顺序严格 ``(created_at ASC, id ASC)``，与 WS 推送顺序一致。
+- ``after_id`` 不属于该订单或已被清理时，等价于全量回灌（不报 404）。
+- ``limit`` 由服务端硬上限 200。
+
+**参数：**
+
+- `order_id` (path, string, required=✅) — 
+- `after_id` (query, —, required=—) — 上次最后一条消息 ID；为空则从头开始
+- `limit` (query, integer, required=—) — 单次最多返回条数 1~200
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `401` | 未鉴权或令牌无效 |
+| `403` | 无权限 |
+| `404` | 资源不存在 |
+| `422` | Validation Error |
+| `500` | 服务器内部错误 |
+
+**curl 示例：**
+
+```bash
+curl -X GET 'https://api.yiluan.example.com/api/v1/chats/{order_id}/messages/backfill' \
   -H 'Authorization: Bearer <access_token>'
 ```
 

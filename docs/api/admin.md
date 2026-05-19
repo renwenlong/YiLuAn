@@ -18,18 +18,69 @@
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
+| `GET` | `/api/v1/admin/audit-logs` | 后台：审计日志列表 |
 | `GET` | `/api/v1/admin/companions/` | 后台：待审核陪诊师列表 |
+| `GET` | `/api/v1/admin/companions/search` | 后台：陪诊师轻量搜索（钱包账本筛选用） |
 | `POST` | `/api/v1/admin/companions/{companion_id}/approve` | 后台：批准陪诊师入驻 |
 | `POST` | `/api/v1/admin/companions/{companion_id}/certify` | 管理员：设置陪诊师资质认证（F-01） |
 | `POST` | `/api/v1/admin/companions/{companion_id}/reject` | 后台：驳回陪诊师申请 |
-| `GET` | `/api/v1/admin/orders` | 后台：查询全部订单 |
-| `POST` | `/api/v1/admin/orders/{order_id}/admin-refund` | 后台：管理员退款 |
+| `GET` | `/api/v1/admin/dashboard/summary` | 后台首页：KPI + 7 日趋势 |
+| `POST` | `/api/v1/admin/login` | Admin v2 登录（JWT） |
+| `GET` | `/api/v1/admin/notes` | 后台：按 target 列出备注 |
+| `POST` | `/api/v1/admin/notes` | 后台：新增备注 |
+| `DELETE` | `/api/v1/admin/notes/{note_id}` | 后台：删除备注（仅作者） |
+| `PATCH` | `/api/v1/admin/notes/{note_id}` | 后台：编辑备注（仅作者） |
+| `GET` | `/api/v1/admin/orders` | 后台：订单列表 |
+| `GET` | `/api/v1/admin/orders/{order_id}` | 后台：订单详情 |
 | `POST` | `/api/v1/admin/orders/{order_id}/force-status` | 后台：强制修改订单状态 |
+| `POST` | `/api/v1/admin/orders/{order_id}/refund` | 后台：管理员退款 |
+| `GET` | `/api/v1/admin/orders/{order_id}/timeline` | 后台：订单状态变迁时间轴 |
+| `GET` | `/api/v1/admin/reconciliation/diffs` | List Diffs |
+| `GET` | `/api/v1/admin/reconciliation/diffs/{diff_id}` | 后台：差异详情 |
+| `POST` | `/api/v1/admin/reconciliation/diffs/{diff_id}/close-confirms` | Confirm Close |
+| `POST` | `/api/v1/admin/reconciliation/diffs/{diff_id}/close-requests` | Request Close |
+| `GET` | `/api/v1/admin/reconciliation/runs` | 后台：对账 run 列表 |
 | `GET` | `/api/v1/admin/users` | 后台：用户列表 |
+| `GET` | `/api/v1/admin/users/{user_id}` | 后台：用户详情 |
 | `POST` | `/api/v1/admin/users/{user_id}/disable` | 后台：停用用户 |
 | `POST` | `/api/v1/admin/users/{user_id}/enable` | 后台：启用用户 |
+| `POST` | `/api/v1/admin/wallet-ledger/adjustments` | Create Manual Adjustment |
+| `GET` | `/api/v1/admin/wallet-ledger/{user_id}` | List User Ledger |
 
 ## 端点详情
+
+### `GET /api/v1/admin/audit-logs` — 后台：审计日志列表
+
+按操作员 / 目标类型 / 目标 id / 动作 / 时间窗口过滤后台审计日志，分页返回。
+
+**参数：**
+
+- `operator` (query, —, required=—) — 按操作员精确匹配
+- `target_type` (query, —, required=—) — 按目标类型，如 order/user/companion
+- `target_id` (query, —, required=—) — 按具体目标 id 精确匹配
+- `action` (query, —, required=—) — 按动作类型精确匹配
+- `since` (query, —, required=—) — created_at >= since
+- `until` (query, —, required=—) — created_at < until
+- `page` (query, integer, required=—) — 
+- `page_size` (query, integer, required=—) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X GET 'https://api.yiluan.example.com/api/v1/admin/audit-logs' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
 
 ### `GET /api/v1/admin/companions/` — 后台：待审核陪诊师列表
 
@@ -39,7 +90,8 @@
 
 - `page` (query, integer, required=—) — 
 - `page_size` (query, integer, required=—) — 
-- `X-Admin-Token` (header, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
 
 **响应：**
 
@@ -57,6 +109,34 @@ curl -X GET 'https://api.yiluan.example.com/api/v1/admin/companions/' \
 
 ---
 
+### `GET /api/v1/admin/companions/search` — 后台：陪诊师轻量搜索（钱包账本筛选用）
+
+按姓名或手机号模糊搜索陪诊师，返回 user_id + 姓名 + 手机号尾 4 位。默认仅返回 `verified` 状态；传 `status=all` 取消该过滤。
+
+**参数：**
+
+- `q` (query, —, required=—) — 姓名或手机号关键字
+- `status` (query, string, required=—) — verified | all
+- `limit` (query, integer, required=—) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X GET 'https://api.yiluan.example.com/api/v1/admin/companions/search' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
 ### `POST /api/v1/admin/companions/{companion_id}/approve` — 后台：批准陪诊师入驻
 
 批准指定陪诊师，状态转为 `verified`，该陪诊师随即可被搜索与接单。
@@ -64,7 +144,8 @@ curl -X GET 'https://api.yiluan.example.com/api/v1/admin/companions/' \
 **参数：**
 
 - `companion_id` (path, string, required=✅) — 
-- `X-Admin-Token` (header, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
 
 **响应：**
 
@@ -89,7 +170,8 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/admin/companions/{companion_
 **参数：**
 
 - `companion_id` (path, string, required=✅) — 
-- `X-Admin-Token` (header, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
 
 **请求体（JSON）：**
 
@@ -120,7 +202,8 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/admin/companions/{companion_
 **参数：**
 
 - `companion_id` (path, string, required=✅) — 
-- `X-Admin-Token` (header, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
 
 **请求体（JSON）：**
 
@@ -144,15 +227,189 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/admin/companions/{companion_
 
 ---
 
-### `GET /api/v1/admin/orders` — 后台：查询全部订单
+### `GET /api/v1/admin/dashboard/summary` — 后台首页：KPI + 7 日趋势
 
-管理员查看所有订单列表，可按 `status` 过滤。仅 `admin` 角色可调用。
+返回今日订单数 / GMV / 待审陆的陪诊师 / 未关闭差异等 KPI 以及过去 7 日的趋势点位。
 
 **参数：**
 
-- `status` (query, —, required=—) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X GET 'https://api.yiluan.example.com/api/v1/admin/dashboard/summary' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `POST /api/v1/admin/login` — Admin v2 登录（JWT）
+
+校验 `admin_users.username` + bcrypt 密码，签发 8h JWT。Token 用 `Authorization: Bearer <token>` 传递。见 ADR-0034。
+
+**请求体（JSON）：**
+
+```json
+""
+```
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X POST 'https://api.yiluan.example.com/api/v1/admin/login' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `GET /api/v1/admin/notes` — 后台：按 target 列出备注
+
+按 (target_type, target_id) 列出后台备注，限 100到500 条，创建时间倒序。
+
+**参数：**
+
+- `target_type` (query, string, required=✅) — 
+- `target_id` (query, string, required=✅) — 
+- `limit` (query, integer, required=—) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X GET 'https://api.yiluan.example.com/api/v1/admin/notes' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `POST /api/v1/admin/notes` — 后台：新增备注
+
+为指定 target (order/user/companion) 创建一条后台备注，同时写入审计日志。
+
+**参数：**
+
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**请求体（JSON）：**
+
+```json
+""
+```
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X POST 'https://api.yiluan.example.com/api/v1/admin/notes' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `DELETE /api/v1/admin/notes/{note_id}` — 后台：删除备注（仅作者）
+
+仅原作者可删除备注；delete 动作同步记录审计日志。
+
+**参数：**
+
+- `note_id` (path, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X DELETE 'https://api.yiluan.example.com/api/v1/admin/notes/{note_id}' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `PATCH /api/v1/admin/notes/{note_id}` — 后台：编辑备注（仅作者）
+
+仅原作者可修改备注内容；edit 记录会进入审计日志。
+
+**参数：**
+
+- `note_id` (path, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**请求体（JSON）：**
+
+```json
+""
+```
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X PATCH 'https://api.yiluan.example.com/api/v1/admin/notes/{note_id}' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `GET /api/v1/admin/orders` — 后台：订单列表
+
+按状态 / 患者 / 陪诊师 / 预约日期范围分页查询订单。
+
+**参数：**
+
+- `status` (query, —, required=—) — OrderStatus 之一
+- `patient_id` (query, —, required=—) — 
+- `companion_id` (query, —, required=—) — 
+- `date_from` (query, —, required=—) — 预约开始日期 YYYY-MM-DD
+- `date_to` (query, —, required=—) — 预约结束日期 YYYY-MM-DD
 - `page` (query, integer, required=—) — 
 - `page_size` (query, integer, required=—) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
 
 **响应：**
 
@@ -170,14 +427,15 @@ curl -X GET 'https://api.yiluan.example.com/api/v1/admin/orders' \
 
 ---
 
-### `POST /api/v1/admin/orders/{order_id}/admin-refund` — 后台：管理员退款
+### `GET /api/v1/admin/orders/{order_id}` — 后台：订单详情
 
-以 `refund_ratio`（0~1）按订单金额按比例退款，1.0 表示全额退。
+返回单个订单的完整字段（含 patient_display_name / companion_display_name / patient_phone_masked / price），并写入 view_order_detail 审计行。
 
 **参数：**
 
 - `order_id` (path, string, required=✅) — 
-- `refund_ratio` (query, number, required=—) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
 
 **响应：**
 
@@ -189,7 +447,7 @@ curl -X GET 'https://api.yiluan.example.com/api/v1/admin/orders' \
 **curl 示例：**
 
 ```bash
-curl -X POST 'https://api.yiluan.example.com/api/v1/admin/orders/{order_id}/admin-refund' \
+curl -X GET 'https://api.yiluan.example.com/api/v1/admin/orders/{order_id}' \
   -H 'Authorization: Bearer <access_token>'
 ```
 
@@ -197,12 +455,19 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/admin/orders/{order_id}/admi
 
 ### `POST /api/v1/admin/orders/{order_id}/force-status` — 后台：强制修改订单状态
 
-管理员手动将订单跳转到指定状态，**仅用于运营干预**，不走业务状态机。
+管理员手动覆盖订单状态，**绕过业务状态机**，仅用于运营干预。 必须提供原因；进入禁止转换会 400 + 写 force_status_denied 审计。
 
 **参数：**
 
 - `order_id` (path, string, required=✅) — 
-- `target_status` (query, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**请求体（JSON）：**
+
+```json
+""
+```
 
 **响应：**
 
@@ -220,14 +485,228 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/admin/orders/{order_id}/forc
 
 ---
 
-### `GET /api/v1/admin/users` — 后台：用户列表
+### `POST /api/v1/admin/orders/{order_id}/refund` — 后台：管理员退款
 
-分页查看所有用户（含已停用）。
+管理员发起退款。约束： (1) 订单状态需为 accepted / in_progress / completed / reviewed； (2) 退款金额 ≤ 已支付金额； (3) 同一订单已存在 success 退款时拒绝（依赖 PaymentService 唯一约束）。
+
+**参数：**
+
+- `order_id` (path, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**请求体（JSON）：**
+
+```json
+""
+```
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X POST 'https://api.yiluan.example.com/api/v1/admin/orders/{order_id}/refund' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `GET /api/v1/admin/orders/{order_id}/timeline` — 后台：订单状态变迁时间轴
+
+按创建时间升序返回指定订单的状态变迁记录（order_status_history），供客服复盘使用。
+
+**参数：**
+
+- `order_id` (path, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X GET 'https://api.yiluan.example.com/api/v1/admin/orders/{order_id}/timeline' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `GET /api/v1/admin/reconciliation/diffs` — List Diffs
+
+List reconciliation diffs with filters; newest first.
+
+**参数：**
+
+- `status` (query, —, required=—) — 
+- `kind` (query, —, required=—) — 
+- `provider` (query, —, required=—) — 
+- `order_id` (query, —, required=—) — 
+- `run_id` (query, —, required=—) — 
+- `date_from` (query, —, required=—) — 
+- `date_to` (query, —, required=—) — 
+- `page` (query, integer, required=—) — 
+- `page_size` (query, integer, required=—) — 
+- `X-Admin-Token` (header, string, required=✅) — 
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X GET 'https://api.yiluan.example.com/api/v1/admin/reconciliation/diffs' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `GET /api/v1/admin/reconciliation/diffs/{diff_id}` — 后台：差异详情
+
+返回指定 reconciliation diff 详情 + 全部动作记录（按 created_at 升序）。
+
+**参数：**
+
+- `diff_id` (path, string, required=✅) — 
+- `X-Admin-Token` (header, string, required=✅) — 
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X GET 'https://api.yiluan.example.com/api/v1/admin/reconciliation/diffs/{diff_id}' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `POST /api/v1/admin/reconciliation/diffs/{diff_id}/close-confirms` — Confirm Close
+
+Second signature. Must be performed by a *different* operator than
+the one who filed the pending request. Flips the diff to ``closed``.
+
+**参数：**
+
+- `diff_id` (path, string, required=✅) — 
+- `X-Admin-Token` (header, string, required=✅) — 
+- `X-Admin-Operator` (header, string, required=✅) — 
+
+**请求体（JSON）：**
+
+```json
+""
+```
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X POST 'https://api.yiluan.example.com/api/v1/admin/reconciliation/diffs/{diff_id}/close-confirms' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `POST /api/v1/admin/reconciliation/diffs/{diff_id}/close-requests` — Request Close
+
+First signature. Records a ``manual_close`` action with outcome
+``pending_second_sign``. Diff stays in its current status.
+
+**参数：**
+
+- `diff_id` (path, string, required=✅) — 
+- `X-Admin-Token` (header, string, required=✅) — 
+- `X-Admin-Operator` (header, string, required=✅) — 
+
+**请求体（JSON）：**
+
+```json
+""
+```
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X POST 'https://api.yiluan.example.com/api/v1/admin/reconciliation/diffs/{diff_id}/close-requests' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `GET /api/v1/admin/reconciliation/runs` — 后台：对账 run 列表
+
+按 started_at 倒序分页返回对账批次（run）列表，供审计查看历史对账状态。
 
 **参数：**
 
 - `page` (query, integer, required=—) — 
 - `page_size` (query, integer, required=—) — 
+- `X-Admin-Token` (header, string, required=✅) — 
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X GET 'https://api.yiluan.example.com/api/v1/admin/reconciliation/runs' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `GET /api/v1/admin/users` — 后台：用户列表
+
+分页查询用户，支持按 role / is_active / phone 模糊过滤。
+
+**参数：**
+
+- `role` (query, —, required=—) — 角色 tag，如 patient / companion / admin
+- `is_active` (query, —, required=—) — 
+- `phone` (query, —, required=—) — 手机号模糊匹配
+- `reveal` (query, boolean, required=—) — 是否返回明文手机号；置 true 会写入 reveal_pii 审计日志。
+- `page` (query, integer, required=—) — 
+- `page_size` (query, integer, required=—) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
 
 **响应：**
 
@@ -245,13 +724,48 @@ curl -X GET 'https://api.yiluan.example.com/api/v1/admin/users' \
 
 ---
 
-### `POST /api/v1/admin/users/{user_id}/disable` — 后台：停用用户
+### `GET /api/v1/admin/users/{user_id}` — 后台：用户详情
 
-将指定用户账号设为 `is_active=False`，用于风控处置。
+返回单个用户详情；phone 默认脱敏，?reveal=true 返回明文并写 reveal_pii 审计；同时写入 view_user_detail 审计行。
 
 **参数：**
 
 - `user_id` (path, string, required=✅) — 
+- `reveal` (query, boolean, required=—) — 是否返回明文手机号；置 true 会写入 reveal_pii 审计日志。
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X GET 'https://api.yiluan.example.com/api/v1/admin/users/{user_id}' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `POST /api/v1/admin/users/{user_id}/disable` — 后台：停用用户
+
+将指定用户置为 is_active=False。操作必须给出原因，写入 admin_audit_log。
+
+**参数：**
+
+- `user_id` (path, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**请求体（JSON）：**
+
+```json
+""
+```
 
 **响应：**
 
@@ -271,11 +785,13 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/admin/users/{user_id}/disabl
 
 ### `POST /api/v1/admin/users/{user_id}/enable` — 后台：启用用户
 
-重新启用被停用的账号。
+重新启用被停用账号；操作写入 admin_audit_log。
 
 **参数：**
 
 - `user_id` (path, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
 
 **响应：**
 
@@ -288,6 +804,66 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/admin/users/{user_id}/disabl
 
 ```bash
 curl -X POST 'https://api.yiluan.example.com/api/v1/admin/users/{user_id}/enable' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `POST /api/v1/admin/wallet-ledger/adjustments` — Create Manual Adjustment
+
+人工记一笔调账。强制 ``X-Admin-Operator``；落 admin_audit_log + ledger。
+
+**参数：**
+
+- `X-Admin-Token` (header, string, required=✅) — 
+- `X-Admin-Operator` (header, string, required=✅) — 
+
+**请求体（JSON）：**
+
+```json
+""
+```
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X POST 'https://api.yiluan.example.com/api/v1/admin/wallet-ledger/adjustments' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `GET /api/v1/admin/wallet-ledger/{user_id}` — List User Ledger
+
+诊断用：查看某 user 的账本流水。
+
+**参数：**
+
+- `user_id` (path, string, required=✅) — 
+- `page` (query, integer, required=—) — 
+- `page_size` (query, integer, required=—) — 
+- `reason` (query, —, required=—) — 
+- `companion_id` (query, —, required=—) — 可选，仅接受与路径 user_id 一致的陪诊师 user_id；用于后台 H5 从陪诊师选择器传入。不一致返回 422。
+- `X-Admin-Token` (header, string, required=✅) — 
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X GET 'https://api.yiluan.example.com/api/v1/admin/wallet-ledger/{user_id}' \
   -H 'Authorization: Bearer <access_token>'
 ```
 

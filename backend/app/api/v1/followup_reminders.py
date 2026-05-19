@@ -34,6 +34,7 @@ _ALLOWED_ORDER_STATUSES = {OrderStatus.completed, OrderStatus.reviewed}
     response_model=FollowupReminderResponse,
     status_code=status.HTTP_201_CREATED,
     summary="为一笔已完成订单创建复诊提醒 (F-07)",
+    description="仅当订单状态为 completed/reviewed 且属于当前用户时可创建；remind_at 必须为未来时间。",
     responses={**err(400, 401, 404, 422, 500)},
 )
 async def create_followup_reminder(
@@ -70,6 +71,7 @@ async def create_followup_reminder(
     "/me/followup-reminders",
     response_model=FollowupReminderListResponse,
     summary="我的全部复诊提醒 (F-07)",
+    description="按 remind_at 升序返回当前用户全部复诊提醒（含 pending/sent/cancelled/failed）。",
     responses={**err(401, 500)},
 )
 async def list_my_followup_reminders(
@@ -87,6 +89,7 @@ async def list_my_followup_reminders(
     "/me/followup-reminders/{reminder_id}",
     status_code=204,
     summary="取消一条 pending 复诊提醒 (F-07)",
+    description="仅 pending 状态可取消；已 sent 的提醒不可撤回（微信侧已下发）。",
     responses={**err(400, 401, 404, 500)},
 )
 async def cancel_followup_reminder(

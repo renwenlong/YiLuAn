@@ -60,7 +60,7 @@ def upgrade() -> None:
     op.create_table(
         "family_members",
         sa.Column("id", sa.Uuid(as_uuid=True), primary_key=True, nullable=False),
-        sa.Column("user_id", sa.Uuid(as_uuid=True), nullable=False, index=True),
+        sa.Column("user_id", sa.Uuid(as_uuid=True), nullable=False),
         sa.Column("name", sa.String(length=50), nullable=False),
         sa.Column(
             "relation", relation_type, nullable=False, server_default="other"
@@ -71,7 +71,7 @@ def upgrade() -> None:
         ),
         sa.Column("age", sa.Integer(), nullable=True),
         sa.Column("medical_notes", sa.Text(), nullable=True),
-        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True, index=True),
+        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
     )

@@ -44,6 +44,7 @@ async def list_family_members(current_user: CurrentUser, session: DBSession):
     response_model=FamilyMemberResponse,
     status_code=201,
     summary="新增一位家人 (F-05)",
+    description="为当前用户创建一个家人/被陪诊人档案，默认 relation=other / gender=unknown。",
     responses={**err(401, 422, 500)},
 )
 async def create_family_member(
@@ -60,6 +61,7 @@ async def create_family_member(
     "/me/family-members/{member_id}",
     response_model=FamilyMemberResponse,
     summary="更新一位家人 (F-05)",
+    description="部分字段更新当前用户名下的家人档案；不影响历史订单上的快照。",
     responses={**err(401, 404, 422, 500)},
 )
 async def update_family_member(

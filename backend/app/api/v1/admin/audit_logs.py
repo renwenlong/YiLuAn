@@ -54,6 +54,7 @@ class PaginatedAuditLogs(BaseModel):
     "",
     response_model=PaginatedAuditLogs,
     summary="后台：审计日志列表",
+    description="按操作员 / 目标类型 / 目标 id / 动作 / 时间窗口过滤后台审计日志，分页返回。",
 )
 async def list_audit_logs(
     session: DBSession,
