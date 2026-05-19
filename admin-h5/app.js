@@ -481,7 +481,15 @@ const Users = {
       tbody.innerHTML = items.map((u) => {
         const phone = u.phone_masked || u.phone || u.mobile || '-';
         const nickname = u.display_name || u.nickname || u.name;
-        const role = u.role || (u.roles ? u.roles.split(',')[0] : '') || '-';
+        // 后端返回 `roles` (CSV, 多角色) + `role` (legacy 单角色)。
+        // 以前只取 split(',')[0]——双角色用户（如同时是 patient & companion）会丢掉其他角色。
+        // 现在渲染所有角色为多个 pill。
+        const roleList = (u.roles && u.roles.length)
+          ? u.roles.split(',').map((r) => r.trim()).filter(Boolean)
+          : (u.role ? [u.role] : []);
+        const rolesCell = roleList.length
+          ? roleList.map((r) => statusPill(r)).join(' ')
+          : statusPill('-');
         const isActive = u.is_active !== false; // null/undefined treat as active
         const statusValue = isActive ? 'active' : 'disabled';
         const statusText = isActive ? '启用' : '禁用';
@@ -492,7 +500,7 @@ const Users = {
           '<tr>' +
           '<td>' + escapeHtml(phone) + '</td>' +
           '<td>' + (nickname ? escapeHtml(nickname) : '<span style="color:#bbb">未填写</span>') + '</td>' +
-          '<td>' + statusPill(role) + '</td>' +
+          '<td>' + rolesCell + '</td>' +
           '<td>' + statusPill(statusValue, statusText) + '</td>' +
           '<td>' + escapeHtml(u.created_at || '-') + '</td>' +
           '<td class="actions-cell">' +
