@@ -14,6 +14,10 @@ struct CreateOrderView: View {
     @State private var description = ""
     @State private var step = 1
 
+    // [F-05] 代他人下单：默认 nil = 本人
+    @State private var familyMembers: [FamilyMember] = []
+    @State private var selectedFamilyMemberId: String?
+
     private let timeSlots = (8...17).flatMap { hour in
         ["00", "30"].map { min in String(format: "%02d:%@", hour, min) }
     }
@@ -72,6 +76,14 @@ struct CreateOrderView: View {
             .navigationTitle("创建订单")
             .navigationBarTitleDisplayMode(.inline)
             .phoneRequiredAlert($viewModel.phoneRequiredMessage)
+            .task { await loadFamilyMembers() }
+        }
+    }
+
+    // [F-05] 拉取家人列表填充 picker；失败静默（不阻断主流程）
+    private func loadFamilyMembers() async {
+        if let list = try? await FamilyMembersService.list() {
+            familyMembers = list
         }
     }
 
@@ -221,6 +233,26 @@ struct CreateOrderView: View {
             Text("确认订单")
                 .font(.headline)
 
+            // [F-05] 给谁下单（默认本人，可选已有家人）
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("给谁下单")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Picker("给谁下单", selection: $selectedFamilyMemberId) {
+                        Text("本人").tag(String?.none)
+                        ForEach(familyMembers) { m in
+                            Text("\(m.name)（\(m.relationLabel)）").tag(String?.some(m.id))
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+            }
+            .padding()
+            .background(Color(.systemGray6))
+            .cornerRadius(12)
+
             VStack(alignment: .leading, spacing: 12) {
                 confirmRow("服务类型", selectedService?.displayName ?? "")
                 confirmRow("医院", hospitalName)
@@ -285,7 +317,8 @@ struct CreateOrderView: View {
             hospitalId: hospitalId,
             date: dateString,
             time: appointmentTime,
-            description: description.isEmpty ? nil : description
+            description: description.isEmpty ? nil : description,
+            familyMemberId: selectedFamilyMemberId
         )
         if order != nil {
             dismiss()

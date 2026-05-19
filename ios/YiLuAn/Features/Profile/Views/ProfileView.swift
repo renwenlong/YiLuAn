@@ -86,6 +86,11 @@ struct ProfileView: View {
                             MenuRow(icon: "wallet.pass", title: "我的钱包") {
                                 WalletView()
                             }
+
+                            Divider().padding(.leading, 52)
+                            MenuRow(icon: "person.2", title: "我的家人") {
+                                FamilyMembersView()
+                            }
                         }
                         .background(Color.bgCard)
                         .cornerRadius(CornerRadius.lg)
