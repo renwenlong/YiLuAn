@@ -111,4 +111,30 @@ struct APIEndpoint {
     static func deleteFamilyMember(id: String) -> APIEndpoint {
         APIEndpoint(path: "users/me/family-members/\(id)", method: .delete, requiresAuth: true)
     }
+
+    // MARK: - Emergency (F-03)
+    static let emergencyContacts = APIEndpoint(path: "emergency/contacts", method: .get, requiresAuth: true)
+    static let createEmergencyContact = APIEndpoint(path: "emergency/contacts", method: .post, requiresAuth: true)
+    static func updateEmergencyContact(id: String) -> APIEndpoint {
+        APIEndpoint(path: "emergency/contacts/\(id)", method: .put, requiresAuth: true)
+    }
+    static func deleteEmergencyContact(id: String) -> APIEndpoint {
+        APIEndpoint(path: "emergency/contacts/\(id)", method: .delete, requiresAuth: true)
+    }
+    static let emergencyHotline = APIEndpoint(path: "emergency/hotline", method: .get, requiresAuth: true)
+    static let triggerEmergencyEvent = APIEndpoint(path: "emergency/events", method: .post, requiresAuth: true)
+    static let emergencyEvents = APIEndpoint(path: "emergency/events", method: .get, requiresAuth: true)
+
+    // MARK: - Hospitals (extra)
+    static let hospitalFilters = APIEndpoint(path: "hospitals/filters", method: .get, requiresAuth: false)
+    static let nearestHospitalRegion = APIEndpoint(path: "hospitals/nearest-region", method: .get, requiresAuth: false)
+
+    // MARK: - Followup Reminders (F-07)
+    static func createFollowupReminder(orderId: String) -> APIEndpoint {
+        APIEndpoint(path: "orders/\(orderId)/followup-reminders", method: .post, requiresAuth: true)
+    }
+    static let myFollowupReminders = APIEndpoint(path: "orders/me/followup-reminders", method: .get, requiresAuth: true)
+    static func cancelFollowupReminder(id: String) -> APIEndpoint {
+        APIEndpoint(path: "orders/me/followup-reminders/\(id)", method: .delete, requiresAuth: true)
+    }
 }

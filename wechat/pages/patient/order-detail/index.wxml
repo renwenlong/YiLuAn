@@ -190,6 +190,11 @@
       <button class="btn-secondary" bindtap="onChat" disabled="{{actionLoading}}">联系陪诊师</button>
     </block>
 
+    <!-- [F-07] 复诊提醒：已完成/已评价订单可创建，与 iOS 对齐 -->
+    <block wx:if="{{order.status === 'completed' || order.status === 'reviewed'}}">
+      <button class="btn-secondary" bindtap="onCreateFollowup" disabled="{{actionLoading}}">创建复诊提醒</button>
+    </block>
+
     <!-- Rejected / Expired: reorder -->
     <block wx:if="{{order.status === 'rejected_by_companion' || order.status === 'expired'}}">
       <button class="btn-primary" bindtap="onReorder">重新下单</button>

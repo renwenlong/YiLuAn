@@ -10,7 +10,8 @@
     "pages/companion/chat/index",
     "pages/companion/profile/index",
     "pages/orders/index",
-    "pages/chat/list/index"
+    "pages/chat/list/index",
+    "pages/profile/followup-reminders/index"
   ],
   "subPackages": [
     { "root": "pages/patient/create-order",      "name": "p-create-order",   "pages": ["index"] },

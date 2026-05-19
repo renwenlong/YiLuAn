@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 
 struct NotificationListResponse: Decodable {
     let items: [AppNotification]
@@ -45,6 +46,65 @@ class NotificationViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
     @Published var total = 0
+
+    // [F-WS] 全局通知 WS（与 wechat services/notificationWs.js 对齐）。
+    // Chat 以外的唯一 WS 消费者；服务端 push 新通知后马上同步到 UI。
+    private let wsClient = WebSocketClient()
+    private var cancellables = Set<AnyCancellable>()
+
+    init() {
+        wsClient.messages
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] msg in
+                guard let self else { return }
+                self.handleWSMessage(msg)
+            }
+            .store(in: &cancellables)
+    }
+
+    /// 在 取到 token 后（登录成功 / 启动时）可调用。可重复调用。
+    func startWebSocket() {
+        Task { await wsClient.connectNotifications() }
+    }
+
+    func stopWebSocket() {
+        Task { await wsClient.disconnect() }
+    }
+
+    /// WS 帧 -> 动作：与 wechat handleNotificationMessage 一致。
+    /// 后端会 push 两种 payload：
+    ///   - 完整 AppNotification（含 id/type/title/body） -> insert
+    ///   - 类型控制帧（如 unread_count_changed） -> 变更 unreadCount
+    private func handleWSMessage(_ msg: WSMessage) {
+        guard case .text(let text) = msg, let data = text.data(using: .utf8) else { return }
+
+        // 探 type 用于控制帧
+        if let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+           let type = obj["type"] as? String {
+            switch type {
+            case "auth_ok":
+                return // handshake 确认
+            case "unread_count_changed":
+                if let n = obj["count"] as? Int { unreadCount = n }
+                return
+            default:
+                break
+            }
+        }
+
+        // 完整 AppNotification
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        decoder.dateDecodingStrategy = .iso8601
+        if let n = try? decoder.decode(AppNotification.self, from: data) {
+            // 去重插入到顶部
+            if !notifications.contains(where: { $0.id == n.id }) {
+                notifications.insert(n, at: 0)
+                total += 1
+                if !n.isRead { unreadCount += 1 }
+            }
+        }
+    }
 
     func loadNotifications(page: Int = 1) async {
         isLoading = true

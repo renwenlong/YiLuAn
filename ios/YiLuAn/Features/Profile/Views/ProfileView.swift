@@ -91,6 +91,16 @@ struct ProfileView: View {
                             MenuRow(icon: "person.2", title: "我的家人") {
                                 FamilyMembersView()
                             }
+
+                            Divider().padding(.leading, 52)
+                            MenuRow(icon: "phone.circle.fill", title: "紧急联系人") {
+                                EmergencyContactsView()
+                            }
+
+                            Divider().padding(.leading, 52)
+                            MenuRow(icon: "bell.badge", title: "复诊提醒") {
+                                FollowupRemindersView()
+                            }
                         }
                         .background(Color.bgCard)
                         .cornerRadius(CornerRadius.lg)

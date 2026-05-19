@@ -27,6 +27,10 @@ struct NotificationListView: View {
         .task {
             await viewModel.loadNotifications()
             await viewModel.loadUnreadCount()
+            viewModel.startWebSocket()
+        }
+        .onDisappear {
+            viewModel.stopWebSocket()
         }
         .refreshable {
             await viewModel.loadNotifications()

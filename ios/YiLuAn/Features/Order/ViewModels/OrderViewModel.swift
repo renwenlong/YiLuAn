@@ -175,11 +175,21 @@ class OrderViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            let queryItems = [URLQueryItem(name: "keyword", value: keyword)]
-            let response: [Hospital] = try await APIClient.shared.request(
-                .hospitals, queryItems: queryItems
-            )
-            hospitals = response
+            var params = HospitalSearchParams()
+            params.keyword = keyword
+            hospitals = try await HospitalService.searchItems(params)
+        } catch {
+            handleError(error)
+        }
+    }
+
+    /// 带完整筛选参数的搜索（province/city/district/level/tag）。
+    func searchHospitals(params: HospitalSearchParams) async {
+        isLoading = true
+        errorMessage = nil
+        defer { isLoading = false }
+        do {
+            hospitals = try await HospitalService.searchItems(params)
         } catch {
             handleError(error)
         }

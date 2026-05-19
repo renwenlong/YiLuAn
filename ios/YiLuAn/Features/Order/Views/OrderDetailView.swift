@@ -13,6 +13,10 @@ struct OrderDetailView: View {
     @State private var showPaymentResult = false
     /// AI-9: 与小程序 actionLoading 对齐——状态切换期间禁用所有按钮 + 占位
     @State private var actionInProgress = false
+    /// [F-03] 紧急呼叫面板
+    @State private var showEmergencySheet = false
+    /// [F-07] 复诊提醒创建面板
+    @State private var showFollowupSheet = false
 
     /// AI-9: 命中区 ≥ 44pt（HIG 推荐最小可点尺寸），按钮 frame 用这个常量。
     private let minTapSide: CGFloat = 44
@@ -72,6 +76,12 @@ struct OrderDetailView: View {
                     )
                 }
             }
+        }
+        .sheet(isPresented: $showEmergencySheet) {
+            EmergencyCallSheet(orderId: orderId)
+        }
+        .sheet(isPresented: $showFollowupSheet) {
+            FollowupReminderCreateSheet(orderId: orderId) {}
         }
         // 统一挂载后端 guard-code 提示。
         .phoneRequiredAlert($viewModel.phoneRequiredMessage)
@@ -252,6 +262,38 @@ struct OrderDetailView: View {
                     actionLabel(actionInProgress ? "处理中..." : "立即支付", showProgress: actionInProgress)
                 }
                 .buttonStyle(.borderedProminent)
+                .disabled(actionInProgress)
+            }
+
+            // [F-03] 紧急呼叫：服务进行中/已接单状态可用，与 wechat 一致
+            if order.status == .accepted || order.status == .inProgress {
+                Button(role: .destructive) {
+                    showEmergencySheet = true
+                } label: {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                        Text("紧急呼叫")
+                    }
+                    .frame(maxWidth: .infinity, minHeight: minTapSide)
+                }
+                .buttonStyle(.bordered)
+                .tint(.red)
+                .disabled(actionInProgress)
+            }
+
+            // [F-07] 复诊提醒：仅已完成/已评价订单可创建。后端对 status 会再校验。
+            if order.status == .completed || order.status == .reviewed {
+                Button {
+                    showFollowupSheet = true
+                } label: {
+                    HStack {
+                        Image(systemName: "bell.badge")
+                        Text("创建复诊提醒")
+                    }
+                    .frame(maxWidth: .infinity, minHeight: minTapSide)
+                }
+                .buttonStyle(.bordered)
+                .tint(.accent)
                 .disabled(actionInProgress)
             }
         }
