@@ -10,6 +10,7 @@ from app.api.v1.notifications import router as notifications_router
 from app.api.v1.orders import router as orders_router
 from app.api.v1.patients import router as patients_router
 from app.api.v1.family_members import router as family_members_router
+from app.api.v1.followup_reminders import router as followup_reminders_router
 from app.api.v1.reviews import router as reviews_router
 from app.api.v1.users import router as users_router
 from app.api.v1.wallet import router as wallet_router
@@ -31,6 +32,7 @@ api_v1_router.include_router(auth_apple_router)
 api_v1_router.include_router(users_router)
 api_v1_router.include_router(patients_router)
 api_v1_router.include_router(family_members_router)
+api_v1_router.include_router(followup_reminders_router)
 api_v1_router.include_router(companions_router)
 api_v1_router.include_router(hospitals_router)
 api_v1_router.include_router(orders_router)

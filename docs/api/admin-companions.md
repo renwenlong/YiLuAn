@@ -19,6 +19,7 @@
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `GET` | `/api/v1/admin/companions/` | 后台：待审核陪诊师列表 |
+| `GET` | `/api/v1/admin/companions/search` | 后台：陪诊师轻量搜索（钱包账本筛选用） |
 | `POST` | `/api/v1/admin/companions/{companion_id}/approve` | 后台：批准陪诊师入驻 |
 | `POST` | `/api/v1/admin/companions/{companion_id}/certify` | 管理员：设置陪诊师资质认证（F-01） |
 | `POST` | `/api/v1/admin/companions/{companion_id}/reject` | 后台：驳回陪诊师申请 |
@@ -33,7 +34,8 @@
 
 - `page` (query, integer, required=—) — 
 - `page_size` (query, integer, required=—) — 
-- `X-Admin-Token` (header, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
 
 **响应：**
 
@@ -51,6 +53,34 @@ curl -X GET 'https://api.yiluan.example.com/api/v1/admin/companions/' \
 
 ---
 
+### `GET /api/v1/admin/companions/search` — 后台：陪诊师轻量搜索（钱包账本筛选用）
+
+按姓名或手机号模糊搜索陪诊师，返回 user_id + 姓名 + 手机号尾 4 位。默认仅返回 `verified` 状态；传 `status=all` 取消该过滤。
+
+**参数：**
+
+- `q` (query, —, required=—) — 姓名或手机号关键字
+- `status` (query, string, required=—) — verified | all
+- `limit` (query, integer, required=—) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X GET 'https://api.yiluan.example.com/api/v1/admin/companions/search' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
 ### `POST /api/v1/admin/companions/{companion_id}/approve` — 后台：批准陪诊师入驻
 
 批准指定陪诊师，状态转为 `verified`，该陪诊师随即可被搜索与接单。
@@ -58,7 +88,8 @@ curl -X GET 'https://api.yiluan.example.com/api/v1/admin/companions/' \
 **参数：**
 
 - `companion_id` (path, string, required=✅) — 
-- `X-Admin-Token` (header, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
 
 **响应：**
 
@@ -83,7 +114,8 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/admin/companions/{companion_
 **参数：**
 
 - `companion_id` (path, string, required=✅) — 
-- `X-Admin-Token` (header, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
 
 **请求体（JSON）：**
 
@@ -114,7 +146,8 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/admin/companions/{companion_
 **参数：**
 
 - `companion_id` (path, string, required=✅) — 
-- `X-Admin-Token` (header, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
 
 **请求体（JSON）：**
 

@@ -6,6 +6,11 @@ from app.models.companion_profile import CompanionProfile, VerificationStatus
 from app.models.device_token import DeviceToken
 from app.models.emergency import EmergencyContact, EmergencyEvent
 from app.models.family_member import FamilyGender, FamilyMember, FamilyRelation
+from app.models.followup_reminder import (
+    MAX_ATTEMPTS as FOLLOWUP_MAX_ATTEMPTS,
+    FollowupReminder,
+    FollowupReminderStatus,
+)
 from app.models.hospital import Hospital
 from app.models.notification import (
     Notification,
@@ -67,6 +72,9 @@ __all__ = [
     "FamilyMember",
     "FamilyRelation",
     "FamilyGender",
+    "FollowupReminder",
+    "FollowupReminderStatus",
+    "FOLLOWUP_MAX_ATTEMPTS",
     "ReconciliationRun",
     "ReconciliationDiff",
     "ReconciliationAction",

@@ -60,6 +60,7 @@ class OrderTimeline(BaseModel):
     "/{order_id}/timeline",
     response_model=OrderTimeline,
     summary="后台：订单状态变迁时间轴",
+    description="按创建时间升序返回指定订单的状态变迁记录（order_status_history），供客服复盘使用。",
 )
 async def get_order_timeline(
     order_id: UUID,
@@ -142,6 +143,7 @@ def _to_item(n: AdminNote) -> NoteItem:
     "",
     response_model=NoteList,
     summary="后台：按 target 列出备注",
+    description="按 (target_type, target_id) 列出后台备注，限 100到500 条，创建时间倒序。",
 )
 async def list_notes(
     session: DBSession,
@@ -167,6 +169,7 @@ async def list_notes(
     "",
     response_model=NoteItem,
     summary="后台：新增备注",
+    description="为指定 target (order/user/companion) 创建一条后台备注，同时写入审计日志。",
 )
 async def create_note(
     body: NoteCreate,
@@ -201,6 +204,7 @@ async def create_note(
     "/{note_id}",
     response_model=NoteItem,
     summary="后台：编辑备注（仅作者）",
+    description="仅原作者可修改备注内容；edit 记录会进入审计日志。",
 )
 async def update_note(
     note_id: UUID,
@@ -230,6 +234,7 @@ async def update_note(
 @notes_router.delete(
     "/{note_id}",
     summary="后台：删除备注（仅作者）",
+    description="仅原作者可删除备注；delete 动作同步记录审计日志。",
 )
 async def delete_note(
     note_id: UUID,

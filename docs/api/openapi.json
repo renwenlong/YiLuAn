@@ -1,6 +1,95 @@
 {
   "components": {
     "schemas": {
+      "AdjustmentResponse": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "string"
+          },
+          "direction": {
+            "title": "Direction",
+            "type": "string"
+          },
+          "ledger_id": {
+            "format": "uuid",
+            "title": "Ledger Id",
+            "type": "string"
+          },
+          "operator": {
+            "title": "Operator",
+            "type": "string"
+          },
+          "provider_txn_id": {
+            "title": "Provider Txn Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ledger_id",
+          "operator",
+          "direction",
+          "amount",
+          "provider_txn_id"
+        ],
+        "title": "AdjustmentResponse",
+        "type": "object"
+      },
+      "AdminLoginRequest": {
+        "properties": {
+          "password": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "AdminLoginRequest",
+        "type": "object"
+      },
+      "AdminLoginResponse": {
+        "properties": {
+          "access_token": {
+            "title": "Access Token",
+            "type": "string"
+          },
+          "expires_in": {
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "role": {
+            "title": "Role",
+            "type": "string"
+          },
+          "token_type": {
+            "default": "bearer",
+            "title": "Token Type",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "access_token",
+          "expires_in",
+          "role",
+          "username"
+        ],
+        "title": "AdminLoginResponse",
+        "type": "object"
+      },
       "AppleLoginRequest": {
         "properties": {
           "authorization_code": {
@@ -191,6 +280,59 @@
         "title": "ApplyCompanionRequest",
         "type": "object"
       },
+      "AuditLogItem": {
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "operator": {
+            "title": "Operator",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "target_id": {
+            "format": "uuid",
+            "title": "Target Id",
+            "type": "string"
+          },
+          "target_type": {
+            "title": "Target Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "target_type",
+          "target_id",
+          "action",
+          "operator",
+          "reason",
+          "created_at"
+        ],
+        "title": "AuditLogItem",
+        "type": "object"
+      },
       "AvatarUploadResponse": {
         "properties": {
           "avatar_url": {
@@ -259,6 +401,43 @@
           "certification_image_url"
         ],
         "title": "CertifyCompanionRequest",
+        "type": "object"
+      },
+      "ChatMessageBackfillResponse": {
+        "description": "H3-be: WS 重连 / 增量回灌响应。\n\n严格按 ``(created_at ASC, id ASC)`` 返回。客户端可用 ``next_after_id``\n作为下一次回灌的游标，直到 ``has_more`` 为 ``False``。",
+        "properties": {
+          "has_more": {
+            "default": false,
+            "description": "是否仍有更多消息（即本批已被 limit 截断）",
+            "title": "Has More",
+            "type": "boolean"
+          },
+          "items": {
+            "description": "自游标之后的增量消息（升序）",
+            "items": {
+              "$ref": "#/components/schemas/ChatMessageResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "next_after_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "下一次回灌应使用的游标 ID；为 None 表示已无更多",
+            "title": "Next After Id"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "ChatMessageBackfillResponse",
         "type": "object"
       },
       "ChatMessageListResponse": {
@@ -348,6 +527,21 @@
           "created_at"
         ],
         "title": "ChatMessageResponse",
+        "type": "object"
+      },
+      "CloseRequest": {
+        "properties": {
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "CloseRequest",
         "type": "object"
       },
       "CompanionDetailResponse": {
@@ -729,6 +923,57 @@
         "title": "CompanionListResponse",
         "type": "object"
       },
+      "CompanionSearchItem": {
+        "properties": {
+          "name": {
+            "description": "姓名",
+            "title": "Name",
+            "type": "string"
+          },
+          "phone_last4": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "手机号后 4 位",
+            "title": "Phone Last4"
+          },
+          "profile_id": {
+            "description": "陪诊师档案 ID",
+            "title": "Profile Id",
+            "type": "string"
+          },
+          "user_id": {
+            "description": "陪诊师对应的用户 ID（用于钱包账本筛选）",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "profile_id",
+          "name"
+        ],
+        "title": "CompanionSearchItem",
+        "type": "object"
+      },
+      "CompanionSearchResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/CompanionSearchItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "title": "CompanionSearchResponse",
+        "type": "object"
+      },
       "CompanionStatsResponse": {
         "properties": {
           "avg_rating": {
@@ -750,10 +995,9 @@
             "type": "integer"
           },
           "total_earnings": {
-            "default": 0.0,
             "description": "累计收入（元）",
             "examples": [
-              12480.5
+              "12480.50"
             ],
             "title": "Total Earnings",
             "type": "number"
@@ -769,6 +1013,114 @@
           }
         },
         "title": "CompanionStatsResponse",
+        "type": "object"
+      },
+      "CreateFamilyMemberRequest": {
+        "properties": {
+          "age": {
+            "anyOf": [
+              {
+                "maximum": 130.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "年龄",
+            "title": "Age"
+          },
+          "gender": {
+            "default": "unknown",
+            "description": "性别：unknown/male/female",
+            "examples": [
+              "female"
+            ],
+            "title": "Gender",
+            "type": "string"
+          },
+          "medical_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "就医备注 / 过敏史 / 慢病",
+            "title": "Medical Notes"
+          },
+          "name": {
+            "description": "姓名",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "联系手机号（可空）",
+            "title": "Phone"
+          },
+          "relation": {
+            "default": "other",
+            "description": "关系：parent/spouse/child/sibling/grandparent/relative/friend/other/self",
+            "examples": [
+              "parent"
+            ],
+            "title": "Relation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "CreateFamilyMemberRequest",
+        "type": "object"
+      },
+      "CreateFollowupReminderRequest": {
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 140,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "自定义备注",
+            "title": "Note"
+          },
+          "order_id": {
+            "description": "订单 ID；必须是 completed / reviewed",
+            "format": "uuid",
+            "title": "Order Id",
+            "type": "string"
+          },
+          "remind_at": {
+            "description": "提醒时间（UTC ISO 8601）",
+            "format": "date-time",
+            "title": "Remind At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_id",
+          "remind_at"
+        ],
+        "title": "CreateFollowupReminderRequest",
         "type": "object"
       },
       "CreateOrderRequest": {
@@ -818,6 +1170,19 @@
               "需要陪同做核磁，行动不便"
             ],
             "title": "Description"
+          },
+          "family_member_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "可选：F-05 代他人下单的家人 ID；为空 = 给本人下单",
+            "title": "Family Member Id"
           },
           "hospital_id": {
             "description": "目标医院 ID",
@@ -947,6 +1312,70 @@
           "content"
         ],
         "title": "CreateReviewRequest",
+        "type": "object"
+      },
+      "DashboardCard": {
+        "properties": {
+          "active_users_7d": {
+            "title": "Active Users 7D",
+            "type": "integer"
+          },
+          "open_reconciliation_diffs": {
+            "title": "Open Reconciliation Diffs",
+            "type": "integer"
+          },
+          "pending_companion_verifications": {
+            "title": "Pending Companion Verifications",
+            "type": "integer"
+          },
+          "refund_pending_orders": {
+            "title": "Refund Pending Orders",
+            "type": "integer"
+          },
+          "today_gmv": {
+            "title": "Today Gmv",
+            "type": "string"
+          },
+          "today_order_count": {
+            "title": "Today Order Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "today_order_count",
+          "today_gmv",
+          "pending_companion_verifications",
+          "open_reconciliation_diffs",
+          "refund_pending_orders",
+          "active_users_7d"
+        ],
+        "title": "DashboardCard",
+        "type": "object"
+      },
+      "DashboardSummary": {
+        "properties": {
+          "cards": {
+            "$ref": "#/components/schemas/DashboardCard"
+          },
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "trend_7d": {
+            "items": {
+              "$ref": "#/components/schemas/TrendPoint"
+            },
+            "title": "Trend 7D",
+            "type": "array"
+          }
+        },
+        "required": [
+          "cards",
+          "trend_7d",
+          "generated_at"
+        ],
+        "title": "DashboardSummary",
         "type": "object"
       },
       "DeviceTokenResponse": {
@@ -1289,6 +1718,204 @@
         "title": "EmergencyTriggerResponse",
         "type": "object"
       },
+      "FamilyMemberListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FamilyMemberResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "FamilyMemberListResponse",
+        "type": "object"
+      },
+      "FamilyMemberResponse": {
+        "properties": {
+          "age": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "gender": {
+            "title": "Gender",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "medical_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Medical Notes"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "relation": {
+            "title": "Relation",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "name",
+          "relation",
+          "phone",
+          "gender",
+          "age",
+          "medical_notes",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "FamilyMemberResponse",
+        "type": "object"
+      },
+      "FollowupReminderListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/FollowupReminderResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "FollowupReminderListResponse",
+        "type": "object"
+      },
+      "FollowupReminderResponse": {
+        "properties": {
+          "attempts": {
+            "title": "Attempts",
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "order_id": {
+            "format": "uuid",
+            "title": "Order Id",
+            "type": "string"
+          },
+          "remind_at": {
+            "format": "date-time",
+            "title": "Remind At",
+            "type": "string"
+          },
+          "sent_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sent At"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "order_id",
+          "remind_at",
+          "status",
+          "attempts",
+          "note",
+          "sent_at",
+          "created_at"
+        ],
+        "title": "FollowupReminderResponse",
+        "type": "object"
+      },
       "ForceStatusBody": {
         "properties": {
           "reason": {
@@ -1597,6 +2224,149 @@
         "title": "HospitalResponse",
         "type": "object"
       },
+      "LedgerListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LedgerRowResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "LedgerListResponse",
+        "type": "object"
+      },
+      "LedgerRowResponse": {
+        "properties": {
+          "amount": {
+            "title": "Amount",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "direction": {
+            "title": "Direction",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "occurred_at": {
+            "title": "Occurred At",
+            "type": "string"
+          },
+          "order_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Id"
+          },
+          "provider_txn_id": {
+            "title": "Provider Txn Id",
+            "type": "string"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "order_id",
+          "provider_txn_id",
+          "amount",
+          "direction",
+          "reason",
+          "occurred_at",
+          "created_at"
+        ],
+        "title": "LedgerRowResponse",
+        "type": "object"
+      },
+      "ManualAdjustmentRequest": {
+        "properties": {
+          "amount": {
+            "description": "金额，字符串形式避免浮点漂移；> 0 严格",
+            "title": "Amount",
+            "type": "string"
+          },
+          "direction": {
+            "description": "in = 入账（给用户加钱）, out = 出账（扣用户的钱）",
+            "enum": [
+              "in",
+              "out"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "order_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Id"
+          },
+          "reason": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "direction",
+          "amount",
+          "reason"
+        ],
+        "title": "ManualAdjustmentRequest",
+        "type": "object"
+      },
       "MarkReadResponse": {
         "description": "[F-02] 标已读后返回当前 target 信息，便于前端立刻跳转。",
         "properties": {
@@ -1621,6 +2391,117 @@
           "success"
         ],
         "title": "MarkReadResponse",
+        "type": "object"
+      },
+      "NoteCreate": {
+        "properties": {
+          "body": {
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          },
+          "target_id": {
+            "format": "uuid",
+            "title": "Target Id",
+            "type": "string"
+          },
+          "target_type": {
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Target Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "target_type",
+          "target_id",
+          "body"
+        ],
+        "title": "NoteCreate",
+        "type": "object"
+      },
+      "NoteItem": {
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "operator": {
+            "title": "Operator",
+            "type": "string"
+          },
+          "target_id": {
+            "format": "uuid",
+            "title": "Target Id",
+            "type": "string"
+          },
+          "target_type": {
+            "title": "Target Type",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "target_type",
+          "target_id",
+          "operator",
+          "body",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "NoteItem",
+        "type": "object"
+      },
+      "NoteList": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/NoteItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total"
+        ],
+        "title": "NoteList",
+        "type": "object"
+      },
+      "NotePatch": {
+        "properties": {
+          "body": {
+            "maxLength": 5000,
+            "minLength": 1,
+            "title": "Body",
+            "type": "string"
+          }
+        },
+        "required": [
+          "body"
+        ],
+        "title": "NotePatch",
         "type": "object"
       },
       "NotificationListResponse": {
@@ -1760,6 +2641,52 @@
           }
         },
         "title": "OkResponse",
+        "type": "object"
+      },
+      "OrderFamilyMemberSnapshot": {
+        "description": "Denormalized snapshot embedded on Order responses so a deleted\nfamily member still appears correctly in historical orders.",
+        "properties": {
+          "id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "家人 ID（删除后仍保留快照）",
+            "title": "Id"
+          },
+          "name": {
+            "description": "姓名",
+            "title": "Name",
+            "type": "string"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "联系电话",
+            "title": "Phone"
+          },
+          "relation": {
+            "description": "关系",
+            "title": "Relation",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "relation"
+        ],
+        "title": "OrderFamilyMemberSnapshot",
         "type": "object"
       },
       "OrderItem": {
@@ -1978,6 +2905,17 @@
             "description": "待支付订单的过期时间",
             "title": "Expires At"
           },
+          "family_member": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OrderFamilyMemberSnapshot"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "F-05 代他人下单：实际就诊人快照（家人删除后仍可显示）"
+          },
           "hospital_id": {
             "description": "医院 ID",
             "format": "uuid",
@@ -2034,6 +2972,21 @@
             ],
             "title": "Patient Name"
           },
+          "payment_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "订单资金副状态 - 支付 (none/paying/paid/failed/abnormal)",
+            "examples": [
+              "paid"
+            ],
+            "title": "Payment State"
+          },
           "payment_status": {
             "anyOf": [
               {
@@ -2056,6 +3009,21 @@
             ],
             "title": "Price",
             "type": "number"
+          },
+          "refund_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "订单资金副状态 - 退款 (none/refunding/refunded/failed/manual_review)",
+            "examples": [
+              "none"
+            ],
+            "title": "Refund State"
           },
           "service_type": {
             "description": "服务类型",
@@ -2121,6 +3089,59 @@
           "updated_at"
         ],
         "title": "OrderResponse",
+        "type": "object"
+      },
+      "OrderTimeline": {
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "order_id": {
+            "format": "uuid",
+            "title": "Order Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_id",
+          "entries"
+        ],
+        "title": "OrderTimeline",
+        "type": "object"
+      },
+      "PaginatedAuditLogs": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditLogItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "PaginatedAuditLogs",
         "type": "object"
       },
       "PaginatedCompanions": {
@@ -2760,6 +3781,61 @@
         "title": "SwitchRoleRequest",
         "type": "object"
       },
+      "TimelineEntry": {
+        "properties": {
+          "changed_by": {
+            "format": "uuid",
+            "title": "Changed By",
+            "type": "string"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "from_status": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Status"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "to_status": {
+            "title": "To Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "from_status",
+          "to_status",
+          "changed_by",
+          "note",
+          "created_at"
+        ],
+        "title": "TimelineEntry",
+        "type": "object"
+      },
       "TimelineItem": {
         "properties": {
           "time": {
@@ -2815,6 +3891,29 @@
           "user"
         ],
         "title": "TokenResponse",
+        "type": "object"
+      },
+      "TrendPoint": {
+        "properties": {
+          "date": {
+            "title": "Date",
+            "type": "string"
+          },
+          "gmv": {
+            "title": "Gmv",
+            "type": "string"
+          },
+          "orders": {
+            "title": "Orders",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "date",
+          "orders",
+          "gmv"
+        ],
+        "title": "TrendPoint",
         "type": "object"
       },
       "UnreadCountResponse": {
@@ -2924,6 +4023,83 @@
           }
         },
         "title": "UpdateCompanionProfileRequest",
+        "type": "object"
+      },
+      "UpdateFamilyMemberRequest": {
+        "properties": {
+          "age": {
+            "anyOf": [
+              {
+                "maximum": 130.0,
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Age"
+          },
+          "gender": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gender"
+          },
+          "medical_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Medical Notes"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Phone"
+          },
+          "relation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Relation"
+          }
+        },
+        "title": "UpdateFamilyMemberRequest",
         "type": "object"
       },
       "UpdatePatientProfileRequest": {
@@ -3339,6 +4515,207 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/audit-logs": {
+      "get": {
+        "description": "按操作员 / 目标类型 / 目标 id / 动作 / 时间窗口过滤后台审计日志，分页返回。",
+        "operationId": "list_audit_logs_api_v1_admin_audit_logs_get",
+        "parameters": [
+          {
+            "description": "按操作员精确匹配",
+            "in": "query",
+            "name": "operator",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按操作员精确匹配",
+              "title": "Operator"
+            }
+          },
+          {
+            "description": "按目标类型，如 order/user/companion",
+            "in": "query",
+            "name": "target_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按目标类型，如 order/user/companion",
+              "title": "Target Type"
+            }
+          },
+          {
+            "description": "按具体目标 id 精确匹配",
+            "in": "query",
+            "name": "target_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按具体目标 id 精确匹配",
+              "title": "Target Id"
+            }
+          },
+          {
+            "description": "按动作类型精确匹配",
+            "in": "query",
+            "name": "action",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按动作类型精确匹配",
+              "title": "Action"
+            }
+          },
+          {
+            "description": "created_at >= since",
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "created_at >= since",
+              "title": "Since"
+            }
+          },
+          {
+            "description": "created_at < until",
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "created_at < until",
+              "title": "Until"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedAuditLogs"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：审计日志列表",
+        "tags": [
+          "admin",
+          "admin-audit-logs"
+        ]
+      }
+    },
     "/api/v1/admin/companions/": {
       "get": {
         "description": "分页返回提交了入驻申请、状态为 `pending` 的陪诊师。请求头需携带 `X-Admin-Token`。",
@@ -3369,11 +4746,34 @@
           },
           {
             "in": "header",
-            "name": "X-Admin-Token",
-            "required": true,
+            "name": "Authorization",
+            "required": false,
             "schema": {
-              "title": "X-Admin-Token",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
             }
           }
         ],
@@ -3406,6 +4806,115 @@
         ]
       }
     },
+    "/api/v1/admin/companions/search": {
+      "get": {
+        "description": "按姓名或手机号模糊搜索陪诊师，返回 user_id + 姓名 + 手机号尾 4 位。默认仅返回 `verified` 状态；传 `status=all` 取消该过滤。",
+        "operationId": "search_companions_api_v1_admin_companions_search_get",
+        "parameters": [
+          {
+            "description": "姓名或手机号关键字",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "姓名或手机号关键字",
+              "title": "Q"
+            }
+          },
+          {
+            "description": "verified | all",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "verified",
+              "description": "verified | all",
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanionSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：陪诊师轻量搜索（钱包账本筛选用）",
+        "tags": [
+          "admin",
+          "admin-companions"
+        ]
+      }
+    },
     "/api/v1/admin/companions/{companion_id}/approve": {
       "post": {
         "description": "批准指定陪诊师，状态转为 `verified`，该陪诊师随即可被搜索与接单。",
@@ -3423,11 +4932,34 @@
           },
           {
             "in": "header",
-            "name": "X-Admin-Token",
-            "required": true,
+            "name": "Authorization",
+            "required": false,
             "schema": {
-              "title": "X-Admin-Token",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
             }
           }
         ],
@@ -3477,11 +5009,34 @@
           },
           {
             "in": "header",
-            "name": "X-Admin-Token",
-            "required": true,
+            "name": "Authorization",
+            "required": false,
             "schema": {
-              "title": "X-Admin-Token",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
             }
           }
         ],
@@ -3541,11 +5096,34 @@
           },
           {
             "in": "header",
-            "name": "X-Admin-Token",
-            "required": true,
+            "name": "Authorization",
+            "required": false,
             "schema": {
-              "title": "X-Admin-Token",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
             }
           }
         ],
@@ -3585,6 +5163,454 @@
         "tags": [
           "admin",
           "admin-companions"
+        ]
+      }
+    },
+    "/api/v1/admin/dashboard/summary": {
+      "get": {
+        "description": "返回今日订单数 / GMV / 待审陆的陪诊师 / 未关闭差异等 KPI 以及过去 7 日的趋势点位。",
+        "operationId": "get_summary_api_v1_admin_dashboard_summary_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardSummary"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台首页：KPI + 7 日趋势",
+        "tags": [
+          "admin",
+          "admin-dashboard"
+        ]
+      }
+    },
+    "/api/v1/admin/login": {
+      "post": {
+        "description": "校验 `admin_users.username` + bcrypt 密码，签发 8h JWT。Token 用 `Authorization: Bearer <token>` 传递。见 ADR-0034。",
+        "operationId": "admin_login_api_v1_admin_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminLoginResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Admin v2 登录（JWT）",
+        "tags": [
+          "admin",
+          "admin-auth"
+        ]
+      }
+    },
+    "/api/v1/admin/notes": {
+      "get": {
+        "description": "按 (target_type, target_id) 列出后台备注，限 100到500 条，创建时间倒序。",
+        "operationId": "list_notes_api_v1_admin_notes_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "target_type",
+            "required": true,
+            "schema": {
+              "maxLength": 50,
+              "minLength": 1,
+              "title": "Target Type",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Target Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：按 target 列出备注",
+        "tags": [
+          "admin",
+          "admin-notes"
+        ]
+      },
+      "post": {
+        "description": "为指定 target (order/user/companion) 创建一条后台备注，同时写入审计日志。",
+        "operationId": "create_note_api_v1_admin_notes_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NoteCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteItem"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：新增备注",
+        "tags": [
+          "admin",
+          "admin-notes"
+        ]
+      }
+    },
+    "/api/v1/admin/notes/{note_id}": {
+      "delete": {
+        "description": "仅原作者可删除备注；delete 动作同步记录审计日志。",
+        "operationId": "delete_note_api_v1_admin_notes__note_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Delete Note Api V1 Admin Notes  Note Id  Delete",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：删除备注（仅作者）",
+        "tags": [
+          "admin",
+          "admin-notes"
+        ]
+      },
+      "patch": {
+        "description": "仅原作者可修改备注内容；edit 记录会进入审计日志。",
+        "operationId": "update_note_api_v1_admin_notes__note_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "note_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Note Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NotePatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NoteItem"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：编辑备注（仅作者）",
+        "tags": [
+          "admin",
+          "admin-notes"
         ]
       }
     },
@@ -3706,11 +5732,34 @@
           },
           {
             "in": "header",
-            "name": "X-Admin-Token",
-            "required": true,
+            "name": "Authorization",
+            "required": false,
             "schema": {
-              "title": "X-Admin-Token",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
             }
           }
         ],
@@ -3760,11 +5809,34 @@
           },
           {
             "in": "header",
-            "name": "X-Admin-Token",
-            "required": true,
+            "name": "Authorization",
+            "required": false,
             "schema": {
-              "title": "X-Admin-Token",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
             }
           }
         ],
@@ -3814,11 +5886,34 @@
           },
           {
             "in": "header",
-            "name": "X-Admin-Token",
-            "required": true,
+            "name": "Authorization",
+            "required": false,
             "schema": {
-              "title": "X-Admin-Token",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
             }
           }
         ],
@@ -3878,11 +5973,34 @@
           },
           {
             "in": "header",
-            "name": "X-Admin-Token",
-            "required": true,
+            "name": "Authorization",
+            "required": false,
             "schema": {
-              "title": "X-Admin-Token",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
             }
           }
         ],
@@ -3922,6 +6040,538 @@
         "tags": [
           "admin",
           "admin-orders"
+        ]
+      }
+    },
+    "/api/v1/admin/orders/{order_id}/timeline": {
+      "get": {
+        "description": "按创建时间升序返回指定订单的状态变迁记录（order_status_history），供客服复盘使用。",
+        "operationId": "get_order_timeline_api_v1_admin_orders__order_id__timeline_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderTimeline"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：订单状态变迁时间轴",
+        "tags": [
+          "admin",
+          "admin-order-timeline"
+        ]
+      }
+    },
+    "/api/v1/admin/reconciliation/diffs": {
+      "get": {
+        "description": "List reconciliation diffs with filters; newest first.",
+        "operationId": "list_diffs_api_v1_admin_reconciliation_diffs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "in": "query",
+            "name": "provider",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Provider"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Order Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "run_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Run Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date From"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Date To"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response List Diffs Api V1 Admin Reconciliation Diffs Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Diffs",
+        "tags": [
+          "admin",
+          "admin-reconciliation"
+        ]
+      }
+    },
+    "/api/v1/admin/reconciliation/diffs/{diff_id}": {
+      "get": {
+        "description": "返回指定 reconciliation diff 详情 + 全部动作记录（按 created_at 升序）。",
+        "operationId": "get_diff_api_v1_admin_reconciliation_diffs__diff_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "diff_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Diff Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Get Diff Api V1 Admin Reconciliation Diffs  Diff Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：差异详情",
+        "tags": [
+          "admin",
+          "admin-reconciliation"
+        ]
+      }
+    },
+    "/api/v1/admin/reconciliation/diffs/{diff_id}/close-confirms": {
+      "post": {
+        "description": "Second signature. Must be performed by a *different* operator than\nthe one who filed the pending request. Flips the diff to ``closed``.",
+        "operationId": "confirm_close_api_v1_admin_reconciliation_diffs__diff_id__close_confirms_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "diff_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Diff Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Operator",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Operator",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Confirm Close Api V1 Admin Reconciliation Diffs  Diff Id  Close Confirms Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Close",
+        "tags": [
+          "admin",
+          "admin-reconciliation"
+        ]
+      }
+    },
+    "/api/v1/admin/reconciliation/diffs/{diff_id}/close-requests": {
+      "post": {
+        "description": "First signature. Records a ``manual_close`` action with outcome\n``pending_second_sign``. Diff stays in its current status.",
+        "operationId": "request_close_api_v1_admin_reconciliation_diffs__diff_id__close_requests_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "diff_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Diff Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Operator",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Operator",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloseRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Request Close Api V1 Admin Reconciliation Diffs  Diff Id  Close Requests Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Request Close",
+        "tags": [
+          "admin",
+          "admin-reconciliation"
+        ]
+      }
+    },
+    "/api/v1/admin/reconciliation/runs": {
+      "get": {
+        "description": "按 started_at 倒序分页返回对账批次（run）列表，供审计查看历史对账状态。",
+        "operationId": "list_runs_api_v1_admin_reconciliation_runs_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response List Runs Api V1 Admin Reconciliation Runs Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：对账 run 列表",
+        "tags": [
+          "admin",
+          "admin-reconciliation"
         ]
       }
     },
@@ -4019,11 +6669,34 @@
           },
           {
             "in": "header",
-            "name": "X-Admin-Token",
-            "required": true,
+            "name": "Authorization",
+            "required": false,
             "schema": {
-              "title": "X-Admin-Token",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
             }
           }
         ],
@@ -4085,11 +6758,34 @@
           },
           {
             "in": "header",
-            "name": "X-Admin-Token",
-            "required": true,
+            "name": "Authorization",
+            "required": false,
             "schema": {
-              "title": "X-Admin-Token",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
             }
           }
         ],
@@ -4139,11 +6835,34 @@
           },
           {
             "in": "header",
-            "name": "X-Admin-Token",
-            "required": true,
+            "name": "Authorization",
+            "required": false,
             "schema": {
-              "title": "X-Admin-Token",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
             }
           }
         ],
@@ -4203,11 +6922,34 @@
           },
           {
             "in": "header",
-            "name": "X-Admin-Token",
-            "required": true,
+            "name": "Authorization",
+            "required": false,
             "schema": {
-              "title": "X-Admin-Token",
-              "type": "string"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
             }
           }
         ],
@@ -4237,6 +6979,186 @@
         "tags": [
           "admin",
           "admin-users"
+        ]
+      }
+    },
+    "/api/v1/admin/wallet-ledger/adjustments": {
+      "post": {
+        "description": "人工记一笔调账。强制 ``X-Admin-Operator``；落 admin_audit_log + ledger。",
+        "operationId": "create_manual_adjustment_api_v1_admin_wallet_ledger_adjustments_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Operator",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Operator",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManualAdjustmentRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdjustmentResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Manual Adjustment",
+        "tags": [
+          "admin",
+          "admin-wallet-ledger"
+        ]
+      }
+    },
+    "/api/v1/admin/wallet-ledger/{user_id}": {
+      "get": {
+        "description": "诊断用：查看某 user 的账本流水。",
+        "operationId": "list_user_ledger_api_v1_admin_wallet_ledger__user_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "reason",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "pay",
+                    "refund",
+                    "adjust"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Reason"
+            }
+          },
+          {
+            "description": "可选，仅接受与路径 user_id 一致的陪诊师 user_id；用于后台 H5 从陪诊师选择器传入。不一致返回 422。",
+            "in": "query",
+            "name": "companion_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "可选，仅接受与路径 user_id 一致的陪诊师 user_id；用于后台 H5 从陪诊师选择器传入。不一致返回 422。",
+              "title": "Companion Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": true,
+            "schema": {
+              "title": "X-Admin-Token",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LedgerListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List User Ledger",
+        "tags": [
+          "admin",
+          "admin-wallet-ledger"
         ]
       }
     },
@@ -4880,6 +7802,128 @@
           }
         ],
         "summary": "发送一条聊天消息（HTTP 兜底）",
+        "tags": [
+          "chats"
+        ]
+      }
+    },
+    "/api/v1/chats/{order_id}/messages/backfill": {
+      "get": {
+        "description": "基于游标的增量回灌接口，配合 WebSocket 重连场景使用。\n\n- ``after_id`` 为客户端本地最后一条消息 ID；缺省时返回最早 ``limit`` 条。\n- 返回顺序严格 ``(created_at ASC, id ASC)``，与 WS 推送顺序一致。\n- ``after_id`` 不属于该订单或已被清理时，等价于全量回灌（不报 404）。\n- ``limit`` 由服务端硬上限 200。",
+        "operationId": "backfill_messages_api_v1_chats__order_id__messages_backfill_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "上次最后一条消息 ID；为空则从头开始",
+            "in": "query",
+            "name": "after_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "上次最后一条消息 ID；为空则从头开始",
+              "title": "After Id"
+            }
+          },
+          {
+            "description": "单次最多返回条数 1~200",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "description": "单次最多返回条数 1~200",
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChatMessageBackfillResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "WS 重连后增量回灌聊天消息",
         "tags": [
           "chats"
         ]
@@ -7279,6 +10323,135 @@
         ]
       }
     },
+    "/api/v1/orders/me/followup-reminders": {
+      "get": {
+        "description": "按 remind_at 升序返回当前用户全部复诊提醒（含 pending/sent/cancelled/failed）。",
+        "operationId": "list_my_followup_reminders_api_v1_orders_me_followup_reminders_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowupReminderListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "我的全部复诊提醒 (F-07)",
+        "tags": [
+          "followup-reminders"
+        ]
+      }
+    },
+    "/api/v1/orders/me/followup-reminders/{reminder_id}": {
+      "delete": {
+        "description": "仅 pending 状态可取消；已 sent 的提醒不可撤回（微信侧已下发）。",
+        "operationId": "cancel_followup_reminder_api_v1_orders_me_followup_reminders__reminder_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "reminder_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Reminder Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request payload"
+                }
+              }
+            },
+            "description": "请求参数错误"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "取消一条 pending 复诊提醒 (F-07)",
+        "tags": [
+          "followup-reminders"
+        ]
+      }
+    },
     "/api/v1/orders/{order_id}": {
       "get": {
         "description": "按订单 ID 获取详情。仅订单参与方与管理员可见。",
@@ -7761,6 +10934,114 @@
         "summary": "患者确认开始服务",
         "tags": [
           "orders"
+        ]
+      }
+    },
+    "/api/v1/orders/{order_id}/followup-reminders": {
+      "post": {
+        "description": "仅当订单状态为 completed/reviewed 且属于当前用户时可创建；remind_at 必须为未来时间。",
+        "operationId": "create_followup_reminder_api_v1_orders__order_id__followup_reminders_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFollowupReminderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FollowupReminderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Invalid request payload"
+                }
+              }
+            },
+            "description": "请求参数错误"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "为一笔已完成订单创建复诊提醒 (F-07)",
+        "tags": [
+          "followup-reminders"
         ]
       }
     },
@@ -8785,6 +12066,295 @@
         "summary": "上传头像",
         "tags": [
           "users"
+        ]
+      }
+    },
+    "/api/v1/users/me/family-members": {
+      "get": {
+        "description": "按创建时间升序返回当前用户所有未软删除的家人/被陪诊人档案。",
+        "operationId": "list_family_members_api_v1_users_me_family_members_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyMemberListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "获取我的家人列表 (F-05)",
+        "tags": [
+          "family-members"
+        ]
+      },
+      "post": {
+        "description": "为当前用户创建一个家人/被陪诊人档案，默认 relation=other / gender=unknown。",
+        "operationId": "create_family_member_api_v1_users_me_family_members_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateFamilyMemberRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyMemberResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "新增一位家人 (F-05)",
+        "tags": [
+          "family-members"
+        ]
+      }
+    },
+    "/api/v1/users/me/family-members/{member_id}": {
+      "delete": {
+        "description": "软删除：标记 deleted_at，历史订单仍可解析快照。",
+        "operationId": "delete_family_member_api_v1_users_me_family_members__member_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "member_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Member Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "软删除一位家人 (F-05)",
+        "tags": [
+          "family-members"
+        ]
+      },
+      "patch": {
+        "description": "部分字段更新当前用户名下的家人档案；不影响历史订单上的快照。",
+        "operationId": "update_family_member_api_v1_users_me_family_members__member_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "member_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Member Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateFamilyMemberRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FamilyMemberResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "更新一位家人 (F-05)",
+        "tags": [
+          "family-members"
         ]
       }
     },

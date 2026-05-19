@@ -67,6 +67,7 @@ def _today_window_utc() -> tuple[datetime, datetime]:
     "/summary",
     response_model=DashboardSummary,
     summary="后台首页：KPI + 7 日趋势",
+    description="返回今日订单数 / GMV / 待审陆的陪诊师 / 未关闭差异等 KPI 以及过去 7 日的趋势点位。",
 )
 async def get_summary(session: DBSession) -> DashboardSummary:
     today_start, _ = _today_window_utc()

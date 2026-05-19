@@ -8,6 +8,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
 
 
 # revision identifiers, used by Alembic.
@@ -36,52 +37,41 @@ def upgrade() -> None:
     dialect = bind.dialect.name
 
     if dialect == "postgresql":
-        relation_enum = sa.Enum(
-            *FAMILY_RELATION_VALUES, name="familyrelation"
+        # Step 1: create the enum types first (checkfirst keeps re-upgrade safe).
+        sa.Enum(*FAMILY_RELATION_VALUES, name="familyrelation").create(
+            bind, checkfirst=True
         )
-        gender_enum = sa.Enum(
-            *FAMILY_GENDER_VALUES, name="familygender"
+        sa.Enum(*FAMILY_GENDER_VALUES, name="familygender").create(
+            bind, checkfirst=True
         )
-        relation_enum.create(bind, checkfirst=True)
-        gender_enum.create(bind, checkfirst=True)
-        relation_col = sa.Column(
-            "relation",
-            relation_enum,
-            nullable=False,
-            server_default="other",
+        # Step 2: bind columns to the existing type, but tell SQLAlchemy
+        # NOT to re-emit CREATE TYPE inside create_table (otherwise repeat
+        # upgrade after downgrade => 42710 already exists).
+        relation_type = postgresql.ENUM(
+            *FAMILY_RELATION_VALUES, name="familyrelation", create_type=False
         )
-        gender_col = sa.Column(
-            "gender",
-            gender_enum,
-            nullable=False,
-            server_default="unknown",
+        gender_type = postgresql.ENUM(
+            *FAMILY_GENDER_VALUES, name="familygender", create_type=False
         )
     else:
-        # SQLite path — Enum() lays down a CHECK constraint instead.
-        relation_col = sa.Column(
-            "relation",
-            sa.Enum(*FAMILY_RELATION_VALUES, name="familyrelation"),
-            nullable=False,
-            server_default="other",
-        )
-        gender_col = sa.Column(
-            "gender",
-            sa.Enum(*FAMILY_GENDER_VALUES, name="familygender"),
-            nullable=False,
-            server_default="unknown",
-        )
+        relation_type = sa.Enum(*FAMILY_RELATION_VALUES, name="familyrelation")
+        gender_type = sa.Enum(*FAMILY_GENDER_VALUES, name="familygender")
 
     op.create_table(
         "family_members",
         sa.Column("id", sa.Uuid(as_uuid=True), primary_key=True, nullable=False),
-        sa.Column("user_id", sa.Uuid(as_uuid=True), nullable=False, index=True),
+        sa.Column("user_id", sa.Uuid(as_uuid=True), nullable=False),
         sa.Column("name", sa.String(length=50), nullable=False),
-        relation_col,
+        sa.Column(
+            "relation", relation_type, nullable=False, server_default="other"
+        ),
         sa.Column("phone", sa.String(length=20), nullable=True),
-        gender_col,
+        sa.Column(
+            "gender", gender_type, nullable=False, server_default="unknown"
+        ),
         sa.Column("age", sa.Integer(), nullable=True),
         sa.Column("medical_notes", sa.Text(), nullable=True),
-        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True, index=True),
+        sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
     )

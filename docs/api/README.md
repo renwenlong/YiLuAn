@@ -108,6 +108,7 @@
 | --- | --- | --- |
 | `GET` | `/api/v1/chats/{order_id}/messages` | 获取订单聊天历史 |
 | `POST` | `/api/v1/chats/{order_id}/messages` | 发送一条聊天消息（HTTP 兜底） |
+| `GET` | `/api/v1/chats/{order_id}/messages/backfill` | WS 重连后增量回灌聊天消息 |
 | `POST` | `/api/v1/chats/{order_id}/read` | 批量标记订单消息为已读 |
 
 ### [站内通知（notifications）](./notifications.md)
@@ -147,16 +148,34 @@
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
+| `GET` | `/api/v1/admin/audit-logs` | 后台：审计日志列表 |
 | `GET` | `/api/v1/admin/companions/` | 后台：待审核陪诊师列表 |
+| `GET` | `/api/v1/admin/companions/search` | 后台：陪诊师轻量搜索（钱包账本筛选用） |
 | `POST` | `/api/v1/admin/companions/{companion_id}/approve` | 后台：批准陪诊师入驻 |
 | `POST` | `/api/v1/admin/companions/{companion_id}/certify` | 管理员：设置陪诊师资质认证（F-01） |
 | `POST` | `/api/v1/admin/companions/{companion_id}/reject` | 后台：驳回陪诊师申请 |
-| `GET` | `/api/v1/admin/orders` | 后台：查询全部订单 |
-| `POST` | `/api/v1/admin/orders/{order_id}/admin-refund` | 后台：管理员退款 |
+| `GET` | `/api/v1/admin/dashboard/summary` | 后台首页：KPI + 7 日趋势 |
+| `POST` | `/api/v1/admin/login` | Admin v2 登录（JWT） |
+| `GET` | `/api/v1/admin/notes` | 后台：按 target 列出备注 |
+| `POST` | `/api/v1/admin/notes` | 后台：新增备注 |
+| `DELETE` | `/api/v1/admin/notes/{note_id}` | 后台：删除备注（仅作者） |
+| `PATCH` | `/api/v1/admin/notes/{note_id}` | 后台：编辑备注（仅作者） |
+| `GET` | `/api/v1/admin/orders` | 后台：订单列表 |
+| `GET` | `/api/v1/admin/orders/{order_id}` | 后台：订单详情 |
 | `POST` | `/api/v1/admin/orders/{order_id}/force-status` | 后台：强制修改订单状态 |
+| `POST` | `/api/v1/admin/orders/{order_id}/refund` | 后台：管理员退款 |
+| `GET` | `/api/v1/admin/orders/{order_id}/timeline` | 后台：订单状态变迁时间轴 |
+| `GET` | `/api/v1/admin/reconciliation/diffs` | List Diffs |
+| `GET` | `/api/v1/admin/reconciliation/diffs/{diff_id}` | 后台：差异详情 |
+| `POST` | `/api/v1/admin/reconciliation/diffs/{diff_id}/close-confirms` | Confirm Close |
+| `POST` | `/api/v1/admin/reconciliation/diffs/{diff_id}/close-requests` | Request Close |
+| `GET` | `/api/v1/admin/reconciliation/runs` | 后台：对账 run 列表 |
 | `GET` | `/api/v1/admin/users` | 后台：用户列表 |
+| `GET` | `/api/v1/admin/users/{user_id}` | 后台：用户详情 |
 | `POST` | `/api/v1/admin/users/{user_id}/disable` | 后台：停用用户 |
 | `POST` | `/api/v1/admin/users/{user_id}/enable` | 后台：启用用户 |
+| `POST` | `/api/v1/admin/wallet-ledger/adjustments` | Create Manual Adjustment |
+| `GET` | `/api/v1/admin/wallet-ledger/{user_id}` | List User Ledger |
 
 ### [运营后台 - 陪诊师审核（admin-companions）](./admin-companions.md)
 
@@ -165,6 +184,7 @@
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `GET` | `/api/v1/admin/companions/` | 后台：待审核陪诊师列表 |
+| `GET` | `/api/v1/admin/companions/search` | 后台：陪诊师轻量搜索（钱包账本筛选用） |
 | `POST` | `/api/v1/admin/companions/{companion_id}/approve` | 后台：批准陪诊师入驻 |
 | `POST` | `/api/v1/admin/companions/{companion_id}/certify` | 管理员：设置陪诊师资质认证（F-01） |
 | `POST` | `/api/v1/admin/companions/{companion_id}/reject` | 后台：驳回陪诊师申请 |
@@ -181,6 +201,74 @@ K8s / ACA 探针使用：
 | `GET` | `/health` | 健康检查（liveness, root） |
 | `GET` | `/readiness` | 就绪检查（readiness, root） |
 
+### [admin-audit-logs](./admin-audit-logs.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/admin/audit-logs` | 后台：审计日志列表 |
+
+### [admin-dashboard](./admin-dashboard.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/admin/dashboard/summary` | 后台首页：KPI + 7 日趋势 |
+
+### [admin-auth](./admin-auth.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `POST` | `/api/v1/admin/login` | Admin v2 登录（JWT） |
+
+### [admin-notes](./admin-notes.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/admin/notes` | 后台：按 target 列出备注 |
+| `POST` | `/api/v1/admin/notes` | 后台：新增备注 |
+| `DELETE` | `/api/v1/admin/notes/{note_id}` | 后台：删除备注（仅作者） |
+| `PATCH` | `/api/v1/admin/notes/{note_id}` | 后台：编辑备注（仅作者） |
+
+### [admin-orders](./admin-orders.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/admin/orders` | 后台：订单列表 |
+| `GET` | `/api/v1/admin/orders/{order_id}` | 后台：订单详情 |
+| `POST` | `/api/v1/admin/orders/{order_id}/force-status` | 后台：强制修改订单状态 |
+| `POST` | `/api/v1/admin/orders/{order_id}/refund` | 后台：管理员退款 |
+
+### [admin-order-timeline](./admin-order-timeline.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/admin/orders/{order_id}/timeline` | 后台：订单状态变迁时间轴 |
+
+### [admin-reconciliation](./admin-reconciliation.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/admin/reconciliation/diffs` | List Diffs |
+| `GET` | `/api/v1/admin/reconciliation/diffs/{diff_id}` | 后台：差异详情 |
+| `POST` | `/api/v1/admin/reconciliation/diffs/{diff_id}/close-confirms` | Confirm Close |
+| `POST` | `/api/v1/admin/reconciliation/diffs/{diff_id}/close-requests` | Request Close |
+| `GET` | `/api/v1/admin/reconciliation/runs` | 后台：对账 run 列表 |
+
+### [admin-users](./admin-users.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/admin/users` | 后台：用户列表 |
+| `GET` | `/api/v1/admin/users/{user_id}` | 后台：用户详情 |
+| `POST` | `/api/v1/admin/users/{user_id}/disable` | 后台：停用用户 |
+| `POST` | `/api/v1/admin/users/{user_id}/enable` | 后台：启用用户 |
+
+### [admin-wallet-ledger](./admin-wallet-ledger.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `POST` | `/api/v1/admin/wallet-ledger/adjustments` | Create Manual Adjustment |
+| `GET` | `/api/v1/admin/wallet-ledger/{user_id}` | List User Ledger |
+
 ### [emergency](./emergency.md)
 
 | 方法 | 路径 | 说明 |
@@ -192,3 +280,20 @@ K8s / ACA 探针使用：
 | `GET` | `/api/v1/emergency/events` | 我的紧急事件历史 |
 | `POST` | `/api/v1/emergency/events` | 触发紧急事件 |
 | `GET` | `/api/v1/emergency/hotline` | 平台客服热线 |
+
+### [followup-reminders](./followup-reminders.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/orders/me/followup-reminders` | 我的全部复诊提醒 (F-07) |
+| `DELETE` | `/api/v1/orders/me/followup-reminders/{reminder_id}` | 取消一条 pending 复诊提醒 (F-07) |
+| `POST` | `/api/v1/orders/{order_id}/followup-reminders` | 为一笔已完成订单创建复诊提醒 (F-07) |
+
+### [family-members](./family-members.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/users/me/family-members` | 获取我的家人列表 (F-05) |
+| `POST` | `/api/v1/users/me/family-members` | 新增一位家人 (F-05) |
+| `DELETE` | `/api/v1/users/me/family-members/{member_id}` | 软删除一位家人 (F-05) |
+| `PATCH` | `/api/v1/users/me/family-members/{member_id}` | 更新一位家人 (F-05) |
