@@ -32,7 +32,8 @@ class PatientProfileViewModel: ObservableObject {
 
     func loadHospitals() async {
         do {
-            hospitals = try await APIClient.shared.request(.hospitals)
+            // backend 返回 HospitalListResponse {items,total}，以前直接 decode 为 [Hospital] 会炸。
+            hospitals = try await HospitalService.searchItems(HospitalSearchParams())
         } catch {
             // Non-fatal: hospital list is optional
         }

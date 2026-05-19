@@ -1,0 +1,22 @@
+.page { padding: 24rpx; }
+.hint { color: #888; font-size: 24rpx; margin-bottom: 16rpx; }
+.empty { color: #aaa; text-align: center; padding: 96rpx 0; }
+.card {
+  background: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 8rpx rgba(0,0,0,.04);
+}
+.card-head { display: flex; justify-content: space-between; align-items: center; }
+.time { font-weight: 600; font-size: 30rpx; }
+.status { font-size: 22rpx; padding: 4rpx 16rpx; border-radius: 8rpx; }
+.status-pending { background: #fff4e5; color: #f5a623; }
+.status-sent { background: #e6f7ed; color: #2da462; }
+.status-cancelled { background: #eee; color: #777; }
+.status-failed { background: #fde2e2; color: #d6332e; }
+.note { margin-top: 12rpx; color: #444; font-size: 28rpx; }
+.meta { margin-top: 8rpx; color: #999; font-size: 22rpx; }
+.actions { margin-top: 12rpx; text-align: right; }
+.link { color: #1677ff; font-size: 26rpx; padding: 8rpx 16rpx; }
+.link-danger { color: #d6332e; }

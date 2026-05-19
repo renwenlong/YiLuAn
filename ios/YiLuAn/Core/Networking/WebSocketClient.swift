@@ -6,11 +6,17 @@ enum WSMessage {
     case data(Data)
 }
 
+/// WebSocket 客户端，支持 chat 单订单流（query token，legacy）和全局通知流（first-frame auth handshake）。
+/// - chat   : `/ws/chat/{orderId}?token=...`
+/// - notif  : `/ws/notifications`，连上后立即发送 `{type:"auth", token:"..."}`，等待 `{type:"auth_ok"}`
 actor WebSocketClient {
     private var webSocketTask: URLSessionWebSocketTask?
     private let session: URLSession
     private var retryCount = 0
     private let maxRetries = 5
+
+    private var currentURL: URL?
+    private var pendingAuthPayload: String?  // 非 nil 表示需要 first-frame auth
 
     private let messageSubject = PassthroughSubject<WSMessage, Never>()
     private let connectionSubject = CurrentValueSubject<Bool, Never>(false)
@@ -27,6 +33,8 @@ actor WebSocketClient {
         self.session = URLSession(configuration: .default)
     }
 
+    // MARK: - Chat (legacy query-token)
+
     func connect(orderId: String) {
         guard let token = KeychainManager.accessToken else { return }
 
@@ -38,16 +46,36 @@ actor WebSocketClient {
 
         guard let url = components.url else { return }
 
-        webSocketTask = session.webSocketTask(with: url)
-        webSocketTask?.resume()
-        connectionSubject.send(true)
-        retryCount = 0
-        receiveMessage()
+        currentURL = url
+        pendingAuthPayload = nil
+        openTask(url: url)
+    }
+
+    // MARK: - Notifications (first-frame auth handshake)
+
+    /// 连接全局通知 WS。鉴权走 first-frame：`{"type":"auth","token":"<jwt>"}`，
+    /// 服务端验证通过会回 `{"type":"auth_ok"}` —— 与 wechat services/notificationWs.js 对齐。
+    func connectNotifications() {
+        guard let token = KeychainManager.accessToken else { return }
+
+        let url = AppConfig.wsBaseURL.appendingPathComponent("ws/notifications")
+        currentURL = url
+        // 序列化一次，连上后第一帧发出去
+        let payload: [String: String] = ["type": "auth", "token": token]
+        if let data = try? JSONSerialization.data(withJSONObject: payload),
+           let str = String(data: data, encoding: .utf8) {
+            pendingAuthPayload = str
+        } else {
+            pendingAuthPayload = nil
+        }
+        openTask(url: url)
     }
 
     func disconnect() {
         webSocketTask?.cancel(with: .normalClosure, reason: nil)
         webSocketTask = nil
+        currentURL = nil
+        pendingAuthPayload = nil
         connectionSubject.send(false)
         retryCount = 0
     }
@@ -58,6 +86,20 @@ actor WebSocketClient {
     }
 
     // MARK: - Private
+
+    private func openTask(url: URL) {
+        webSocketTask = session.webSocketTask(with: url)
+        webSocketTask?.resume()
+        connectionSubject.send(true)
+        retryCount = 0
+        // first-frame auth
+        if let payload = pendingAuthPayload, let task = webSocketTask {
+            Task {
+                try? await task.send(.string(payload))
+            }
+        }
+        receiveMessage()
+    }
 
     private func receiveMessage() {
         webSocketTask?.receive { [weak self] result in
@@ -81,10 +123,11 @@ actor WebSocketClient {
     }
 
     private func reconnect() async {
-        guard retryCount < maxRetries else { return }
+        guard retryCount < maxRetries, let url = currentURL else { return }
         retryCount += 1
         let delay = UInt64(pow(2.0, Double(retryCount))) * 1_000_000_000
         try? await Task.sleep(nanoseconds: delay)
-        // Reconnection requires the orderId — caller should observe isConnected and call connect() again
+        // 自动恢复：用上次 URL + auth payload 重连（对 notifications 关键，chat 调用方也可继续观察 isConnected）。
+        openTask(url: url)
     }
 }

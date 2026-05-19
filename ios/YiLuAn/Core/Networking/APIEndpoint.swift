@@ -128,4 +128,13 @@ struct APIEndpoint {
     // MARK: - Hospitals (extra)
     static let hospitalFilters = APIEndpoint(path: "hospitals/filters", method: .get, requiresAuth: false)
     static let nearestHospitalRegion = APIEndpoint(path: "hospitals/nearest-region", method: .get, requiresAuth: false)
+
+    // MARK: - Followup Reminders (F-07)
+    static func createFollowupReminder(orderId: String) -> APIEndpoint {
+        APIEndpoint(path: "orders/\(orderId)/followup-reminders", method: .post, requiresAuth: true)
+    }
+    static let myFollowupReminders = APIEndpoint(path: "orders/me/followup-reminders", method: .get, requiresAuth: true)
+    static func cancelFollowupReminder(id: String) -> APIEndpoint {
+        APIEndpoint(path: "orders/me/followup-reminders/\(id)", method: .delete, requiresAuth: true)
+    }
 }

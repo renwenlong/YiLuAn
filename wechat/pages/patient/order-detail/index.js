@@ -1,5 +1,6 @@
 const { getOrderDetail, orderAction, payOrder, requestWechatPayment } = require('../../../services/order')
 const { getOrderReview } = require('../../../services/review')
+const { createFollowupReminder } = require('../../../services/followupReminder')
 const {
   listEmergencyContacts,
   getEmergencyHotline,
@@ -293,6 +294,38 @@ Page({
       url: '/pages/patient/create-order/index?hospital_id=' + order.hospital_id +
         '&service_type=' + order.service_type
     })
+  },
+
+  // [F-07] 创建复诊提醒 ------------------------------------------------
+  // 简化交互：默认 7 天后同一时间；note 用 prompt 可选填。
+  // 后续可接入原生时间选择器（当前 MVP 对齐 iOS）。
+  async onCreateFollowup() {
+    const { order } = this.data
+    if (!order || !order.id) return
+
+    const noteRes = await new Promise((resolve) => {
+      wx.showModal({
+        title: '创建复诊提醒',
+        content: '默认在 7 天后提醒。点击“确定”即创建。',
+        editable: true,
+        placeholderText: '备注（可选，如：取报告 / 复查血常规）',
+        success: (r) => resolve(r),
+        fail: () => resolve({ confirm: false }),
+      })
+    })
+    if (!noteRes.confirm) return
+
+    const remindAt = new Date(Date.now() + 7 * 24 * 3600 * 1000).toISOString()
+    try {
+      await createFollowupReminder(order.id, {
+        order_id: order.id,
+        remind_at: remindAt,
+        note: (noteRes.content || '').slice(0, 140) || null,
+      })
+      wx.showToast({ title: '已创建', icon: 'success' })
+    } catch (e) {
+      wx.showToast({ title: '创建失败', icon: 'none' })
+    }
   },
 
   // [F-03] Emergency call ----------------------------------------------
