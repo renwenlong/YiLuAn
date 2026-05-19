@@ -14,7 +14,7 @@ real client would hit:
     6. companion accepts → request-start → patient confirm-start →
        companion complete
     7. patient submits a multidimensional review
-    8. admin (JWT) refunds via /api/v1/admin/orders/{order_id}/admin-refund
+    8. admin (JWT) refunds via /api/v1/admin/orders/{order_id}/refund
 
 A markdown report is written to deploy/staging/reports/rehearsal-YYYY-MM-DD.md.
 Exit status 0 = green, 1 = a step failed.
@@ -71,6 +71,8 @@ class Rehearsal:
     admin_phone: str
     companion_phone: str
     patient_phone: str
+    admin_username: str = "admin"
+    admin_password: str = "Admin@2026!"
     steps: list[Step] = field(default_factory=list)
     started_at: datetime = field(default_factory=lambda: datetime.now(CST))
 
@@ -199,6 +201,7 @@ def journey(r: Rehearsal, api: API) -> dict:
         _expect(code, resp, ctx="create order")
         art["order_id"] = resp["id"]
         art["order_number"] = resp["order_number"]
+        art["order_price"] = str(resp.get("price") or "0")
         return f"order_id={art['order_id'][:8]}… number={art['order_number']}"
     r.run("create order", _create_order)
 
@@ -304,12 +307,19 @@ def journey(r: Rehearsal, api: API) -> dict:
 
     # --- 12. admin login + refund
     def _admin_refund() -> str:
-        admin_tok = login(api, r.admin_phone)
-        atok = admin_tok["access_token"]
-        # admin-refund endpoint
+        # Admin v2 JWT login (ADR-0034) — different from user OTP login.
         code, resp = api.post(
-            f"/api/v1/admin/orders/{art['order_id']}/admin-refund?refund_ratio=1.0",
-            None, token=atok,
+            "/api/v1/admin/login",
+            {"username": r.admin_username, "password": r.admin_password},
+            token=None,
+        )
+        _expect(code, resp, ctx="admin-login")
+        atok = resp["access_token"]
+        # POST /api/v1/admin/orders/{order_id}/refund  body={amount, reason}
+        code, resp = api.post(
+            f"/api/v1/admin/orders/{art['order_id']}/refund",
+            {"amount": art["order_price"], "reason": "staging rehearsal full refund"},
+            token=atok,
         )
         _expect(code, resp, ctx="admin-refund")
         art["refund_id"] = resp.get("refund_id")
@@ -394,6 +404,8 @@ def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--base", default=os.getenv("STAGING_BASE", "http://127.0.0.1:18080"))
     p.add_argument("--admin-phone", default="13900000000")
+    p.add_argument("--admin-username", default="admin")
+    p.add_argument("--admin-password", default=os.getenv("STAGING_ADMIN_PASSWORD", "Admin@2026!"))
     p.add_argument("--companion-phone", default="13800000101")
     # Fresh patient phone every run so reviews don't dup
     default_patient = "139" + datetime.now(CST).strftime("%H%M%S%f")[:8]
@@ -417,6 +429,8 @@ def main() -> int:
         admin_phone=args.admin_phone,
         companion_phone=args.companion_phone,
         patient_phone=args.patient_phone,
+        admin_username=args.admin_username,
+        admin_password=args.admin_password,
     )
 
     art: dict = {}
