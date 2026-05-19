@@ -1365,3 +1365,47 @@ Provider 接口已稳定 16 天等外部凭证（B-01 微信支付商户 / B-02 
 - **关联**：commit `d32372d`、`wechat/core/ws-base.js`、`ios/YiLuAn/Core/Networking/WebSocketClient.swift`、`docs/TECH_DEBT.md` TD-MSG-06
 - **影响范围**：iOS WebSocket 客户端实现策略（保持不动）
 - **状态**：Accepted
+
+## 2026-05-19
+
+### D-056 F-05 代他人下单（家属端）立项 + D-053 feature freeze 双签例外
+- **参与角色**：Arch + PM（文龙）
+- **背景**：D-030 矩阵 F-05 触发条件「4 月底 P0 全关 → 5 月第一周启动」已达成；当前 D-053 feature freeze 仍生效（B-01 / B-04 未解锁）。文龙 2026-05-19 拍板：F-05 进入实现，并启用 D-053 第 5 条 **Arch + PM 双签例外**，开发完直接合 main，不留 PR 待解冻。
+- **决策**：
+  1. **立项**：F-05 正式立项，本周开工，串行先于 F-07。
+  2. **范围**（MVP）：
+     - 新增 `family_members` 表（user 维度的家人/被陪诊人档案：姓名 / 关系 / 手机号 / 性别 / 年龄 / 医疗备注 / 软删除标记）
+     - 创建订单 body 增加可选 `family_member_id`；为空 = 给本人下单（向后兼容）
+     - 订单详情 / 列表暴露 `family_member` 块（陪诊师可见实际就诊人姓名 + 关系 + 联系电话）
+     - 三端：wechat 家人管理页 + 下单页 picker；admin-h5 订单详情展示就诊人；iOS 仅最小改动（家人 CRUD + picker，复杂统计延后）
+  3. **数据模型纪律**：`family_members.user_id` 加索引；删除走软删除（保留历史订单引用完整性）；手机号不强校验、不存身份证号（合规面 MVP 避坑）
+  4. **API 路径**：`/api/v1/users/me/family-members` CRUD（与 patient-profile 同前缀风格）
+  5. **D-053 例外**：本立项**双签例外**——Arch + PM 已确认（文龙 = PM），允许 `feat:` 类合入 main。本 commit 起 feat/F-05-family-order 分支，开发完后跑 pytest + CI 全绿即合 main。
+  6. **验收**：本地 backend pytest 全绿 + wechat jest 全绿 + 推 main 后 4 个 CI workflow 全绿；admin-h5 订单详情可看到家人信息。
+- **不在范围**（明确排除）：身份证号字段、家人间转账、家人共享支付方式、iOS 复杂 UI（仅 picker + 列表）
+- **决策日期**：2026-05-19
+- **决策人**：Arch + PM（文龙）
+- **关联**：D-030（F-05 立项触发条件）、D-053（feature freeze + 双签例外条款）、D-057（F-07 串行立项）
+- **影响范围**：backend / wechat / iOS / admin-h5；不影响支付链路、对账、cron
+- **状态**：Accepted（进入实现）
+
+### D-057 F-07 复诊提醒 / 随访 立项（先做后端骨架 + stub provider）+ 双签例外
+- **参与角色**：Arch + PM（文龙）
+- **背景**：D-030 矩阵 F-07 原触发条件是「微信订阅消息模板审批通过（外部 7-15d）」。文龙 2026-05-19 拍板：**不等模板审批**，先做后端骨架 + stub provider，待 F-05 合 main 后串行开工。
+- **决策**：
+  1. **立项 + 串行**：F-07 在 F-05 合 main 后开工，**不与 F-05 并行**。
+  2. **范围**（MVP）：
+     - 新增 `followup_reminders` 表（order_id / user_id / remind_at / message / channel / status / provider_msg_id / attempts / 软删除）
+     - API：`POST /orders/{order_id}/followup-reminders`（必须 order 处于 completed/reviewed）、`GET /orders/{order_id}/followup-reminders`、`DELETE /followup-reminders/{id}`
+     - cron：复用 `backend/app/cron/` 风格，新增 `followup_reminder_dispatch.py`，每分钟扫到期 reminder → 调 provider → 写状态 + attempts（≥3 次失败 mark failed）
+     - **Provider 抽象**：`SubscribeMessageProvider` 接口；今天只实现 `StubSubscribeMessageProvider`（仅写日志，永远返回 success）；保留 `WechatSubscribeMessageProvider` 占位文件 + TODO，待模板审批通过后实现
+     - 微信小程序：订单详情/完成页提供"设置复诊提醒"按钮 + 调 `wx.requestSubscribeMessage`（模板 ID 用环境变量 placeholder）+ 调后端 API
+     - iOS / admin-h5：本次**仅后端 + wechat**；iOS push 待 APNs 与微信订阅消息策略对齐后另立 D-058
+  3. **D-053 例外**：同 D-056，**双签例外**已确认，开发完直接合 main。
+  4. **验收**：本地 backend pytest 全绿（含 reminder service + cron + stub provider 单测）+ wechat jest 全绿 + 推 main 后 CI 4 个 workflow 全绿
+- **后续动作**（解冻后）：模板审批回来 → 实现 `WechatSubscribeMessageProvider` → 切换 provider 配置 → 起 D-058 接 iOS APNs
+- **决策日期**：2026-05-19
+- **决策人**：Arch + PM（文龙）
+- **关联**：D-030（F-07 立项触发条件）、D-053（双签例外）、D-056（F-05 串行先行）、TD-MSG-08（微信订阅消息未接入，本立项启动接入）
+- **影响范围**：backend（新 cron + provider 抽象 + 新表）、wechat；不影响 iOS / admin-h5 / 支付链路
+- **状态**：Accepted（待 F-05 合 main 后进入实现）
