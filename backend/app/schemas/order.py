@@ -2,8 +2,11 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, Field, field_serializer
+from pydantic import BaseModel, Field, field_serializer, model_validator
 from pydantic.types import condecimal
+
+
+from app.schemas.family_member import OrderFamilyMemberSnapshot
 
 
 # ADR-0030: 金额统一使用 Decimal(10,2)；JSON 序列化为字符串避免精度漂移
@@ -22,6 +25,10 @@ class CreateOrderRequest(BaseModel):
     appointment_time: str = Field(..., pattern=r"^\d{2}:\d{2}$", description="预约时间 HH:MM", examples=["09:30"])
     description: str | None = Field(None, description="补充说明（病情、特殊需求）", examples=["需要陪同做核磁，行动不便"])
     companion_id: UUID | None = Field(None, description="可选：直接指派的陪诊师 ID；为空则进入大厅抢单")
+    family_member_id: UUID | None = Field(
+        None,
+        description="可选：F-05 代他人下单的家人 ID；为空 = 给本人下单",
+    )
 
 
 class TimelineItem(BaseModel):
@@ -44,6 +51,10 @@ class OrderResponse(BaseModel):
     hospital_name: str | None = Field(None, description="医院名称（冗余）", examples=["北京协和医院"])
     companion_name: str | None = Field(None, description="陪诊师姓名（冗余）", examples=["张三"])
     patient_name: str | None = Field(None, description="患者姓名（冗余）", examples=["小明"])
+    family_member: OrderFamilyMemberSnapshot | None = Field(
+        None,
+        description="F-05 代他人下单：实际就诊人快照（家人删除后仍可显示）",
+    )
     payment_status: str | None = Field(None, description="支付状态", examples=["success"])
     payment_state: str | None = Field(
         None,
@@ -62,6 +73,41 @@ class OrderResponse(BaseModel):
     updated_at: datetime = Field(..., description="最后更新时间")
 
     model_config = {"from_attributes": True}
+
+    @model_validator(mode="before")
+    @classmethod
+    def _derive_family_member(cls, data):
+        # F-05: assemble the nested `family_member` snapshot from the
+        # denormalized columns on the Order ORM row so the API can render
+        # 实际就诊人 without an extra join. A row without
+        # `family_member_name` means “本人下单” and the field stays None.
+        if data is None:
+            return data
+        if isinstance(data, dict):
+            if data.get("family_member_name") and "family_member" not in data:
+                data["family_member"] = {
+                    "id": data.get("family_member_id"),
+                    "name": data["family_member_name"],
+                    "relation": data.get("family_member_relation") or "other",
+                    "phone": data.get("family_member_phone"),
+                }
+            return data
+        name = getattr(data, "family_member_name", None)
+        if not name:
+            return data
+        # ORM path — copy declared fields into a dict and inject snapshot.
+        out = {}
+        for f in cls.model_fields.keys():
+            if f == "family_member":
+                continue
+            out[f] = getattr(data, f, None)
+        out["family_member"] = {
+            "id": getattr(data, "family_member_id", None),
+            "name": name,
+            "relation": getattr(data, "family_member_relation", None) or "other",
+            "phone": getattr(data, "family_member_phone", None),
+        }
+        return out
 
     @field_serializer("price")
     def _ser_price(self, v: Decimal) -> float:

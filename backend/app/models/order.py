@@ -136,6 +136,17 @@ class Order(Base):
     hospital_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     companion_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     patient_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # F-05: 代他人下单 — 软关联 + 冗余快照（家人删除后仍可还原显示）
+    family_member_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), nullable=True, index=True
+    )
+    family_member_name: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    family_member_relation: Mapped[str | None] = mapped_column(
+        String(20), nullable=True
+    )
+    family_member_phone: Mapped[str | None] = mapped_column(
+        String(20), nullable=True
+    )
     expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
