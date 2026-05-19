@@ -172,6 +172,8 @@ const OrderDetailDrawer = {
     state.orderDetail = { id: orderId, raw: null, timeline: [], notes: [] };
     $('#orderDetailTitle').textContent = '订单详情 · ' + orderId;
     $('#orderDetailRaw').textContent = '加载中…';
+    const famEl = $('#orderFamilyMember');
+    if (famEl) { famEl.hidden = true; famEl.innerHTML = ''; }
     $('#orderTimelineList').innerHTML = '<li class="empty">加载中…</li>';
     $('#orderNotesList').innerHTML = '<div class="empty">加载中…</div>';
     $('#orderNoteInput').value = '';
@@ -187,10 +189,32 @@ const OrderDetailDrawer = {
       const data = await apiCall('/api/v1/admin/orders/' + state.orderDetail.id);
       state.orderDetail.raw = data;
       $('#orderDetailRaw').textContent = JSON.stringify(data, null, 2);
+      this.renderFamilyMember(data);
     } catch (e) {
       if (handleAuthError(e)) return;
       $('#orderDetailRaw').textContent = '加载失败：' + e.message;
     }
+  },
+
+  /** [F-05] 代他人下单：接口返回 order.family_member (可为 null)，非空时在原始 JSON 上方额外渲染一条醒目提示 */
+  renderFamilyMember(order) {
+    const el = $('#orderFamilyMember');
+    if (!el) return;
+    const fm = order && order.family_member;
+    if (!fm || !fm.name) { el.hidden = true; el.innerHTML = ''; return; }
+    const relMap = {
+      self: '本人', parent: '父母', spouse: '配偶', child: '子女',
+      sibling: '兄弟姐妹', grandparent: '祖父母', relative: '亲戚',
+      friend: '朋友', other: '其他',
+    };
+    const relLabel = relMap[fm.relation] || '其他';
+    const phone = fm.phone ? escapeHtml(fm.phone) : '-';
+    el.innerHTML =
+      '<div class="detail-family__label">实际就诊人</div>' +
+      '<div class="detail-family__value">' +
+        escapeHtml(fm.name) + '（' + escapeHtml(relLabel) + '） · ' + phone +
+      '</div>';
+    el.hidden = false;
   },
   async loadTimeline() {
     try {
