@@ -9,6 +9,7 @@ const store = require('../../../store/index')
 const { ORDER_STATUS, SERVICE_TYPES } = require('../../../utils/constants')
 const { formatPrice, formatDate } = require('../../../utils/format')
 const { formatCurrency } = require('../../../utils/formatCurrency')
+const { relationLabel } = require('../../../utils/familyRelation')
 const { isCountdownUrgent } = require('./utils/countdown')
 
 const PAYMENT_STATUS_MAP = {
@@ -29,6 +30,8 @@ Page({
     paymentStatusClass: '',
     countdown: '',
     countdownUrgent: false,
+    // [F-05] family_member relation 中文 label（按需填充）
+    familyRelationLabel: '',
     // [F-03] Emergency call
     showEmergency: false,
     emergencyContacts: [],
@@ -111,6 +114,7 @@ Page({
       }
 
       var paymentStatus = order.payment_status || 'unpaid'
+      var famLabel = order.family_member ? relationLabel(order.family_member.relation) : ''
       this.setData({
         order: {
           ...order,
@@ -121,7 +125,8 @@ Page({
         },
         serviceLabel: svc.label || order.service_type,
         paymentStatusLabel: PAYMENT_STATUS_MAP[paymentStatus] || paymentStatus,
-        paymentStatusClass: paymentStatus
+        paymentStatusClass: paymentStatus,
+        familyRelationLabel: famLabel
       })
 
       // Start countdown if order is created and has expires_at

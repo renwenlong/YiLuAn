@@ -112,6 +112,19 @@
     </view>
   </view>
 
+  <!-- [F-05] 实际就诊人（代他人下单） -->
+  <view class="detail-section" wx:if="{{order.family_member}}">
+    <view class="section-title">实际就诊人</view>
+    <view class="info-row">
+      <text class="info-label">姓名</text>
+      <text class="info-value">{{order.family_member.name}}（{{familyRelationLabel}}）</text>
+    </view>
+    <view class="info-row" wx:if="{{order.family_member.phone}}">
+      <text class="info-label">联系电话</text>
+      <text class="info-value">{{order.family_member.phone}}</text>
+    </view>
+  </view>
+
   <!-- Status Timeline -->
   <view class="detail-section">
     <view class="section-title">订单进度</view>

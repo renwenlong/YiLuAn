@@ -163,6 +163,31 @@ struct OrderDetailView: View {
             if let patientName = order.patientName {
                 infoRow("患者", patientName)
             }
+            // F-05: 代他人下单 — 重点提示陪诊师“实际就诊人”与账户不同
+            if let fm = order.familyMember {
+                let relLabel: String = {
+                    switch fm.relation ?? "other" {
+                    case "self": return "本人"
+                    case "parent": return "父母"
+                    case "spouse": return "配偶"
+                    case "child": return "子女"
+                    case "sibling": return "兄弟姐妹"
+                    case "grandparent": return "祖父母"
+                    case "relative": return "亲戚"
+                    case "friend": return "朋友"
+                    default: return "其他"
+                    }
+                }()
+                let phoneSuffix = (fm.phone?.isEmpty == false) ? " · \(fm.phone!)" : ""
+                infoRow("实际就诊人", "\(fm.name)（\(relLabel)）\(phoneSuffix)")
+            }
+            // [F-05] 代他人下单：后端 OrderResponse.family_member 非空时呈现
+            if let fm = order.familyMember {
+                infoRow("实际就诊人", "\(fm.name)（\(FamilyRelation.label(for: fm.relation))）")
+                if let phone = fm.phone, !phone.isEmpty {
+                    infoRow("联系电话", phone)
+                }
+            }
         }
         .padding(Spacing.lg)
         .background(Color(.systemGray6))

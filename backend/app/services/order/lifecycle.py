@@ -6,8 +6,10 @@ from datetime import datetime, timedelta, timezone
 
 from app.core import error_codes
 from app.exceptions import BadRequestException, ForbiddenException, NotFoundException
+from app.models.family_member import FamilyMember
 from app.models.order import Order, OrderStatus, SERVICE_PRICES, ServiceType
 from app.models.user import User, UserRole
+from app.repositories.family_member import FamilyMemberRepository
 from app.schemas.order import CreateOrderRequest
 
 from ._base import ORDER_EXPIRY_HOURS, _OrderServiceBase, generate_order_number
@@ -48,6 +50,17 @@ class _OrderLifecycleMixin(_OrderServiceBase):
             companion_id = profile.user_id
             companion_name = profile.real_name
 
+        # F-05: 代他人下单 — 可选；为空 = 给本人下单。
+        # 实际就诊人冗余到订单快照，以免以后家人被软删除后历史订单丢上下文。
+        family_member: FamilyMember | None = None
+        if data.family_member_id:
+            family_repo = FamilyMemberRepository(self.session)
+            family_member = await family_repo.get_active_for_user(
+                data.family_member_id, user.id
+            )
+            if family_member is None:
+                raise NotFoundException("Family member not found")
+
         order = Order(
             order_number=generate_order_number(),
             patient_id=user.id,
@@ -62,6 +75,10 @@ class _OrderLifecycleMixin(_OrderServiceBase):
             hospital_name=hospital.name,
             companion_name=companion_name,
             patient_name=user.display_name or user.phone,
+            family_member_id=family_member.id if family_member else None,
+            family_member_name=family_member.name if family_member else None,
+            family_member_relation=family_member.relation.value if family_member else None,
+            family_member_phone=family_member.phone if family_member else None,
             expires_at=datetime.now(timezone.utc) + timedelta(hours=ORDER_EXPIRY_HOURS),
         )
         order = await self.order_repo.create(order)

@@ -6,6 +6,8 @@ struct CreateOrderRequest: Encodable {
     let appointmentDate: String
     let appointmentTime: String
     let description: String?
+    // [F-05] 代他人下单：空 = 给本人下单
+    let familyMemberId: String?
 }
 
 struct OrderListResponse: Decodable {
@@ -95,7 +97,8 @@ class OrderViewModel: ObservableObject {
         hospitalId: String,
         date: String,
         time: String,
-        description: String?
+        description: String?,
+        familyMemberId: String? = nil
     ) async -> Order? {
         isLoading = true
         errorMessage = nil
@@ -107,7 +110,8 @@ class OrderViewModel: ObservableObject {
                 hospitalId: hospitalId,
                 appointmentDate: date,
                 appointmentTime: time,
-                description: description
+                description: description,
+                familyMemberId: familyMemberId
             )
             let order: Order = try await APIClient.shared.request(.createOrder, body: body)
             return order

@@ -101,4 +101,14 @@ struct APIEndpoint {
     // MARK: - Wallet
     static let wallet = APIEndpoint(path: "wallet", method: .get, requiresAuth: true)
     static let walletTransactions = APIEndpoint(path: "wallet/transactions", method: .get, requiresAuth: true)
+
+    // MARK: - Family Members (F-05)
+    static let familyMembers = APIEndpoint(path: "users/me/family-members", method: .get, requiresAuth: true)
+    static let createFamilyMember = APIEndpoint(path: "users/me/family-members", method: .post, requiresAuth: true)
+    static func updateFamilyMember(id: String) -> APIEndpoint {
+        APIEndpoint(path: "users/me/family-members/\(id)", method: .patch, requiresAuth: true)
+    }
+    static func deleteFamilyMember(id: String) -> APIEndpoint {
+        APIEndpoint(path: "users/me/family-members/\(id)", method: .delete, requiresAuth: true)
+    }
 }

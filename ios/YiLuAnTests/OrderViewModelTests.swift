@@ -36,7 +36,8 @@ final class OrderViewModelTests: XCTestCase {
             hospitalId: "test-hospital-id",
             appointmentDate: "2026-04-15",
             appointmentTime: "09:00",
-            description: "需要陪诊"
+            description: "需要陪诊",
+            familyMemberId: nil
         )
 
         let encoder = JSONEncoder()

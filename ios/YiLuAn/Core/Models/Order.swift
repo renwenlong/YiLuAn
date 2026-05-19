@@ -63,4 +63,15 @@ struct Order: Codable, Identifiable {
     let hospitalName: String?
     let companionName: String?
     let patientName: String?
+
+    // [F-05] 代他人下单：嵌套就诊人信息（后端 OrderResponse.family_member）
+    let familyMember: FamilyMemberSummary?
+}
+
+/// [F-05] OrderResponse.family_member 的精简嵌套块
+struct FamilyMemberSummary: Codable, Identifiable {
+    let id: String
+    let name: String
+    let relation: String?
+    let phone: String?
 }

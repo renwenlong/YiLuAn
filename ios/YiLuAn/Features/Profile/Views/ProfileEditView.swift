@@ -46,6 +46,10 @@ struct ProfileEditView: View {
                     NavigationLink("患者信息") {
                         PatientProfileEditView()
                     }
+                    // F-05: 代他人下单
+                    NavigationLink("我的家人") {
+                        FamilyMembersView()
+                    }
                 } else if authViewModel.currentUser?.role == .companion {
                     NavigationLink("陪诊师信息") {
                         CompanionProfileEditView()
