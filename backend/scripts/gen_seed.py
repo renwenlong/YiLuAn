@@ -1,16 +1,72 @@
 """
-Generate the SQL body (orders + chats + notifications + payments + reviews)
+Generate the SQL body (orders + chats + notifications + payments + reviews
++ F-03 emergency_contacts + F-05 family_members + F-07 followup_reminders)
 for YiLuAn seed.sql.  Outputs to stdout.
-"""
-import sys
 
-# UUID helpers
+Dev-only: emergency_contacts 的手机号用与 .env.example 默认值一致的 envelope
+key / salt 加密。生产环境换 key 后 seed 失效（这是预期的）。
+"""
+import base64
+import hashlib
+import hmac
+import os
+import sys
+import uuid
+
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+
+
+# UUID helpers (前缀必须都是合法 hex)
 def oid(n): return f"c0000001-0000-0000-0000-{n:012d}"
-def cid(n): return f"g0000001-0000-0000-0000-{n:012d}"  # chat msgs
-def nid(n): return f"n0000001-0000-0000-0000-{n:012d}"
-def pid(n): return f"p0000001-0000-0000-0000-{n:012d}"
-def rid(n): return f"f0000001-0000-0000-0000-{n:012d}"
-def hid(n): return f"h0000001-0000-0000-0000-{n:012d}"  # status history
+def cid(n): return f"aa000001-0000-0000-0000-{n:012d}"  # chat msgs
+def nid(n): return f"ab000001-0000-0000-0000-{n:012d}"  # notifications
+def pid(n): return f"ac000001-0000-0000-0000-{n:012d}"  # payments
+def rid(n): return f"ad000001-0000-0000-0000-{n:012d}"  # reviews
+def hid(n): return f"ae000001-0000-0000-0000-{n:012d}"  # status history
+def fmid(n): return f"fa000001-0000-0000-0000-{n:012d}"  # family members
+def ecid(n): return f"ec000001-0000-0000-0000-{n:012d}"  # emergency contacts
+def frid(n): return f"fb000001-0000-0000-0000-{n:012d}"  # followup reminders
+
+
+# ---------------------------------------------------------------------------
+# PII helpers (dev defaults; 与 .env.example 保持一致)
+# ---------------------------------------------------------------------------
+# 32 bytes of b'x' — 与 app/core/pii.py docstring "base64.b64encode(b'x'*32)" 一致。
+# .env.example 里那个 34-byte 值是坏的，不能用。
+_DEV_ENVELOPE_KEY_B64 = "eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHg="  # 32 bytes 'x'
+_DEV_HASH_SALT = "yiluan-dev-salt-do-not-use-in-prod"
+_PII_VERSION = 0x01
+_PII_NONCE_LEN = 12
+# 让 nonce 在多次 gen 时可复现（避免 seed 文件每次 diff 巨大）。
+_PII_RNG = os.urandom
+if os.environ.get("SEED_DETERMINISTIC_PII") == "1":
+    import random as _r
+    _rng = _r.Random(0xCAFE)
+    _PII_RNG = lambda n: bytes(_rng.getrandbits(8) for _ in range(n))
+
+
+def _envelope_key() -> bytes:
+    return base64.b64decode(_DEV_ENVELOPE_KEY_B64)
+
+
+def encrypt_phone(plain: str) -> bytes:
+    """AES-256-GCM envelope; 与 app/core/pii.py 保持一致：
+    存入 LargeBinary 的是 base64(version || nonce || ct||tag) 的 ASCII bytes。"""
+    aes = AESGCM(_envelope_key())
+    nonce = _PII_RNG(_PII_NONCE_LEN)
+    ct = aes.encrypt(nonce, plain.encode("utf-8"), associated_data=None)
+    blob = bytes([_PII_VERSION]) + nonce + ct
+    return base64.b64encode(blob)
+
+
+def phone_hash(plain: str) -> str:
+    return hmac.new(
+        _DEV_HASH_SALT.encode("utf-8"), plain.encode("utf-8"), hashlib.sha256
+    ).hexdigest()
+
+
+def bytea_literal(b: bytes) -> str:
+    return "'\\x" + b.hex() + "'::bytea"
 
 # Patient user ids (b0000001-0000-0000-0000-00000000000X)  X in 1..10
 P = [f"b0000001-0000-0000-0000-{i:012d}" for i in range(1, 11)]
@@ -304,10 +360,24 @@ print()
 print("-- ============================================================================")
 print("-- reviews (~12 条, 多星级, 含匿名)")
 print("-- ============================================================================")
-print("INSERT INTO reviews (id, order_id, patient_id, companion_id, rating, content, "
-      "patient_name, created_at) VALUES")
+print("INSERT INTO reviews (id, order_id, patient_id, companion_id, rating, "
+      "punctuality_rating, professionalism_rating, communication_rating, "
+      "attitude_rating, content, patient_name, created_at) VALUES")
 rrows = []
 rmid = 1
+# 4 维评分相对主 rating 的小幅抖动 (clamp 到 1..5)
+DIM_JITTER = [
+    (0, 0, 0, 0),   # 一致
+    (0, +1, 0, -1),
+    (0, 0, 0, 0),
+    (-1, 0, +1, 0),
+    (0, 0, 0, 0),
+    (+1, 0, -1, 0),
+    (0, 0, 0, 0),
+    (0, -1, +1, 0),
+    (0, +1, -1, 0),
+    (0, 0, 0, 0),
+]
 # 10 completed 订单都给评价
 for k in range(10):
     idx = completed_start + k + 1
@@ -316,6 +386,12 @@ for k in range(10):
     p = order[1]
     c = order[2]
     rating = [5, 4, 5, 3, 5, 4, 5, 4, 3, 5][k]
+    jp, jpr, jc, ja = DIM_JITTER[k]
+    clamp = lambda x: max(1, min(5, x))
+    r_punct = clamp(rating + jp)
+    r_prof = clamp(rating + jpr)
+    r_comm = clamp(rating + jc)
+    r_att = clamp(rating + ja)
     comments = [
         "服务非常专业，耐心细致，强烈推荐！",
         "整体不错，就是等待时间稍长",
@@ -331,8 +407,9 @@ for k in range(10):
     # 第 k=3、8 为匿名评价 (patient_name=NULL)
     pname_sql = "NULL" if k in (3, 8) else f"'{PAT_NAME[p]}'"
     rrows.append(
-        f"('{rid(rmid)}', '{oo}', '{p}', '{c}', {rating}, '{comments[k]}', "
-        f"{pname_sql}, NOW() - interval '{k+1} days')"
+        f"('{rid(rmid)}', '{oo}', '{p}', '{c}', {rating}, "
+        f"{r_punct}, {r_prof}, {r_comm}, {r_att}, "
+        f"'{comments[k]}', {pname_sql}, NOW() - interval '{k+1} days')"
     )
     rmid += 1
 # 再加 2 条: 3 星和 4 星额外
@@ -374,4 +451,108 @@ for idx in [6, 7, 8, 11, 12, 14, 15, 16, 17, 18]:
         hmid += 1
 
 print(",\n".join(hrows) + ";")
+print()
+
+# ---------------- Family members (F-05, ~10 行) ------------------------------
+print("-- ============================================================================")
+print("-- family_members (F-05, 代他人下单)")
+print("-- ============================================================================")
+print("INSERT INTO family_members (id, user_id, name, relation, phone, gender, age, "
+      "medical_notes, created_at, updated_at) VALUES")
+# (user_idx 1..10 => P[user_idx-1], name, relation, phone, gender, age, notes)
+FAMILY_SEED = [
+    (1, "张父",   "parent",     "13800200001", "male",   72, "高血压、糖尿病；用药复杂，需协助记录"),
+    (1, "张母",   "parent",     "13800200002", "female", 70, "骨质疏松；行动不便"),
+    (2, "李女儿", "child",      "13800200003", "female", 8,  "过敏体质；定期儿科随访"),
+    (3, "王配偶", "spouse",     "13800200004", "female", 45, None),
+    (4, "张奶奶", "grandparent","13800200005", "female", 88, "阿尔茨海默病初期；陪诊需家属同行"),
+    (5, "李父",   "parent",     "13800200006", "male",   68, "心脏支架术后"),
+    (5, "李姑姑", "relative",   "13800200007", "female", 60, None),
+    (6, "王同事", "friend",     "13800200008", "male",   40, None),
+    (7, "刘弟弟", "sibling",    "13800200009", "male",   38, None),
+    (8, "赵母",   "parent",     None,           "female", 65, "无手机；联系子女"),
+]
+frows = []
+for i, (uidx, name, rel, phone, gen, age, notes) in enumerate(FAMILY_SEED, start=1):
+    u = P[uidx - 1]
+    phone_sql = f"'{phone}'" if phone else "NULL"
+    notes_sql = "NULL" if notes is None else "'" + notes.replace("'", "''") + "'"
+    frows.append(
+        f"('{fmid(i)}', '{u}', '{name}', '{rel}', {phone_sql}, '{gen}', {age}, "
+        f"{notes_sql}, NOW() - interval '{i+1} days', NOW() - interval '{i+1} days')"
+    )
+print(",\n".join(frows) + ";")
+print()
+
+# ---------------- Emergency contacts (F-03, AES-256-GCM 加密) ----------------
+print("-- ============================================================================")
+print("-- emergency_contacts (F-03, AES-256-GCM 加密手机号; dev key only)")
+print("-- ============================================================================")
+print("INSERT INTO emergency_contacts (id, user_id, name, phone_encrypted, phone_hash, "
+      "relationship, expires_at, created_at, updated_at) VALUES")
+# 每个固定测试患者 + 几位真实患者各 1-2 个紧急联系人
+EC_SEED = [
+    # (user_idx, name, phone, relationship)
+    (1, "张太太", "13800300001", "配偶"),
+    (1, "张儿子", "13800300002", "子女"),
+    (2, "李先生", "13800300003", "配偶"),
+    (3, "王儿子", "13800300004", "子女"),
+    (3, "王女儿", "13800300005", "子女"),
+    (4, "刘女儿", "13800300006", "子女"),
+    (5, "李母",   "13800300007", "父母"),
+    (6, "赵先生", "13800300008", "配偶"),
+    (7, "孙太太", "13800300009", "配偶"),
+    (8, "周儿子", "13800300010", "子女"),
+]
+ecrows = []
+for i, (uidx, name, phone, rel) in enumerate(EC_SEED, start=1):
+    u = P[uidx - 1]
+    enc = encrypt_phone(phone)
+    h = phone_hash(phone)
+    ecrows.append(
+        f"('{ecid(i)}', '{u}', '{name}', {bytea_literal(enc)}, '{h}', '{rel}', "
+        f"NULL, NOW() - interval '{i} days', NOW() - interval '{i} days')"
+    )
+print(",\n".join(ecrows) + ";")
+print()
+
+# ---------------- Followup reminders (F-07, ~6 行覆盖各状态) -----------------
+print("-- ============================================================================")
+print("-- followup_reminders (F-07, 覆盖 pending/sent/failed/cancelled)")
+print("-- ============================================================================")
+print("INSERT INTO followup_reminders (id, user_id, order_id, remind_at, status, "
+      "attempts, last_error, note, provider_message_id, sent_at, "
+      "created_at, updated_at) VALUES")
+# 选 completed / reviewed 订单作为 follow-up 载体
+# completed/reviewed 区间: idx 14..23
+FR_SEED = [
+    # (order_idx, remind_in_days, status, attempts, note, msgid_or_none, sent_offset_days)
+    (14, +7,  "pending",  0, "术后复诊",      None,          None),
+    (15, +14, "pending",  0, "换药复查",      None,          None),
+    (16, -2,  "sent",     1, "两周复查",      "msgid_dev_1", -2),
+    (17, -5,  "sent",     1, "血液复查",      "msgid_dev_2", -5),
+    (18, -1,  "failed",   3, "用户取消订阅",   None,          None),
+    (19, +30, "cancelled",0, "用户主动取消",   None,          None),
+]
+frrows = []
+for i, (oidx, days, status, attempts, note, msgid, sent_off) in enumerate(FR_SEED, start=1):
+    order = O[oidx - 1]
+    u = order[1]
+    oo = oid(oidx)
+    sign = "+" if days >= 0 else "-"
+    remind_sql = f"NOW() {sign} interval '{abs(days)} days'"
+    last_err_sql = "'订阅消息发送 4xx 失败'" if status == "failed" else "NULL"
+    msgid_sql = f"'{msgid}'" if msgid else "NULL"
+    if sent_off is None:
+        sent_sql = "NULL"
+    else:
+        s_sign = "+" if sent_off >= 0 else "-"
+        sent_sql = f"NOW() {s_sign} interval '{abs(sent_off)} days'"
+    note_sql = "'" + note.replace("'", "''") + "'"
+    frrows.append(
+        f"('{frid(i)}', '{u}', '{oo}', {remind_sql}, '{status}', {attempts}, "
+        f"{last_err_sql}, {note_sql}, {msgid_sql}, {sent_sql}, "
+        f"NOW() - interval '{i+2} days', NOW() - interval '{i+2} days')"
+    )
+print(",\n".join(frrows) + ";")
 print()
