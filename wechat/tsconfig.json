@@ -19,6 +19,7 @@
   "include": [
     "types/**/*.d.ts",
     "utils/router.js",
+    "utils/logger.js",
     "utils/sanitizeText.js",
     "utils/format.js",
     "utils/badge.js",
