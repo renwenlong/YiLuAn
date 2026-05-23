@@ -3,6 +3,7 @@ const { updateCompanionProfile, getMyProfile } = require('../../../services/comp
 const { getHospitals, getHospitalFilters } = require('../../../services/hospital')
 const { SERVICE_TYPES } = require('../../../utils/constants')
 const store = require('../../../store/index')
+const router = require('../../../utils/router')
 
 Page({
   data: {
@@ -297,7 +298,7 @@ Page({
           this.setData({ saving: false })
           wx.showToast({ title: '保存成功', icon: 'success' })
           setTimeout(function() {
-            wx.navigateBack()
+            router.back()
           }, 1500)
         })
         .catch(() => {
@@ -334,7 +335,7 @@ Page({
           store.setState({ user: user })
           wx.showToast({ title: '保存成功', icon: 'success' })
           setTimeout(function() {
-            wx.navigateBack()
+            router.back()
           }, 1500)
         })
         .catch((err) => {

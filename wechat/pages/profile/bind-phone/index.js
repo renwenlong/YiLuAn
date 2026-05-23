@@ -5,6 +5,7 @@ var validate = require('../../../utils/validate')
 var isValidPhone = validate.isValidPhone
 var isValidOTP = validate.isValidOTP
 var store = require('../../../store/index')
+const router = require('../../../utils/router')
 
 Page({
   data: {
@@ -78,9 +79,9 @@ Page({
         wx.showToast({ title: '绑定成功', icon: 'success' })
         setTimeout(function () {
           if (self.data.redirect) {
-            wx.redirectTo({ url: self.data.redirect })
+            router.redirect({ url: self.data.redirect })
           } else {
-            wx.navigateBack()
+            router.back()
           }
         }, 1500)
       })

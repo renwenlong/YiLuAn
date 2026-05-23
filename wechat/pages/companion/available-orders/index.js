@@ -1,5 +1,6 @@
 const { getOrders, orderAction } = require('../../../services/order')
 const store = require('../../../store/index')
+const router = require('../../../utils/router')
 const { formatDate } = require('../../../utils/format')
 
 Page({
@@ -58,7 +59,7 @@ Page({
         confirmText: '去绑定',
         success: function (res) {
           if (res.confirm) {
-            wx.navigateTo({
+            router.navigate({
               url: '/pages/profile/bind-phone/index?redirect='
                 + encodeURIComponent('/pages/companion/available-orders/index')
             })
@@ -82,7 +83,7 @@ Page({
       await orderAction(id, 'accept')
       wx.showToast({ title: '接单成功', icon: 'success' })
       setTimeout(() => {
-        wx.redirectTo({
+        router.redirect({
           url: `/pages/companion/order-detail/index?id=${id}`
         })
       }, 1000)
@@ -95,7 +96,7 @@ Page({
 
   onOrderTap(e) {
     const { id } = e.currentTarget.dataset
-    wx.navigateTo({
+    router.navigate({
       url: `/pages/companion/order-detail/index?id=${id}`
     })
   },

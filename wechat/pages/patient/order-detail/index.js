@@ -7,6 +7,7 @@ const {
   triggerEmergencyEvent,
 } = require('../../../services/emergency')
 const store = require('../../../store/index')
+const router = require('../../../utils/router')
 const { ORDER_STATUS, SERVICE_TYPES } = require('../../../utils/constants')
 const { formatPrice, formatDate } = require('../../../utils/format')
 const { formatCurrency } = require('../../../utils/formatCurrency')
@@ -170,13 +171,13 @@ Page({
       await requestWechatPayment(payResult)
 
       // Step 3: Navigate to pay-result page on success
-      wx.redirectTo({
+      router.redirect({
         url: '/pages/patient/pay-result/index?status=success&order_id=' + this.orderId
       })
     } catch (err) {
       if (err && err.cancelled) {
         // User cancelled payment
-        wx.redirectTo({
+        router.redirect({
           url: '/pages/patient/pay-result/index?status=cancel&order_id=' + this.orderId
         })
       } else {
@@ -184,7 +185,7 @@ Page({
         var msg = '支付失败'
         if (err && err.data && err.data.detail) msg = err.data.detail
         if (err && err.errMsg) msg = err.errMsg
-        wx.redirectTo({
+        router.redirect({
           url: '/pages/patient/pay-result/index?status=fail&order_id=' + this.orderId + '&msg=' + encodeURIComponent(msg)
         })
       }
@@ -269,13 +270,13 @@ Page({
   },
 
   onChat() {
-    wx.navigateTo({
+    router.navigate({
       url: `/pages/chat/room/index?id=${this.orderId}`
     })
   },
 
   onReview() {
-    wx.navigateTo({
+    router.navigate({
       url: `/pages/review/write/index?id=${this.orderId}`
     })
   },
@@ -290,7 +291,7 @@ Page({
   onReorder() {
     const { order } = this.data
     if (!order) return
-    wx.navigateTo({
+    router.navigate({
       url: '/pages/patient/create-order/index?hospital_id=' + order.hospital_id +
         '&service_type=' + order.service_type
     })
@@ -360,7 +361,7 @@ Page({
 
   onManageContacts() {
     this.setData({ showEmergency: false })
-    wx.navigateTo({ url: '/pages/profile/emergency-contacts/index' })
+    router.navigate({ url: '/pages/profile/emergency-contacts/index' })
   },
 
   async _fireEmergency(target) {

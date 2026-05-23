@@ -2,6 +2,7 @@ var userService = require('../../../services/user')
 var authService = require('../../../services/auth')
 var validate = require('../../../utils/validate')
 var store = require('../../../store/index')
+const router = require('../../../utils/router')
 
 Page({
   data: {
@@ -134,7 +135,7 @@ Page({
         var state = store.getState()
         var role = (state.user && state.user.role) || 'patient'
         var home = role === 'patient' ? '/pages/patient/home/index' : '/pages/companion/home/index'
-        wx.reLaunch({ url: home })
+        router.relaunch({ url: home })
       })
       .catch(function () {
         self.setData({ saving: false })
@@ -146,6 +147,6 @@ Page({
     var state = store.getState()
     var role = (state.user && state.user.role) || 'patient'
     var home = role === 'patient' ? '/pages/patient/home/index' : '/pages/companion/home/index'
-    wx.reLaunch({ url: home })
+    router.relaunch({ url: home })
   }
 })

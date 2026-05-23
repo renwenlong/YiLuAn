@@ -1,4 +1,5 @@
 const store = require('../../../store/index')
+const router = require('../../../utils/router')
 const { getOrders } = require('../../../services/order')
 const { getChatMessages } = require('../../../services/chat')
 
@@ -93,7 +94,7 @@ Page({
   onConversationTap(e) {
     var id = e.currentTarget.dataset.id
     var name = e.currentTarget.dataset.name
-    wx.navigateTo({
+    router.navigate({
       url: '/pages/chat/room/index?id=' + id + '&name=' + encodeURIComponent(name)
     })
   }

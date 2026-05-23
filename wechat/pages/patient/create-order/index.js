@@ -6,6 +6,7 @@ var relationLabel = require('../../../utils/familyRelation').relationLabel
 var SERVICE_TYPES = require('../../../utils/constants').SERVICE_TYPES
 var formatCurrency = require('../../../utils/formatCurrency').formatCurrency
 var store = require('../../../store/index')
+const router = require('../../../utils/router')
 
 Page({
   data: {
@@ -90,7 +91,7 @@ Page({
   },
 
   onManageFamilyMembers: function () {
-    wx.navigateTo({ url: '/pages/profile/family-members/index' })
+    router.navigate({ url: '/pages/profile/family-members/index' })
   },
 
   loadCompanion(companionId) {
@@ -211,7 +212,7 @@ Page({
               + '&hospital_id=' + d.hospitalId
               + '&hospital_name=' + encodeURIComponent(d.hospitalName)
             if (d.companionId) currentUrl += '&companion_id=' + d.companionId
-            wx.navigateTo({
+            router.navigate({
               url: '/pages/profile/bind-phone/index?redirect=' + encodeURIComponent(currentUrl)
             })
           }
@@ -237,7 +238,7 @@ Page({
         self.setData({ loading: false })
         wx.showToast({ title: '订单创建成功', icon: 'success' })
         setTimeout(function () {
-          wx.redirectTo({
+          router.redirect({
             url: '/pages/patient/order-detail/index?id=' + order.id + '&need_pay=1'
           })
         }, 1500)

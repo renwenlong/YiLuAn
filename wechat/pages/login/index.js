@@ -1,6 +1,7 @@
 const { wechatLogin, sendOTP, verifyOTP } = require('../../services/auth')
 const validate = require('../../utils/validate')
 const store = require('../../store/index')
+const router = require('../../utils/router')
 
 Page({
   data: {
@@ -18,13 +19,13 @@ Page({
     if (state && state.user && state.user.token) {
       if (state.user.role) {
         if (!state.user.display_name) {
-          wx.redirectTo({ url: '/pages/profile/setup/index' })
+          router.redirect({ url: '/pages/profile/setup/index' })
         } else {
           const home = state.user.role === 'patient' ? '/pages/patient/home/index' : '/pages/companion/home/index'
-          wx.reLaunch({ url: home })
+          router.relaunch({ url: home })
         }
       } else {
-        wx.redirectTo({ url: '/pages/role-select/index' })
+        router.redirect({ url: '/pages/role-select/index' })
       }
     }
   },
@@ -143,24 +144,24 @@ Page({
   },
 
   onOpenTerms() {
-    wx.navigateTo({ url: '/pages/legal/terms/index' })
+    router.navigate({ url: '/pages/legal/terms/index' })
   },
 
   onOpenPrivacy() {
-    wx.navigateTo({ url: '/pages/legal/privacy/index' })
+    router.navigate({ url: '/pages/legal/privacy/index' })
   },
 
   // ---- 登录后路由 ----
   _navigateAfterLogin(user) {
     if (user.role) {
       if (!user.display_name) {
-        wx.redirectTo({ url: '/pages/profile/setup/index' })
+        router.redirect({ url: '/pages/profile/setup/index' })
       } else {
         var home = user.role === 'patient' ? '/pages/patient/home/index' : '/pages/companion/home/index'
-        wx.reLaunch({ url: home })
+        router.relaunch({ url: home })
       }
     } else {
-      wx.redirectTo({ url: '/pages/role-select/index' })
+      router.redirect({ url: '/pages/role-select/index' })
     }
   }
 })

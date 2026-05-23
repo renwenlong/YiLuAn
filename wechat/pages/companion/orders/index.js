@@ -1,3 +1,4 @@
+const router = require('../../../utils/router')
 const { getOrders } = require('../../../services/order')
 
 Page({
@@ -81,7 +82,7 @@ Page({
 
   onOrderTap(e) {
     const id = e.currentTarget.dataset.id
-    wx.navigateTo({
+    router.navigate({
       url: '/pages/companion/order-detail/index?id=' + id
     })
   }

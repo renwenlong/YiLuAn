@@ -1,3 +1,4 @@
+const router = require('../../utils/router')
 Component({
   properties: {
     active: {
@@ -19,7 +20,7 @@ Component({
       }
       var url = routes[page]
       if (!url) return
-      wx.reLaunch({ url: url })
+      router.relaunch({ url: url })
     }
   }
 })
