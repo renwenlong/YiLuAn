@@ -1,5 +1,6 @@
 const { getCompanionDetail, getCompanionReviews } = require('../../services/companion')
 const store = require('../../store/index')
+const router = require('../../utils/router')
 
 Page({
   data: {
@@ -64,7 +65,7 @@ Page({
   },
 
   onBook() {
-    wx.navigateTo({
+    router.navigate({
       url: '/pages/patient/create-order/index?companion_id=' + this.companionId
     })
   },

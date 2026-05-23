@@ -3,6 +3,7 @@ const { getOrders } = require('../../../services/order')
 const { getHospitals, getHospitalFilters, getNearestRegion } = require('../../../services/hospital')
 const { SERVICE_TYPES } = require('../../../utils/constants')
 const store = require('../../../store/index')
+const router = require('../../../utils/router')
 
 Page({
   data: {
@@ -356,7 +357,7 @@ Page({
 
   onCompanionTap(e) {
     var id = e.detail.id || e.currentTarget.dataset.id
-    wx.navigateTo({
+    router.navigate({
       url: '/pages/companion-detail/index?id=' + id
     })
   },
@@ -377,7 +378,7 @@ Page({
       wx.showToast({ title: '请先选择陪诊师', icon: 'none' })
       return
     }
-    wx.navigateTo({
+    router.navigate({
       url: '/pages/patient/create-order/index?type=' + type + '&companion_id=' + id + '&hospital_id=' + hospital.id + '&hospital_name=' + encodeURIComponent(hospital.name)
     })
   },

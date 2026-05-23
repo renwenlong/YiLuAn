@@ -1,6 +1,7 @@
 const { logout } = require('../../services/auth')
 const { uploadAvatar } = require('../../services/user')
 const store = require('../../store/index')
+const router = require('../../utils/router')
 
 Page({
   data: {
@@ -59,14 +60,14 @@ Page({
   },
 
   onBindPhone() {
-    wx.navigateTo({
+    router.navigate({
       url: '/pages/profile/bind-phone/index'
     })
   },
 
   onMenuTap(e) {
     const target = e.currentTarget.dataset.target
-    wx.navigateTo({ url: target })
+    router.navigate({ url: target })
   },
 
   onLogout() {
@@ -79,11 +80,11 @@ Page({
           logout()
             .then(() => {
               store.setState({ user: null })
-              wx.reLaunch({ url: '/pages/login/index' })
+              router.relaunch({ url: '/pages/login/index' })
             })
             .catch(() => {
               store.setState({ user: null })
-              wx.reLaunch({ url: '/pages/login/index' })
+              router.relaunch({ url: '/pages/login/index' })
             })
         }
       }

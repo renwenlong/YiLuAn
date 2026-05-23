@@ -1,3 +1,4 @@
+const router = require('../../../utils/router')
 Page({
   data: {
     version: '__APP_VERSION__',
@@ -6,10 +7,10 @@ Page({
   },
 
   onUserAgreement: function () {
-    wx.navigateTo({ url: '/pages/legal/terms/index' })
+    router.navigate({ url: '/pages/legal/terms/index' })
   },
 
   onPrivacyPolicy: function () {
-    wx.navigateTo({ url: '/pages/legal/privacy/index' })
+    router.navigate({ url: '/pages/legal/privacy/index' })
   }
 })

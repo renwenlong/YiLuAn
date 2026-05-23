@@ -1,3 +1,4 @@
+const router = require('../../../utils/router')
 Page({
   data: {
     status: 'success', // 'success' | 'fail' | 'cancel'
@@ -15,23 +16,23 @@ Page({
 
   onViewOrder() {
     if (this.data.orderId) {
-      wx.redirectTo({
+      router.redirect({
         url: '/pages/patient/order-detail/index?id=' + this.data.orderId
       })
     } else {
-      wx.reLaunch({ url: '/pages/orders/index' })
+      router.relaunch({ url: '/pages/orders/index' })
     }
   },
 
   onRetry() {
     if (this.data.orderId) {
-      wx.redirectTo({
+      router.redirect({
         url: '/pages/patient/order-detail/index?id=' + this.data.orderId + '&need_pay=1'
       })
     }
   },
 
   onGoHome() {
-    wx.reLaunch({ url: '/pages/patient/home/index' })
+    router.relaunch({ url: '/pages/patient/home/index' })
   }
 })

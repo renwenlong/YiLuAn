@@ -1,6 +1,7 @@
 const { updateMe } = require('../../services/user')
 const { getCompanionStats } = require('../../services/companion')
 const store = require('../../store/index')
+const router = require('../../utils/router')
 
 Page({
   data: {
@@ -34,13 +35,13 @@ Page({
         const user = Object.assign({}, state.user, { role: role, roles: newRoles })
         store.setState({ user: user })
         if (!user.display_name) {
-          wx.redirectTo({ url: '/pages/profile/setup/index' })
+          router.redirect({ url: '/pages/profile/setup/index' })
           return
         }
         if (role === 'companion') {
           self._checkCompanionProfile()
         } else {
-          wx.reLaunch({ url: '/pages/patient/home/index' })
+          router.relaunch({ url: '/pages/patient/home/index' })
         }
       })
       .catch(err => {
@@ -55,10 +56,10 @@ Page({
   _checkCompanionProfile() {
     getCompanionStats()
       .then(function () {
-        wx.reLaunch({ url: '/pages/companion/home/index' })
+        router.relaunch({ url: '/pages/companion/home/index' })
       })
       .catch(function () {
-        wx.redirectTo({ url: '/pages/companion/setup/index' })
+        router.redirect({ url: '/pages/companion/setup/index' })
       })
   }
 })

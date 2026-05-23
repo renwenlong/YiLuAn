@@ -1,5 +1,6 @@
 const { getNotifications, getUnreadCount, markRead, markAllRead } = require('../../services/notification')
 const store = require('../../store/index')
+const router = require('../../utils/router')
 
 /**
  * [F-02] 根据通知的 target_type/target_id 计算跳转 URL。
@@ -104,7 +105,7 @@ Page({
       const target = latest || item
       const url = target ? getNavigationUrl(target) : null
       if (url) {
-        wx.navigateTo({ url: url })
+        router.navigate({ url: url })
       }
     }
 

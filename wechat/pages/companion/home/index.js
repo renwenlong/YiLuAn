@@ -2,6 +2,7 @@ const { getOrders } = require('../../../services/order')
 const { getCompanionStats } = require('../../../services/companion')
 const { getUnreadCount } = require('../../../services/notification')
 const store = require('../../../store/index')
+const router = require('../../../utils/router')
 
 Page({
   data: {
@@ -74,26 +75,26 @@ Page({
   },
 
   onViewAllPending() {
-    wx.navigateTo({
+    router.navigate({
       url: '/pages/companion/available-orders/index'
     })
   },
 
   onOpenOrdersTap() {
-    wx.navigateTo({
+    router.navigate({
       url: '/pages/companion/today-orders/index'
     })
   },
 
   onOrderTap(e) {
     var id = e.currentTarget.dataset.id
-    wx.navigateTo({
+    router.navigate({
       url: '/pages/companion/order-detail/index?id=' + id
     })
   },
 
   onNotificationTap() {
-    wx.navigateTo({
+    router.navigate({
       url: '/pages/notification/index'
     })
   }

@@ -1,6 +1,7 @@
 const { getOrders } = require('../../services/order')
 const { ORDER_STATUS } = require('../../utils/constants')
 const store = require('../../store/index')
+const router = require('../../utils/router')
 
 Page({
   data: {
@@ -87,7 +88,7 @@ Page({
     const detailPage = role === 'companion'
       ? '/pages/companion/order-detail/index?id='
       : '/pages/patient/order-detail/index?id='
-    wx.navigateTo({
+    router.navigate({
       url: detailPage + id
     })
   }

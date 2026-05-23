@@ -1,5 +1,6 @@
 const { submitReview } = require('../../services/review')
 const store = require('../../store/index')
+const router = require('../../../utils/router')
 
 const DIMENSION_LABELS = {
   punctuality: '守时',
@@ -96,7 +97,7 @@ Page({
       })
       wx.showToast({ title: '评价成功', icon: 'success' })
       setTimeout(() => {
-        wx.navigateBack()
+        router.back()
       }, 1500)
     } catch (err) {
       wx.showToast({ title: err.message || '提交失败', icon: 'none' })

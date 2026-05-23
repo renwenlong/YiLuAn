@@ -2,6 +2,7 @@ const { switchRole } = require('../../../services/user')
 const { setAccessToken, setRefreshToken } = require('../../../utils/token')
 const { getHospitalFilters, getNearestRegion } = require('../../../services/hospital')
 const store = require('../../../store/index')
+const router = require('../../../utils/router')
 
 Page({
   data: {
@@ -105,7 +106,7 @@ Page({
   },
 
   onChangePhone: function () {
-    wx.navigateTo({ url: '/pages/profile/bind-phone/index' })
+    router.navigate({ url: '/pages/profile/bind-phone/index' })
   },
 
   onSwitchRole: function () {
@@ -122,7 +123,7 @@ Page({
         confirmColor: '#1890FF',
         success: function (res) {
           if (res.confirm) {
-            wx.navigateTo({ url: '/pages/role-select/index?target=' + targetRole })
+            router.navigate({ url: '/pages/role-select/index?target=' + targetRole })
           }
         }
       })
@@ -143,7 +144,7 @@ Page({
               setRefreshToken(data.refresh_token)
               store.setState({ user: data.user })
               var home = targetRole === 'patient' ? '/pages/patient/home/index' : '/pages/companion/home/index'
-              wx.reLaunch({ url: home })
+              router.relaunch({ url: home })
             })
             .catch(function () {
               wx.hideLoading()
@@ -170,18 +171,18 @@ Page({
   },
 
   onAbout: function () {
-    wx.navigateTo({ url: '/pages/profile/about/index' })
+    router.navigate({ url: '/pages/profile/about/index' })
   },
 
   onPrivacyPolicy: function () {
-    wx.navigateTo({ url: '/pages/legal/privacy/index' })
+    router.navigate({ url: '/pages/legal/privacy/index' })
   },
 
   onUserAgreement: function () {
-    wx.navigateTo({ url: '/pages/legal/terms/index' })
+    router.navigate({ url: '/pages/legal/terms/index' })
   },
 
   onDeleteAccount: function () {
-    wx.navigateTo({ url: '/pages/settings/delete-account/index' })
+    router.navigate({ url: '/pages/settings/delete-account/index' })
   }
 })

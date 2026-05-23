@@ -2,6 +2,7 @@ const { getChatMessages, markRead } = require('../../../services/chat')
 const { getOrderDetail, orderAction } = require('../../../services/order')
 const ws = require('./services/websocket')
 const store = require('../../../store/index')
+const router = require('../../../utils/router')
 
 Page({
   data: {
@@ -99,7 +100,7 @@ Page({
   },
 
   onViewOrder() {
-    wx.navigateTo({
+    router.navigate({
       url: '/pages/patient/order-detail/index?id=' + this.data.orderId
     })
   },

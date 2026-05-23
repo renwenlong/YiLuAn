@@ -1,6 +1,7 @@
 const { getOrderDetail, orderAction } = require('../../../services/order')
 const { getOrderReview } = require('../../../services/review')
 const store = require('../../../store/index')
+const router = require('../../../utils/router')
 const { ORDER_STATUS, SERVICE_TYPES } = require('../../../utils/constants')
 const { formatPrice, formatDate } = require('../../../utils/format')
 
@@ -67,7 +68,7 @@ Page({
         confirmText: '去绑定',
         success: function (res) {
           if (res.confirm) {
-            wx.navigateTo({
+            router.navigate({
               url: '/pages/profile/bind-phone/index?redirect='
                 + encodeURIComponent('/pages/companion/order-detail/index?id=' + orderId)
             })
@@ -144,7 +145,7 @@ Page({
   },
 
   onChat() {
-    wx.navigateTo({
+    router.navigate({
       url: `/pages/chat/room/index?id=${this.orderId}`
     })
   },

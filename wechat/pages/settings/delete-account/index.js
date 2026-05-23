@@ -1,4 +1,5 @@
 var store = require('../../../store/index')
+const router = require('../../../utils/router')
 var { sendOTP } = require('../../../services/auth')
 var { deleteAccount } = require('../../../services/user')
 var { clearTokens } = require('../../../utils/token')
@@ -128,7 +129,7 @@ Page({
         store.reset()
         wx.showToast({ title: '账号已注销', icon: 'success', duration: 2000 })
         setTimeout(function () {
-          wx.reLaunch({ url: '/pages/login/index' })
+          router.relaunch({ url: '/pages/login/index' })
         }, 1500)
       })
       .catch(function (err) {
@@ -143,6 +144,6 @@ Page({
   },
 
   onCancel: function () {
-    wx.navigateBack()
+    router.back()
   }
 })

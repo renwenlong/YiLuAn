@@ -4,6 +4,7 @@ var { sendOTP, bindPhone } = require('../../../services/auth')
 var { isValidPhone, isValidOTP } = require('../../../utils/validate')
 var { SERVICE_TYPES } = require('../../../utils/constants')
 var store = require('../../../store/index')
+const router = require('../../../utils/router')
 
 Page({
   data: {
@@ -333,7 +334,7 @@ Page({
         store.setState({ user: user })
         wx.showToast({ title: '注册成功', icon: 'success' })
         setTimeout(function () {
-          wx.reLaunch({ url: '/pages/companion/home/index' })
+          router.relaunch({ url: '/pages/companion/home/index' })
         }, 1500)
       })
       .catch(function (err) {
