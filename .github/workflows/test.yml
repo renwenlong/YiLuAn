@@ -52,5 +52,8 @@ jobs:
       - name: Install dependencies
         run: cd wechat && npm install
 
+      - name: Type-check (JSDoc + checkJs)
+        run: cd wechat && npm run typecheck
+
       - name: Run tests
         run: cd wechat && npm test

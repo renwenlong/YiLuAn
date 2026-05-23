@@ -1,12 +1,23 @@
 /**
  * router.js — 统一封装 wx 路由跳转，便于：
- *   1) 集中加 trace 日志（线上排查"为什么跳到 login"）
+ *   1) 集中加 trace 日志（线上排查“为什么跳到 login”）
  *   2) 后续接入埋点（navigation funnel / source tag）
  *   3) 单测里可 mock 一处而不是 77 处页面
  *
  * 设计：纯 facade，签名与 wx 原生保持一致；调用方可逐步迁移。
- * Quick Win (评审 2026-05-14)：本期只把基础设施层 (auth.logout /
- * api._forceLogout) 迁过来，UI 页面的 77 处调用渐进迁移。
+ *
+ * @typedef {Object} NavOptions
+ * @property {string} url           目标路由 / page path (以 / 开头)
+ * @property {Function} [success]   wx success 回调
+ * @property {Function} [fail]      wx fail 回调
+ * @property {Function} [complete]  wx complete 回调
+ *
+ * @typedef {Object} BackOptions
+ * @property {number} [delta]       返退页数，缺省 1
+ *
+ * @typedef {'navigateTo'|'redirectTo'|'reLaunch'|'switchTab'|'navigateBack'|'toLogin'} NavAction
+ *
+ * @typedef {(action: NavAction, options: object) => void} NavHook
  */
 
 var _hooks = []
@@ -14,6 +25,9 @@ var _hooks = []
 /**
  * 注册导航 hook，hook(action, options) 在跳转**之前**同步触发。
  * 不抛错（hook 异常被吞掉并 console.warn），避免一处埋点把整个跳转拖死。
+ *
+ * @param {NavHook} hook
+ * @returns {() => void} unsubscribe
  */
 function onBeforeNavigate(hook) {
   if (typeof hook === 'function') _hooks.push(hook)
@@ -41,33 +55,41 @@ function _wxCall(method, options) {
   return undefined
 }
 
+/** @param {NavOptions} options */
 function navigate(options) {
   _emit('navigateTo', options)
   return _wxCall('navigateTo', options)
 }
 
+/** @param {NavOptions} options */
 function redirect(options) {
   _emit('redirectTo', options)
   return _wxCall('redirectTo', options)
 }
 
+/** @param {NavOptions} options */
 function relaunch(options) {
   _emit('reLaunch', options)
   return _wxCall('reLaunch', options)
 }
 
+/** @param {NavOptions} options */
 function switchTab(options) {
   _emit('switchTab', options)
   return _wxCall('switchTab', options)
 }
 
+/** @param {BackOptions} [options] */
 function back(options) {
   var opts = options || {}
   _emit('navigateBack', opts)
   return _wxCall('navigateBack', opts)
 }
 
-/** 跳转到登录页（最常见的强制下线场景，单独命名便于 grep + 埋点）。 */
+/**
+ * 跳转到登录页（最常见的强制下线场景，单独命名便于 grep + 埋点）。
+ * @param {string} [reason] 下线原因 tag，缺省 'unknown'
+ */
 function toLogin(reason) {
   _emit('toLogin', { reason: reason || 'unknown' })
   return _wxCall('reLaunch', { url: '/pages/login/index' })
