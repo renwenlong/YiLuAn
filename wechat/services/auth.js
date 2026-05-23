@@ -102,7 +102,8 @@ function logout() {
   }
   clearTokens()
   store.reset()
-  wx.reLaunch({ url: '/pages/login/index' })
+  // 走 router facade，便于后续接埋点（reason=user_logout）
+  require('../utils/router').toLogin('user_logout')
 }
 
 module.exports = { wechatLogin, refreshToken, sendOTP, verifyOTP, bindPhone, logout }
