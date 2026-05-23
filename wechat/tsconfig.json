@@ -1,0 +1,34 @@
+{
+  "_comment": "JSDoc + checkJs bootstrap. P1 from 2026-05-14 review. Start narrow on utils/ and services/api.js; expand `include` whitelist as JSDoc coverage grows.",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": true,
+    "noEmit": true,
+    "target": "ES2017",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "noImplicitAny": false,
+    "noImplicitThis": false,
+    "strictNullChecks": false,
+    "lib": ["ES2017", "DOM"]
+  },
+  "include": [
+    "types/**/*.d.ts",
+    "utils/router.js",
+    "utils/sanitizeText.js",
+    "utils/format.js",
+    "utils/badge.js",
+    "utils/token.js",
+    "utils/countdown.js",
+    "utils/haptic.js",
+    "utils/constants.js",
+    "utils/validate.js",
+    "utils/familyRelation.js",
+    "utils/formatCurrency.js"
+  ],
+  "exclude": ["node_modules", "__tests__", "miniprogram_npm"]
+}
