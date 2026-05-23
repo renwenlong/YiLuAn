@@ -111,7 +111,7 @@ function _handlePhoneRequired(payload, reject) {
       if (res.confirm) {
         const url = '/pages/profile/bind-phone/index'
           + (redirect ? '?redirect=' + encodeURIComponent(redirect) : '')
-        wx.navigateTo({ url })
+        require('../utils/router').navigate({ url })
       }
     }
   })
@@ -215,7 +215,8 @@ function _forceLogout() {
   clearTokens()
   const store = require('../store/index')
   store.reset()
-  wx.reLaunch({ url: '/pages/login/index' })
+  // router facade — reason 让线上日志能区分自动登出 vs 主动登出
+  require('../utils/router').toLogin('forced_401')
 }
 
 module.exports = { request, _generateRequestId }
