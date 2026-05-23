@@ -7,6 +7,9 @@
  * pulling that in to keep the bootstrap zero-dep.
  */
 
+/** Mini-Program current pages stack accessor (global). */
+declare function getCurrentPages(): Array<{ route?: string; [k: string]: any }>
+
 declare const wx: {
   // navigation
   navigateTo(opts: { url: string; success?: Function; fail?: Function; complete?: Function }): void
