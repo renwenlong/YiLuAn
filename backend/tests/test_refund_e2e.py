@@ -44,7 +44,7 @@ class TestRefundToWalletE2E:
         order = await _create_order(authenticated_client, hospital.id)
         order_id = order["id"]
         assert order["status"] == "created"
-        assert order["price"] == 299.0
+        assert order["price"] == "299.00"
 
         # 2. Pay
         resp = await authenticated_client.post(f"/api/v1/orders/{order_id}/pay")
@@ -161,4 +161,4 @@ class TestRefundToWalletE2E:
         items = resp.json()["items"]
         refunds = [t for t in items if t["payment_type"] == "refund"]
         assert len(refunds) == 1
-        assert refunds[0]["amount"] == 299.0
+        assert refunds[0]["amount"] == "299.00"

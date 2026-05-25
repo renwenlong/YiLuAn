@@ -110,11 +110,13 @@ class OrderResponse(BaseModel):
         return out
 
     @field_serializer("price")
-    def _ser_price(self, v: Decimal) -> float:
-        # ADR-0030: 内部 Decimal，对外保持 number（前端契约不破）
-        # TODO(W19, deadline 2026-06-30 / W26): remove float() coercion once mobile
-        # clients ship Decimal-aware parsers. Tracking: TD-MONEY-01.
-        return float(Decimal(v).quantize(Decimal("0.01")))
+    def _ser_price(self, v: Decimal) -> Decimal:
+        # ADR-0030 / TD-MONEY-01 (done 2026-05-25): 不再转 float。
+        # Pydantic v2 默认将 Decimal 以字符串输出为 JSON，避免
+        # 浮点精度丢失。客户端（wechat / admin-h5 / ios）均能
+        # 处理 "199.00" 形式；wechat / admin-h5 走 Number()，ios
+        # 使用 DecimalString 解码包装。
+        return Decimal(v).quantize(Decimal("0.01"))
 
 
 class OrderListResponse(BaseModel):
@@ -134,8 +136,6 @@ class PaymentResponse(BaseModel):
     model_config = {"from_attributes": True}
 
     @field_serializer("amount")
-    def _ser_amount(self, v: Decimal) -> float:
-        # ADR-0030: 内部 Decimal，对外保持 number
-        # TODO(W19, deadline 2026-06-30 / W26): remove float() coercion once mobile
-        # clients ship Decimal-aware parsers. Tracking: TD-MONEY-01.
-        return float(Decimal(v).quantize(Decimal("0.01")))
+    def _ser_amount(self, v: Decimal) -> Decimal:
+        # ADR-0030 / TD-MONEY-01 (done 2026-05-25): 不再转 float。
+        return Decimal(v).quantize(Decimal("0.01"))

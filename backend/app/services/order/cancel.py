@@ -7,6 +7,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from app.exceptions import BadRequestException, ForbiddenException
 from app.models.order import Order, OrderStatus
 from app.models.user import User, UserRole
+from app.services.dead_letter import record_dead_letter
 
 from ._base import _OrderServiceBase
 
@@ -126,8 +127,31 @@ class _OrderCancelMixin(_OrderServiceBase):
                         "trigger": "reject_by_companion",
                     },
                 )
-                # TODO: dead_letter / ops manual compensation
+                # Best-effort dead_letter so ops can compensate manually.
+                # Must use a *new* session: the primary session's transaction
+                # was poisoned by the BadRequestException raised inside
+                # PaymentService.create_refund (the call site rolls back).
                 # Do not block rejection — patient can request manual refund
+                # while the dead_letter row drives ops follow-up.
+                try:
+                    from app.database import async_session as _async_session
+
+                    async with _async_session() as _dl_session:
+                        await record_dead_letter(
+                            _dl_session,
+                            channel="order_refund",
+                            reason="refund_provider_error",
+                            target_type="order",
+                            target_id=order_id,
+                            payload={
+                                "trigger": "reject_by_companion",
+                                "amount": str(order.price),
+                                "error": str(e.detail),
+                            },
+                        )
+                        await _dl_session.commit()
+                except Exception:  # noqa: BLE001
+                    self.logger.exception("dead_letter_record_failed")
 
         # Notify patient
         await self.notification_svc.notify_order_rejected(order, order.patient_id)
