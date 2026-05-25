@@ -153,6 +153,7 @@ async def list_dead_letters(
     "/{dl_id}",
     response_model=DeadLetterItem,
     summary="\u540e\u53f0\uff1a\u6b7b\u4fe1\u8be6\u60c5",
+    description="\u8fd4\u56de\u6307\u5b9a dead_letter \u884c\u7684\u5168\u90e8\u5b57\u6bb5\uff08\u542b payload \u4e0e\u89e3\u51b3\u6001\uff09\u3002",
 )
 async def get_dead_letter(
     dl_id: UUID,
