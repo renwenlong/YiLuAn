@@ -235,3 +235,154 @@ class TestMarkRead:
         resp = await authenticated_client.post(f"/api/v1/chats/{order.id}/read")
         assert resp.status_code == 200
         assert resp.json()["marked_read"] == 0
+
+
+
+class TestListMessagesBeforeCursor:
+    """Pull-up history pagination via ``?before_id=...&limit=...``."""
+
+    @staticmethod
+    def _ts(i: int):
+        from datetime import datetime, timedelta, timezone
+
+        return datetime(2025, 1, 1, 12, 0, 0, tzinfo=timezone.utc) + timedelta(
+            seconds=i
+        )
+
+    async def test_cursor_returns_older_page(
+        self,
+        authenticated_client,
+        seed_user,
+        seed_hospital,
+        seed_order,
+        seed_chat_message,
+    ):
+        patient = authenticated_client._test_user
+        companion = await seed_user(phone="13700137201", role=UserRole.companion)
+        hospital = await seed_hospital()
+        order = await seed_order(
+            patient.id,
+            hospital.id,
+            companion_id=companion.id,
+            status=OrderStatus.accepted,
+        )
+        msgs = []
+        for i in range(10):
+            m = await seed_chat_message(
+                order.id, patient.id, content=f"m{i}", created_at=self._ts(i)
+            )
+            msgs.append(m)
+
+        # Anchor on m7 → expect m4, m5, m6 (ascending)
+        resp = await authenticated_client.get(
+            f"/api/v1/chats/{order.id}/messages?before_id={msgs[7].id}&limit=3"
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 10
+        assert [i["content"] for i in data["items"]] == ["m4", "m5", "m6"]
+        assert data["has_more"] is True
+        assert data["next_before_id"] == str(msgs[4].id)
+
+    async def test_cursor_signals_end_of_history(
+        self,
+        authenticated_client,
+        seed_user,
+        seed_hospital,
+        seed_order,
+        seed_chat_message,
+    ):
+        patient = authenticated_client._test_user
+        companion = await seed_user(phone="13700137202", role=UserRole.companion)
+        hospital = await seed_hospital()
+        order = await seed_order(
+            patient.id,
+            hospital.id,
+            companion_id=companion.id,
+            status=OrderStatus.accepted,
+        )
+        msgs = []
+        for i in range(4):
+            m = await seed_chat_message(
+                order.id, patient.id, content=f"m{i}", created_at=self._ts(i)
+            )
+            msgs.append(m)
+
+        # Anchor on m1: only m0 is older, limit 3 → has_more=False
+        resp = await authenticated_client.get(
+            f"/api/v1/chats/{order.id}/messages"
+            f"?before_id={msgs[1].id}&limit=3"
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert [i["content"] for i in data["items"]] == ["m0"]
+        assert data["has_more"] is False
+        assert data["next_before_id"] is None
+
+    async def test_cursor_unknown_id_falls_back_to_tail(
+        self,
+        authenticated_client,
+        seed_user,
+        seed_hospital,
+        seed_order,
+        seed_chat_message,
+    ):
+        import uuid as _uuid
+
+        patient = authenticated_client._test_user
+        companion = await seed_user(phone="13700137203", role=UserRole.companion)
+        hospital = await seed_hospital()
+        order = await seed_order(
+            patient.id,
+            hospital.id,
+            companion_id=companion.id,
+            status=OrderStatus.accepted,
+        )
+        for i in range(3):
+            await seed_chat_message(
+                order.id, patient.id, content=f"m{i}", created_at=self._ts(i)
+            )
+
+        resp = await authenticated_client.get(
+            f"/api/v1/chats/{order.id}/messages"
+            f"?before_id={_uuid.uuid4()}&limit=2"
+        )
+        # Stale cursor → recover with tail of conversation rather than 404
+        assert resp.status_code == 200
+        data = resp.json()
+        assert [i["content"] for i in data["items"]] == ["m1", "m2"]
+        # 3 total, returned 2 → 1 older message remains → has_more
+        assert data["has_more"] is True
+
+    async def test_legacy_page_mode_still_returns_all(
+        self,
+        authenticated_client,
+        seed_user,
+        seed_hospital,
+        seed_order,
+        seed_chat_message,
+    ):
+        """Passing ``limit`` alone (no ``before_id``) must NOT trigger cursor mode."""
+        patient = authenticated_client._test_user
+        companion = await seed_user(phone="13700137204", role=UserRole.companion)
+        hospital = await seed_hospital()
+        order = await seed_order(
+            patient.id,
+            hospital.id,
+            companion_id=companion.id,
+            status=OrderStatus.accepted,
+        )
+        for i in range(5):
+            await seed_chat_message(
+                order.id, patient.id, content=f"m{i}", created_at=self._ts(i)
+            )
+
+        resp = await authenticated_client.get(
+            f"/api/v1/chats/{order.id}/messages?limit=2"
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        # legacy path: page_size default = 50 → all 5 returned
+        assert data["total"] == 5
+        assert len(data["items"]) == 5
+        assert data["has_more"] is False

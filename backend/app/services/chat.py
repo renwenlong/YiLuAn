@@ -174,6 +174,26 @@ class ChatService:
             order_id, skip=skip, limit=page_size
         )
 
+    async def list_messages_before(
+        self,
+        order_id: uuid.UUID,
+        user: User,
+        *,
+        before_id: uuid.UUID | None,
+        limit: int = 50,
+    ) -> tuple[list, int]:
+        """Pull-up history pagination (cursor-based, older direction).
+
+        Returns (items_asc, total). Caller decides ``has_more`` from
+        ``len(items) >= limit and total > len(items)``.
+        """
+        await self._get_order_and_validate(order_id, user.id)
+        if limit > 100:
+            limit = 100
+        return await self.chat_repo.list_before(
+            order_id, before_id=before_id, limit=limit
+        )
+
     async def list_messages_since(
         self,
         order_id: uuid.UUID,

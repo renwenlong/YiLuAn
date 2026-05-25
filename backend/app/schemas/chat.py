@@ -35,6 +35,17 @@ class ChatMessageResponse(BaseModel):
 class ChatMessageListResponse(BaseModel):
     items: list[ChatMessageResponse] = Field(..., description="当页消息列表")
     total: int = Field(..., description="总条数", examples=[42])
+    has_more: bool = Field(
+        default=False,
+        description=(
+            "上拉历史游标模式下：是否还有更早的消息。"
+            "默认 page 分页模式总是 False。"
+        ),
+    )
+    next_before_id: UUID | None = Field(
+        default=None,
+        description="下一页上拉历史应使用的游标；None 表示已无更多或不适用。",
+    )
 
 
 class ChatMessageBackfillResponse(BaseModel):
