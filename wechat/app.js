@@ -7,6 +7,7 @@ const { syncTabBarBadge } = require('./utils/badge')
 const logger = require('./utils/logger')
 const analytics = require('./utils/analytics')
 const telemetryReporter = require('./utils/telemetryReporter')
+const degradation = require('./utils/degradation')
 
 // 把任意 reject reason 序列化成可读字符串：抓 Error 的 name+message+stack，
 // 抓 wx fail 风格的 {errMsg,errno,...}，抓所有可枚举字段。目的是让一条
@@ -55,6 +56,7 @@ App({
   globalData: {
     store: store,
     notificationWsConnected: false,
+    degradation: degradation,
   },
 
   /**

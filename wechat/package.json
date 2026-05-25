@@ -5,7 +5,9 @@
   "scripts": {
     "test": "jest --verbose",
     "test:coverage": "jest --coverage",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "bundle-size": "node scripts/bundle-size.js",
+    "bundle-size:ci": "node scripts/bundle-size.js --baseline=scripts/bundle-size.baseline.json"
   },
   "devDependencies": {
     "jest": "^29.7.0",
