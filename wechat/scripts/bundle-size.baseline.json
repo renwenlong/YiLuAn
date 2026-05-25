@@ -1,0 +1,64 @@
+{
+  "generatedAt": "2026-05-25T08:45:56.302Z",
+  "totalBytes": 489192,
+  "totalFiles": 218,
+  "softCapBytes": 4194304,
+  "breakdown": {
+    "app.js": {
+      "total": 6209,
+      "fileCount": 1
+    },
+    "app.json": {
+      "total": 3846,
+      "fileCount": 1
+    },
+    "app.wxss": {
+      "total": 12824,
+      "fileCount": 1
+    },
+    "sitemap.json": {
+      "total": 194,
+      "fileCount": 1
+    },
+    "pages": {
+      "total": 357390,
+      "fileCount": 136
+    },
+    "components": {
+      "total": 23914,
+      "fileCount": 44
+    },
+    "services": {
+      "total": 25489,
+      "fileCount": 13
+    },
+    "utils": {
+      "total": 31696,
+      "fileCount": 13
+    },
+    "store": {
+      "total": 6056,
+      "fileCount": 1
+    },
+    "core": {
+      "total": 10302,
+      "fileCount": 1
+    },
+    "config": {
+      "total": 1308,
+      "fileCount": 2
+    },
+    "styles": {
+      "total": 8223,
+      "fileCount": 3
+    },
+    "submission": {
+      "total": 0,
+      "fileCount": 0
+    },
+    "types": {
+      "total": 1741,
+      "fileCount": 1
+    }
+  }
+}

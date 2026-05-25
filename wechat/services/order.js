@@ -1,5 +1,6 @@
 const { request } = require('./api')
 const config = require('../config/index')
+const degradation = require('../utils/degradation')
 
 function getOrders(params = {}) {
   const { status, city, page = 1, page_size } = params
@@ -14,7 +15,10 @@ function getOrders(params = {}) {
 }
 
 function createOrder(data) {
-  return request({ url: 'orders', method: 'POST', data })
+  // Track critical flow for weak-network degradation banner.
+  return degradation.track('order_submit', function () {
+    return request({ url: 'orders', method: 'POST', data })
+  })
 }
 
 function getOrderDetail(orderId) {
@@ -26,7 +30,9 @@ function orderAction(orderId, action) {
 }
 
 function payOrder(orderId) {
-  return request({ url: 'orders/' + orderId + '/pay', method: 'POST' })
+  return degradation.track('pay', function () {
+    return request({ url: 'orders/' + orderId + '/pay', method: 'POST' })
+  })
 }
 
 /**

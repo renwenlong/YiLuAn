@@ -1,6 +1,8 @@
 # 公共组件库
 
 > 微信小程序公共组件清单。本文档随组件演进同步维护，新增组件须更新此处。
+>
+> 📖 **详细 props/events/示例** 见 [`../docs/components/`](../docs/components/README.md)。
 
 ## 分类
 

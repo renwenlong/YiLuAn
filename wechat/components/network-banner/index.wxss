@@ -1,0 +1,25 @@
+.network-banner {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  background: #fff5e6;
+  color: #b86e00;
+  padding: 16rpx 24rpx;
+  font-size: 26rpx;
+  display: flex;
+  align-items: center;
+  border-bottom: 1rpx solid #f0c069;
+}
+.network-banner__icon {
+  margin-right: 12rpx;
+}
+.network-banner__text {
+  flex: 1;
+}
+.network-banner__action {
+  color: #d97706;
+  font-weight: 500;
+  margin-left: 12rpx;
+}

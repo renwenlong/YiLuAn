@@ -1,4 +1,5 @@
 <view class="patient-home">
+  <network-banner />
   <!-- 定位 + 搜索医院 -->
   <view class="section">
     <view class="section-header">
