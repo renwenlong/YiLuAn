@@ -1,6 +1,7 @@
 var store = require('../../../store/index')
 var walletService = require('./services/wallet')
 var formatCurrency = require('../../../utils/formatCurrency').formatCurrency
+var logger = require('../../../utils/logger')
 
 Page({
   data: {
@@ -57,7 +58,7 @@ Page({
         })
       })
     } catch (e) {
-      console.error('加载钱包失败', e)
+      logger.error('加载钱包失败', { err: e && (e.message || String(e)) })
     }
   },
 

@@ -3,6 +3,7 @@ const { getCompanionStats } = require('../../../services/companion')
 const { getUnreadCount } = require('../../../services/notification')
 const store = require('../../../store/index')
 const router = require('../../../utils/router')
+const logger = require('../../../utils/logger')
 
 Page({
   data: {
@@ -52,7 +53,7 @@ Page({
         })
       })
       .catch(function (err) {
-        console.error('获取统计失败', err)
+        logger.error('获取统计失败', { err: err && (err.message || String(err)) })
       })
   },
 
@@ -70,7 +71,7 @@ Page({
         self.setData({ pendingOrders: list, pendingTotal: total })
       })
       .catch(function (err) {
-        console.error('获取待接单列表失败', err)
+        logger.error('获取待接单列表失败', { err: err && (err.message || String(err)) })
       })
   },
 

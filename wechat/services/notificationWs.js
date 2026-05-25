@@ -7,6 +7,7 @@
 const config = require('../config/index')
 const { getAccessToken } = require('../utils/token')
 const { WSBase } = require('../core/ws-base')
+const logger = require('../utils/logger')
 
 let _instance = null
 let _notificationCallback = null
@@ -32,13 +33,13 @@ function _getInstance() {
   // 定位 `Error: timeout` 真实根因。
   _instance.on('error', function (err) {
     var msg = err && (err.errMsg || err.message) || ''
-    console.warn('[notificationWs] error:', msg, err)
+    logger.warn('[notificationWs] error', { msg: msg, err: err && (err.errMsg || err.message || String(err)) })
   })
   _instance.on('close', function (evt) {
-    console.info('[notificationWs] close:', evt || '(no detail)')
+    logger.info('[notificationWs] close', { evt: evt || null })
   })
   _instance.on('reconnect', function (info) {
-    console.info('[notificationWs] reconnect attempt=' + info.attempt + ' delay=' + info.delay + 'ms')
+    logger.info('[notificationWs] reconnect', { attempt: info.attempt, delay: info.delay })
   })
   return _instance
 }

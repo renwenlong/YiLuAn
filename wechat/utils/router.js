@@ -21,10 +21,18 @@
  */
 
 var _hooks = []
+var _logger = null
+function _getLogger() {
+  // 懒加载避免潜在的循环依赖：router 是低层模块，logger 是叶子模块（不依赖 router），
+  // 直接 require 也安全，但保留惰性获取语义以防未来 logger 变动。
+  if (_logger) return _logger
+  try { _logger = require('./logger') } catch (_) { _logger = null }
+  return _logger
+}
 
 /**
  * 注册导航 hook，hook(action, options) 在跳转**之前**同步触发。
- * 不抛错（hook 异常被吞掉并 console.warn），避免一处埋点把整个跳转拖死。
+ * 不抛错（hook 异常被吞掉并 logger.warn），避免一处埋点把整个跳转拖死。
  *
  * @param {NavHook} hook
  * @returns {() => void} unsubscribe
@@ -42,7 +50,9 @@ function _emit(action, options) {
     try {
       _hooks[i](action, options)
     } catch (e) {
-      console.warn('[router] hook error:', e)
+      var lg = _getLogger()
+      if (lg) lg.warn('[router] hook error', { err: e && (e.message || String(e)) })
+      else console.warn('[router] hook error:', e) // eslint-disable-line no-console
     }
   }
 }

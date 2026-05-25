@@ -2,6 +2,7 @@ const { updateMe } = require('../../services/user')
 const { getCompanionStats } = require('../../services/companion')
 const store = require('../../store/index')
 const router = require('../../utils/router')
+const logger = require('../../utils/logger')
 
 Page({
   data: {
@@ -45,7 +46,7 @@ Page({
         }
       })
       .catch(err => {
-        console.error('设置角色失败', err)
+        logger.error('设置角色失败', { err: err && (err.message || String(err)) })
         wx.showToast({ title: '操作失败，请重试', icon: 'none' })
       })
       .finally(() => {

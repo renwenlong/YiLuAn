@@ -2,6 +2,7 @@ const { wechatLogin, sendOTP, verifyOTP } = require('../../services/auth')
 const validate = require('../../utils/validate')
 const store = require('../../store/index')
 const router = require('../../utils/router')
+const logger = require('../../utils/logger')
 
 Page({
   data: {
@@ -50,7 +51,7 @@ Page({
         this._navigateAfterLogin(user)
       })
       .catch(err => {
-        console.error('登录失败', err)
+        logger.error('登录失败', { err: err && (err.message || String(err)) })
         wx.showToast({ title: '登录失败，请重试', icon: 'none' })
       })
       .finally(() => {
@@ -125,7 +126,7 @@ Page({
         self._navigateAfterLogin(user)
       })
       .catch(function (err) {
-        console.error('登录失败', err)
+        logger.error('登录失败', { err: err && (err.message || String(err)), phase: 'verifyOTP' })
         wx.showToast({ title: '验证码错误或已过期', icon: 'none' })
       })
       .finally(function () {
