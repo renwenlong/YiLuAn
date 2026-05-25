@@ -1,0 +1,24 @@
+<view class="skeleton-list skeleton-{{variant}}" aria-hidden="true">
+  <view class="sk-card" wx:for="{{items}}" wx:key="*this">
+    <block wx:if="{{variant === 'companion'}}">
+      <view class="sk-avatar shimmer"></view>
+      <view class="sk-lines">
+        <view class="sk-line shimmer sk-w-50"></view>
+        <view class="sk-line shimmer sk-w-30"></view>
+        <view class="sk-line shimmer sk-w-70"></view>
+      </view>
+    </block>
+    <block wx:else>
+      <view class="sk-row sk-row-header">
+        <view class="sk-line shimmer sk-w-30"></view>
+        <view class="sk-pill shimmer"></view>
+      </view>
+      <view class="sk-line shimmer sk-w-80"></view>
+      <view class="sk-line shimmer sk-w-60"></view>
+      <view class="sk-row sk-row-footer">
+        <view class="sk-line shimmer sk-w-25"></view>
+        <view class="sk-line shimmer sk-w-15"></view>
+      </view>
+    </block>
+  </view>
+</view>

@@ -60,6 +60,7 @@
   "usingComponents": {
     "loading-overlay": "/components/loading-overlay/index",
     "empty-state": "/components/empty-state/index",
+    "skeleton-list": "/components/skeleton-list/index",
     "patient-tab-bar": "/components/patient-tab-bar/index",
     "companion-tab-bar": "/components/companion-tab-bar/index"
   },
