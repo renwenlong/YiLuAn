@@ -77,12 +77,15 @@
       />
     </view>
 
+    <!-- 首次加载：骨架屏，仅在空列表 + loading 时显示 -->
+    <skeleton-list wx:if="{{loadingCompanions && companions.length === 0}}" variant="companion" count="4" />
+
     <view class="empty-hint" wx:if="{{companions.length === 0 && !loadingCompanions}}">
       <text class="empty-hint-icon">👩‍⚕️</text>
       <text class="empty-hint-text">{{selectedService ? '暂未找到匹配的陪诊师' : '暂无推荐陪诊师，稍后再来看看'}}</text>
     </view>
 
-    <view class="loading-hint" wx:if="{{loadingCompanions}}">
+    <view class="loading-hint" wx:if="{{loadingCompanions && companions.length > 0}}">
       <text>加载中...</text>
     </view>
 

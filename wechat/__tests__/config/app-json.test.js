@@ -54,13 +54,14 @@ describe('app.json 分包结构', () => {
 });
 
 describe('app.json 全局组件', () => {
-  test('usingComponents 已注册 4 个高频组件', () => {
+  test('usingComponents 已注册全局高频组件', () => {
     const uc = app.usingComponents || {};
     expect(Object.keys(uc).sort()).toEqual([
       'companion-tab-bar',
       'empty-state',
       'loading-overlay',
       'patient-tab-bar',
+      'skeleton-list',
     ]);
   });
 

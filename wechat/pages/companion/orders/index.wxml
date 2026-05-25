@@ -29,8 +29,8 @@
     message="暂无订单"
   />
 
-  <!-- 加载中 -->
-  <loading-overlay wx:if="{{loading && orders.length === 0}}" />
+  <!-- 首次加载：骨架屏 -->
+  <skeleton-list wx:if="{{loading && orders.length === 0}}" variant="order" count="4" />
 
   <!-- 底部加载提示 -->
   <view class="load-more" wx:if="{{loading && orders.length > 0}}">

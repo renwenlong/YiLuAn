@@ -31,8 +31,8 @@
     icon="单"
   />
 
-  <!-- 加载中 -->
-  <loading-overlay wx:if="{{loading && orders.length === 0}}" />
+  <!-- 首次加载：骨架屏（取代 loading-overlay，不挡 UI） -->
+  <skeleton-list wx:if="{{loading && orders.length === 0}}" variant="order" count="4" />
 
   <!-- 底部加载提示（P-06: 文案统一为 加载中） -->
   <view class="load-more" wx:if="{{loading && orders.length > 0}}">
