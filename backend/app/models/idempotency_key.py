@@ -46,7 +46,7 @@ class IdempotencyKey(Base):
         Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     user_id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), nullable=False
+        Uuid(as_uuid=True), nullable=False, index=True
     )
     # e.g. ``POST /api/v1/orders``. Bounded to keep the index narrow.
     endpoint: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -68,4 +68,5 @@ class IdempotencyKey(Base):
         DateTime(timezone=True),
         default=_default_expires_at,
         nullable=False,
+        index=True,
     )

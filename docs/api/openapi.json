@@ -10984,6 +10984,27 @@
       "post": {
         "description": "患者发起一笔陪诊服务订单。需指定服务类型、医院、就诊日期与时间。可选 `companion_id` 直接指派，否则进入大厅由陪诊师抢单。\n\n新订单状态为 `pending_payment`，**必须在 30 分钟内完成支付**，否则会被定时任务自动取消。",
         "operationId": "create_order_api_v1_orders_post",
+        "parameters": [
+          {
+            "description": "D-058: 客户端可选幂等键。同一用户携带同一 Idempotency-Key 的重复请求将直接回放首次响应，不会再次创建订单。键缺失时走原有流程。",
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 128,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "D-058: 客户端可选幂等键。同一用户携带同一 Idempotency-Key 的重复请求将直接回放首次响应，不会再次创建订单。键缺失时走原有流程。",
+              "title": "Idempotency-Key"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {

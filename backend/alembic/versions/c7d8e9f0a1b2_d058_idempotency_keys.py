@@ -39,7 +39,7 @@ def upgrade() -> None:
     op.create_table(
         "idempotency_keys",
         sa.Column("id", sa.Uuid(as_uuid=True), primary_key=True, nullable=False),
-        sa.Column("user_id", sa.Uuid(as_uuid=True), nullable=False),
+        sa.Column("user_id", sa.Uuid(as_uuid=True), nullable=False, index=True),
         sa.Column("endpoint", sa.String(length=64), nullable=False),
         sa.Column("key", sa.String(length=128), nullable=False),
         sa.Column("response_status", sa.Integer(), nullable=False),
@@ -53,6 +53,7 @@ def upgrade() -> None:
             "expires_at",
             sa.DateTime(timezone=True),
             nullable=False,
+            index=True,
         ),
         sa.UniqueConstraint(
             "user_id",
@@ -61,21 +62,12 @@ def upgrade() -> None:
             name="uq_idempotency_user_endpoint_key",
         ),
     )
-    # Indexes — named explicitly so PG/SQLite both drop cleanly on downgrade.
-    # NOTE: deliberately do NOT also set ``index=True`` on the model columns;
-    # mixing model-level ``index=True`` with ``op.create_index`` on the same
-    # column has historically caused PG ``DuplicateTableError`` on second
-    # upgrades (memory note 2026-05-19 / D-058 lesson).
-    op.create_index(
-        "ix_idempotency_keys_user_id",
-        "idempotency_keys",
-        ["user_id"],
-    )
-    op.create_index(
-        "ix_idempotency_keys_expires_at",
-        "idempotency_keys",
-        ["expires_at"],
-    )
+    # Indexes on user_id / expires_at are declared inline via ``index=True``
+    # above (mirroring the SQLAlchemy model). We deliberately do NOT also
+    # call ``op.create_index`` for them — mixing ``Column(index=True)`` with
+    # ``op.create_index`` on the same column causes PG ``DuplicateTable``
+    # on the second upgrade (see memory note 2026-05-19 / F-05 lesson).
+    # ``alembic check`` keeps model metadata and migration in sync this way.
 
     # --- payments.sign_params_cache --------------------------------------
     op.add_column(
@@ -86,10 +78,6 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     op.drop_column("payments", "sign_params_cache")
-    op.drop_index(
-        "ix_idempotency_keys_expires_at", table_name="idempotency_keys"
-    )
-    op.drop_index(
-        "ix_idempotency_keys_user_id", table_name="idempotency_keys"
-    )
+    # Inline indexes are dropped automatically by ``drop_table`` on both
+    # PG and SQLite, so no explicit ``drop_index`` calls are needed.
     op.drop_table("idempotency_keys")
