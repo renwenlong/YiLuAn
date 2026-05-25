@@ -32,6 +32,10 @@ WS 单条消息正文上限 4000 字符，HTTP 与之保持一致。
 
 分页查询指定订单的聊天消息记录。仅订单参与方（患者 / 陪诊师）可访问。
 
+两种分页模式：
+- 默认 ``page``/``page_size`` 按页起始全量拉取（升序）。
+- 传 ``before_id`` + ``limit`` 则进入上拉历史游标模式，返回严格早于该游标的最近 ``limit`` 条（依然升序返回，客户端可直接预添加到列表顶部）。
+
 实时双向通信请使用 `WS /api/v1/ws/chat/{order_id}?token=<jwt>`。
 
 **参数：**
@@ -39,6 +43,8 @@ WS 单条消息正文上限 4000 字符，HTTP 与之保持一致。
 - `order_id` (path, string, required=✅) — 
 - `page` (query, integer, required=—) — 页码（从 1 开始）
 - `page_size` (query, integer, required=—) — 每页条数 1~100
+- `before_id` (query, —, required=—) — 上拉历史游标：当前本地最早一条消息 ID。传入后 ``page``/``page_size`` 被忽略。
+- `limit` (query, integer, required=—) — 游标模式下单页条数（仅在 ``before_id`` 传入时生效）
 
 **响应：**
 

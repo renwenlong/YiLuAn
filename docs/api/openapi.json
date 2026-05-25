@@ -442,6 +442,12 @@
       },
       "ChatMessageListResponse": {
         "properties": {
+          "has_more": {
+            "default": false,
+            "description": "上拉历史游标模式下：是否还有更早的消息。默认 page 分页模式总是 False。",
+            "title": "Has More",
+            "type": "boolean"
+          },
           "items": {
             "description": "当页消息列表",
             "items": {
@@ -449,6 +455,19 @@
             },
             "title": "Items",
             "type": "array"
+          },
+          "next_before_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "下一页上拉历史应使用的游标；None 表示已无更多或不适用。",
+            "title": "Next Before Id"
           },
           "total": {
             "description": "总条数",
@@ -7577,7 +7596,7 @@
     },
     "/api/v1/chats/{order_id}/messages": {
       "get": {
-        "description": "分页查询指定订单的聊天消息记录。仅订单参与方（患者 / 陪诊师）可访问。\n\n实时双向通信请使用 `WS /api/v1/ws/chat/{order_id}?token=<jwt>`。",
+        "description": "分页查询指定订单的聊天消息记录。仅订单参与方（患者 / 陪诊师）可访问。\n\n两种分页模式：\n- 默认 ``page``/``page_size`` 按页起始全量拉取（升序）。\n- 传 ``before_id`` + ``limit`` 则进入上拉历史游标模式，返回严格早于该游标的最近 ``limit`` 条（依然升序返回，客户端可直接预添加到列表顶部）。\n\n实时双向通信请使用 `WS /api/v1/ws/chat/{order_id}?token=<jwt>`。",
         "operationId": "list_messages_api_v1_chats__order_id__messages_get",
         "parameters": [
           {
@@ -7614,6 +7633,39 @@
               "maximum": 100,
               "minimum": 1,
               "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "上拉历史游标：当前本地最早一条消息 ID。传入后 ``page``/``page_size`` 被忽略。",
+            "in": "query",
+            "name": "before_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "上拉历史游标：当前本地最早一条消息 ID。传入后 ``page``/``page_size`` 被忽略。",
+              "title": "Before Id"
+            }
+          },
+          {
+            "description": "游标模式下单页条数（仅在 ``before_id`` 传入时生效）",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "游标模式下单页条数（仅在 ``before_id`` 传入时生效）",
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
               "type": "integer"
             }
           }
