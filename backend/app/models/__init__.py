@@ -13,6 +13,7 @@ from app.models.followup_reminder import (
     FollowupReminderStatus,
 )
 from app.models.hospital import Hospital
+from app.models.idempotency_key import IDEMPOTENCY_KEY_TTL, IdempotencyKey
 from app.models.notification import (
     Notification,
     NotificationTargetType,

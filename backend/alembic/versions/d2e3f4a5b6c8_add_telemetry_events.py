@@ -1,7 +1,7 @@
 """add telemetry_events table
 
-Revision ID: c1d2e3f4a5b7
-Revises: b5c6d7e8f9a0
+Revision ID: d2e3f4a5b6c8
+Revises: c1d2e3f4a5b7
 Create Date: 2026-05-25 08:35:00.000000
 
 Observability — frontend funnel + error reporter sink.

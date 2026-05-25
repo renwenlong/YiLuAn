@@ -78,6 +78,10 @@ curl -X GET 'https://api.yiluan.example.com/api/v1/orders' \
 
 新订单状态为 `pending_payment`，**必须在 30 分钟内完成支付**，否则会被定时任务自动取消。
 
+**参数：**
+
+- `Idempotency-Key` (header, —, required=—) — D-058: 客户端可选幂等键。同一用户携带同一 Idempotency-Key 的重复请求将直接回放首次响应，不会再次创建订单。键缺失时走原有流程。
+
 **请求体（JSON）：**
 
 ```json
