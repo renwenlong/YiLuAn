@@ -40,6 +40,7 @@
 | `POST` | `/api/v1/admin/reconciliation/diffs/{diff_id}/close-confirms` | Confirm Close |
 | `POST` | `/api/v1/admin/reconciliation/diffs/{diff_id}/close-requests` | Request Close |
 | `GET` | `/api/v1/admin/reconciliation/runs` | 后台：对账 run 列表 |
+| `GET` | `/api/v1/admin/telemetry/events` | 埋点事件列表（admin） |
 | `GET` | `/api/v1/admin/users` | 后台：用户列表 |
 | `GET` | `/api/v1/admin/users/{user_id}` | 后台：用户详情 |
 | `POST` | `/api/v1/admin/users/{user_id}/disable` | 后台：停用用户 |
@@ -688,6 +689,37 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/admin/reconciliation/diffs/{
 
 ```bash
 curl -X GET 'https://api.yiluan.example.com/api/v1/admin/reconciliation/runs' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `GET /api/v1/admin/telemetry/events` — 埋点事件列表（admin）
+
+分页查询 `telemetry_events`。支持按 event_type 精确匹配、时间区间、user_id 过滤。默认按 created_at 倒序。
+
+**参数：**
+
+- `event_type` (query, —, required=—) — 精确匹配 event_type
+- `user_id` (query, —, required=—) — 按上报用户过滤
+- `since` (query, —, required=—) — created_at >= since
+- `until` (query, —, required=—) — created_at < until
+- `limit` (query, integer, required=—) — 
+- `offset` (query, integer, required=—) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X GET 'https://api.yiluan.example.com/api/v1/admin/telemetry/events' \
   -H 'Authorization: Bearer <access_token>'
 ```
 

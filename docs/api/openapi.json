@@ -3781,6 +3781,147 @@
         "title": "SwitchRoleRequest",
         "type": "object"
       },
+      "TelemetryEventAccepted": {
+        "properties": {
+          "accepted": {
+            "default": true,
+            "title": "Accepted",
+            "type": "boolean"
+          }
+        },
+        "title": "TelemetryEventAccepted",
+        "type": "object"
+      },
+      "TelemetryEventCreate": {
+        "description": "Frontend -> backend telemetry write payload.\n\nThe front-end ``utils/logger.report`` channel and ``utils/analytics``\nfunnel emitter both POST this shape.\n\n* ``event_type``  e.g. ``funnel.order_submit`` or ``logger.error``\n* ``payload``     arbitrary JSON-able metadata (NO PII)\n* ``client_meta`` env / sdk version / page route etc.\n* ``ts``          frontend wall-clock ms; optional, defaults to server now",
+        "properties": {
+          "client_meta": {
+            "description": "客户端环境元数据（env / sdk version / page / scene 等）",
+            "title": "Client Meta",
+            "type": "object"
+          },
+          "event_type": {
+            "description": "事件类型，如 `funnel.order_submit` / `logger.error`",
+            "examples": [
+              "funnel.order_submit"
+            ],
+            "title": "Event Type",
+            "type": "string"
+          },
+          "payload": {
+            "description": "业务元数据（不含 PII，size <= 16KB serialized）",
+            "title": "Payload",
+            "type": "object"
+          },
+          "ts": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "客户端 wall-clock 毫秒（Date.now()），可空 -> 服务端时间",
+            "title": "Ts"
+          }
+        },
+        "required": [
+          "event_type"
+        ],
+        "title": "TelemetryEventCreate",
+        "type": "object"
+      },
+      "TelemetryEventListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/TelemetryEventRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "limit": {
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "title": "Offset",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "limit",
+          "offset"
+        ],
+        "title": "TelemetryEventListResponse",
+        "type": "object"
+      },
+      "TelemetryEventRead": {
+        "properties": {
+          "client_meta": {
+            "title": "Client Meta",
+            "type": "object"
+          },
+          "client_ts": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Client Ts"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "event_type": {
+            "title": "Event Type",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          },
+          "payload": {
+            "title": "Payload",
+            "type": "object"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "User Id"
+          }
+        },
+        "required": [
+          "id",
+          "event_type",
+          "payload",
+          "client_meta",
+          "user_id",
+          "client_ts",
+          "created_at"
+        ],
+        "title": "TelemetryEventRead",
+        "type": "object"
+      },
       "TimelineEntry": {
         "properties": {
           "changed_by": {
@@ -6572,6 +6713,171 @@
         "tags": [
           "admin",
           "admin-reconciliation"
+        ]
+      }
+    },
+    "/api/v1/admin/telemetry/events": {
+      "get": {
+        "description": "分页查询 `telemetry_events`。支持按 event_type 精确匹配、时间区间、user_id 过滤。默认按 created_at 倒序。",
+        "operationId": "list_events_api_v1_admin_telemetry_events_get",
+        "parameters": [
+          {
+            "description": "精确匹配 event_type",
+            "in": "query",
+            "name": "event_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "精确匹配 event_type",
+              "title": "Event Type"
+            }
+          },
+          {
+            "description": "按上报用户过滤",
+            "in": "query",
+            "name": "user_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "按上报用户过滤",
+              "title": "User Id"
+            }
+          },
+          {
+            "description": "created_at >= since",
+            "in": "query",
+            "name": "since",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "created_at >= since",
+              "title": "Since"
+            }
+          },
+          {
+            "description": "created_at < until",
+            "in": "query",
+            "name": "until",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "created_at < until",
+              "title": "Until"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryEventListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "埋点事件列表（admin）",
+        "tags": [
+          "admin",
+          "admin-telemetry"
         ]
       }
     },
@@ -11832,6 +12138,72 @@
         "summary": "就绪检查（readiness）",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/api/v1/telemetry/events": {
+      "post": {
+        "description": "前端 `utils/logger.report` 通道 + `utils/analytics` 漏斗事件统一入口。\n\n**鉴权**：可选。带 `Authorization: Bearer <token>` 时会关联 `user_id`，否则匿名落库。\n\n**限流**：同一 IP 每分钟最多 120 次。\n\n**PII 拒收**：payload / client_meta 含手机号 / 身份证 / 卡号样式字符串时返回 422。",
+        "operationId": "ingest_event_api_v1_telemetry_events_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TelemetryEventCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TelemetryEventAccepted"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Rate limit exceeded: 5 per 1 minute"
+                }
+              }
+            },
+            "description": "触发限流"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "上报埋点 / 异常事件",
+        "tags": [
+          "telemetry"
         ]
       }
     },
