@@ -22,7 +22,26 @@ describe('services/chat', () => {
 
     await getChatMessages('o1', { before: 'cursor123' })
     const callArgs = wx.request.mock.calls[0][0]
-    expect(callArgs.url).toContain('before=cursor123')
+    expect(callArgs.url).toContain('before_id=cursor123')
+  })
+
+  test('getChatMessages passes beforeId + limit for pull-up history', async () => {
+    __mockWxRequest(200, { items: [], total: 0, has_more: false })
+
+    await getChatMessages('o1', { beforeId: 'msg-42', limit: 30 })
+    const callArgs = wx.request.mock.calls[0][0]
+    expect(callArgs.url).toContain('chats/o1/messages')
+    expect(callArgs.url).toContain('before_id=msg-42')
+    expect(callArgs.url).toContain('limit=30')
+  })
+
+  test('getChatMessages omits cursor params when not provided', async () => {
+    __mockWxRequest(200, { items: [], total: 0 })
+
+    await getChatMessages('o1')
+    const callArgs = wx.request.mock.calls[0][0]
+    expect(callArgs.url).toContain('chats/o1/messages')
+    expect(callArgs.url).not.toContain('?')
   })
 
   test('sendMessage posts message to order chat', async () => {

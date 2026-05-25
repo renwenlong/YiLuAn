@@ -107,3 +107,14 @@
   color: #FFFFFF;
   box-shadow: none;
 }
+
+.history-hint {
+  text-align: center;
+  font-size: 24rpx;
+  color: #999;
+  padding: 16rpx 0;
+}
+
+.history-hint-end {
+  color: #bbb;
+}

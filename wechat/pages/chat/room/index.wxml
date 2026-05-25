@@ -5,8 +5,13 @@
     scroll-y="{{true}}"
     scroll-into-view="{{scrollIntoView}}"
     scroll-with-animation="{{true}}"
+    upper-threshold="60"
+    bindscrolltoupper="onScrollToUpper"
+    enable-back-to-top="{{true}}"
   >
-    <view class="message-padding-top"></view>
+    <view class="history-hint" wx:if="{{loadingMore}}">加载中...</view>
+    <view class="history-hint history-hint-end" wx:elif="{{historyExhausted && messages.length > 0}}">已是最早的消息</view>
+    <view class="message-padding-top" wx:else></view>
     <view
       wx:for="{{messages}}"
       wx:key="id"

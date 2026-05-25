@@ -27,6 +27,57 @@ class ChatMessageRepository(BaseRepository[ChatMessage]):
         result = await self.session.execute(stmt)
         return result.scalars().all(), total
 
+    async def list_before(
+        self,
+        order_id: UUID,
+        *,
+        before_id: UUID | None,
+        limit: int = 50,
+    ) -> tuple[Sequence[ChatMessage], int]:
+        """Pull-up history pagination.
+
+        Returns the most recent ``limit`` messages strictly older than
+        ``before_id`` (or the tail of the conversation when ``before_id``
+        is ``None``). Result is returned in ascending
+        ``(created_at, id)`` order so the client can simply prepend the
+        batch to the top of its existing message list.
+
+        Also returns the total message count for the order so the caller
+        can decide whether more pages are available.
+        """
+        base = select(ChatMessage).where(ChatMessage.order_id == order_id)
+        count_stmt = select(func.count()).select_from(base.subquery())
+        total = (await self.session.execute(count_stmt)).scalar() or 0
+
+        anchor_created_at = None
+        if before_id is not None:
+            row = (
+                await self.session.execute(
+                    select(ChatMessage.created_at, ChatMessage.id)
+                    .where(ChatMessage.id == before_id)
+                    .where(ChatMessage.order_id == order_id)
+                )
+            ).first()
+            if row is not None:
+                anchor_created_at = row[0]
+            else:
+                before_id = None
+
+        stmt = select(ChatMessage).where(ChatMessage.order_id == order_id)
+        if anchor_created_at is not None and before_id is not None:
+            stmt = stmt.where(
+                (ChatMessage.created_at < anchor_created_at)
+                | (
+                    (ChatMessage.created_at == anchor_created_at)
+                    & (ChatMessage.id < before_id)
+                )
+            )
+        stmt = stmt.order_by(
+            ChatMessage.created_at.desc(), ChatMessage.id.desc()
+        ).limit(limit)
+        rows = (await self.session.execute(stmt)).scalars().all()
+        return list(reversed(rows)), total
+
     async def list_since(
         self,
         order_id: UUID,

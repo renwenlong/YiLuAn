@@ -21,6 +21,10 @@ router = APIRouter(prefix="/chats", tags=["chats"])
     summary="获取订单聊天历史",
     description=(
         "分页查询指定订单的聊天消息记录。仅订单参与方（患者 / 陪诊师）可访问。\n\n"
+        "两种分页模式：\n"
+        "- 默认 ``page``/``page_size`` 按页起始全量拉取（升序）。\n"
+        "- 传 ``before_id`` + ``limit`` 则进入上拉历史游标模式，返回严格早于该游标"
+        "的最近 ``limit`` 条（依然升序返回，客户端可直接预添加到列表顶部）。\n\n"
         "实时双向通信请使用 `WS /api/v1/ws/chat/{order_id}?token=<jwt>`。"
     ),
     responses={**err(401, 403, 404, 500)},
@@ -31,8 +35,29 @@ async def list_messages(
     session: DBSession,
     page: int = Query(1, ge=1, description="页码（从 1 开始）"),
     page_size: int = Query(50, ge=1, le=100, description="每页条数 1~100"),
+    before_id: UUID | None = Query(
+        None,
+        description="上拉历史游标：当前本地最早一条消息 ID。传入后 ``page``/``page_size`` 被忽略。",
+    ),
+    limit: int = Query(
+        50,
+        ge=1,
+        le=100,
+        description="游标模式下单页条数（仅在 ``before_id`` 传入时生效）",
+    ),
 ):
     service = ChatService(session)
+    if before_id is not None:
+        items, total = await service.list_messages_before(
+            order_id, current_user, before_id=before_id, limit=limit
+        )
+        has_more = len(items) >= limit and total > len(items)
+        return ChatMessageListResponse(
+            items=[ChatMessageResponse.model_validate(m) for m in items],
+            total=total,
+            has_more=has_more,
+            next_before_id=items[0].id if items and has_more else None,
+        )
     items, total = await service.list_messages(
         order_id, current_user, page=page, page_size=page_size
     )
