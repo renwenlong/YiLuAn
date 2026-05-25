@@ -155,6 +155,9 @@
 | `POST` | `/api/v1/admin/companions/{companion_id}/certify` | 管理员：设置陪诊师资质认证（F-01） |
 | `POST` | `/api/v1/admin/companions/{companion_id}/reject` | 后台：驳回陪诊师申请 |
 | `GET` | `/api/v1/admin/dashboard/summary` | 后台首页：KPI + 7 日趋势 |
+| `GET` | `/api/v1/admin/dead-letters` | 后台：死信队列表 |
+| `GET` | `/api/v1/admin/dead-letters/{dl_id}` | 后台：死信详情 |
+| `POST` | `/api/v1/admin/dead-letters/{dl_id}/resolve` | 后台：标记死信已解决 |
 | `POST` | `/api/v1/admin/login` | Admin v2 登录（JWT） |
 | `GET` | `/api/v1/admin/notes` | 后台：按 target 列出备注 |
 | `POST` | `/api/v1/admin/notes` | 后台：新增备注 |
@@ -212,6 +215,14 @@ K8s / ACA 探针使用：
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `GET` | `/api/v1/admin/dashboard/summary` | 后台首页：KPI + 7 日趋势 |
+
+### [admin-dead-letters](./admin-dead-letters.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/admin/dead-letters` | 后台：死信队列表 |
+| `GET` | `/api/v1/admin/dead-letters/{dl_id}` | 后台：死信详情 |
+| `POST` | `/api/v1/admin/dead-letters/{dl_id}/resolve` | 后台：标记死信已解决 |
 
 ### [admin-auth](./admin-auth.md)
 
