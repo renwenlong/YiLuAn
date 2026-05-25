@@ -34,6 +34,7 @@ from app.models.reconciliation import (
 )
 from app.models.review import Review
 from app.models.sms_send_log import SmsSendLog
+from app.models.telemetry_event import TelemetryEvent
 from app.models.user import User, UserRole
 from app.models.wallet_ledger import (
     WalletLedger,
@@ -61,6 +62,7 @@ __all__ = [
     "PaymentCallbackLog",
     "Review",
     "SmsSendLog",
+    "TelemetryEvent",
     "ChatMessage",
     "MessageType",
     "Notification",

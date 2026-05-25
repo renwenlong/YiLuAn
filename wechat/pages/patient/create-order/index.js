@@ -7,6 +7,7 @@ var SERVICE_TYPES = require('../../../utils/constants').SERVICE_TYPES
 var formatCurrency = require('../../../utils/formatCurrency').formatCurrency
 var store = require('../../../store/index')
 var logger = require('../../../utils/logger')
+var analytics = require('../../../utils/analytics')
 const router = require('../../../utils/router')
 
 Page({
@@ -34,6 +35,8 @@ Page({
   },
 
   onLoad(options) {
+    // [funnel-3] 发起下单 — 进入下单页
+    try { analytics.trackFunnel(analytics.FUNNEL_STEPS.ORDER_CREATE_START, { service_type: options && options.type ? String(options.type) : undefined, source: 'create_order_onLoad' }) } catch (_) {}
     var today = new Date()
     var year = today.getFullYear()
     var month = String(today.getMonth() + 1).padStart(2, '0')
@@ -237,6 +240,8 @@ Page({
     createOrder(orderData)
       .then(function (order) {
         self.setData({ loading: false })
+        // [funnel-4] 提交订单成功
+        try { analytics.trackFunnel(analytics.FUNNEL_STEPS.ORDER_SUBMIT, { order_id: order && order.id ? String(order.id) : undefined, service_type: orderData.service_type, amount_cents: typeof d.servicePrice === 'number' ? Math.round(d.servicePrice * 100) : undefined }) } catch (_) {}
         wx.showToast({ title: '订单创建成功', icon: 'success' })
         setTimeout(function () {
           router.redirect({

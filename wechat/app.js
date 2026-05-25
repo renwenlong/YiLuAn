@@ -5,6 +5,8 @@ const { logout } = require('./services/auth')
 const notificationWs = require('./services/notificationWs')
 const { syncTabBarBadge } = require('./utils/badge')
 const logger = require('./utils/logger')
+const analytics = require('./utils/analytics')
+const telemetryReporter = require('./utils/telemetryReporter')
 
 // 把任意 reject reason 序列化成可读字符串：抓 Error 的 name+message+stack，
 // 抓 wx fail 风格的 {errMsg,errno,...}，抓所有可枚举字段。目的是让一条
@@ -119,6 +121,19 @@ App({
   },
 
   onLaunch() {
+    // [observability] 把 logger 的 reporter 和 analytics 的 emitter 都
+    // 接到后端 /api/v1/telemetry/events。env 走小程序的 envVersion，
+    // dev / staging / prod 在 telemetry 表里方便切片。
+    try {
+      var envVersion = (typeof __wxConfig !== 'undefined' && __wxConfig.envVersion) || 'develop'
+      var envTag = envVersion === 'release' ? 'prod' : (envVersion === 'trial' ? 'staging' : 'dev')
+      logger.setEnv(envTag)
+      logger.setReporter(telemetryReporter.buildLoggerReporter())
+      analytics.setEmitter(telemetryReporter.buildAnalyticsEmitter())
+      analytics.setClientMeta({ env: envTag })
+    } catch (e) {
+      // ignore — 上报通道挂了不能影响业务
+    }
     // 全局兜底：捕获未处理的 Promise reject（包括 wx 框架内部 timeout）与
     // 同步异常。主要场景：devtools 下 ws://localhost 走不通、后台临时 5xx、
     // 某条业务代码忘写 .catch、wx.login / wx.request / wx.connectSocket
