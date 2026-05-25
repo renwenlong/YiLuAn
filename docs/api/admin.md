@@ -25,6 +25,9 @@
 | `POST` | `/api/v1/admin/companions/{companion_id}/certify` | 管理员：设置陪诊师资质认证（F-01） |
 | `POST` | `/api/v1/admin/companions/{companion_id}/reject` | 后台：驳回陪诊师申请 |
 | `GET` | `/api/v1/admin/dashboard/summary` | 后台首页：KPI + 7 日趋势 |
+| `GET` | `/api/v1/admin/dead-letters` | 后台：死信队列表 |
+| `GET` | `/api/v1/admin/dead-letters/{dl_id}` | 后台：死信详情 |
+| `POST` | `/api/v1/admin/dead-letters/{dl_id}/resolve` | 后台：标记死信已解决 |
 | `POST` | `/api/v1/admin/login` | Admin v2 登录（JWT） |
 | `GET` | `/api/v1/admin/notes` | 后台：按 target 列出备注 |
 | `POST` | `/api/v1/admin/notes` | 后台：新增备注 |
@@ -247,6 +250,94 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/admin/companions/{companion_
 
 ```bash
 curl -X GET 'https://api.yiluan.example.com/api/v1/admin/dashboard/summary' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `GET /api/v1/admin/dead-letters` — 后台：死信队列表
+
+查询需人工补偿的遗留任务，默认按时间倒序。
+
+**参数：**
+
+- `status` (query, —, required=—) — pending / resolved
+- `channel` (query, —, required=—) — 例：order_refund
+- `target_id` (query, —, required=—) — 
+- `page` (query, integer, required=—) — 
+- `page_size` (query, integer, required=—) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X GET 'https://api.yiluan.example.com/api/v1/admin/dead-letters' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `GET /api/v1/admin/dead-letters/{dl_id}` — 后台：死信详情
+
+返回指定 dead_letter 行的全部字段（含 payload 与解决态）。
+
+**参数：**
+
+- `dl_id` (path, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X GET 'https://api.yiluan.example.com/api/v1/admin/dead-letters/{dl_id}' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `POST /api/v1/admin/dead-letters/{dl_id}/resolve` — 后台：标记死信已解决
+
+记录解决人、说明、时间；同时写入 admin_audit_logs。
+
+**参数：**
+
+- `dl_id` (path, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**请求体（JSON）：**
+
+```json
+""
+```
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X POST 'https://api.yiluan.example.com/api/v1/admin/dead-letters/{dl_id}/resolve' \
   -H 'Authorization: Bearer <access_token>'
 ```
 

@@ -22,7 +22,7 @@ class TestCreateOrder:
         assert resp.status_code == 201
         data = resp.json()
         assert data["status"] == "created"
-        assert data["price"] == 299.0
+        assert data["price"] == "299.00"
         assert data["service_type"] == "full_accompany"
         assert data["hospital_name"] == "测试医院"
         assert data["order_number"].startswith("YLA")
@@ -41,7 +41,7 @@ class TestCreateOrder:
             },
         )
         assert resp.status_code == 201
-        assert resp.json()["price"] == 199.0
+        assert resp.json()["price"] == "199.00"
 
     async def test_create_order_errand(self, authenticated_client, seed_hospital):
         hospital = await seed_hospital()
@@ -55,7 +55,7 @@ class TestCreateOrder:
             },
         )
         assert resp.status_code == 201
-        assert resp.json()["price"] == 149.0
+        assert resp.json()["price"] == "149.00"
 
     async def test_create_order_invalid_service_type(
         self, authenticated_client, seed_hospital
@@ -790,7 +790,7 @@ class TestPayment:
         data = resp.json()
         refund_tx = [t for t in data["items"] if t["payment_type"] == "refund"]
         assert len(refund_tx) == 1
-        assert refund_tx[0]["amount"] == 149.5  # 50% of 299.0
+        assert refund_tx[0]["amount"] == "149.50"  # 50% of 299.0
 
 
 @pytest.mark.asyncio
@@ -821,7 +821,7 @@ class TestWallet:
         data = resp.json()
         assert data["total"] == 1
         assert data["items"][0]["payment_type"] == "pay"
-        assert data["items"][0]["amount"] == 299.0
+        assert data["items"][0]["amount"] == "299.00"
 
     async def test_wallet_summary_companion(
         self, companion_client, seed_hospital, seed_order, seed_user

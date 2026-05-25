@@ -100,7 +100,9 @@ async def test_companion_full_journey(
     assert r.status_code == 200, r.text
     stats = r.json()
     assert stats["open_orders"] == 0
-    assert stats["total_earnings"] >= 199.0
+    # TD-MONEY-01: 金额出参为字符串，比较前转 Decimal。
+    from decimal import Decimal as _D
+    assert _D(stats["total_earnings"]) >= _D("199.0")
 
 
 async def test_companion_apply_rejected(

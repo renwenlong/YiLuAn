@@ -59,7 +59,7 @@ class TestFullOrderLifecycle:
         order = await _create_order(authenticated_client, hospital.id)
         order_id = order["id"]
         assert order["status"] == "created"
-        assert order["price"] == 299.0
+        assert order["price"] == "299.00"
         assert order["order_number"].startswith("YLA")
 
         # 2. Patient pays
@@ -184,7 +184,7 @@ class TestFullOrderLifecycle:
         items = resp.json()["items"]
         refund_txns = [t for t in items if t["payment_type"] == "refund"]
         assert len(refund_txns) == 1
-        assert refund_txns[0]["amount"] == 149.5  # 50% of 299.0
+        assert refund_txns[0]["amount"] == "149.50"  # 50% of 299.0
 
         # Verify order payment_status = refunded
         resp = await authenticated_client.get(f"/api/v1/orders/{order_id}")
@@ -201,7 +201,7 @@ class TestStage1_CreateOrder:
         hospital = await seed_hospital()
         order = await _create_order(authenticated_client, hospital.id)
         assert order["status"] == "created"
-        assert order["price"] == 299.0
+        assert order["price"] == "299.00"
         assert order["order_number"].startswith("YLA")
         assert order["hospital_name"] == "测试医院"
 
@@ -211,18 +211,18 @@ class TestStage1_CreateOrder:
 
         # full_accompany = 299
         order1 = await _create_order(authenticated_client, hospital.id, service_type="full_accompany")
-        assert order1["price"] == 299.0
+        assert order1["price"] == "299.00"
         # Pay so next order isn't blocked
         await authenticated_client.post(f"/api/v1/orders/{order1['id']}/pay")
 
         # half_accompany = 199
         order2 = await _create_order(authenticated_client, hospital.id, service_type="half_accompany")
-        assert order2["price"] == 199.0
+        assert order2["price"] == "199.00"
         await authenticated_client.post(f"/api/v1/orders/{order2['id']}/pay")
 
         # errand = 149
         order3 = await _create_order(authenticated_client, hospital.id, service_type="errand")
-        assert order3["price"] == 149.0
+        assert order3["price"] == "149.00"
 
     async def test_create_blocked_by_unpaid(self, authenticated_client, seed_hospital):
         hospital = await seed_hospital()
@@ -554,7 +554,7 @@ class TestStage7_Cancel:
         resp = await authenticated_client.get("/api/v1/wallet/transactions")
         refunds = [t for t in resp.json()["items"] if t["payment_type"] == "refund"]
         assert len(refunds) == 1
-        assert refunds[0]["amount"] == 299.0
+        assert refunds[0]["amount"] == "299.00"
 
     async def test_cancel_accepted_paid_full_refund(
         self, authenticated_client, seed_hospital, seed_user, seed_companion_profile
@@ -578,7 +578,7 @@ class TestStage7_Cancel:
         resp = await authenticated_client.get("/api/v1/wallet/transactions")
         refunds = [t for t in resp.json()["items"] if t["payment_type"] == "refund"]
         assert len(refunds) == 1
-        assert refunds[0]["amount"] == 299.0  # 100% refund for accepted
+        assert refunds[0]["amount"] == "299.00"  # 100% refund for accepted
 
     async def test_cancel_in_progress_paid_half_refund(
         self, authenticated_client, seed_hospital, seed_user, seed_companion_profile
@@ -603,7 +603,7 @@ class TestStage7_Cancel:
         resp = await authenticated_client.get("/api/v1/wallet/transactions")
         refunds = [t for t in resp.json()["items"] if t["payment_type"] == "refund"]
         assert len(refunds) == 1
-        assert refunds[0]["amount"] == 149.5  # 50% of 299
+        assert refunds[0]["amount"] == "149.50"  # 50% of 299
 
 
 # ---------------------------------------------------------------------------

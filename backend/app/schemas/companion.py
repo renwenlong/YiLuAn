@@ -86,7 +86,6 @@ class CompanionStatsResponse(BaseModel):
     )
 
     @field_serializer("total_earnings")
-    def _ser_total_earnings(self, v: Decimal) -> float:
-        # ADR-0030: 内部 Decimal，对外保持 number（同 order.py）
-        # TODO(W19, deadline 2026-06-30 / W26): remove float() coercion. TD-MONEY-01.
-        return float(Decimal(v).quantize(Decimal("0.01")))
+    def _ser_total_earnings(self, v: Decimal) -> Decimal:
+        # ADR-0030 / TD-MONEY-01 (done 2026-05-25): 不再转 float。
+        return Decimal(v).quantize(Decimal("0.01"))

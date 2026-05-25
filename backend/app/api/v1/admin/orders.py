@@ -44,8 +44,11 @@ from app.exceptions import BadRequestException, NotFoundException
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.order import Order, OrderStatus
 from app.models.user import User
+from app.repositories.companion_profile import CompanionProfileRepository
 from app.repositories.order import OrderRepository
 from app.repositories.payment import PaymentRepository
+from app.services.dead_letter import record_dead_letter
+from app.services.notification import NotificationService
 from app.services.payment_service import PaymentService
 
 router = APIRouter(
@@ -63,6 +66,16 @@ _LIST_TARGET = UUID("00000000-0000-0000-0000-000000000000")
 # in docs/admin-mvp-scope.md (B4) — order must already have a successful
 # pay-side Payment row, which only exists after the order moves out of
 # ``created``.
+# Statuses that represent an order cancellation. Used by ``force-status``
+# to drive W19 side-effects (auto-refund + dual-notify).
+_FORCE_CANCEL_STATUSES: set[OrderStatus] = {
+    OrderStatus.cancelled_by_patient,
+    OrderStatus.cancelled_by_companion,
+    OrderStatus.rejected_by_companion,
+    OrderStatus.expired,
+}
+
+
 REFUNDABLE_STATUSES: set[OrderStatus] = {
     OrderStatus.accepted,
     OrderStatus.in_progress,
@@ -381,16 +394,137 @@ async def force_order_status(
 
     order.status = new_status
 
-    # TODO(W19): trigger refund if status forced to refunded
-    # TODO(W19): notify both parties on force-cancel
-    # TODO(W19): update companion total_orders counter on completion
+    # ---- W19: side-effects driven by the forced transition ---------------
+    side_effects: dict[str, str] = {}
 
+    # (1) Force-cancel → issue automatic refund if order was paid.
+    #     We mirror the policy used by the standard cancel flow but always
+    #     refund 100% (operator override == platform-side fault-handling).
+    refund_required = new_status in _FORCE_CANCEL_STATUSES
+    if refund_required:
+        pay_repo = PaymentRepository(session)
+        original_pay = await pay_repo.get_by_order_and_type(order_id, "pay")
+        if original_pay and original_pay.status == "success":
+            existing_refund = await pay_repo.get_by_order_and_type(
+                order_id, "refund"
+            )
+            if existing_refund is None:
+                paid_amount = Decimal(str(original_pay.amount)).quantize(
+                    Decimal("0.01")
+                )
+                payment_svc = PaymentService(session)
+                try:
+                    await payment_svc.create_refund(
+                        order_id=order_id,
+                        user_id=order.patient_id,
+                        original_amount=paid_amount,
+                        refund_amount=paid_amount,
+                    )
+                    side_effects["refund"] = "issued"
+                except BadRequestException as exc:
+                    # Don't block the force transition — record dead_letter
+                    # so ops can replay/compensate via the queue.
+                    # PaymentService raises BadRequest *before* dirtying the
+                    # session for provider/network failures, but if it ever
+                    # left rows in flight, the outer ``get_db`` rollback
+                    # would clean them up. We deliberately use a *fresh*
+                    # session for the dead_letter write to survive that.
+                    from app.database import async_session as _async_session
+
+                    try:
+                        async with _async_session() as _dl_session:
+                            await record_dead_letter(
+                                _dl_session,
+                                channel="order_refund",
+                                reason="force_status_refund_failed",
+                                target_type="order",
+                                target_id=order_id,
+                                payload={
+                                    "trigger": "admin_force_status",
+                                    "operator": operator,
+                                    "old_status": old_status.value,
+                                    "new_status": new_status.value,
+                                    "amount": str(paid_amount),
+                                    "error": str(exc.detail),
+                                },
+                            )
+                            await _dl_session.commit()
+                    except Exception:  # noqa: BLE001
+                        pass
+                    side_effects["refund"] = f"dead_letter:{exc.detail}"
+            else:
+                side_effects["refund"] = "already_refunded"
+        else:
+            side_effects["refund"] = "unpaid"
+
+        # (2) Notify *both* parties about the admin-driven cancellation
+        #     (the patient always exists; companion may be unassigned for
+        #     broadcast orders that never got accepted).
+        notif_svc = NotificationService(session)
+        try:
+            await notif_svc.notify_order_status_changed(
+                order, new_status.value, order.patient_id
+            )
+            if order.companion_id is not None:
+                await notif_svc.notify_order_status_changed(
+                    order, new_status.value, order.companion_id
+                )
+            side_effects["notify"] = (
+                "patient+companion" if order.companion_id else "patient_only"
+            )
+        except Exception as exc:  # noqa: BLE001
+            # Notification failures must never block the state change.
+            from app.database import async_session as _async_session
+
+            try:
+                async with _async_session() as _dl_session:
+                    await record_dead_letter(
+                        _dl_session,
+                        channel="notification",
+                        reason="force_status_notify_failed",
+                        target_type="order",
+                        target_id=order_id,
+                        payload={
+                            "trigger": "admin_force_status",
+                            "operator": operator,
+                            "new_status": new_status.value,
+                            "error": str(exc),
+                        },
+                    )
+                    await _dl_session.commit()
+            except Exception:  # noqa: BLE001
+                pass
+            side_effects["notify"] = f"dead_letter:{exc}"
+
+    # (3) Force-complete → bump companion ``total_orders`` counter so the
+    #     companion's profile stats stay in sync with manual completions.
+    if (
+        new_status == OrderStatus.completed
+        and order.companion_id is not None
+        and old_status != OrderStatus.completed
+    ):
+        try:
+            companion_repo = CompanionProfileRepository(session)
+            profile = await companion_repo.get_by_user_id(order.companion_id)
+            if profile is not None:
+                await companion_repo.update(
+                    profile, {"total_orders": profile.total_orders + 1}
+                )
+                side_effects["total_orders"] = str(profile.total_orders)
+        except Exception as exc:  # noqa: BLE001
+            side_effects["total_orders"] = f"skipped:{exc}"
+
+    audit_reason = f"{old_status.value}->{new_status.value}: {body.reason}"
+    if side_effects:
+        audit_reason += " | side_effects=" + ",".join(
+            f"{k}={v}" for k, v in side_effects.items()
+        )
     log = AdminAuditLog(
         target_type="order",
         target_id=order_id,
         action="force_status",
         operator=operator,
-        reason=f"{old_status.value}->{new_status.value}: {body.reason}",
+        reason=audit_reason,
     )
     session.add(log)
     await session.flush()

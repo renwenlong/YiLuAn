@@ -3,6 +3,7 @@ from app.models.admin_note import AdminNote
 from app.models.admin_user import AdminRole, AdminUser
 from app.models.chat_message import ChatMessage, MessageType
 from app.models.companion_profile import CompanionProfile, VerificationStatus
+from app.models.dead_letter import DeadLetter, DeadLetterStatus
 from app.models.device_token import DeviceToken
 from app.models.emergency import EmergencyContact, EmergencyEvent
 from app.models.family_member import FamilyGender, FamilyMember, FamilyRelation
@@ -67,6 +68,8 @@ __all__ = [
     "NotificationType",
     "NotificationTargetType",
     "DeviceToken",
+    "DeadLetter",
+    "DeadLetterStatus",
     "EmergencyContact",
     "EmergencyEvent",
     "FamilyMember",

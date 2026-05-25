@@ -17,6 +17,7 @@ from app.api.v1.admin.audit_logs import router as audit_logs_router
 from app.api.v1.admin.auth import router as auth_router
 from app.api.v1.admin.companions import router as companions_router
 from app.api.v1.admin.dashboard import router as dashboard_router
+from app.api.v1.admin.dead_letters import router as dead_letters_router
 from app.api.v1.admin.notes import (
     notes_router as admin_notes_router,
     timeline_router as admin_order_timeline_router,
@@ -38,3 +39,4 @@ router.include_router(admin_notes_router)
 router.include_router(reconciliation_router)
 router.include_router(users_router)
 router.include_router(wallet_ledger_router)
+router.include_router(dead_letters_router)

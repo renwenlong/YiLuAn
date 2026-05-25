@@ -1000,7 +1000,7 @@
               "12480.50"
             ],
             "title": "Total Earnings",
-            "type": "number"
+            "type": "string"
           },
           "total_orders": {
             "default": 0,
@@ -1376,6 +1376,116 @@
           "generated_at"
         ],
         "title": "DashboardSummary",
+        "type": "object"
+      },
+      "DeadLetterItem": {
+        "properties": {
+          "channel": {
+            "description": "频道，例：order_refund / notification",
+            "title": "Channel",
+            "type": "string"
+          },
+          "created_at": {
+            "description": "创建时间 ISO8601",
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "description": "DeadLetter UUID",
+            "title": "Id",
+            "type": "string"
+          },
+          "payload": {
+            "anyOf": [
+              {
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "备份上下文（JSON）",
+            "title": "Payload"
+          },
+          "reason": {
+            "description": "机器划分的原因 key",
+            "title": "Reason",
+            "type": "string"
+          },
+          "resolution_note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "解决说明",
+            "title": "Resolution Note"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "解决时间 ISO8601",
+            "title": "Resolved At"
+          },
+          "resolved_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "解决人（operator）",
+            "title": "Resolved By"
+          },
+          "status": {
+            "description": "pending / resolved",
+            "title": "Status",
+            "type": "string"
+          },
+          "target_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "目标实体 UUID",
+            "title": "Target Id"
+          },
+          "target_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "目标实体类型，例：order",
+            "title": "Target Type"
+          }
+        },
+        "required": [
+          "id",
+          "channel",
+          "reason",
+          "status",
+          "created_at"
+        ],
+        "title": "DeadLetterItem",
         "type": "object"
       },
       "DeviceTokenResponse": {
@@ -3008,7 +3118,7 @@
               "199.00"
             ],
             "title": "Price",
-            "type": "number"
+            "type": "string"
           },
           "refund_state": {
             "anyOf": [
@@ -3176,6 +3286,37 @@
         "title": "PaginatedCompanions",
         "type": "object"
       },
+      "PaginatedDeadLetters": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DeadLetterItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "PaginatedDeadLetters",
+        "type": "object"
+      },
       "PaginatedOrders": {
         "properties": {
           "items": {
@@ -3331,7 +3472,7 @@
               199.0
             ],
             "title": "Amount",
-            "type": "number"
+            "type": "string"
           },
           "created_at": {
             "description": "创建时间",
@@ -3557,6 +3698,22 @@
           "reason"
         ],
         "title": "RejectBody",
+        "type": "object"
+      },
+      "ResolveBody": {
+        "properties": {
+          "note": {
+            "description": "解决说明",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Note",
+            "type": "string"
+          }
+        },
+        "required": [
+          "note"
+        ],
+        "title": "ResolveBody",
         "type": "object"
       },
       "ReviewListResponse": {
@@ -5230,6 +5387,313 @@
         "tags": [
           "admin",
           "admin-dashboard"
+        ]
+      }
+    },
+    "/api/v1/admin/dead-letters": {
+      "get": {
+        "description": "查询需人工补偿的遗留任务，默认按时间倒序。",
+        "operationId": "list_dead_letters_api_v1_admin_dead_letters_get",
+        "parameters": [
+          {
+            "description": "pending / resolved",
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "pending / resolved",
+              "title": "Status"
+            }
+          },
+          {
+            "description": "例：order_refund",
+            "in": "query",
+            "name": "channel",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "例：order_refund",
+              "title": "Channel"
+            }
+          },
+          {
+            "in": "query",
+            "name": "target_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Target Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedDeadLetters"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：死信队列表",
+        "tags": [
+          "admin",
+          "admin-dead-letters"
+        ]
+      }
+    },
+    "/api/v1/admin/dead-letters/{dl_id}": {
+      "get": {
+        "description": "返回指定 dead_letter 行的全部字段（含 payload 与解决态）。",
+        "operationId": "get_dead_letter_api_v1_admin_dead_letters__dl_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dl_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Dl Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeadLetterItem"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：死信详情",
+        "tags": [
+          "admin",
+          "admin-dead-letters"
+        ]
+      }
+    },
+    "/api/v1/admin/dead-letters/{dl_id}/resolve": {
+      "post": {
+        "description": "记录解决人、说明、时间；同时写入 admin_audit_logs。",
+        "operationId": "resolve_dead_letter_api_v1_admin_dead_letters__dl_id__resolve_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "dl_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Dl Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResolveBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeadLetterItem"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：标记死信已解决",
+        "tags": [
+          "admin",
+          "admin-dead-letters"
         ]
       }
     },

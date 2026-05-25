@@ -99,9 +99,12 @@ class TestProviderDTOCoercion:
 
 
 class TestSchemaSerialization:
-    """API 出参契约：金额仍是 number (float)，不是字符串 — 前端零改动。"""
+    """API 出参契约：TD-MONEY-01（2026-05-25 完成）之后金额以字符串
+    形式输出（例 "299.00"），避免浮点精度丢失。客户端
+    （wechat / admin-h5 / iOS Decimal+DecimalString）能够同时接受 number / string。
+    """
 
-    def test_order_response_serializes_price_as_number(self):
+    def test_order_response_serializes_price_as_string(self):
         from app.schemas.order import OrderResponse
         from datetime import datetime
         from uuid import uuid4
@@ -124,7 +127,8 @@ class TestSchemaSerialization:
             updated_at=datetime.now(),
         )
         dumped = resp.model_dump(mode="json")
-        assert isinstance(dumped["price"], float), (
-            "API 出参 price 必须是 number，前端契约不能破"
+        assert isinstance(dumped["price"], str), (
+            "TD-MONEY-01: API 出参 price 应以字符串形式输出"
         )
-        assert dumped["price"] == 299.00
+        assert dumped["price"] == "299.00"
+        assert Decimal(dumped["price"]) == Decimal("299.00")
