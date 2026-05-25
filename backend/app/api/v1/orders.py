@@ -1,6 +1,7 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query, Response
+from fastapi.responses import JSONResponse
 
 from app.api.v1.openapi_meta import err
 from app.core.admin_auth import require_admin_token
@@ -11,6 +12,7 @@ from app.schemas.order import (
     OrderResponse,
     PaymentResponse,
 )
+from app.services.idempotency import IdempotencyService
 from app.services.order import OrderService
 
 router = APIRouter(prefix="/orders", tags=["orders"])
@@ -32,9 +34,44 @@ async def create_order(
     body: CreateOrderRequest,
     current_user: CurrentUser,
     session: DBSession,
+    response: Response,
+    idempotency_key: str | None = Header(
+        default=None,
+        alias="Idempotency-Key",
+        description=(
+            "D-058: 客户端可选幂等键。同一用户携带同一 Idempotency-Key 的重复请求"
+            "将直接回放首次响应，不会再次创建订单。键缺失时走原有流程。"
+        ),
+        max_length=128,
+    ),
 ):
+    # --- D-058 idempotency: replay if we've seen this key before ---
+    idem_endpoint = "POST /api/v1/orders"
+    idem_svc: IdempotencyService | None = None
+    if idempotency_key:
+        idem_svc = IdempotencyService(session)
+        cached = await idem_svc.lookup(
+            user_id=current_user.id,
+            endpoint=idem_endpoint,
+            key=idempotency_key,
+        )
+        if cached is not None:
+            status_code, body_dict = cached
+            return JSONResponse(content=body_dict, status_code=status_code)
+
     service = OrderService(session)
-    return await service.create_order(current_user, body)
+    order = await service.create_order(current_user, body)
+
+    if idem_svc is not None:
+        body_dict = OrderResponse.model_validate(order).model_dump(mode="json")
+        await idem_svc.store(
+            user_id=current_user.id,
+            endpoint=idem_endpoint,
+            key=idempotency_key,
+            status=201,
+            body=body_dict,
+        )
+    return order
 
 
 @router.get(

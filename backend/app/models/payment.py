@@ -43,6 +43,12 @@ class Payment(Base):
     callback_raw: Mapped[str | None] = mapped_column(
         Text, nullable=True
     )  # Raw callback body for audit
+    # D-058 F2: JSON-encoded sign_params cache so retries of pay_order on a
+    # ``pending`` payment can return the **same** signing payload without
+    # re-hitting the PSP. Populated on first successful create_prepay.
+    sign_params_cache: Mapped[str | None] = mapped_column(
+        Text, nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

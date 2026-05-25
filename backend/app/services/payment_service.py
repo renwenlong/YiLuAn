@@ -19,6 +19,7 @@ during the P0-1 refactor, those names are re-exported below.
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from dataclasses import dataclass
@@ -123,6 +124,32 @@ class PaymentService:
         if existing and existing.status == "success":
             raise BadRequestException("订单已支付，请勿重复操作")
 
+        # D-058 F2: same-order retry while a prepay is still ``pending`` and
+        # we already have a cached sign payload -> return it verbatim,
+        # **without** re-hitting the PSP. Avoids wasted RPCs and keeps the
+        # client's signing payload stable across retries.
+        if (
+            existing
+            and existing.status == "pending"
+            and existing.sign_params_cache
+        ):
+            is_mock_replay = isinstance(self.provider, MockPaymentProvider)
+            try:
+                cached_params = json.loads(existing.sign_params_cache)
+            except json.JSONDecodeError:
+                logger.warning(
+                    "sign_params_cache corrupt for payment=%s — falling back to provider",
+                    existing.id,
+                )
+            else:
+                return PrepayResult(
+                    payment_id=existing.id,
+                    provider="mock" if is_mock_replay else "wechat",
+                    prepay_id=existing.prepay_id,
+                    sign_params=cached_params,
+                    mock_success=False,
+                )
+
         result = await self.provider.create_prepay(
             order_number=order_number,
             amount_yuan=amount_dec,
@@ -147,11 +174,17 @@ class PaymentService:
         if existing and existing.status == "pending":
             existing.trade_no = trade_no
             existing.prepay_id = prepay_id
+            existing.sign_params_cache = json.dumps(
+                result.get("sign_params") or {}, default=str
+            )
             if is_mock:
                 existing.status = "success"
             await self.session.flush()
             payment = existing
         else:
+            payment.sign_params_cache = json.dumps(
+                result.get("sign_params") or {}, default=str
+            )
             payment = await self.repo.create(payment)
 
         # H2-be: surface fund-side state on the order so the UI can show
