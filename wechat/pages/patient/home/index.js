@@ -4,6 +4,7 @@ const { getHospitals, getHospitalFilters, getNearestRegion } = require('../../..
 const { SERVICE_TYPES } = require('../../../utils/constants')
 const store = require('../../../store/index')
 const router = require('../../../utils/router')
+const logger = require('../../../utils/logger')
 
 Page({
   data: {
@@ -350,7 +351,7 @@ Page({
         })
       })
       .catch(function (err) {
-        console.error('获取陪诊师失败', err)
+        logger.error('获取陪诊师失败', { err: err && (err.message || String(err)) })
         self.setData({ loadingCompanions: false, loadingMore: false })
       })
   },

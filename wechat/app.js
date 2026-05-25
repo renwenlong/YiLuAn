@@ -4,6 +4,7 @@ const { getMe } = require('./services/user')
 const { logout } = require('./services/auth')
 const notificationWs = require('./services/notificationWs')
 const { syncTabBarBadge } = require('./utils/badge')
+const logger = require('./utils/logger')
 
 // 把任意 reject reason 序列化成可读字符串：抓 Error 的 name+message+stack，
 // 抓 wx fail 风格的 {errMsg,errno,...}，抓所有可枚举字段。目的是让一条
@@ -43,7 +44,7 @@ function _dispatchNotification(data) {
       cb(data)
     } catch (e) {
       // 单个订阅者异常不影响其他订阅者
-      console.error('[App] notification subscriber error:', e)
+      logger.error('[App] notification subscriber error', { err: e && (e.message || String(e)) })
     }
   })
 }
@@ -76,7 +77,7 @@ App({
       notificationWs.connect({ onNotification: _dispatchNotification })
       this.globalData.notificationWsConnected = true
     } catch (e) {
-      console.error('[App] connectNotificationWs error:', e)
+      logger.error('[App] connectNotificationWs error', { err: e && (e.message || String(e)) })
     }
   },
 
@@ -126,17 +127,17 @@ App({
     if (typeof wx !== 'undefined') {
       if (typeof wx.onUnhandledRejection === 'function') {
         wx.onUnhandledRejection(function (res) {
-          console.warn('[App] Unhandled promise rejection:', _dumpReason(res && res.reason))
+          logger.warn('[App] Unhandled promise rejection', { reason: _dumpReason(res && res.reason) })
         })
       }
       if (typeof wx.onError === 'function') {
         wx.onError(function (err) {
           var s = typeof err === 'string' ? err : (err && err.stack) || String(err)
-          console.warn('[App] wx.onError:', s)
+          logger.warn('[App] wx.onError', { detail: s })
           if (/timeout/i.test(s)) {
             try {
               var cfg = require('./config/index')
-              console.warn('[App] ^^ matches /timeout/. likely wx.{login|request|connectSocket} framework timeout — check reachability of', cfg.API_BASE_URL, '/', cfg.WS_BASE_URL)
+              logger.warn('[App] timeout hint', { apiBase: cfg.API_BASE_URL, wsBase: cfg.WS_BASE_URL })
             } catch (e) {}
           }
         })
@@ -153,7 +154,7 @@ App({
       }).catch(err => {
         // 之前是裸 .catch(() => logout())，吞掉 reason → 没人知道是 401 还是 timeout。
         // 现在打印根因再下线。
-        console.warn('[App] onLaunch getMe failed → logout:', _dumpReason(err))
+        logger.warn('[App] onLaunch getMe failed -> logout', { reason: _dumpReason(err) })
         this.disconnectNotificationWs()
         logout()
       })

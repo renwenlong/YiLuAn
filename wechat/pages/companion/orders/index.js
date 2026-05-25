@@ -1,5 +1,6 @@
 const router = require('../../../utils/router')
 const { getOrders } = require('../../../services/order')
+const logger = require('../../../utils/logger')
 
 Page({
   data: {
@@ -62,7 +63,7 @@ Page({
         })
       })
       .catch(err => {
-        console.error('获取订单列表失败', err)
+        logger.error('获取订单列表失败', { err: err && (err.message || String(err)) })
         wx.showToast({ title: '加载失败', icon: 'none' })
       })
       .finally(() => {

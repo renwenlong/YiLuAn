@@ -25,6 +25,17 @@ const DEFAULT_BACKOFF_LADDER_MS = [1000, 2000, 5000, 10000, 30000]
 const DEFAULT_HEARTBEAT_MS = 30000
 const DEFAULT_NONCE_TTL_MS = 5 * 60 * 1000 // 5min, matches backend Redis TTL
 
+let _wsLogger = null
+function _wsLog(level, msg, ctx) {
+  // 懒加载：ws-base 是底层模块，避免与 logger 互相 require 死锁（实际上不会，但成本为零）
+  if (_wsLogger === null) {
+    try { _wsLogger = require('../utils/logger') } catch (_) { _wsLogger = false }
+  }
+  if (_wsLogger) _wsLogger[level](msg, ctx)
+  // eslint-disable-next-line no-console
+  else console[level === 'error' ? 'error' : 'warn'](msg, ctx)
+}
+
 function _nanoid(size) {
   // No crypto module in 小程序 runtime; Date+Math.random() is sufficient
   // for a 16-char client nonce that only needs to be unique-per-user-per-5min.
@@ -90,7 +101,7 @@ WSBase.prototype._emit = function (event, payload) {
       list[i](payload)
     } catch (e) {
       // never let a faulty handler crash the socket loop
-      console.error('[WSBase] handler error:', e)
+      _wsLog('error', '[WSBase] handler error', { event: event, err: e && (e.message || String(e)) })
     }
   }
 }
@@ -114,7 +125,7 @@ WSBase.prototype.connect = function (url) {
     url: this._url,
     success: function () {},
     fail: function (err) {
-      console.error('[WSBase] connect fail:', err)
+      _wsLog('error', '[WSBase] connect fail', { err: err && (err.errMsg || err.message || String(err)) })
     },
   })
 
@@ -130,7 +141,7 @@ WSBase.prototype.connect = function (url) {
           self._socket.send({ data: JSON.stringify(payload) })
         }
       } catch (e) {
-        console.error('[WSBase] auth payload error:', e)
+        _wsLog('error', '[WSBase] auth payload error', { err: e && (e.message || String(e)) })
       }
     }
     self._startHeartbeat()

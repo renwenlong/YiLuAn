@@ -6,6 +6,7 @@ var relationLabel = require('../../../utils/familyRelation').relationLabel
 var SERVICE_TYPES = require('../../../utils/constants').SERVICE_TYPES
 var formatCurrency = require('../../../utils/formatCurrency').formatCurrency
 var store = require('../../../store/index')
+var logger = require('../../../utils/logger')
 const router = require('../../../utils/router')
 
 Page({
@@ -110,7 +111,7 @@ Page({
         })
       })
       .catch(function (err) {
-        console.error('加载陪诊师信息失败', err)
+        logger.error('加载陪诊师信息失败', { err: err && (err.message || String(err)) })
       })
   },
 
@@ -153,7 +154,7 @@ Page({
         self.setData({ companionList: list, loadingCompanions: false })
       })
       .catch(function (err) {
-        console.error('加载陪诊师列表失败', err)
+        logger.error('加载陪诊师列表失败', { err: err && (err.message || String(err)) })
         self.setData({ loadingCompanions: false })
       })
   },

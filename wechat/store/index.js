@@ -9,7 +9,7 @@
  *   1. **完全向后兼容**：getState / setState / subscribe / reset 签名不变
  *   2. **新能力 opt-in**：subscribeSelector(selector, listener) 只在 selector
  *      返回值变化时（浅相等）才触发，避免全量回调风暴
- *   3. **TTL 监控**：subscribe 返回的 unsubscribe 顺手在 console.warn 报告
+ *   3. **TTL 监控**：subscribe 返回的 unsubscribe 顺手在 logger.warn 报告
  *      "subscribed 但没 unsubscribe" 的页面泄漏（dev only），方便排查
  *
  * @typedef {object} State
@@ -25,6 +25,16 @@ let _state = {
 }
 
 let _listeners = []
+let _logger = null
+function _log(level, msg, ctx) {
+  // 懒加载避免启动顺序问题（store 是极底层）
+  if (_logger === null) {
+    try { _logger = require('../utils/logger') } catch (_) { _logger = false }
+  }
+  if (_logger) _logger[level](msg, ctx)
+  // eslint-disable-next-line no-console
+  else console[level === 'error' ? 'error' : 'warn'](msg, ctx)
+}
 /** @type {Array<{ selector: Selector, listener: SelectorListener, last: any }>} */
 let _selectorEntries = []
 
@@ -41,8 +51,7 @@ function setState(partial) {
   for (let i = 0; i < _listeners.length; i++) {
     try { _listeners[i](_state) } catch (e) {
       // 单个 listener 出错不影响其他
-      // eslint-disable-next-line no-console
-      console.warn('[store] listener error:', e)
+      _log('warn', '[store] listener error', { err: e && (e.message || String(e)) })
     }
   }
   // selector 订阅：浅相等比对，变化才触发
@@ -50,15 +59,13 @@ function setState(partial) {
     const entry = _selectorEntries[j]
     let next
     try { next = entry.selector(_state) } catch (e) {
-      // eslint-disable-next-line no-console
-      console.warn('[store] selector error:', e)
+      _log('warn', '[store] selector error', { err: e && (e.message || String(e)) })
       continue
     }
     if (!_shallowEqual(entry.last, next)) {
       entry.last = next
       try { entry.listener(next, _state) } catch (e) {
-        // eslint-disable-next-line no-console
-        console.warn('[store] selector listener error:', e)
+        _log('warn', '[store] selector listener error', { err: e && (e.message || String(e)) })
       }
     }
   }
