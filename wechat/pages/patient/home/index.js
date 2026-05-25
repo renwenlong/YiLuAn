@@ -1,4 +1,5 @@
 const { getCompanions } = require('../../../services/companion')
+const analytics = require('../../../utils/analytics')
 const { getOrders } = require('../../../services/order')
 const { getHospitals, getHospitalFilters, getNearestRegion } = require('../../../services/hospital')
 const { SERVICE_TYPES } = require('../../../utils/constants')
@@ -30,6 +31,8 @@ Page({
 
   onLoad() {
     var self = this
+    // [funnel-1] 浏览陪诊列表 — 进入首页即认为漏斗起点
+    try { analytics.trackFunnel(analytics.FUNNEL_STEPS.COMPANION_LIST_VIEW, { source: 'home_onLoad' }) } catch (_) {}
     var types = Object.keys(SERVICE_TYPES).map(function (key) {
       return {
         key: key,

@@ -173,6 +173,7 @@
 | `POST` | `/api/v1/admin/reconciliation/diffs/{diff_id}/close-confirms` | Confirm Close |
 | `POST` | `/api/v1/admin/reconciliation/diffs/{diff_id}/close-requests` | Request Close |
 | `GET` | `/api/v1/admin/reconciliation/runs` | 后台：对账 run 列表 |
+| `GET` | `/api/v1/admin/telemetry/events` | 埋点事件列表（admin） |
 | `GET` | `/api/v1/admin/users` | 后台：用户列表 |
 | `GET` | `/api/v1/admin/users/{user_id}` | 后台：用户详情 |
 | `POST` | `/api/v1/admin/users/{user_id}/disable` | 后台：停用用户 |
@@ -264,6 +265,12 @@ K8s / ACA 探针使用：
 | `POST` | `/api/v1/admin/reconciliation/diffs/{diff_id}/close-requests` | Request Close |
 | `GET` | `/api/v1/admin/reconciliation/runs` | 后台：对账 run 列表 |
 
+### [admin-telemetry](./admin-telemetry.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/admin/telemetry/events` | 埋点事件列表（admin） |
+
 ### [admin-users](./admin-users.md)
 
 | 方法 | 路径 | 说明 |
@@ -299,6 +306,12 @@ K8s / ACA 探针使用：
 | `GET` | `/api/v1/orders/me/followup-reminders` | 我的全部复诊提醒 (F-07) |
 | `DELETE` | `/api/v1/orders/me/followup-reminders/{reminder_id}` | 取消一条 pending 复诊提醒 (F-07) |
 | `POST` | `/api/v1/orders/{order_id}/followup-reminders` | 为一笔已完成订单创建复诊提醒 (F-07) |
+
+### [telemetry](./telemetry.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `POST` | `/api/v1/telemetry/events` | 上报埋点 / 异常事件 |
 
 ### [family-members](./family-members.md)
 

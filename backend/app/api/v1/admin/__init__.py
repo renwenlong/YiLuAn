@@ -24,6 +24,7 @@ from app.api.v1.admin.notes import (
 )
 from app.api.v1.admin.orders import router as orders_router
 from app.api.v1.admin.reconciliation import router as reconciliation_router
+from app.api.v1.admin.telemetry import router as telemetry_router
 from app.api.v1.admin.users import router as users_router
 from app.api.v1.admin.wallet_ledger import router as wallet_ledger_router
 
@@ -37,6 +38,7 @@ router.include_router(orders_router)
 router.include_router(admin_order_timeline_router)
 router.include_router(admin_notes_router)
 router.include_router(reconciliation_router)
+router.include_router(telemetry_router)
 router.include_router(users_router)
 router.include_router(wallet_ledger_router)
 router.include_router(dead_letters_router)

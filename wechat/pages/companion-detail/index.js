@@ -1,6 +1,7 @@
 const { getCompanionDetail, getCompanionReviews } = require('../../services/companion')
 const store = require('../../store/index')
 const router = require('../../utils/router')
+const analytics = require('../../utils/analytics')
 
 Page({
   data: {
@@ -11,6 +12,8 @@ Page({
 
   onLoad(options) {
     this.companionId = options.id
+    // [funnel-2] 进入陪诊详情
+    try { analytics.trackFunnel(analytics.FUNNEL_STEPS.COMPANION_DETAIL_VIEW, { companion_id: String(options.id || '') }) } catch (_) {}
     this.loadData()
   },
 
