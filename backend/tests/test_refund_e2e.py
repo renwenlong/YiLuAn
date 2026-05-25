@@ -125,7 +125,7 @@ class TestRefundToWalletE2E:
         assert resp.json()["status"] == "cancelled_by_patient"
 
         # 6. Check wallet: refund should be 50% of 299 = 149.50
-        expected_refund = round(299.0 * 0.5, 2)
+        expected_refund = "149.50"  # TD-MONEY-01: 金额出参统一为两位小数字符串
         resp = await client.get("/api/v1/wallet/transactions")
         assert resp.status_code == 200
         items = resp.json()["items"]
