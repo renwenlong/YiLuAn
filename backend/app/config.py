@@ -173,6 +173,14 @@ class Settings(BaseSettings):
                 "生产环境禁止使用默认 PII_HASH_SALT，请设置高熵随机串"
             )
 
+        # W1-S1: 运维管理后台 / 定时任务回调使用的 admin token 不得为开发默认值或空串。
+        # `require_admin_token` 拿这个值做常量时间比对；若不强制 override，
+        # 任何知道默认值的人都能触发 /orders/check-expired 等运维端点。
+        if self.admin_api_token in ("dev-admin-token", "", None):
+            raise ValueError(
+                "生产环境禁止使用默认 ADMIN_API_TOKEN，请设置高熵随机串"
+            )
+
         # SMS 凭证完整性检查
         # 先拒绝 mock provider：生产环境上 mock = 什么也不发但谎报成功，用户收不到
         # 验证码还以为是运营问题。上古遗留 app/services/sms.py 的 silent

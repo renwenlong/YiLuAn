@@ -27,6 +27,8 @@ def _prod(**overrides) -> dict:
         sms_access_secret="SK",
         sms_sign_name="YL",
         sms_template_code="SMS_1",
+        # W1-S1: prod now rejects default admin_api_token; supply a placeholder.
+        admin_api_token="prod-admin-token-not-the-default",
     )
     base.update(overrides)
     return base
@@ -66,3 +68,35 @@ def test_non_production_allows_wildcard():
     """Local / staging are unrestricted (developer ergonomics)."""
     s = Settings(environment="development", cors_origins=["*"])
     assert s.cors_origins == ["*"]
+
+
+# --- Admin token guard (W1-S1) ------------------------------------------------
+
+
+def test_production_rejects_default_admin_token():
+    with pytest.raises(ValueError, match="ADMIN_API_TOKEN"):
+        Settings(**_prod(
+            cors_origins=["https://admin.example.com"],
+            admin_api_token="dev-admin-token",
+        ))
+
+
+def test_production_rejects_empty_admin_token():
+    with pytest.raises(ValueError, match="ADMIN_API_TOKEN"):
+        Settings(**_prod(
+            cors_origins=["https://admin.example.com"],
+            admin_api_token="",
+        ))
+
+
+def test_production_accepts_custom_admin_token():
+    s = Settings(**_prod(
+        cors_origins=["https://admin.example.com"],
+        admin_api_token="a-real-high-entropy-admin-token-xyz",
+    ))
+    assert s.admin_api_token == "a-real-high-entropy-admin-token-xyz"
+
+
+def test_non_production_keeps_default_admin_token():
+    s = Settings(environment="development")
+    assert s.admin_api_token == "dev-admin-token"

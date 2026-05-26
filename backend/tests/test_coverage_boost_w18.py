@@ -657,6 +657,8 @@ class TestConfigProductionValidator:
             # CORS guard added later — supply explicit origins so this
             # base config can isolate the field actually under test.
             cors_origins=["https://admin.example.com"],
+            # W1-S1: prod rejects default admin_api_token.
+            admin_api_token="prod-admin-token-not-the-default",
         )
         base.update(overrides)
         return Settings(**base)
