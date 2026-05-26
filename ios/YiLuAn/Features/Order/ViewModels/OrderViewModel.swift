@@ -56,7 +56,7 @@ class OrderViewModel: ObservableObject {
         errorMessage = error.localizedDescription
     }
 
-    func loadOrders(status: String? = nil, page: Int = 1) async {
+    func loadOrders(status: String? = nil, sort: String? = nil, page: Int = 1) async {
         isLoading = true
         errorMessage = nil
         defer { isLoading = false }
@@ -65,6 +65,9 @@ class OrderViewModel: ObservableObject {
             var queryItems = [URLQueryItem(name: "page", value: "\(page)")]
             if let status {
                 queryItems.append(URLQueryItem(name: "status", value: status))
+            }
+            if let sort {
+                queryItems.append(URLQueryItem(name: "sort", value: sort))
             }
             let response: OrderListResponse = try await APIClient.shared.request(
                 .orders, queryItems: queryItems
