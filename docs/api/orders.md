@@ -96,6 +96,7 @@ curl -X GET 'https://api.yiluan.example.com/api/v1/orders' \
 | `400` | 请求参数错误 |
 | `401` | 未鉴权或令牌无效 |
 | `422` | 校验失败（FastAPI 标准） |
+| `429` | 触发限流 |
 | `500` | 服务器内部错误 |
 
 **curl 示例：**
@@ -180,6 +181,7 @@ curl -X GET 'https://api.yiluan.example.com/api/v1/orders/{order_id}' \
 | `403` | 无权限 |
 | `404` | 资源不存在 |
 | `422` | Validation Error |
+| `429` | 触发限流 |
 | `500` | 服务器内部错误 |
 
 **curl 示例：**
@@ -209,6 +211,7 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/orders/{order_id}/accept' \
 | `403` | 无权限 |
 | `404` | 资源不存在 |
 | `422` | Validation Error |
+| `429` | 触发限流 |
 | `500` | 服务器内部错误 |
 
 **curl 示例：**
@@ -296,6 +299,7 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/orders/{order_id}/confirm-st
 | `403` | 无权限 |
 | `404` | 资源不存在 |
 | `422` | Validation Error |
+| `429` | 触发限流 |
 | `500` | 服务器内部错误 |
 
 **curl 示例：**
@@ -325,6 +329,7 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/orders/{order_id}/pay' \
 | `403` | 无权限 |
 | `404` | 资源不存在 |
 | `422` | Validation Error |
+| `429` | 触发限流 |
 | `500` | 服务器内部错误 |
 
 **curl 示例：**

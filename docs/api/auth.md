@@ -133,6 +133,7 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/auth/logout-all' \
 | `200` | Successful Response |
 | `401` | 未鉴权或令牌无效 |
 | `422` | 校验失败（FastAPI 标准） |
+| `429` | 触发限流 |
 | `500` | 服务器内部错误 |
 
 **curl 示例：**
@@ -200,6 +201,7 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/auth/send-otp' \
 | `200` | Successful Response |
 | `400` | 请求参数错误 |
 | `422` | 校验失败（FastAPI 标准） |
+| `429` | 触发限流 |
 | `500` | 服务器内部错误 |
 
 **curl 示例：**
@@ -228,6 +230,7 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/auth/verify-otp' \
 | `200` | Successful Response |
 | `400` | 请求参数错误 |
 | `422` | 校验失败（FastAPI 标准） |
+| `429` | 触发限流 |
 | `500` | 服务器内部错误 |
 
 **curl 示例：**
