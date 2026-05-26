@@ -1,5 +1,9 @@
 # CLAUDE.md
 
+> ⚠️ **本文件部分内容已过期（2026-05-26 甘雨审计标注）**
+> 详见 [`docs/audits/2026-05-26-decision-numbering.md`](docs/audits/2026-05-26-decision-numbering.md) 与 `PROJECT_STATUS.md`。
+> 涉及 ADR 编号、D-编号引用、外呼可靠性状态等内容请以 `docs/adr/README.md` 与最新 ADR 文件为准。详细同步留作 follow-up。
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project
