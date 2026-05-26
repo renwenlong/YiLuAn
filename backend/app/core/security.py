@@ -13,6 +13,10 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
         expires_delta or timedelta(minutes=settings.jwt_access_token_expire_minutes)
     )
     to_encode.update({"exp": expire, "type": "access"})
+    # ``v`` (token_version) is the per-user revocation cursor; callers MUST
+    # pass it via ``data``. We don't default it here so a forgotten caller
+    # blows up loudly in tests instead of silently minting un-revocable
+    # tokens.
     return jwt.encode(to_encode, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 

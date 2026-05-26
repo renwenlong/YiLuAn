@@ -107,10 +107,11 @@ async def delete_account(
 ):
     service = UserService(session)
     await service.delete_account(current_user)
-    # Kill every active refresh token so a leaked/cached one cannot resurrect
-    # the account post-deletion. Access tokens will expire on their own.
+    # Kill every active access *and* refresh token so a leaked/cached one
+    # cannot resurrect the account post-deletion. ``revoke_all_sessions``
+    # bumps token_version + wipes the refresh-jti whitelist.
     auth_service = AuthService(session, request.app.state.redis)
-    await auth_service.revoke_all_refresh_tokens(current_user.id)
+    await auth_service.revoke_all_sessions(current_user)
     return JSONResponse(
         status_code=200,
         content={"message": "Account deleted successfully"},
