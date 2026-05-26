@@ -1,10 +1,11 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi.responses import JSONResponse
 
 from app.api.v1.openapi_meta import err
 from app.core.admin_auth import require_admin_token
+from app.core.rate_limit import limiter
 from app.dependencies import CurrentUser, DBSession
 from app.schemas.order import (
     CreateOrderRequest,
@@ -28,9 +29,11 @@ router = APIRouter(prefix="/orders", tags=["orders"])
         "可选 `companion_id` 直接指派，否则进入大厅由陪诊师抢单。\n\n"
         "新订单状态为 `pending_payment`，**必须在 30 分钟内完成支付**，否则会被定时任务自动取消。"
     ),
-    responses={**err(400, 401, 422, 500)},
+    responses={**err(400, 401, 422, 429, 500)},
 )
+@limiter.limit("30/minute")
 async def create_order(
+    request: Request,
     body: CreateOrderRequest,
     current_user: CurrentUser,
     session: DBSession,
@@ -121,9 +124,11 @@ async def get_order(
     response_model=OrderResponse,
     summary="陪诊师接单",
     description="陪诊师接受指定订单。需订单处于 `paid` 且未被其他陪诊师接走。",
-    responses={**err(400, 401, 403, 404, 500)},
+    responses={**err(400, 401, 403, 404, 429, 500)},
 )
+@limiter.limit("30/minute")
 async def accept_order(
+    request: Request,
     order_id: UUID,
     current_user: CurrentUser,
     session: DBSession,
@@ -220,9 +225,11 @@ async def reject_order(
         "取消指定订单。患者和陪诊师均可在不同状态下调用，"
         "已支付订单将按规则触发退款（详见钱包/退款规则文档）。"
     ),
-    responses={**err(400, 401, 403, 404, 500)},
+    responses={**err(400, 401, 403, 404, 429, 500)},
 )
+@limiter.limit("30/minute")
 async def cancel_order(
+    request: Request,
     order_id: UUID,
     current_user: CurrentUser,
     session: DBSession,
@@ -253,10 +260,12 @@ async def cancel_order(
                 }
             },
         },
-        **err(400, 401, 403, 404, 500),
+        **err(400, 401, 403, 404, 429, 500),
     },
 )
+@limiter.limit("30/minute")
 async def pay_order(
+    request: Request,
     order_id: UUID,
     current_user: CurrentUser,
     session: DBSession,
@@ -277,9 +286,11 @@ async def pay_order(
     response_model=PaymentResponse,
     summary="患者申请退款",
     description="对已支付订单申请退款，金额原路返回到支付账户。",
-    responses={**err(400, 401, 403, 404, 500)},
+    responses={**err(400, 401, 403, 404, 429, 500)},
 )
+@limiter.limit("30/minute")
 async def refund_order(
+    request: Request,
     order_id: UUID,
     current_user: CurrentUser,
     session: DBSession,

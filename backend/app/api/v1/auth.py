@@ -52,8 +52,9 @@ async def send_otp(body: SendOTPRequest, request: Request, session: DBSession):
         "- 若手机号未注册 → 自动注册一个新用户后返回令牌对。\n\n"
         "返回的 `access_token` 默认 1 小时过期，`refresh_token` 默认 30 天过期。"
     ),
-    responses={**err(400, 422, 500)},
+    responses={**err(400, 422, 429, 500)},
 )
+@limiter.limit("10/minute")
 async def verify_otp(body: VerifyOTPRequest, request: Request, session: DBSession):
     service = AuthService(session, request.app.state.redis)
     return await service.verify_otp(body.phone, body.code)
@@ -67,8 +68,9 @@ async def verify_otp(body: VerifyOTPRequest, request: Request, session: DBSessio
         "使用 `refresh_token` 换取新的 `access_token` 和 `refresh_token`。"
         "旧的 refresh_token 会被撤销（一次性使用）。"
     ),
-    responses={**err(401, 422, 500)},
+    responses={**err(401, 422, 429, 500)},
 )
+@limiter.limit("10/minute")
 async def refresh_token(body: RefreshTokenRequest, request: Request, session: DBSession):
     service = AuthService(session, request.app.state.redis)
     return await service.refresh_token(body.refresh_token)
@@ -83,8 +85,9 @@ async def refresh_token(body: RefreshTokenRequest, request: Request, session: DB
         "后端会调用微信 `code2session` 接口获取 `openid` 并完成账号映射。"
         "首次登录会创建一个无手机号的账号，后续可通过 `/auth/bind-phone` 绑定手机号。"
     ),
-    responses={**err(400, 422, 500)},
+    responses={**err(400, 422, 429, 500)},
 )
+@limiter.limit("10/minute")
 async def wechat_login(body: WeChatLoginRequest, request: Request, session: DBSession):
     service = AuthService(session, request.app.state.redis)
     return await service.wechat_login(body.code)

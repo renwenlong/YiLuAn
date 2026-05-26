@@ -6,6 +6,7 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.security import create_access_token
+from app.core.rate_limit import limiter as _rate_limiter
 from app.database import Base, get_db
 from app.main import app
 from app.models.chat_message import ChatMessage, MessageType
@@ -240,6 +241,24 @@ async def setup_database():
 @pytest.fixture
 def fake_redis():
     return FakeRedis()
+
+
+@pytest.fixture(autouse=True)
+def _disable_rate_limiter():
+    """W1-S3: route-level @limiter.limit decorators are now in production code
+    paths (orders writes, auth refresh/login). The slowapi Limiter is stateful
+    and shared across requests; in the test suite all calls come from the same
+    ASGI client IP, which would trip 30/min within a few hundred-call tests.
+
+    We disable the limiter globally for the suite and re-enable it explicitly
+    in tests that assert rate-limit behaviour.
+    """
+    prev = _rate_limiter.enabled
+    _rate_limiter.enabled = False
+    try:
+        yield
+    finally:
+        _rate_limiter.enabled = prev
 
 
 @pytest.fixture
