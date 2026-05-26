@@ -4,6 +4,9 @@ struct CompanionDetailView: View {
     let companionId: String
     @StateObject private var viewModel = CompanionProfileViewModel()
 
+    /// P1-1：点击认证徽章后弹出证件预览 sheet
+    @State private var showCertificationPreview = false
+
     var body: some View {
         ScrollView {
             if viewModel.isLoading {
@@ -59,6 +62,30 @@ struct CompanionDetailView: View {
                                 .padding(.vertical, 3)
                                 .background(.white.opacity(0.2))
                                 .clipShape(Capsule())
+
+                                // P1-1: 认证证件 chip（仅在后端返回 certification_type + certification_image_url 时显示）
+                                if companion.hasCertification,
+                                   let certType = companion.certificationType {
+                                    Button {
+                                        showCertificationPreview = true
+                                    } label: {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "checkmark.seal.fill")
+                                                .font(.system(size: 12))
+                                            Text(certType)
+                                                .font(.dsSmall)
+                                                .fontWeight(.medium)
+                                            Image(systemName: "chevron.right")
+                                                .font(.system(size: 10))
+                                        }
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 10)
+                                        .padding(.vertical, 3)
+                                        .background(.white.opacity(0.28))
+                                        .clipShape(Capsule())
+                                    }
+                                    .accessibilityLabel("查看认证证件")
+                                }
                             }
 
                             // Rating
@@ -124,6 +151,15 @@ struct CompanionDetailView: View {
                             .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
                             .padding(.horizontal, Spacing.lg)
                         }
+
+                        // Reviews (P0-2)
+                        CompanionReviewSection(companionId: companion.id)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(Spacing.lg)
+                            .background(Color.bgCard)
+                            .cornerRadius(CornerRadius.lg)
+                            .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+                            .padding(.horizontal, Spacing.lg)
                     }
                     .padding(.bottom, 100)
                 }
@@ -167,6 +203,15 @@ struct CompanionDetailView: View {
         .ignoresSafeArea(edges: .top)
         .task {
             await viewModel.loadDetail(id: companionId)
+        }
+        .sheet(isPresented: $showCertificationPreview) {
+            if let companion = viewModel.selectedCompanion {
+                CertificationPreviewSheet(
+                    certificationType: companion.certificationType,
+                    certificationNo: companion.certificationNo,
+                    certificationImageUrl: companion.certificationImageUrl
+                )
+            }
         }
     }
 
@@ -243,6 +288,80 @@ struct CompanionDetailView: View {
         case "pending": return .warning
         case "rejected": return .danger
         default: return .textSecondary
+        }
+    }
+}
+
+// MARK: - Certification Preview (P1-1)
+
+/// 认证证件预览面板。与小程序 `onPreviewCertification` 行为对齐：
+/// 点击头部认证 chip 后弹出 sheet 展示证件大图。
+struct CertificationPreviewSheet: View {
+    let certificationType: String?
+    let certificationNo: String?
+    let certificationImageUrl: String?
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: Spacing.md) {
+                    if let type = certificationType, !type.isEmpty {
+                        HStack(spacing: 6) {
+                            Image(systemName: "checkmark.seal.fill")
+                                .foregroundStyle(Color.brand)
+                            Text(type)
+                                .font(.dsTitle)
+                                .foregroundStyle(Color.textPrimary)
+                        }
+                    }
+
+                    if let no = certificationNo, !no.isEmpty {
+                        Text("证件编号：\(no)")
+                            .font(.dsSubheadline)
+                            .foregroundStyle(Color.textSecondary)
+                    }
+
+                    if let urlString = certificationImageUrl,
+                       let url = URL(string: urlString) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .empty:
+                                ProgressView()
+                                    .frame(maxWidth: .infinity, minHeight: 200)
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .scaledToFit()
+                                    .cornerRadius(CornerRadius.md)
+                            case .failure:
+                                VStack(spacing: Spacing.sm) {
+                                    Image(systemName: "exclamationmark.triangle")
+                                        .font(.system(size: 32))
+                                        .foregroundStyle(Color.textHint)
+                                    Text("证件图加载失败")
+                                        .font(.dsBody)
+                                        .foregroundStyle(Color.textSecondary)
+                                }
+                                .frame(maxWidth: .infinity, minHeight: 200)
+                            @unknown default:
+                                EmptyView()
+                            }
+                        }
+                    } else {
+                        ContentUnavailableView("暂无证件图", systemImage: "photo")
+                    }
+                }
+                .padding(Spacing.lg)
+            }
+            .navigationTitle("认证证件")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") { dismiss() }
+                }
+            }
         }
     }
 }

@@ -39,6 +39,21 @@ struct CompanionProfile: Codable, Identifiable {
     let avatarUrl: String?
     let displayName: String?
     let createdAt: Date?
+
+    // F-01 认证证件展示（后端 snake_case: certification_type / certification_no / certification_image_url / certified_at）
+    // 全部使用可选类型，后端列表接口（CompanionListResponse）不返回这些字段仍能正常 decode，保证向后兼容。
+    let certificationType: String?
+    let certificationNo: String?
+    let certificationImageUrl: String?
+    let certifiedAt: Date?
+
+    /// 与小程序 `hasCertification` 判定对齐：有认证类型且有证件图。
+    var hasCertification: Bool {
+        guard let type = certificationType, !type.isEmpty,
+              let img = certificationImageUrl, !img.isEmpty
+        else { return false }
+        return true
+    }
 }
 
 struct AvatarUploadResponse: Decodable {

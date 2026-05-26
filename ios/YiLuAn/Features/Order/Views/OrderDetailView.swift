@@ -5,6 +5,8 @@ struct OrderDetailView: View {
     let isCompanion: Bool
 
     @StateObject private var viewModel = OrderViewModel()
+    /// P1-2: 完成订单查评价状态，用于决定“去评价” / “已评价”的孕讗。
+    @StateObject private var reviewViewModel = ReviewViewModel()
     @State private var showCancelAlert = false
     @State private var showActionAlert = false
     @State private var pendingAction = ""
@@ -50,6 +52,13 @@ struct OrderDetailView: View {
         .navigationTitle("订单详情")
         .navigationBarTitleDisplayMode(.inline)
         .task { await viewModel.loadOrder(id: orderId) }
+        // P1-2: 订单进入完成/已评价状态后，拉取评价以决定展示“写评价”还是“已评价摘要”
+        .task(id: viewModel.currentOrder?.status) {
+            guard !isCompanion, let order = viewModel.currentOrder else { return }
+            if order.status == .completed || order.status == .reviewed {
+                await reviewViewModel.loadReview(orderId: orderId)
+            }
+        }
         .alert("确认取消", isPresented: $showCancelAlert) {
             Button("取消", role: .cancel) {}
             Button("确认取消", role: .destructive) {
@@ -296,6 +305,56 @@ struct OrderDetailView: View {
                 .tint(.accent)
                 .disabled(actionInProgress)
             }
+
+            // P1-2: 完成状态下的评价入口 / 已评价摘要
+            if order.status == .completed || order.status == .reviewed {
+                reviewSection(order)
+            }
+        }
+    }
+
+    /// P1-2: 根据 `reviewViewModel.review` 是否存在，返回“写评价”入口或评分摘要。
+    @ViewBuilder
+    private func reviewSection(_ order: Order) -> some View {
+        if let review = reviewViewModel.review {
+            // 已评价：展示评分摘要
+            VStack(alignment: .leading, spacing: Spacing.sm) {
+                HStack {
+                    Text("我的评价")
+                        .font(.subheadline.bold())
+                    Spacer()
+                    HStack(spacing: 2) {
+                        ForEach(1...5, id: \.self) { star in
+                            Image(systemName: star <= review.rating ? "star.fill" : "star")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                        }
+                    }
+                }
+                if let comment = review.comment, !comment.isEmpty {
+                    Text(comment)
+                        .font(.body)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(Spacing.lg)
+            .background(Color(.systemGray6))
+            .cornerRadius(CornerRadius.md)
+        } else if !reviewViewModel.isLoading {
+            // 未评价：提供写评价入口
+            NavigationLink {
+                WriteReviewView(orderId: order.id)
+            } label: {
+                HStack {
+                    Image(systemName: "square.and.pencil")
+                    Text("写评价")
+                }
+                .frame(maxWidth: .infinity, minHeight: minTapSide)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.orange)
+            .disabled(actionInProgress)
         }
     }
 
