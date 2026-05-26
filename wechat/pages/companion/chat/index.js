@@ -17,18 +17,20 @@ Page({
 
   fetchConversations() {
     this.setData({ loading: true })
-    getOrders({ status: 'accepted' })
-      .then(res => {
-        const accepted = (res.items || []).map(this._orderToConversation)
-        return getOrders({ status: 'in_progress' }).then(res2 => {
-          const inProgress = (res2.items || []).map(this._orderToConversation)
-          return getOrders({ status: 'completed' }).then(res3 => {
-            const completed = (res3.items || []).map(this._orderToConversation)
-            this.setData({
-              conversations: accepted.concat(inProgress).concat(completed),
-              loading: false,
-            })
-          })
+    // R-07: 三个独立请求并发，首屏延迟从 3x 降到 1x
+    Promise.all([
+      getOrders({ status: 'accepted' }),
+      getOrders({ status: 'in_progress' }),
+      getOrders({ status: 'completed' }),
+    ])
+      .then(results => {
+        const [acceptedRes, inProgressRes, completedRes] = results
+        const accepted = (acceptedRes.items || []).map(this._orderToConversation)
+        const inProgress = (inProgressRes.items || []).map(this._orderToConversation)
+        const completed = (completedRes.items || []).map(this._orderToConversation)
+        this.setData({
+          conversations: accepted.concat(inProgress).concat(completed),
+          loading: false,
         })
       })
       .catch(() => {
