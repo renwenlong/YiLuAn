@@ -496,3 +496,250 @@ class TestProviderIsPartOfIdempotencyKey:
 
         assert ok1 is True
         assert ok2 is False
+
+
+# ---------------------------------------------------------------------------
+# T3 (W1 P0). Callbacks after the user has been soft-deleted (GDPR purge / 注销)
+# ---------------------------------------------------------------------------
+#
+# Regression for W1 P0:  the legal/account-deletion flow soft-deletes a User
+# (sets ``deleted_at``).  WeChat callbacks for that user's orders, however,
+# may still arrive **days later** (refund queues lag, settlement retries,
+# operator-initiated replays).  The pay / refund callback path must:
+#
+#   * NOT crash with ``AttributeError`` / ``NoResultFound`` because the User
+#     row is logically gone.
+#   * Still mutate the Payment row's terminal state honestly so finance can
+#     reconcile.
+#   * Be safely idempotent when the **same** callback is replayed.
+#
+# Implementation note:  ``PaymentService.handle_pay_callback`` /
+# ``handle_refund_callback`` operate purely on ``payments.user_id`` (UUID) and
+# never load the User ORM row, so soft-deletion should be transparent.  This
+# regression test pins that contract so a future refactor that joins User
+# into the callback path immediately turns red.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+class TestCallbackAfterUserPurge:
+    """W1 P0: pay / refund callbacks arriving after the user was soft-deleted
+    must still update the Payment row safely and idempotently.
+    """
+
+    @staticmethod
+    async def _purge_user(user_id):
+        """Soft-delete the user 7 days in the past."""
+        from datetime import datetime, timedelta, timezone as _tz
+        from app.models.user import User as _User
+        async with test_session_factory() as s:
+            row = (
+                await s.execute(select(_User).where(_User.id == user_id))
+            ).scalar_one()
+            row.deleted_at = datetime.now(_tz.utc) - timedelta(days=7)
+            row.is_active = False
+            await s.commit()
+
+    async def test_pay_callback_after_user_purged_updates_payment(
+        self,
+        authenticated_client: AsyncClient,
+        seed_hospital,
+        seed_order,
+    ):
+        """Case 1: order paid -> user soft-deleted -> 7d later pay SUCCESS
+        callback arrives. Payment row must move to 'success' without
+        raising; no User row is required by the callback path.
+        """
+        user = authenticated_client._test_user
+        hospital = await seed_hospital()
+        order = await seed_order(user.id, hospital.id)
+
+        await authenticated_client.post(f"/api/v1/orders/{order.id}/pay")
+
+        # Force the pay row back to ``pending`` so the late callback has
+        # something to mutate (mock provider would otherwise mark it
+        # ``success`` synchronously).
+        async with test_session_factory() as s:
+            row = (
+                await s.execute(
+                    select(Payment).where(
+                        Payment.order_id == order.id,
+                        Payment.payment_type == "pay",
+                    )
+                )
+            ).scalar_one()
+            row.status = "pending"
+            trade_no = row.trade_no
+            await s.commit()
+
+        # User is purged (account 注销) before the callback arrives.
+        await self._purge_user(user.id)
+
+        body = _callback_body(trade_no, trade_no, "SUCCESS")
+        # Must not raise.  The endpoint always 200s towards the PSP.
+        resp = await authenticated_client.post(
+            "/api/v1/payments/wechat/callback",
+            content=body,
+            headers={"content-type": "application/json"},
+        )
+        assert resp.status_code == 200
+        assert resp.json().get("code") == "SUCCESS"
+
+        async with test_session_factory() as s:
+            row_after = (
+                await s.execute(
+                    select(Payment).where(
+                        Payment.order_id == order.id,
+                        Payment.payment_type == "pay",
+                    )
+                )
+            ).scalar_one()
+        assert row_after.status == "success", (
+            "Pay callback arriving after the user was soft-deleted must "
+            "still flip the payment row to 'success' (no User join in the "
+            "callback path)."
+        )
+
+    async def test_refund_callback_after_user_purged_updates_payment(
+        self,
+        authenticated_client: AsyncClient,
+        seed_hospital,
+        seed_order,
+    ):
+        """Case 2: order paid + cancelled + refund issued -> user
+        soft-deleted -> 7d later refund SUCCESS callback arrives.
+        Refund row must reach 'success' (idempotent against missing user).
+        """
+        user = authenticated_client._test_user
+        hospital = await seed_hospital()
+        order = await seed_order(user.id, hospital.id)
+
+        # Pay -> cancel (cancel auto-creates the refund record;
+        # see test_orders.py::test_refund_cancelled_order). Then we just
+        # need to flip the refund row back to ``pending`` so the late
+        # callback has a transition to make.
+        pay_resp = await authenticated_client.post(
+            f"/api/v1/orders/{order.id}/pay"
+        )
+        assert pay_resp.status_code == 200
+        cancel_resp = await authenticated_client.post(
+            f"/api/v1/orders/{order.id}/cancel"
+        )
+        assert cancel_resp.status_code == 200
+
+        async with test_session_factory() as s:
+            refund_row = (
+                await s.execute(
+                    select(Payment).where(
+                        Payment.order_id == order.id,
+                        Payment.payment_type == "refund",
+                    )
+                )
+            ).scalar_one()
+            # Force back to pending to exercise the callback's mutation.
+            refund_row.status = "pending"
+            refund_id = refund_row.refund_id
+            await s.commit()
+        assert refund_id, "refund_id must be set after create_refund"
+
+        # User is purged before the refund callback arrives.
+        await self._purge_user(user.id)
+
+        body = (
+            f'{{"refund_id":"{refund_id}","out_refund_no":"{refund_id}",'
+            f'"refund_status":"SUCCESS","transaction_id":"TXN_REFUND_{refund_id}"}}'
+        ).encode()
+        resp = await authenticated_client.post(
+            "/api/v1/payments/wechat/refund-callback",
+            content=body,
+            headers={"content-type": "application/json"},
+        )
+        # Endpoint must answer the PSP with 200 even if the row is gone.
+        assert resp.status_code == 200
+
+        async with test_session_factory() as s:
+            row_after = (
+                await s.execute(
+                    select(Payment).where(
+                        Payment.order_id == order.id,
+                        Payment.payment_type == "refund",
+                    )
+                )
+            ).scalar_one()
+        assert row_after.status == "success", (
+            "Refund callback arriving after the user was soft-deleted "
+            "must still flip the refund row to 'success'."
+        )
+
+    async def test_duplicate_callback_after_user_purged_is_idempotent(
+        self,
+        authenticated_client: AsyncClient,
+        seed_hospital,
+        seed_order,
+    ):
+        """Case 3: same pay-SUCCESS callback is delivered twice after the
+        user was purged. Second delivery must be a safe no-op:
+          * 200 to the PSP
+          * exactly ONE PaymentCallbackLog row (the unique key holds)
+          * Payment row stays 'success' (no double-ledger).
+        """
+        user = authenticated_client._test_user
+        hospital = await seed_hospital()
+        order = await seed_order(user.id, hospital.id)
+
+        await authenticated_client.post(f"/api/v1/orders/{order.id}/pay")
+
+        async with test_session_factory() as s:
+            row = (
+                await s.execute(
+                    select(Payment).where(
+                        Payment.order_id == order.id,
+                        Payment.payment_type == "pay",
+                    )
+                )
+            ).scalar_one()
+            row.status = "pending"
+            trade_no = row.trade_no
+            await s.commit()
+
+        await self._purge_user(user.id)
+
+        txn = trade_no  # routing key for handle_pay_callback
+        body = _callback_body(trade_no, txn, "SUCCESS")
+        resp1 = await authenticated_client.post(
+            "/api/v1/payments/wechat/callback",
+            content=body,
+            headers={"content-type": "application/json"},
+        )
+        resp2 = await authenticated_client.post(
+            "/api/v1/payments/wechat/callback",
+            content=body,
+            headers={"content-type": "application/json"},
+        )
+        assert resp1.status_code == 200
+        assert resp2.status_code == 200
+
+        async with test_session_factory() as s:
+            logs = (
+                await s.execute(
+                    select(PaymentCallbackLog).where(
+                        PaymentCallbackLog.transaction_id == txn
+                    )
+                )
+            ).scalars().all()
+            row_after = (
+                await s.execute(
+                    select(Payment).where(
+                        Payment.order_id == order.id,
+                        Payment.payment_type == "pay",
+                    )
+                )
+            ).scalar_one()
+
+        assert len(logs) == 1, (
+            f"Duplicate callback after user purge must dedupe via the "
+            f"(provider, transaction_id) unique key — got {len(logs)} rows."
+        )
+        assert row_after.status == "success", (
+            "Replayed callback must not flip the terminal success state."
+        )
