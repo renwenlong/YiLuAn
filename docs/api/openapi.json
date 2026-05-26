@@ -8079,6 +8079,55 @@
         ]
       }
     },
+    "/api/v1/auth/logout-all": {
+      "post": {
+        "description": "主动吊销当前用户**所有**已签发的 access / refresh token。\n\n内部实现：自增 `users.token_version` + 清空 Redis refresh-jti 白名单。调用后所有旧 access token 立即失效，所有旧 refresh token 无法再 rotate。客户端会在下次请求时收到 401，需重新登录。",
+        "operationId": "logout_all_api_v1_auth_logout_all_post",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "message": "All sessions revoked",
+                  "revoked_refresh_count": 3
+                },
+                "schema": {}
+              }
+            },
+            "description": "已退出所有设备"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "退出所有设备",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
     "/api/v1/auth/refresh": {
       "post": {
         "description": "使用 `refresh_token` 换取新的 `access_token` 和 `refresh_token`。旧的 refresh_token 会被撤销（一次性使用）。",

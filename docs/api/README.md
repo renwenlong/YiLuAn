@@ -19,6 +19,7 @@
 | --- | --- | --- |
 | `POST` | `/api/v1/auth/apple/login` | Apple Sign-In 登录 |
 | `POST` | `/api/v1/auth/bind-phone` | 为当前账号绑定手机号 |
+| `POST` | `/api/v1/auth/logout-all` | 退出所有设备 |
 | `POST` | `/api/v1/auth/refresh` | 刷新访问令牌 |
 | `POST` | `/api/v1/auth/send-otp` | 发送短信验证码 |
 | `POST` | `/api/v1/auth/verify-otp` | 校验短信验证码并登录 |

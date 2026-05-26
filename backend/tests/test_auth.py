@@ -406,3 +406,146 @@ class TestOTPBruteForceProtection:
         # Counter should be cleared
         count = await fake_redis.get(self.FAIL_KEY)
         assert count is None
+
+
+# ===========================================================================
+# token_version revocation (logout-all / disable / delete)
+# ===========================================================================
+class TestTokenVersionRevocation:
+    """PR-2: ``users.token_version`` lets us invalidate every outstanding
+    access *and* refresh token in one DB write (previously only refresh
+    tokens were server-side revocable; access tokens lingered until exp)."""
+
+    async def _mint_access_with_v(self, user, v: int) -> str:
+        return create_access_token(
+            {"sub": str(user.id), "role": None, "v": v}
+        )
+
+    async def test_token_with_matching_v_accepted(self, client, seed_user):
+        user = await seed_user(phone="13810138001")
+        token = await self._mint_access_with_v(user, user.token_version)
+        resp = await client.get(
+            "/api/v1/users/me", headers={"Authorization": f"Bearer {token}"}
+        )
+        assert resp.status_code == 200
+
+    async def test_token_with_stale_v_rejected(self, client, seed_user):
+        """Token minted before token_version was bumped must be rejected."""
+        user = await seed_user(phone="13810138002")
+        stale = await self._mint_access_with_v(user, user.token_version)
+        # Simulate logout-all from another session: bump in DB.
+        from tests.conftest import test_session_factory
+        from app.repositories.user import UserRepository
+
+        async with test_session_factory() as db:
+            repo = UserRepository(db)
+            fresh = await repo.get_by_id(user.id)
+            fresh.token_version += 1
+            await db.commit()
+
+        resp = await client.get(
+            "/api/v1/users/me", headers={"Authorization": f"Bearer {stale}"}
+        )
+        assert resp.status_code == 401
+        assert "revoked" in resp.json()["detail"].lower()
+
+    async def test_legacy_token_without_v_still_accepted(self, client, seed_user):
+        """Tokens minted before this feature shipped (no ``v`` claim) must
+        keep working until they expire \u2014 the is_active / is_deleted
+        checks already covered the dangerous cases (disable, delete)."""
+        user = await seed_user(phone="13810138003")
+        legacy = create_access_token({"sub": str(user.id), "role": None})
+        # Sanity: payload truly has no ``v``.
+        assert "v" not in decode_token(legacy)
+        resp = await client.get(
+            "/api/v1/users/me", headers={"Authorization": f"Bearer {legacy}"}
+        )
+        assert resp.status_code == 200
+
+
+class TestLogoutAll:
+    async def test_logout_all_revokes_current_access_token(
+        self, client, fake_redis, seed_user
+    ):
+        """End-to-end: login \u2192 hit /me \u2192 logout-all \u2192 same token now 401."""
+        user = await seed_user(phone="13820138001")
+        await fake_redis.set("otp:13820138001", "123456", ex=300)
+        login = await client.post(
+            "/api/v1/auth/verify-otp",
+            json={"phone": "13820138001", "code": "123456"},
+        )
+        assert login.status_code == 200
+        access = login.json()["access_token"]
+        headers = {"Authorization": f"Bearer {access}"}
+        # Sanity: token works.
+        me = await client.get("/api/v1/users/me", headers=headers)
+        assert me.status_code == 200
+        # Logout-all.
+        out = await client.post("/api/v1/auth/logout-all", headers=headers)
+        assert out.status_code == 200
+        assert out.json()["message"] == "All sessions revoked"
+        # Same token now dead.
+        me2 = await client.get("/api/v1/users/me", headers=headers)
+        assert me2.status_code == 401
+
+    async def test_logout_all_kills_refresh_tokens(
+        self, client, fake_redis, seed_user
+    ):
+        """Refresh tokens issued before logout-all cannot rotate after."""
+        user = await seed_user(phone="13820138002")
+        await fake_redis.set("otp:13820138002", "123456", ex=300)
+        login = await client.post(
+            "/api/v1/auth/verify-otp",
+            json={"phone": "13820138002", "code": "123456"},
+        )
+        access = login.json()["access_token"]
+        refresh = login.json()["refresh_token"]
+        # Logout-all.
+        out = await client.post(
+            "/api/v1/auth/logout-all",
+            headers={"Authorization": f"Bearer {access}"},
+        )
+        assert out.status_code == 200
+        # Refresh issued before bump must be rejected.
+        r = await client.post(
+            "/api/v1/auth/refresh", json={"refresh_token": refresh}
+        )
+        assert r.status_code == 401
+
+    async def test_logout_all_then_relogin_works(
+        self, client, fake_redis, seed_user
+    ):
+        """After logout-all, a fresh login mints v=N+1 tokens that work."""
+        user = await seed_user(phone="13820138003")
+        await fake_redis.set("otp:13820138003", "123456", ex=300)
+        login1 = await client.post(
+            "/api/v1/auth/verify-otp",
+            json={"phone": "13820138003", "code": "123456"},
+        )
+        access1 = login1.json()["access_token"]
+        await client.post(
+            "/api/v1/auth/logout-all",
+            headers={"Authorization": f"Bearer {access1}"},
+        )
+        # Re-login.
+        await fake_redis.set("otp:13820138003", "654321", ex=300)
+        login2 = await client.post(
+            "/api/v1/auth/verify-otp",
+            json={"phone": "13820138003", "code": "654321"},
+        )
+        assert login2.status_code == 200
+        access2 = login2.json()["access_token"]
+        # New token works.
+        me = await client.get(
+            "/api/v1/users/me", headers={"Authorization": f"Bearer {access2}"}
+        )
+        assert me.status_code == 200
+        # Old token still dead.
+        me_old = await client.get(
+            "/api/v1/users/me", headers={"Authorization": f"Bearer {access1}"}
+        )
+        assert me_old.status_code == 401
+
+    async def test_logout_all_requires_auth(self, client):
+        resp = await client.post("/api/v1/auth/logout-all")
+        assert resp.status_code in (401, 403)

@@ -45,6 +45,15 @@ async def get_current_user(
         raise UnauthorizedException("Account has been deleted")
     if not user.is_active:
         raise UnauthorizedException("Account is disabled")
+    # token_version revocation cursor. Tokens minted before this column
+    # existed have no ``v`` claim (``token_v`` is None) — those predate the
+    # rollout and were already gated by ``is_active`` / ``is_deleted``
+    # checks above, so we accept them. Once a token *has* a ``v`` it must
+    # match the user's current version; any logout-all / disable / delete
+    # bumps the user counter and instantly invalidates them.
+    token_v = payload.get("v")
+    if token_v is not None and token_v != user.token_version:
+        raise UnauthorizedException("Session revoked; please log in again")
     return user
 
 

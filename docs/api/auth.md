@@ -30,6 +30,7 @@ Authorization: Bearer <access_token>
 | --- | --- | --- |
 | `POST` | `/api/v1/auth/apple/login` | Apple Sign-In 登录 |
 | `POST` | `/api/v1/auth/bind-phone` | 为当前账号绑定手机号 |
+| `POST` | `/api/v1/auth/logout-all` | 退出所有设备 |
 | `POST` | `/api/v1/auth/refresh` | 刷新访问令牌 |
 | `POST` | `/api/v1/auth/send-otp` | 发送短信验证码 |
 | `POST` | `/api/v1/auth/verify-otp` | 校验短信验证码并登录 |
@@ -87,6 +88,29 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/auth/apple/login' \
 
 ```bash
 curl -X POST 'https://api.yiluan.example.com/api/v1/auth/bind-phone' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `POST /api/v1/auth/logout-all` — 退出所有设备
+
+主动吊销当前用户**所有**已签发的 access / refresh token。
+
+内部实现：自增 `users.token_version` + 清空 Redis refresh-jti 白名单。调用后所有旧 access token 立即失效，所有旧 refresh token 无法再 rotate。客户端会在下次请求时收到 401，需重新登录。
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | 已退出所有设备 |
+| `401` | 未鉴权或令牌无效 |
+| `500` | 服务器内部错误 |
+
+**curl 示例：**
+
+```bash
+curl -X POST 'https://api.yiluan.example.com/api/v1/auth/logout-all' \
   -H 'Authorization: Bearer <access_token>'
 ```
 

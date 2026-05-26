@@ -109,3 +109,34 @@ async def bind_phone(
     service = AuthService(session, request.app.state.redis)
     user = await service.bind_phone(current_user.id, body.phone, body.code)
     return UserResponse.model_validate(user)
+
+
+@router.post(
+    "/logout-all",
+    summary="退出所有设备",
+    description=(
+        "主动吊销当前用户**所有**已签发的 access / refresh token。\n\n"
+        "内部实现：自增 `users.token_version` + 清空 Redis refresh-jti 白名单。"
+        "调用后所有旧 access token 立即失效，所有旧 refresh token 无法再 rotate。"
+        "客户端会在下次请求时收到 401，需重新登录。"
+    ),
+    responses={
+        200: {
+            "description": "已退出所有设备",
+            "content": {
+                "application/json": {
+                    "example": {"message": "All sessions revoked", "revoked_refresh_count": 3}
+                }
+            },
+        },
+        **err(401, 500),
+    },
+)
+async def logout_all(
+    request: Request,
+    session: DBSession,
+    current_user: CurrentUser,
+):
+    service = AuthService(session, request.app.state.redis)
+    n = await service.revoke_all_sessions(current_user)
+    return {"message": "All sessions revoked", "revoked_refresh_count": n}

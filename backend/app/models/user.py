@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Enum, String, Uuid
+from sqlalchemy import Boolean, DateTime, Enum, Integer, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -36,6 +36,13 @@ class User(Base):
     display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    # Monotonically increasing counter used to invalidate *all* outstanding
+    # access tokens for this user. Bumped by logout-all / password-change /
+    # admin-revoke flows. Every JWT we mint embeds the value as the ``v``
+    # claim; ``get_current_user`` rejects tokens whose ``v`` is stale.
+    token_version: Mapped[int] = mapped_column(
+        Integer, default=0, server_default="0", nullable=False
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

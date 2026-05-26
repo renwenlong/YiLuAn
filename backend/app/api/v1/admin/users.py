@@ -293,10 +293,10 @@ async def disable_user(
     )
     await session.flush()
 
-    # Revoke every active refresh token so the disabled user can't keep
-    # rotating credentials. Access tokens will expire on their own.
+    # Kill every active access *and* refresh token so the disabled user can't
+    # keep using a cached access token until expiry or rotate refresh.
     auth_service = AuthService(session, request.app.state.redis)
-    await auth_service.revoke_all_refresh_tokens(user_id)
+    await auth_service.revoke_all_sessions(user)
 
     return {"user_id": str(user_id), "is_active": False}
 

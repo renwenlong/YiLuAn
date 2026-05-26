@@ -44,12 +44,15 @@ class AuthService:
         """Mint access+refresh and register the refresh jti in Redis.
 
         Single source of truth for every login / register / wechat / apple /
-        switch-role path so we never forget to whitelist the jti.
+        switch-role path so we never forget to whitelist the jti or stamp the
+        ``v`` (token_version) claim used by ``get_current_user`` to enforce
+        server-side revocation.
         """
         token_data = {
             "sub": str(user.id),
             "role": user.role.value if user.role else None,
             "roles": user.get_roles(),
+            "v": user.token_version,
         }
         access_token = create_access_token(token_data)
         jti = uuid.uuid4().hex
@@ -199,11 +202,26 @@ class AuthService:
             "sub": str(user.id),
             "role": user.role.value if user.role else None,
             "roles": user.get_roles(),
+            "v": user.token_version,
         }
         new_access = create_access_token(token_data)
         new_refresh = create_refresh_token(token_data, jti=new_jti)
 
         return RefreshTokenResponse(access_token=new_access, refresh_token=new_refresh)
+
+    async def revoke_all_sessions(self, user: User) -> int:
+        """Kill switch: invalidate every existing access *and* refresh token.
+
+        - Bumps ``user.token_version`` so ``get_current_user`` rejects every
+          previously-minted access token on its next request.
+        - Wipes the Redis refresh-jti whitelist so no client can rotate.
+
+        Callers (logout-all, password-change, admin force-logout) should
+        flush the session afterwards so the bump is committed.
+        """
+        user.token_version = (user.token_version or 0) + 1
+        await self.session.flush()
+        return await self.refresh_store.revoke_all(str(user.id))
 
     async def revoke_all_refresh_tokens(self, user_id: UUID | str) -> int:
         """Public hook for logout / account-disable / soft-delete paths."""
