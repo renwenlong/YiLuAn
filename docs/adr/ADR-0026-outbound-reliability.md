@@ -1,7 +1,8 @@
 # ADR-0026 外呼统一可靠性装饰器（timeout / retry / circuit breaker）
 
 - 日期：2026-04-20
-- 状态：Proposed
+- 状态：Accepted
+- Accepted: 2026-05-26
 - 参与角色：Arch / Backend / QA
 
 ## 背景
@@ -133,3 +134,12 @@ async def create_prepay(self, order_id: str, amount: int) -> PrepayResult:
 - D-024 — mock / real 切换机制
 - D-025 — Readiness 四件套（发布阻塞项）
 - D-027 — callback log TTL（待评估）
+
+## Implementation Notes
+
+- **落地 commit**：`09ff957` — `feat outbound add unified reliability decorator timeout retry circuit breaker A5`
+- **实现位置**：`backend/app/utils/outbound.py`
+- **接入点**：`backend/app/services/payment/provider.py`、`backend/app/services/sms/provider.py`
+- **测试覆盖**：`backend/tests/test_outbound*.py`（包含超时、重试、熔断 open/half-open/closed、可重试 vs 不可重试错误分支等场景）
+- **指标暴露**：`outbound_call_total` / `outbound_call_duration_seconds` / `outbound_circuit_breaker_state` 已接入 Prometheus（详见 `docs/observability.md`）
+- **状态变更**：由 W1 sprint 文档审计（2026-05-26 甘雨）确认装饰器、接入、测试与指标均已落地，正式从 Proposed 转为 Accepted。

@@ -1,5 +1,9 @@
 # 医路安（YiLuAn）上线任务拆解
 
+> ⚠️ **本文件部分内容已过期（2026-05-26 甘雨审计标注）**
+> 详见 [`docs/audits/2026-05-26-decision-numbering.md`](docs/audits/2026-05-26-decision-numbering.md) 与 `PROJECT_STATUS.md`。
+> ADR / D-编号、外呼可靠性、Readiness 四件套等状态请以 `docs/adr/` 最新文件为准。详细同步留作 follow-up。
+
 **生成日期：** 2026-04-10  
 **目标：** 在 2~3 周内把当前 MVP 推进到可上线发布版本  
 **范围：** 微信小程序优先上线；iOS 进入 TestFlight / 次阶段正式发布  
