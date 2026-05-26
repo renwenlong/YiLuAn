@@ -9,9 +9,14 @@ pytestmark = pytest.mark.asyncio
 @pytest.fixture(autouse=True)
 def reset_rate_limiter():
     """Reset rate limiter state between tests."""
+    # W1-S3: conftest disables the limiter for the whole suite; this file's
+    # whole point is to assert it. Re-enable for the duration.
+    prev = limiter.enabled
+    limiter.enabled = True
     limiter.reset()
     yield
     limiter.reset()
+    limiter.enabled = prev
 
 
 class TestRateLimit:

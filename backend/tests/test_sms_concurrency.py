@@ -62,11 +62,16 @@ pytestmark = pytest.mark.asyncio
 
 @pytest.fixture(autouse=True)
 def _reset_limiters():
+    # W1-S3: conftest disables the global limiter for the suite; this file
+    # asserts SMS rate-limit behaviour and needs it on.
+    prev = ip_limiter.enabled
+    ip_limiter.enabled = True
     ip_limiter.reset()
     reset_inproc_store()
     yield
     ip_limiter.reset()
     reset_inproc_store()
+    ip_limiter.enabled = prev
 
 
 # ---------------------------------------------------------------------------
