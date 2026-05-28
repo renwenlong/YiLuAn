@@ -15,11 +15,6 @@ struct OrderListResponse: Decodable {
     let total: Int
 }
 
-struct HospitalListResponse: Decodable {
-    let items: [Hospital]
-    let total: Int
-}
-
 @MainActor
 class OrderViewModel: ObservableObject {
     @Published var orders: [Order] = []
