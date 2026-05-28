@@ -177,7 +177,7 @@ struct CreateOrderView: View {
                                         Text(hospital.name)
                                             .font(.subheadline.bold())
                                             .foregroundStyle(.primary)
-                                        Text(hospital.address)
+                                        Text(hospital.address ?? "")
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                         if let level = hospital.level, !level.isEmpty {
