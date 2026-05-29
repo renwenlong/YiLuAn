@@ -164,12 +164,14 @@ class ShareService:
         *,
         token_value: str,
         wx_openid: str | None,
-        otp: str | None,
+        verified_accessor: str | None,
     ) -> tuple[str, datetime, OrderShareToken]:
-        if not wx_openid and not otp:
+        if not wx_openid and not verified_accessor:
             # We intentionally return 401 (not 422) so we don't leak a
             # "token exists, only auth is bad" signal.
-            raise UnauthorizedException("Share session requires wx_openid or otp")
+            raise UnauthorizedException(
+                "Share session requires wx_openid or a verified OTP"
+            )
 
         row = await self.tokens.get_by_token(token_value)
         if row is None:
@@ -178,18 +180,16 @@ class ShareService:
             # Covers both ``revoked_at is not None`` and ``expires_at <= now``.
             raise UnauthorizedException("Share token expired or revoked")
 
-        # OTP path is currently the trusted-stub seam for S2-DEV-002 — the
-        # real Aliyun-SMS OTP verifier (existing `services.sms`) plugs in
-        # via S2-DEV-006 hardening. For now an OTP must be exactly 6
-        # digits to clear the door; openid path is fully trusted to the
-        # caller because the controller has already done wx.jscode2session.
+        # accessor identity:
+        #   · 微信静默路径 → openid (controller already ran jscode2session)
+        #   · iOS/H5 OTP 路径 → phone-hash accessor, 已由 OtpService.verify_otp
+        #     真验证 (S2-DEV-011); service 层不再做 6 位 stub 直通。
         accessor: str
         if wx_openid:
             accessor = wx_openid
         else:
-            if not (otp and otp.isdigit() and len(otp) == 6):
-                raise UnauthorizedException("Invalid OTP")
-            accessor = f"otp:{otp[-2:]}"  # accessor surrogate, last 2 only
+            assert verified_accessor is not None  # guarded above
+            accessor = verified_accessor
 
         # Bump access aggregates (first/last/distinct).
         await self.tokens.record_access(row, accessor_openid=accessor)

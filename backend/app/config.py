@@ -128,6 +128,11 @@ class Settings(BaseSettings):
     # S2-DEV-006: 家属分享 token 24h 滚动窗口 distinct openid 阈值，
     # 超过则 scanner 自动 revoke（防 token 泄露）。
     share_distinct_accessor_threshold: int = 5
+    # S2-DEV-011 OTP 双轴频控 (魈+刻晴双 review 红线)
+    share_otp_token_daily_cap: int = 5  # 单 token / 24h 发码次数上限
+    share_otp_phone_token_cap: int = 3  # 单手机号 / 1h 绑定不同 token 上限
+    share_otp_ttl_seconds: int = 300  # OTP 码有效期 5min
+    share_otp_code_length: int = 6
 
     # ADR-0032 / D-044 Q3: 资金对账历史豁免 cutoff。
     # 早于该时刻产生的 amount_mismatch diff 视为已豁免，guard 不阻断订单

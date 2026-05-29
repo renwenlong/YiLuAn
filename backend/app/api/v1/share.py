@@ -16,10 +16,19 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from redis.asyncio import Redis
 
 from app.api.v1.openapi_meta import err
+from app.config import settings
+from app.core.redis import get_redis
 from app.dependencies import CurrentUser, DBSession
-from app.exceptions import ForbiddenException, NotFoundException
+from app.exceptions import (
+    BadRequestException,
+    ForbiddenException,
+    NotFoundException,
+    TooManyRequestsException,
+    UnauthorizedException,
+)
 from app.models.order_share_token import ACTIVE_TOKEN_CAP_PER_ORDER, ShareScope
 from app.repositories.order import OrderRepository
 from app.schemas.share import (
@@ -28,6 +37,8 @@ from app.schemas.share import (
     ExchangeSessionRequest,
     ExchangeSessionResponse,
     ListSharesResponse,
+    SendOtpRequest,
+    SendOtpResponse,
     ShareOrderResponse,
     ShareTokenResponse,
 )
@@ -36,6 +47,13 @@ from app.services.share import (
     build_share_url,
     decode_share_session,
 )
+from app.services.share_otp import (
+    OtpInvalidError,
+    OtpRateLimitedError,
+    OtpSendError,
+    OtpService,
+)
+from app.services.providers.sms.base import mask_phone_sms
 
 
 # Two routers so URL prefixes stay close to the spec. They are both
@@ -177,12 +195,43 @@ async def revoke_share(
 
 
 @_shares_router.post(
+    "/{token}/otp",
+    response_model=SendOtpResponse,
+    summary="家属端（iOS/H5）请求下发短信验证码",
+    description=(
+        "iOS App / 外部浏览器无微信静默授权时的降级路径（ADR-0036 §2.2）。"
+        "双轴频控：单 token 24h ≤ 5 次、单手机号 1h ≤ 3 个不同 token，"
+        "超限 429 转人工。成功后验证码有效期 5min。"
+    ),
+    responses={**err(429, 422, 500)},
+)
+async def send_share_otp(
+    token: str,
+    body: SendOtpRequest,
+    redis: Annotated[Redis, Depends(get_redis)],
+):
+    otp_svc = OtpService(redis)
+    try:
+        await otp_svc.send_otp(token_value=token, phone=body.phone)
+    except OtpRateLimitedError as exc:
+        raise TooManyRequestsException(str(exc)) from exc
+    except OtpSendError as exc:
+        raise BadRequestException(str(exc)) from exc
+    return SendOtpResponse(
+        sent=True,
+        masked_phone=mask_phone_sms(body.phone),
+        expires_in=settings.share_otp_ttl_seconds,
+    )
+
+
+@_shares_router.post(
     "/{token}/session",
     response_model=ExchangeSessionResponse,
-    summary="家属端用 token + openid/otp 换 share_session JWT",
+    summary="家属端用 token + openid/(phone+otp) 换 share_session JWT",
     description=(
-        "微信小程序静默路径传 ``wx_openid``，iOS / 外部浏览器路径传 ``otp``"
-        "（6 位）。过期 / 已 revoke 的 token 一律 401。"
+        "微信小程序静默路径传 ``wx_openid``；iOS / 外部浏览器路径先调 "
+        "``POST /shares/{token}/otp`` 收码，再传 ``phone`` + ``otp``（6 位）。"
+        "过期 / 已 revoke 的 token、验证码错误/过期 一律 401。"
     ),
     responses={**err(401, 422, 500)},
 )
@@ -190,12 +239,29 @@ async def exchange_session(
     token: str,
     body: ExchangeSessionRequest,
     session: DBSession,
+    redis: Annotated[Redis, Depends(get_redis)],
 ):
+    # iOS/H5 OTP path: verify phone+otp first to obtain the phone-hash
+    # accessor. 微信路径走 openid 直通。
+    verified_accessor: str | None = None
+    if not body.wx_openid:
+        if not (body.phone and body.otp):
+            raise UnauthorizedException(
+                "Share session requires wx_openid or phone+otp"
+            )
+        otp_svc = OtpService(redis)
+        try:
+            verified_accessor = await otp_svc.verify_otp(
+                token_value=token, phone=body.phone, code=body.otp
+            )
+        except OtpInvalidError as exc:
+            raise UnauthorizedException(str(exc)) from exc
+
     svc = ShareService(session)
     jwt_str, exp, row = await svc.exchange_session(
         token_value=token,
         wx_openid=body.wx_openid,
-        otp=body.otp,
+        verified_accessor=verified_accessor,
     )
     await session.commit()
     return ExchangeSessionResponse(

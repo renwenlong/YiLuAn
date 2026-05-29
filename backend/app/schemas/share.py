@@ -46,10 +46,26 @@ class ExchangeSessionRequest(BaseModel):
         max_length=64,
         description="微信静默授权返回的 openid (jscode2session 路径)",
     )
+    phone: str | None = Field(
+        default=None,
+        max_length=20,
+        description="iOS/H5 fallback：收验证码的手机号（与 otp 成对提交）",
+    )
     otp: str | None = Field(
         default=None,
         max_length=12,
-        description="iOS/H5 fallback：6 位短信验证码",
+        description="iOS/H5 fallback：6 位短信验证码（需与 phone 同传）",
+    )
+
+
+class SendOtpRequest(BaseModel):
+    """POST /api/v1/shares/{token}/otp body — 请求下发短信验证码。"""
+
+    phone: str = Field(
+        ...,
+        min_length=6,
+        max_length=20,
+        description="接收验证码的手机号",
     )
 
 
@@ -109,6 +125,14 @@ class ExchangeSessionResponse(BaseModel):
     )
     share_scope: ShareScope
     order_id: UUID
+
+
+class SendOtpResponse(BaseModel):
+    """POST /shares/{token}/otp response."""
+
+    sent: bool = Field(default=True, description="验证码是否已下发")
+    masked_phone: str = Field(..., description="掩码手机号，如 138****0001")
+    expires_in: int = Field(..., description="验证码有效期（秒）")
 
 
 # ---------------------------------------------------------------------------

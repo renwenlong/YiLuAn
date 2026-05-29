@@ -16,6 +16,9 @@ from prometheus_client import REGISTRY, Counter
 __all__ = [
     "SHARE_TOKEN_AUTO_REVOKED_TOTAL",
     "SHARE_ACCESS_LOGGED_TOTAL",
+    "SHARE_TOKEN_CREATED_TOTAL",
+    "SHARE_OTP_INVALID_TOTAL",
+    "SHARE_OTP_SENT_TOTAL",
 ]
 
 
@@ -51,4 +54,20 @@ SHARE_TOKEN_CREATED_TOTAL: Counter = _get_or_create_counter(
         "abuse-rate rollback gate (auto_revoked / created). Labels: share_scope."
     ),
     ("share_scope",),
+)
+
+SHARE_OTP_INVALID_TOTAL: Counter = _get_or_create_counter(
+    "share_otp_invalid",
+    (
+        "[S2-DEV-011] Rejected OTP attempts on the iOS/H5 share fallback path. "
+        "reason ∈ rate_limited (双轴频控超限) / wrong_code / expired. A spike on "
+        "rate_limited = 号池滥用或链接泄露; wire to the share-abuse signal family."
+    ),
+    ("reason",),
+)
+
+SHARE_OTP_SENT_TOTAL: Counter = _get_or_create_counter(
+    "share_otp_sent",
+    "[S2-DEV-011] OTP SMS successfully dispatched via Aliyun (cost driver).",
+    (),
 )

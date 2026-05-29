@@ -277,6 +277,91 @@ async def test_exchange_session_missing_auth_proof_returns_401(
 
 
 # ---------------------------------------------------------------------------
+# S2-DEV-011: iOS/H5 OTP fallback 端到端 (send-otp → exchange with phone+otp)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_send_otp_then_exchange_with_phone_otp(
+    authenticated_client: AsyncClient, order_with_owner: Order
+):
+    create = await authenticated_client.post(
+        f"/api/v1/orders/{order_with_owner.id}/shares",
+        json={"share_scope": "full"},
+    )
+    token = create.json()["share_token"]
+    phone = "13800019999"
+
+    # 1. request OTP (mock SMS provider always ok)
+    sent = await authenticated_client.post(
+        f"/api/v1/shares/{token}/otp", json={"phone": phone}
+    )
+    assert sent.status_code == 200, sent.text
+    assert sent.json()["masked_phone"] == "138****9999"
+
+    # 2. pull the code straight out of the (fake) redis store
+    from app.main import app as _app
+    from app.services.share_otp import _CODE_KEY, _phone_hash
+
+    code = await _app.state.redis.get(
+        _CODE_KEY.format(token=token, phash=_phone_hash(phone))
+    )
+    assert code
+
+    # 3. exchange phone+otp → share_session JWT with phone-hash accessor
+    r = await authenticated_client.post(
+        f"/api/v1/shares/{token}/session",
+        json={"phone": phone, "otp": code},
+    )
+    assert r.status_code == 200, r.text
+    payload = decode_share_session(r.json()["share_session"])
+    assert payload["acc"].startswith("phone:")
+
+
+@pytest.mark.asyncio
+async def test_exchange_with_wrong_otp_returns_401(
+    authenticated_client: AsyncClient, order_with_owner: Order
+):
+    create = await authenticated_client.post(
+        f"/api/v1/orders/{order_with_owner.id}/shares",
+        json={"share_scope": "full"},
+    )
+    token = create.json()["share_token"]
+    phone = "13800018888"
+    await authenticated_client.post(
+        f"/api/v1/shares/{token}/otp", json={"phone": phone}
+    )
+    r = await authenticated_client.post(
+        f"/api/v1/shares/{token}/session",
+        json={"phone": phone, "otp": "000000"},
+    )
+    assert r.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_send_otp_token_daily_cap_429(
+    authenticated_client: AsyncClient, order_with_owner: Order
+):
+    from app.config import settings
+
+    create = await authenticated_client.post(
+        f"/api/v1/orders/{order_with_owner.id}/shares",
+        json={"share_scope": "full"},
+    )
+    token = create.json()["share_token"]
+    phone = "13800017777"
+    for _ in range(settings.share_otp_token_daily_cap):
+        ok = await authenticated_client.post(
+            f"/api/v1/shares/{token}/otp", json={"phone": phone}
+        )
+        assert ok.status_code == 200
+    over = await authenticated_client.post(
+        f"/api/v1/shares/{token}/otp", json={"phone": phone}
+    )
+    assert over.status_code == 429
+
+
+# ---------------------------------------------------------------------------
 # AC#5/#6: GET /shares/session/order — desensitized view + scope gating
 # ---------------------------------------------------------------------------
 
