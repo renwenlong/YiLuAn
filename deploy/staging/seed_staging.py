@@ -76,7 +76,7 @@ def login_otp(base: str, phone: str) -> dict:
 
 
 def ensure_admin_user(compose_project: str = "yiluan-staging",
-                      service: str = "backend-staging") -> None:
+                      service: str = "backend") -> None:
     """Create / update an admin user in the staging DB by running an
     ad-hoc python statement inside the backend container."""
     script = (
@@ -98,7 +98,6 @@ def ensure_admin_user(compose_project: str = "yiluan-staging",
     )
     cmd = [
         "docker", "compose", "-p", compose_project,
-        "-f", "docker-compose.staging.yml",
         "exec", "-T", service,
         "python", "-c", script,
     ]
