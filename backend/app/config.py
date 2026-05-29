@@ -111,6 +111,21 @@ class Settings(BaseSettings):
     # ADR-0036 §2.4 位置 cache TTL；用于断线重连首帧补偿
     ws_share_loc_cache_ttl_seconds: int = 60
 
+    # ---- S2-DEV-005: AI summary job (DeepSeek + cost caps) ----
+    deepseek_api_key: str = ""
+    deepseek_base_url: str = "https://api.deepseek.com"
+    deepseek_model: str = "deepseek-chat"
+    # 价格表（元/千 token）——仅用于成本估算，与代理货币实际报价同步调整。
+    deepseek_price_input_per_1k_yuan: float = 0.001
+    deepseek_price_output_per_1k_yuan: float = 0.002
+    # 单单费用上限（¥）——超限截断已生成部分，不重试。
+    ai_per_order_budget_yuan: float = 0.05
+    # 全平台日预算上限（¥）——超限后直接降级模板文案。
+    ai_daily_budget_yuan: float = 50.0
+    # DeepSeek 调用的 outbound timeout / retry / circuit breaker 参数。
+    deepseek_timeout_seconds: float = 15.0
+    deepseek_max_retries: int = 2
+
     # ADR-0032 / D-044 Q3: 资金对账历史豁免 cutoff。
     # 早于该时刻产生的 amount_mismatch diff 视为已豁免，guard 不阻断订单
     # 状态机迁移。默认值 = ADR-0032 Accepted 的 UTC 时刻；生产部署可通过
