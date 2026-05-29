@@ -1470,12 +1470,13 @@ class TestPaymentServiceBranches:
     async def test_record_callback_no_txn(self):
         async with test_session_factory() as session:
             svc = PaymentService(session)
-            # No txn → returns True (process)
+            # P0-06/S2-DEV-008: empty transaction_id is now rejected early
+            # (return False) and counted as invalid callback, never processed.
             assert (
                 await svc.record_callback_or_skip(
                     provider="wechat", transaction_id=""
                 )
-                is True
+                is False
             )
 
     async def test_record_callback_then_dup(self):

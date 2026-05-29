@@ -178,7 +178,8 @@ def test_create_scheduler_registers_expired_order_job():
     scheduler = create_scheduler(app)
     try:
         jobs = scheduler.get_jobs()
-        assert len(jobs) == 7
+        # Base W19 jobs (7) + S2-DEV-006 family-share hardening jobs (2).
+        assert len(jobs) == 9
         job_ids = {j.id for j in jobs}
         assert job_ids == {
             "scan_expired_orders",
@@ -188,6 +189,8 @@ def test_create_scheduler_registers_expired_order_job():
             "reconcile_money_t1",
             "reconcile_money_incremental_sweep",
             "reconciliation_cleanup",
+            "scan_share_token_anomalies",
+            "process_pending_ai_digests",
         }
         for job in jobs:
             assert job.max_instances == 1

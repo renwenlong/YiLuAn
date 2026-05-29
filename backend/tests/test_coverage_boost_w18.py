@@ -30,6 +30,7 @@ from app.exceptions import (
     NotFoundException,
     UnauthorizedException,
 )
+from app.utils.outbound import NonRetryableError, RetryableError
 from app.models.hospital import Hospital
 from app.models.notification import NotificationType
 from app.models.order import Order, OrderStatus, ServiceType
@@ -403,16 +404,17 @@ class TestWechatProviderCredentialedPaths:
         assert res["sign_params"]["package"] == "prepay_id=wx_pp_123"
 
     async def test_create_order_http_path_failure(self, monkeypatch, tmp_path):
-        """Credentialed create_order -> httpx 400 -> BadRequestException."""
+        """Credentialed create_order -> httpx 400 -> NonRetryableError."""
         from app.services.providers.payment.base import OrderDTO
         import httpx
 
         prov = self._make_with_creds(monkeypatch, tmp_path)
 
-        mock_resp = MagicMock(spec=Response)
-        mock_resp.status_code = 400
-        mock_resp.json = MagicMock(return_value={})
-        mock_resp.text = "bad request"
+        mock_resp = Response(
+            status_code=400,
+            json={},
+            request=httpx.Request("POST", "https://api.mch.weixin.qq.com/"),
+        )
 
         class _MockClient:
             async def __aenter__(self):
@@ -425,7 +427,7 @@ class TestWechatProviderCredentialedPaths:
                 return mock_resp
 
         with patch.object(httpx, "AsyncClient", return_value=_MockClient()):
-            with pytest.raises(BadRequestException):
+            with pytest.raises(NonRetryableError):
                 await prov.create_order(
                     OrderDTO(
                         order_number="YLREAL2",
@@ -476,10 +478,11 @@ class TestWechatProviderCredentialedPaths:
 
         prov = self._make_with_creds(monkeypatch, tmp_path)
 
-        mock_resp = MagicMock(spec=Response)
-        mock_resp.status_code = 500
-        mock_resp.json = MagicMock(return_value={})
-        mock_resp.text = "err"
+        mock_resp = Response(
+            status_code=500,
+            json={},
+            request=httpx.Request("POST", "https://api.mch.weixin.qq.com/"),
+        )
 
         class _MockClient:
             async def __aenter__(self):
@@ -492,7 +495,7 @@ class TestWechatProviderCredentialedPaths:
                 return mock_resp
 
         with patch.object(httpx, "AsyncClient", return_value=_MockClient()):
-            with pytest.raises(BadRequestException):
+            with pytest.raises(RetryableError):
                 await prov.refund(
                     RefundDTO(
                         refund_id="RF2",
