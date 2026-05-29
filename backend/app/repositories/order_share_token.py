@@ -7,13 +7,14 @@ before inserting the new one so the cap is enforced atomically.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Sequence
 from uuid import UUID
 
-from sqlalchemy import and_, or_, select, update
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.models.order_share_access_log import OrderShareAccessLog
 from app.models.order_share_token import (
     ACTIVE_TOKEN_CAP_PER_ORDER,
     OrderShareToken,
@@ -133,13 +134,18 @@ class OrderShareTokenRepository(BaseRepository[OrderShareToken]):
         *,
         accessor_openid: str,
     ) -> OrderShareToken:
-        """Update the access aggregate columns on a share-session bootstrap.
+        """Update access aggregates AND append a precise audit-log row.
 
-        Increments ``distinct_accessor_count`` only when ``accessor_openid``
-        differs from previously seen accessors. For MVP we approximate that
-        with a single ``first_accessor_openid`` comparison; the precise
-        24h-rolling-window distinct count belongs to the S2-DEV-006 scanner
-        (which has the bandwidth to scan WS-access logs properly).
+        Two layers:
+        1. Cheap aggregate columns on the token row (``distinct_accessor_count``
+           etc.) for the common-case display.
+        2. An append-only :class:`OrderShareAccessLog` row carrying
+           ``(accessor_openid, accessed_at)`` so the S2-DEV-006 scanner can
+           compute the *precise* 24h-rolling-window distinct count and
+           auto-revoke leaked tokens.
+
+        The aggregate ``distinct_accessor_count`` stays an approximation
+        (first-accessor comparison) — the scanner owns the exact figure.
         """
         now = datetime.now(timezone.utc)
         if token_row.first_accessed_at is None:
@@ -154,5 +160,77 @@ class OrderShareTokenRepository(BaseRepository[OrderShareToken]):
                 token_row.distinct_accessor_count or 0
             ) + 1
         token_row.last_accessed_at = now
+
+        # Append-only audit row (powers the rolling-window scanner).
+        self.session.add(
+            OrderShareAccessLog(
+                token_id=token_row.id,
+                order_id=token_row.order_id,
+                accessor_openid=accessor_openid,
+                accessed_at=now,
+            )
+        )
+        try:
+            from app.observability.share_metrics import (
+                SHARE_ACCESS_LOGGED_TOTAL,
+            )
+
+            SHARE_ACCESS_LOGGED_TOTAL.inc()
+        except Exception:  # metrics must never break the write path
+            pass
         await self.session.flush()
         return token_row
+
+    # -- S2-DEV-006 scanner support ----------------------------------------
+
+    async def count_distinct_accessors_in_window(
+        self,
+        token_id: UUID,
+        *,
+        window: timedelta = timedelta(hours=24),
+        now: datetime | None = None,
+    ) -> int:
+        """COUNT(DISTINCT accessor_openid) for a token within a time window.
+
+        Same openid revisiting does NOT inflate the count — that's the whole
+        point of distinct: we're detecting *breadth* of leakage, not volume.
+        """
+        now = now or datetime.now(timezone.utc)
+        cutoff = now - window
+        stmt = (
+            select(func.count(func.distinct(OrderShareAccessLog.accessor_openid)))
+            .where(
+                OrderShareAccessLog.token_id == token_id,
+                OrderShareAccessLog.accessed_at > cutoff,
+            )
+        )
+        result = await self.session.execute(stmt)
+        return int(result.scalar() or 0)
+
+    async def list_all_active(
+        self, *, now: datetime | None = None
+    ) -> Sequence[OrderShareToken]:
+        """All non-revoked, non-expired tokens across every order.
+
+        Used by the anomaly scanner. The caller is expected to hash-partition
+        / batch if the active set grows large (acceptance #3).
+        """
+        now = now or datetime.now(timezone.utc)
+        stmt = select(OrderShareToken).where(
+            OrderShareToken.revoked_at.is_(None),
+            OrderShareToken.expires_at > now,
+        )
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
+
+    async def prune_access_logs_older_than(
+        self, *, before: datetime
+    ) -> int:
+        """Delete audit rows older than ``before`` (retention = token hard cap)."""
+        from sqlalchemy import delete
+
+        stmt = delete(OrderShareAccessLog).where(
+            OrderShareAccessLog.accessed_at < before
+        )
+        result = await self.session.execute(stmt)
+        return result.rowcount or 0

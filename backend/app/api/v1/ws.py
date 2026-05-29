@@ -453,6 +453,19 @@ async def websocket_share(websocket: WebSocket, token: str):
         if str(token_row.id) != payload.get("tid"):
             await websocket.close(code=4001, reason="token_mismatch")
             return
+        # S2-DEV-006: record this WS access into the audit log so the anomaly
+        # scanner's 24h distinct-accessor count sees family viewers who only
+        # ever connect over WS (live tracking) and never re-hit the REST
+        # session endpoint.
+        accessor = payload.get("acc")
+        if accessor:
+            try:
+                await row_repo.record_access(
+                    token_row, accessor_openid=str(accessor)
+                )
+                await session.commit()
+            except Exception:  # never block the connection on audit write
+                logger.debug("share ws record_access failed", exc_info=True)
 
     order_id = token_row.order_id
     share_broker = _get_or_create_share_broker(websocket.app)
@@ -519,6 +532,19 @@ async def websocket_share(websocket: WebSocket, token: str):
                 break
 
             if data.get("type") == "ping":
+                # Re-validate token liveness on every heartbeat so a token
+                # revoked mid-session (manual revoke OR the S2-DEV-006 anomaly
+                # scanner) gets the live socket kicked with 4013 within one
+                # ping interval, not just at next connect.
+                async with async_session() as recheck_session:
+                    fresh = await OrderShareTokenRepository(
+                        recheck_session
+                    ).get_by_token(token)
+                if fresh is None or not fresh.is_active:
+                    await websocket.close(
+                        code=4013, reason="token_revoked_or_expired"
+                    )
+                    break
                 await websocket.send_text(json.dumps({"type": "pong"}))
                 continue
 

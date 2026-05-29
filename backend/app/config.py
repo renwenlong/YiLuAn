@@ -125,6 +125,9 @@ class Settings(BaseSettings):
     # DeepSeek 调用的 outbound timeout / retry / circuit breaker 参数。
     deepseek_timeout_seconds: float = 15.0
     deepseek_max_retries: int = 2
+    # S2-DEV-006: 家属分享 token 24h 滚动窗口 distinct openid 阈值，
+    # 超过则 scanner 自动 revoke（防 token 泄露）。
+    share_distinct_accessor_threshold: int = 5
 
     # ADR-0032 / D-044 Q3: 资金对账历史豁免 cutoff。
     # 早于该时刻产生的 amount_mismatch diff 视为已豁免，guard 不阻断订单

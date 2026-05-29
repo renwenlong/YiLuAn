@@ -213,4 +213,18 @@ class _OrderLifecycleMixin(_OrderServiceBase):
         await self.notification_svc.notify_order_status_changed(
             order, OrderStatus.completed.value, order.patient_id
         )
+        # S2-DEV-006: enqueue AI digest (idempotent on order_id). The actual
+        # DeepSeek call + budget caps run in the scheduler-locked worker
+        # (app/cron/ai_summary_enqueue.py) so completion isn't blocked and
+        # multi-replica retries don't double-charge.
+        try:
+            from app.cron.ai_summary_enqueue import enqueue_ai_digest
+
+            await enqueue_ai_digest(self.session, order.id)
+        except Exception:  # never block completion on the enqueue
+            import logging
+
+            logging.getLogger("app.services.order.lifecycle").warning(
+                "enqueue_ai_digest failed for order %s", order.id, exc_info=True
+            )
         return order

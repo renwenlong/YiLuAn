@@ -134,6 +134,8 @@ def create_scheduler(app) -> AsyncIOScheduler:
     from app.cron.reconcile_money import reconcile_money_job
     from app.cron.reconciliation_cleanup import reconciliation_cleanup_job
     from app.services.reconciliation.incremental import reconcile_incremental_sweep_job
+    from app.cron.share_token_scanner import scan_share_token_anomalies_job
+    from app.cron.ai_summary_enqueue import process_pending_digests_job
 
     scheduler = AsyncIOScheduler(timezone="UTC")
     scheduler.add_job(
@@ -216,6 +218,32 @@ def create_scheduler(app) -> AsyncIOScheduler:
         coalesce=True,
         max_instances=1,
         misfire_grace_time=3600,
+        replace_existing=True,
+    )
+    # S2-DEV-006: 家属分享 token 异常扫描器 — 每 5 分钟，24h 滚动窗口
+    # distinct openid > 5 → 自动 revoke。
+    scheduler.add_job(
+        scan_share_token_anomalies_job,
+        trigger=IntervalTrigger(minutes=5),
+        kwargs={"app": app},
+        id="scan_share_token_anomalies",
+        name="Family-share token anomaly scanner (S2-DEV-006)",
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=60,
+        replace_existing=True,
+    )
+    # S2-DEV-006: AI 摘要 worker — 每分钟 drain pending AIDigest，
+    # scheduler-lock 保证多副本只扣 1 次费 (ADR-0035 §3 P1-A)。
+    scheduler.add_job(
+        process_pending_digests_job,
+        trigger=IntervalTrigger(minutes=1),
+        kwargs={"app": app},
+        id="process_pending_ai_digests",
+        name="AI digest pending worker (S2-DEV-006)",
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=30,
         replace_existing=True,
     )
     return scheduler

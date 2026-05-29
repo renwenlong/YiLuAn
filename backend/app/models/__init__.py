@@ -44,6 +44,7 @@ from app.models.order_share_token import (
     compute_expires_at,
     generate_token,
 )
+from app.models.order_share_access_log import OrderShareAccessLog
 from app.models.review import Review
 from app.models.sms_send_log import SmsSendLog
 from app.models.telemetry_event import TelemetryEvent
@@ -103,6 +104,7 @@ __all__ = [
     "WalletLedgerDirection",
     "WalletLedgerReason",
     "OrderShareToken",
+    "OrderShareAccessLog",
     "ShareScope",
     "AIDigest",
     "AIDigestStatus",
