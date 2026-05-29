@@ -15,6 +15,7 @@ from app.api.v1.reviews import router as reviews_router
 from app.api.v1.users import router as users_router
 from app.api.v1.wallet import router as wallet_router
 from app.api.v1.payment_callback import router as payment_callback_router
+from app.api.v1.share import router as share_router
 from app.api.v1.telemetry import router as telemetry_router
 from app.api.v1.admin import router as admin_router
 from app.api.v1.health import router as health_router
@@ -43,6 +44,7 @@ api_v1_router.include_router(emergency_router)
 api_v1_router.include_router(notifications_router)
 api_v1_router.include_router(wallet_router)
 api_v1_router.include_router(payment_callback_router)
+api_v1_router.include_router(share_router)
 api_v1_router.include_router(telemetry_router)
 api_v1_router.include_router(admin_router)
 api_v1_router.include_router(health_router)

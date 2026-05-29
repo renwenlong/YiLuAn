@@ -263,3 +263,19 @@ def mask_id_card(id_card: str | None) -> str:
     if n <= 8:
         return "*" * n
     return s[:4] + "*" * (n - 8) + s[-4:]
+
+
+def mask_name(name: str | None) -> str:
+    """脱敏人名：保留首字 + ``**`` (ADR-0036 §2.5)。
+
+    - 「张三」  → 「张**」
+    - 「Alice」→ 「A**」
+    - None / 空字符串：返回空字符串
+    - 单字：原样返回（无可脱敏空间）
+    """
+    if not name:
+        return ""
+    s = str(name).strip()
+    if len(s) <= 1:
+        return s
+    return s[0] + "**"
