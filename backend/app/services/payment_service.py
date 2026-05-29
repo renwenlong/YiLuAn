@@ -228,10 +228,25 @@ class PaymentService:
         (duplicate); the caller must NOT re-apply state changes.
         """
         if not transaction_id:
-            # Without a transaction_id we cannot deduplicate; let caller
-            # decide. Default to "process" because the alternative is to
-            # silently drop the callback.
-            return True
+            # [ADR-0035 §3 P0-C / W19-P0-06] No transaction_id == no idempotency
+            # key. Previously we defaulted to ``True`` (let caller proceed)
+            # which lets a misbehaving PSP poison the ledger via repeated
+            # "new" callbacks. Reject + count metric so on-call sees it.
+            from app.observability.payment_metrics import (
+                PAYMENT_CALLBACK_EMPTY_TXN_TOTAL,
+            )
+
+            PAYMENT_CALLBACK_EMPTY_TXN_TOTAL.labels(
+                provider=provider or "unknown",
+                callback_type=callback_type or "unknown",
+            ).inc()
+            logger.warning(
+                "Rejecting payment callback with empty transaction_id: "
+                "provider=%s callback_type=%s",
+                provider,
+                callback_type,
+            )
+            return False
 
         body_str: str | None
         if isinstance(raw_body, bytes):
