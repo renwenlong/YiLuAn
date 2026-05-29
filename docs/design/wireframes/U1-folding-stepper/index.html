@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>U-1 创建订单 · 折叠式分步 低保真 · PRD-001 §F7</title>
+<style>
+  :root{
+    --brand:#1890FF; --brand-weak:#E6F4FF; --ink:#1F2937; --ink-2:#4B5563;
+    --line:#E5E7EB; --bg:#F5F7FA; --ok:#10B981; --warn:#F59E0B;
+    --r:8px; --r-sm:4px;
+    font-family: -apple-system,'PingFang SC','Helvetica Neue',Helvetica,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#EDF1F5;color:var(--ink);}
+  header{padding:18px 32px;border-bottom:1px solid var(--line);background:#fff;}
+  header h1{margin:0 0 4px;font-size:18px;font-weight:600;}
+  header p{margin:0;font-size:12px;color:var(--ink-2);}
+  header code{background:#F3F4F6;padding:1px 6px;border-radius:3px;font-size:11px;}
+  main{display:flex;gap:24px;padding:24px 32px 48px;overflow-x:auto;}
+  .frame{flex:0 0 320px;background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden;box-shadow:0 4px 12px rgba(0,0,0,.04);}
+  .frame-head{padding:10px 14px;font-size:12px;color:var(--ink-2);border-bottom:1px dashed var(--line);background:#FAFBFC;display:flex;justify-content:space-between;}
+  .frame-head b{color:var(--ink);font-weight:600;}
+  .navbar{height:44px;display:flex;align-items:center;justify-content:center;border-bottom:1px solid var(--line);font-size:15px;font-weight:500;position:relative;}
+  .navbar .back{position:absolute;left:14px;color:var(--ink-2);font-size:18px;}
+  .body{padding:14px;background:var(--bg);min-height:560px;}
+  .step{background:#fff;border:1px solid var(--line);border-radius:var(--r);margin-bottom:10px;overflow:hidden;}
+  .step-head{padding:12px 14px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;}
+  .step-head .l{display:flex;align-items:center;gap:10px;}
+  .num{width:22px;height:22px;border-radius:50%;background:#E5E7EB;color:var(--ink-2);display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;}
+  .step.done .num{background:var(--ok);color:#fff;}
+  .step.active .num{background:var(--brand);color:#fff;}
+  .step-title{font-size:14px;font-weight:500;}
+  .step-summary{font-size:12px;color:var(--ink-2);max-width:170px;text-align:right;}
+  .step.active .step-summary{display:none;}
+  .step-edit{font-size:12px;color:var(--brand);}
+  .step-body{padding:0 14px 14px;border-top:1px dashed var(--line);}
+  .step:not(.active) .step-body{display:none;}
+  .label{font-size:12px;color:var(--ink-2);margin:12px 0 6px;}
+  .opts{display:grid;gap:8px;}
+  .opts.cols-3{grid-template-columns:1fr 1fr 1fr;}
+  .opt{border:1px solid var(--line);border-radius:var(--r);padding:10px;font-size:13px;background:#fff;text-align:center;}
+  .opt.sel{border-color:var(--brand);background:var(--brand-weak);color:var(--brand);font-weight:500;}
+  .opt .sub{display:block;font-size:11px;color:var(--ink-2);margin-top:2px;font-weight:400;}
+  .opt.sel .sub{color:var(--brand);opacity:.8;}
+  .search{display:flex;align-items:center;border:1px solid var(--line);border-radius:var(--r);padding:8px 12px;background:#fff;font-size:13px;color:var(--ink-2);}
+  .search::before{content:"🔍";margin-right:8px;font-size:12px;}
+  .list-item{padding:11px 12px;border:1px solid var(--line);border-radius:var(--r);margin-top:8px;background:#fff;font-size:13px;}
+  .list-item .meta{font-size:11px;color:var(--ink-2);margin-top:3px;}
+  .list-item.sel{border-color:var(--brand);background:var(--brand-weak);}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;font-size:13px;border-bottom:1px solid var(--line);}
+  .row:last-child{border-bottom:none;}
+  .row .k{color:var(--ink-2);}
+  .row .v{color:var(--ink);font-weight:500;}
+  .price-card{margin-top:12px;background:var(--brand-weak);border-radius:var(--r);padding:12px 14px;}
+  .price-card .total{display:flex;justify-content:space-between;align-items:baseline;}
+  .price-card .total b{font-size:20px;color:var(--brand);}
+  .actions{position:sticky;bottom:0;background:#fff;padding:10px 14px;border-top:1px solid var(--line);display:flex;gap:8px;}
+  .btn{flex:1;height:42px;border-radius:var(--r);border:none;font-size:14px;font-weight:500;}
+  .btn-primary{background:var(--brand);color:#fff;}
+  .btn-ghost{background:#fff;color:var(--ink-2);border:1px solid var(--line);flex:0 0 90px;}
+  .frame-foot{padding:8px 14px;background:#FAFBFC;font-size:11px;color:var(--ink-2);border-top:1px dashed var(--line);}
+  .legend{margin:8px 32px 24px;font-size:12px;color:var(--ink-2);line-height:1.7;}
+  .legend code{background:#fff;padding:1px 6px;border-radius:3px;border:1px solid var(--line);}
+  .legend b{color:var(--ink);}
+</style>
+</head>
+<body>
+<header>
+  <h1>U-1 创建订单 · 折叠式分步交互（低保真）</h1>
+  <p>关联：<code>PRD-001 §F7</code> · 适用：微信小程序 + iOS 双端统一 · 设计原则：四步同屏可见 / 当前步展开 / 已完成步显结果且可点回改 / 回改下游不重置</p>
+</header>
+
+<main>
+
+  <!-- ============ 页 1：服务选择（Step 1 展开） ============ -->
+  <section class="frame">
+    <div class="frame-head"><b>页 1 · 服务类型</b><span>Step 1 展开</span></div>
+    <div class="navbar"><span class="back">‹</span>创建订单</div>
+    <div class="body">
+
+      <div class="step active">
+        <div class="step-head">
+          <div class="l"><span class="num">1</span><span class="step-title">服务类型</span></div>
+        </div>
+        <div class="step-body">
+          <div class="label">选择服务</div>
+          <div class="opts cols-3">
+            <div class="opt sel">全程陪诊<span class="sub">¥299</span></div>
+            <div class="opt">半程陪诊<span class="sub">¥199</span></div>
+            <div class="opt">代办跑腿<span class="sub">¥149</span></div>
+          </div>
+          <div class="label">说明</div>
+          <div style="font-size:12px;color:var(--ink-2);line-height:1.6;background:#fff;border:1px solid var(--line);border-radius:6px;padding:10px;">
+            全程陪诊：挂号 → 候诊 → 看诊 → 缴费 → 取药 → 检查全流程陪同（≤6 小时）。超时按 ¥50/小时加收。
+          </div>
+        </div>
+      </div>
+
+      <div class="step"><div class="step-head"><div class="l"><span class="num">2</span><span class="step-title">医院</span></div><span class="step-summary">未选择</span></div></div>
+      <div class="step"><div class="step-head"><div class="l"><span class="num">3</span><span class="step-title">日期</span></div><span class="step-summary">未选择</span></div></div>
+      <div class="step"><div class="step-head"><div class="l"><span class="num">4</span><span class="step-title">患者 & 陪诊师确认</span></div><span class="step-summary">未选择</span></div></div>
+
+    </div>
+    <div class="actions">
+      <button class="btn btn-primary">下一步</button>
+    </div>
+    <div class="frame-foot">交互：选中卡片 → 「下一步」自动折叠 Step1 + 展开 Step2；步骤头显示 "全程陪诊 · ¥299" 摘要。</div>
+  </section>
+
+  <!-- ============ 页 2：医院搜索（Step 1 已完成、Step 2 展开） ============ -->
+  <section class="frame">
+    <div class="frame-head"><b>页 2 · 医院搜索</b><span>Step 1 完成 / Step 2 展开</span></div>
+    <div class="navbar"><span class="back">‹</span>创建订单</div>
+    <div class="body">
+
+      <div class="step done">
+        <div class="step-head">
+          <div class="l"><span class="num">✓</span><span class="step-title">服务类型</span></div>
+          <span class="step-summary">全程陪诊 · ¥299</span>
+        </div>
+      </div>
+
+      <div class="step active">
+        <div class="step-head">
+          <div class="l"><span class="num">2</span><span class="step-title">医院</span></div>
+        </div>
+        <div class="step-body">
+          <div class="label">搜索医院 / 科室</div>
+          <div class="search">华山医院</div>
+          <div class="list-item sel">
+            复旦大学附属华山医院（总院）
+            <div class="meta">三甲 · 上海市静安区乌鲁木齐中路 12 号 · 距您 3.2km</div>
+          </div>
+          <div class="list-item">
+            复旦大学附属华山医院（宝山院区）
+            <div class="meta">三甲 · 上海市宝山区陆翔路 108 号 · 距您 18km</div>
+          </div>
+          <div class="list-item">
+            华山医院东院（浦东陆家嘴）
+            <div class="meta">三甲 · 上海市浦东新区红枫路 525 号 · 距您 11km</div>
+          </div>
+          <div class="label" style="margin-top:14px;">科室（可选）</div>
+          <div class="opts cols-3">
+            <div class="opt sel">神经内科</div>
+            <div class="opt">心内科</div>
+            <div class="opt">+ 更多</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="step"><div class="step-head"><div class="l"><span class="num">3</span><span class="step-title">日期</span></div><span class="step-summary">未选择</span></div></div>
+      <div class="step"><div class="step-head"><div class="l"><span class="num">4</span><span class="step-title">患者 & 陪诊师确认</span></div><span class="step-summary">未选择</span></div></div>
+
+    </div>
+    <div class="actions">
+      <button class="btn btn-ghost">上一步</button>
+      <button class="btn btn-primary">下一步</button>
+    </div>
+    <div class="frame-foot">交互：点击 Step1 摘要可回改服务类型（弹确认：「是否回改？已选医院将保留」）；下游字段除冲突外不重置。</div>
+  </section>
+
+  <!-- ============ 页 3：确认下单（4 步全完成、聚合卡） ============ -->
+  <section class="frame">
+    <div class="frame-head"><b>页 3 · 确认下单</b><span>4 步全完成</span></div>
+    <div class="navbar"><span class="back">‹</span>确认订单</div>
+    <div class="body">
+
+      <div class="step done"><div class="step-head"><div class="l"><span class="num">✓</span><span class="step-title">服务类型</span></div><span class="step-summary">全程陪诊 · ¥299</span></div></div>
+      <div class="step done"><div class="step-head"><div class="l"><span class="num">✓</span><span class="step-title">医院</span></div><span class="step-summary">华山医院总院 · 神经内科</span></div></div>
+      <div class="step done"><div class="step-head"><div class="l"><span class="num">✓</span><span class="step-title">日期</span></div><span class="step-summary">2026-06-03 周三 上午</span></div></div>
+
+      <div class="step active">
+        <div class="step-head">
+          <div class="l"><span class="num">4</span><span class="step-title">患者 & 陪诊师确认</span></div>
+        </div>
+        <div class="step-body">
+          <div class="label">就诊患者</div>
+          <div class="list-item sel">
+            张** · 母亲 · 72 岁
+            <div class="meta">手机 138****8821 · 已实名</div>
+          </div>
+          <div style="font-size:12px;color:var(--brand);margin-top:6px;">+ 添加其他患者</div>
+
+          <div class="label" style="margin-top:14px;">陪诊师（系统已为您匹配）</div>
+          <div class="list-item sel">
+            李陪诊 · 女 · 32 岁 · ⭐ 4.92（187 单）
+            <div class="meta">擅长神经内科 / 老年陪诊 · 距医院 1.8km</div>
+          </div>
+          <div style="font-size:12px;color:var(--brand);margin-top:6px;">↻ 换一位</div>
+
+          <div class="price-card">
+            <div class="row"><span class="k">服务费</span><span class="v">¥299</span></div>
+            <div class="row"><span class="k">优惠券</span><span class="v">- ¥20</span></div>
+            <div class="total"><span class="k">合计</span><b>¥279</b></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="actions">
+      <button class="btn btn-ghost">上一步</button>
+      <button class="btn btn-primary">提交订单 · ¥279</button>
+    </div>
+    <div class="frame-foot">交互：4 步摘要可任意点击回改；提交进入收银台。错误态：任一字段缺失，「提交」置灰并定位到缺失步骤展开。</div>
+  </section>
+
+</main>
+
+<div class="legend">
+  <b>设计 token（双端遵循 PRD §F7、复用 design/tokens.json）</b><br/>
+  · 主色 <code>#1890FF</code> · 弱色 <code>#E6F4FF</code> · 文字 <code>#1F2937</code> / <code>#4B5563</code> · 分割 <code>#E5E7EB</code> · 圆角 <code>8px</code><br/>
+  · 步骤组件：<b>collapsed</b>（高 56px，左 num + 标题，右摘要 + ›）/ <b>active</b>（展开内容）/ <b>done</b>（num=✓ 绿色，摘要右对齐，点击回改）<br/>
+  · 巨字号模式：全局字号 +30%，按钮高 +20%，本页"下一步"按钮高 42→50px、字号 14→18px（PRD §F5）<br/>
+  · 可达性：opt 选中态除底色外加 1.5px 描边 + 文字加粗（色弱可辨）；按钮焦点态外发光 2px <code>#1890FF</code><br/>
+  <b>验收契约（与 PRD §6 AC#13 互锁）</b>：微信和 iOS 步骤数 = 4 / 字段命名 = {服务类型, 医院, 日期, 患者 &amp; 陪诊师} / 文案完全一致 / 已完成步骤回改下游数据保持（除冲突）<br/>
+  <b>未尽事项</b>：① 高保真视觉稿 → 程序员实现阶段由 PM 补 Figma；② 错误态/loading 态 → 详见 PRD §F7 补充表（W20 D1 给出）。
+</div>
+
+</body>
+</html>
