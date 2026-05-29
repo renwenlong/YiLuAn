@@ -28,8 +28,8 @@ pip install -r requirements.txt
 # Dev server (hot reload)
 uvicorn app.main:app --reload
 
-# Full stack via Docker (API + PostgreSQL 15 + Redis 7)
-docker compose up -d
+# Local dev stack (db + redis only; run backend via uvicorn above)
+cd deploy && ./up.sh dev        # full multi-env stack: deploy/docker-compose.yml
 
 # Tests (SQLite in-memory + FakeRedis, no external services)
 pytest                                    # all tests
