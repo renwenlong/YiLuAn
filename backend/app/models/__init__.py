@@ -34,6 +34,16 @@ from app.models.reconciliation import (
     ReconRunKind,
     ReconRunStatus,
 )
+from app.models.ai_digest import AIDigest, AIDigestStatus
+from app.models.order_share_token import (
+    ACTIVE_TOKEN_CAP_PER_ORDER,
+    DEFAULT_EXPIRES_AFTER_COMPLETION,
+    HARD_CAP_EXPIRES_AFTER_CREATION,
+    OrderShareToken,
+    ShareScope,
+    compute_expires_at,
+    generate_token,
+)
 from app.models.review import Review
 from app.models.sms_send_log import SmsSendLog
 from app.models.telemetry_event import TelemetryEvent
@@ -92,4 +102,13 @@ __all__ = [
     "WalletLedger",
     "WalletLedgerDirection",
     "WalletLedgerReason",
+    "OrderShareToken",
+    "ShareScope",
+    "AIDigest",
+    "AIDigestStatus",
+    "compute_expires_at",
+    "generate_token",
+    "ACTIVE_TOKEN_CAP_PER_ORDER",
+    "DEFAULT_EXPIRES_AFTER_COMPLETION",
+    "HARD_CAP_EXPIRES_AFTER_CREATION",
 ]
