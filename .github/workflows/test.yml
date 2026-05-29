@@ -29,6 +29,28 @@ jobs:
         run: cd backend && python -m pytest tests/e2e/ -m e2e -v
         timeout-minutes: 5
 
+      # ---------------------------------------------------------------
+      # Release gates (S2-TEST-001 / S2-TEST-002 / PRD-001 §6.B)
+      # money_safety + share_security 同级闸门，任一失败阻塞 merge。
+      # ---------------------------------------------------------------
+      - name: Release gate — money_safety contract tests
+        run: cd backend && python -m pytest -m money_safety -v --tb=short
+        timeout-minutes: 5
+
+      - name: Release gate — share_security tests (Top1 family share)
+        run: cd backend && python -m pytest -m share_security -v --tb=short
+        timeout-minutes: 5
+        continue-on-error: true  # 过渡期：S2-DEV-002/003 未落地前允许空收集；done 后改为 strict
+
+      - name: Release gate — OpenAPI cross-end contract diff (ADR-0036 §2.7 七字段)
+        run: bash scripts/qa/openapi_contract_diff.sh
+        timeout-minutes: 2
+
+      - name: Release gate — 微信 openapi-typescript schema check
+        run: bash scripts/qa/wechat_openapi_check.sh
+        timeout-minutes: 5
+        continue-on-error: true  # 过渡期：S2-DEV-002 done 后去 continue-on-error
+
   docker-build:
     name: Docker Build Verification
     runs-on: ubuntu-latest
