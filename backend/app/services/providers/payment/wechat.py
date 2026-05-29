@@ -41,6 +41,7 @@ TODO (real production hardening)
 from __future__ import annotations
 
 import base64
+import httpx
 import json
 import logging
 import threading
@@ -56,7 +57,7 @@ from app.services.providers.payment.base import (
     PaymentProvider,
     RefundDTO,
 )
-from app.utils.outbound import outbound_call
+from app.utils.outbound import classify_httpx_exception, outbound_call
 
 logger = logging.getLogger(__name__)
 
@@ -124,8 +125,6 @@ class WechatPaymentProvider(PaymentProvider):
                 },
             }
 
-        import httpx
-
         url = "https://api.mch.weixin.qq.com/v3/pay/transactions/jsapi"
         body = {
             "appid": self.app_id,
@@ -142,13 +141,23 @@ class WechatPaymentProvider(PaymentProvider):
         )
 
         async with httpx.AsyncClient() as client:
-            resp = await client.post(url, json=body, headers=headers, timeout=30)
+            try:
+                resp = await client.post(
+                    url, json=body, headers=headers, timeout=30
+                )
+            except (httpx.TimeoutException, httpx.RequestError) as exc:
+                logger.error("WeChat prepay network error: %s", exc)
+                raise classify_httpx_exception(exc) from exc
 
-        if resp.status_code != 200:
+        # 4xx → NonRetryable (参数/签名错, 不污染 CB); 5xx/408/429/network
+        # → Retryable (out_trade_no 幂等, 重试安全) — 走 @outbound_call CB+retry.
+        try:
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
             logger.error(
                 "WeChat prepay failed: %s %s", resp.status_code, resp.text
             )
-            raise BadRequestException(f"微信支付下单失败: {resp.status_code}")
+            raise classify_httpx_exception(exc) from exc
 
         data = resp.json()
         prepay_id = data.get("prepay_id", "")
@@ -190,8 +199,6 @@ class WechatPaymentProvider(PaymentProvider):
                 "status": "success",
             }
 
-        import httpx
-
         url = "https://api.mch.weixin.qq.com/v3/refund/domestic/refunds"
         body = {
             "out_trade_no": refund.trade_no,
@@ -213,15 +220,26 @@ class WechatPaymentProvider(PaymentProvider):
         )
 
         async with httpx.AsyncClient() as client:
-            resp = await client.post(
-                url, json=body, headers=headers, timeout=30
-            )
+            try:
+                resp = await client.post(
+                    url, json=body, headers=headers, timeout=30
+                )
+            except (httpx.TimeoutException, httpx.RequestError) as exc:
+                logger.error("WeChat refund network error: %s", exc)
+                raise classify_httpx_exception(exc) from exc
 
+        # WeChat refund returns 200/201 on accept. 4xx → NonRetryable;
+        # 5xx/network → Retryable (out_refund_no 幂等, 重试安全).
         if resp.status_code not in (200, 201):
-            logger.error(
-                "WeChat refund failed: %s %s", resp.status_code, resp.text
-            )
-            raise BadRequestException(f"微信退款失败: {resp.status_code}")
+            try:
+                resp.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                logger.error(
+                    "WeChat refund failed: %s %s",
+                    resp.status_code,
+                    resp.text,
+                )
+                raise classify_httpx_exception(exc) from exc
 
         data = resp.json()
         return {

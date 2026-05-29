@@ -39,7 +39,12 @@ from app.services.providers.sms.base import (
     SMSResult,
     mask_phone_sms,
 )
-from app.utils.outbound import NonRetryableError, RetryableError, outbound_call
+from app.utils.outbound import (
+    NonRetryableError,
+    RetryableError,
+    classify_httpx_exception,
+    outbound_call,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -126,21 +131,29 @@ class AliyunSMSProvider(SMSProvider):
                     params=params,
                     timeout=10,
                 )
-        except (httpx.TimeoutException, httpx.ConnectError, OSError) as exc:
+                # 5xx / 408 / 429 → RetryableError via classify; 4xx →
+                # NonRetryableError (签名/参数错, 不该污染 CB).
+                # 行为等价: 原代码 5xx 也是 RetryableError。
+                resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            logger.error(
+                "[aliyun-sms] http error phone=%s status=%d",
+                masked,
+                exc.response.status_code,
+            )
+            raise classify_httpx_exception(exc) from exc
+        except (httpx.TimeoutException, httpx.RequestError) as exc:
+            logger.error(
+                "[aliyun-sms] network error phone=%s: %s", masked, exc
+            )
+            raise classify_httpx_exception(exc) from exc
+        except OSError as exc:
+            # Low-level socket error (not an httpx type) — keep historical
+            # Retryable behaviour explicitly.
             logger.error(
                 "[aliyun-sms] network error phone=%s: %s", masked, exc
             )
             raise RetryableError(f"Aliyun SMS network error: {exc}") from exc
-
-        if resp.status_code >= 500:
-            logger.error(
-                "[aliyun-sms] server error phone=%s status=%d",
-                masked,
-                resp.status_code,
-            )
-            raise RetryableError(
-                f"Aliyun SMS server error: HTTP {resp.status_code}"
-            )
 
         data = resp.json()
         aliyun_code = data.get("Code", "")

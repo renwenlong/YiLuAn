@@ -120,6 +120,21 @@ class TestAliyunSMSProviderReal:
             with pytest.raises(RetryableError):
                 await provider.send_otp("13800010001", "123456")
 
+    async def test_http_4xx_non_retryable(self, monkeypatch):
+        """6. HTTP 4xx (sign/param error) → NonRetryableError, 不污染 CB."""
+        provider = _make_provider(monkeypatch)
+        mock_resp = _mock_response(403, {"Code": "SignatureDoesNotMatch"})
+
+        with patch("app.services.providers.sms.aliyun.httpx.AsyncClient") as MockClient:
+            instance = AsyncMock()
+            instance.get.return_value = mock_resp
+            instance.__aenter__ = AsyncMock(return_value=instance)
+            instance.__aexit__ = AsyncMock(return_value=False)
+            MockClient.return_value = instance
+
+            with pytest.raises(NonRetryableError):
+                await provider.send_otp("13800010001", "123456")
+
     def test_missing_credentials_raises_at_init(self, monkeypatch):
         """4. Empty AccessKeyId → ValueError at construction time."""
         monkeypatch.setattr("app.config.settings.sms_access_key", "")
