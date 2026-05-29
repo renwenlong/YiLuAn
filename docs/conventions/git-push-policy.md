@@ -51,9 +51,12 @@ git checkout main && git pull origin main
 | 强制 approval 数 | ❌ **= 0** | **单账号无法 approve 自己 PR，故去掉**（见 §4 坑3）|
 | PR comment 必须 resolve | ✅ 强制 | reviewer 意见 resolve 才能合 |
 | 禁 force push / 禁删 main | ✅ 强制 | — |
-| 全量 pytest + jest | ✅ pre-push hook 本地强制 | 真正的质量闸（已 3 次挡回归）|
+| 全量 pytest + jest + release gate | ✅ **CI required check** | `required_status_checks` strict=true：`Backend Tests` / `Docker Build Verification` / `WeChat Mini Program Tests`，PR 三个全绿 + 基于最新 main 才能合（S2-OPS-003）|
+| 本地 pre-push 快速门 | ✅ `.githooks/pre-push` | ruff lint(改动文件) + marker gate(`money_safety/share_security`, ~12s)，秒级；全量交 CI（启用：`bash scripts/setup-hooks.sh`）|
 
-**质量门没放水**：approval 仪式去掉，但靠 ① comment resolve ② pre-push 全量 gate ③ 高风险 PR reviewer 显式 LGTM 三道补偿。
+**质量门没放水**：approval 仪式去掉，但靠 ① comment resolve ② **CI required check 全量 gate**（负向验证确认红 PR 真合不了）③ 本地 marker gate 守资金/分享最高危线 ④ 高风险 PR reviewer 显式 LGTM。
+
+> 注：早前「pre-push 本地跑全量 6min」已废弃——会撞 SSH idle-timeout 致 push 失败（见 §4 坑4）。全量已平移到 CI required check。
 
 ---
 

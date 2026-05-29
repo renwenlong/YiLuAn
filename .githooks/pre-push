@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+# Pre-push hook — FAST gate (S2-OPS-003 fix).
+#
+# 为什么从「全量」瘦身成「快速」：
+#   旧 hook 在 push 的 SSH 连接生命周期内跑 ~6 分钟全量 pytest+jest，
+#   GitHub SSH idle-timeout 会在测试跑完前掐断连接 → gate 全绿后传输阶段报
+#   "Connection closed by remote host" + exit 141，push 失败，逼人 --no-verify
+#   绕过（反而丢 gate）。诊断见 S2-OPS-003。
+#
+# 修复（方案③，含刻晴两条硬约束）：
+#   - 全量 pytest+e2e+release gate+wechat 由 GitHub Actions (.github/workflows/
+#     test.yml) 跑，且必须设为 branch protection 的 required_status_checks
+#     （check 名：Backend Tests / Docker Build Verification / WeChat Mini Program
+#     Tests）—— 这是“另一半门”，没它本地一削 gate 就有空窗。
+#   - 本地 pre-push 不裸奔：① ruff lint（仅本次改动的 backend py 文件，秒级）
+#     ② marker gate `pytest -m "money_safety or share_security"`（~12s，守资金/
+#     分享两条最高危线本地即时拦）。全量丢给 CI。
+#
+# 启用（每个 clone 一次性）：git config core.hooksPath .githooks
+# 紧急跳过（极少用）：git push --no-verify
+#
+# ⚠️ 切换时序（刻晴定，不可反）：必须先把上述三个 CI check 设成 required 并验证
+#    能挡未过 PR，再启用本 hook 替换旧全量 hook。CI required 没挂死前不拆旧 hook。
+
+set -e
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+RUFF=""
+if [ -x "$REPO_ROOT/backend/.venv/bin/ruff" ]; then
+  RUFF="$REPO_ROOT/backend/.venv/bin/ruff"
+elif command -v ruff >/dev/null 2>&1; then
+  RUFF="ruff"
+fi
+
+PYTEST=""
+if [ -x "$REPO_ROOT/backend/.venv/bin/pytest" ]; then
+  PYTEST="$REPO_ROOT/backend/.venv/bin/pytest"
+elif command -v pytest >/dev/null 2>&1; then
+  PYTEST="pytest"
+fi
+
+# ── 1) 快速 lint：仅 lint 本次推送新/改的 backend Python 文件 ─────────────────
+#    （不全量 lint，避免被历史 lint 欠债拖累、误挡无关 push）
+BASE=""
+if git rev-parse --verify -q origin/main >/dev/null; then
+  BASE="origin/main"
+elif git rev-parse --verify -q main >/dev/null; then
+  BASE="main"
+fi
+
+if [ -n "$BASE" ]; then
+  CHANGED=$(git diff --name-only --diff-filter=ACM "$BASE"...HEAD -- 'backend/**/*.py' 2>/dev/null || true)
+else
+  CHANGED=$(git diff --name-only --diff-filter=ACM HEAD -- 'backend/**/*.py' 2>/dev/null || true)
+fi
+
+if [ -z "$RUFF" ]; then
+  echo "[pre-push] ruff 不可用 — 跳过快速 lint（建议 pip install ruff）" >&2
+elif [ -z "$CHANGED" ]; then
+  echo "[pre-push] 本次无 backend Python 改动 — 跳过 lint。" >&2
+else
+  echo "[pre-push] 快速 lint：ruff check 本次改动的 $(echo "$CHANGED" | wc -l) 个文件（秒级）..." >&2
+  # shellcheck disable=SC2086
+  if ! "$RUFF" check $CHANGED; then
+    echo "" >&2
+    echo "[pre-push] ❌ ruff lint 失败（仅针对你本次改动的文件）。Push 被拦下。" >&2
+    echo "[pre-push] 修：cd backend && .venv/bin/ruff check --fix <文件>；真紧急 \`git push --no-verify\`。" >&2
+    exit 1
+  fi
+  echo "[pre-push] ✅ ruff lint 通过。" >&2
+fi
+
+# ── 2) marker gate：资金/分享安全两条最高危线（~12s 本地即时拦）─────────────
+if [ -z "$PYTEST" ]; then
+  echo "[pre-push] pytest 不可用 — 跳过 marker gate（建议在 backend/.venv 装 pytest）" >&2
+else
+  echo "[pre-push] release marker gate：pytest -m 'money_safety or share_security'（~12s）..." >&2
+  if ! ( cd "$REPO_ROOT/backend" && "$PYTEST" -m "money_safety or share_security" -q --no-header ); then
+    echo "" >&2
+    echo "[pre-push] ❌ marker gate 失败：资金/分享安全用例没过。Push 被拦下。" >&2
+    echo "[pre-push] 这是最高危线，不要 --no-verify 绕过——先修。" >&2
+    exit 1
+  fi
+  echo "[pre-push] ✅ marker gate 通过。" >&2
+fi
+
+echo "[pre-push] ✅ 快速 gate 通过 — 全量测试由 GitHub Actions CI 兜底（见 .github/workflows/test.yml），开始 push。" >&2
+exit 0
