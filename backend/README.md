@@ -11,8 +11,8 @@ pip install -r requirements.txt
 # Run locally
 uvicorn app.main:app --reload
 
-# Run with Docker
-docker compose up -d
+# Run with Docker (轻量 dev 栈: db + redis)
+docker compose -f docker-compose.dev.yml up -d
 
 # Run tests
 pytest

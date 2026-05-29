@@ -181,7 +181,7 @@ backend/
 │   ├── test_alembic_smoke.py            # PG+alembic schema 漂移 smoke（TD-CI-01）
 │   └── test_ws_*.py                     # WS 限连接数 + Pub/Sub outbound 可靠性（D-020/A21-03）
 ├── Dockerfile                 # python:3.11-slim
-├── docker-compose.yaml        # api + postgres:15-alpine + redis:7-alpine
+├── docker-compose.dev.yml     # 本地开发轻量栈: postgres:15-alpine + redis:7-alpine (后端用 uvicorn 直接跑)
 ├── requirements.txt
 ├── pyproject.toml             # black (100 chars) + ruff (E/F/I/W) + pytest
 └── alembic.ini
@@ -795,41 +795,10 @@ Request → API Route → Service → Repository → Database
 | Xcode | 15+ | iOS 开发 (macOS only) |
 | 微信开发者工具 | latest | 小程序调试/预览 |
 
-### 方式一：Docker Compose 全栈启动 (推荐)
+> ℹ️ **全栈部署**（api + nginx + mock stub 等多容器，按环境切换）已迁移到 `deploy/docker-compose.yml`，用 `deploy/up.sh` 起，见下文 [§部署](#部署) 与 `deploy/up.sh`。
+> 本地开发推荐 **uvicorn 直接跑后端 + 轻量 db/redis 栈**（热重载快、贴近调试），即下面「方式一」。
 
-```bash
-cd backend
-
-# 1. 启动所有服务 (API + PostgreSQL + Redis)
-docker compose up -d
-
-# 2. 查看日志
-docker compose logs -f api
-
-# 3. 访问
-#    API:         http://localhost:8000
-#    Swagger UI:  http://localhost:8000/docs
-#    ReDoc:       http://localhost:8000/redoc
-
-# 4. 初始化医院种子数据
-curl -X POST http://localhost:8000/api/v1/hospitals/seed
-
-# 5. 停止
-docker compose down
-
-# 6. 停止并清除数据
-docker compose down -v
-```
-
-Docker Compose 包含的服务：
-
-| 服务 | 镜像 | 端口 | 说明 |
-|------|------|------|------|
-| `api` | 本地 Dockerfile 构建 | 8000 | FastAPI + Uvicorn |
-| `db` | postgres:15-alpine | 5432 | 用户 postgres, 密码 postgres, 库 yiluan |
-| `redis` | redis:7-alpine | 6379 | 内存缓存 |
-
-### 方式二：本地直接运行 (开发调试)
+### 方式一：本地直接运行后端 + 轻量 db/redis 栈 (推荐, 开发调试)
 
 ```bash
 cd backend
@@ -841,8 +810,8 @@ source venv/bin/activate          # Windows: venv\Scripts\activate
 # 2. 安装依赖
 pip install -r requirements.txt
 
-# 3. 启动外部服务 (只启动 DB + Redis, 不启动 API 容器)
-docker compose up -d db redis
+# 3. 启动外部服务 (只起 DB + Redis 轻量栈, 不含 API 容器)
+docker compose -f docker-compose.dev.yml up -d
 
 # 4. 创建 .env 文件 (可选, 也可用默认值)
 cat > .env << 'EOF'
@@ -853,7 +822,7 @@ DEBUG=true
 ENVIRONMENT=development
 EOF
 
-# 5. 数据库迁移 (如果 alembic/versions/ 下有迁移文件)
+# 5. 数据库迁移
 alembic upgrade head
 
 # 6. 启动开发服务器 (热重载)
@@ -861,14 +830,50 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # 7. 初始化医院种子数据
 curl -X POST http://localhost:8000/api/v1/hospitals/seed
+
+# 8. 访问
+#    API:         http://localhost:8000
+#    Swagger UI:  http://localhost:8000/docs
+#    ReDoc:       http://localhost:8000/redoc
+
+# 9. 停止轻量栈
+docker compose -f docker-compose.dev.yml down
+# 停止并清除数据
+docker compose -f docker-compose.dev.yml down -v
 ```
+
+`backend/docker-compose.dev.yml` 包含的服务：
+
+| 服务 | 镜像 | 端口 | 说明 |
+|------|------|------|------|
+| `db` | postgres:15-alpine | 5432 | 用户 postgres, 密码 postgres, 库 yiluan |
+| `redis` | redis:7-alpine | 6379 | 内存缓存 |
+
+### 方式二：全栈容器化 (deploy 骨架, 贴近 staging / 一键起干净环境)
+
+如需在容器里跑完整后端栈（含 API 容器、nginx、mock stub），用 `deploy/` 的多环境骨架（按 `--env-file` 切环境）：
+
+```bash
+cd deploy
+
+# 一键容器化 dev: pg + redis + backend-dev(热挂载 ../backend/app), 不起 nginx/mock/seed
+# 端口避开 agent-squad: pg 5433 / redis 6380 / backend 8001
+./up.sh dev             # 自动 cp env.dev.example -> env.dev, 起栈 + alembic upgrade head
+./down.sh dev           # 停并清数据
+
+# 完整 staging 栈(api + nginx + mock stub + seed), 入口 127.0.0.1:18080
+./up.sh                 # 默认 staging profile, 6 容器 healthy + alembic head + readiness 绿
+./down.sh               # 停
+```
+
+> `./up.sh dev` 与「方式一」的区别：方式一后端用宿主 uvicorn 裸跑（改代码秒级热重载、最适合日常迭代）；`./up.sh dev` 把后端也放进容器（一键起干净隔离环境，适合新人上手 / CI / 不想配本地 Python 环境）。两者互补，按场景选。
 
 ### 运行测试
 
 ```bash
-# 后端 (无需启动 Docker, 使用 SQLite 内存 + FakeRedis)
+# 后端测试是本地跑测试的权威路径: 无需启动 Docker, 使用 SQLite 内存 + FakeRedis, 裸跑即可
 cd backend
-python -m pytest tests/ -v              # 573 passed / 1 xfailed
+python -m pytest tests/ -v
 python -m pytest tests/ -v -k "auth"    # 只运行认证测试
 python -m pytest tests/ -v --tb=short   # 简短错误信息
 
