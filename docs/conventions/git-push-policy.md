@@ -118,14 +118,12 @@ git checkout main && git pull origin main
 - **规避**：protection 已设 approval=0（A 方案），review 走 comment（§3）。**不要再尝试 approve 按钮。**
 - **中期**：若要恢复硬 approval，配 reviewer-bot 独立账号（backlog，非当前必须）
 
-### 坑 4：pre-push hook 全量 pytest 跑 6 分钟 / 被 timeout 杀
-- **现象**：push "失败"，但其实是 hook 在跑全量测试没跑完被 timeout 中断
-- **根因**：pre-push 跑 1349 pytest + 369 jest 约 6 分钟，前台 exec timeout 太短杀了它
-- **规避**：push 用后台执行 + 给足时间：
-  ```
-  exec(background=true, command="git push origin feature/xxx", yieldMs=180000)
-  然后 process(poll) 等到出现 "proceeding with push" + 远端 HEAD 更新
-  ```
+### 坑 4：pre-push hook 全量 pytest 跑 6 分钟 撞 SSH idle-timeout（✅ 已修复 S2-OPS-003）
+- **现象**：push "失败"——hook 全量测试全绿后，传输阶段报 `Connection closed by remote host`（exit 141），逼人 `--no-verify` 绕过
+- **根因**：旧 pre-push 在 push 的 SSH 连接生命周期内跑 1349 pytest + 369 jest 约 6 分钟，GitHub SSH idle-timeout 在测试跑完前掐断连接
+- **✅ 已修复（#108，main `698d08e`）**：本地 pre-push 瘦身为 `ruff lint(改动文件) + marker gate(money_safety/share_security, ~12s)`，全量平移到 CI required check。**push 现在秒级完成，不再赌 6 分钟超时**（已实测验证）。
+- 启用新 hook：`bash scripts/setup-hooks.sh`（每个 clone 跑一次）。详见 `.githooks/README.md`。
+- ~~（历史规避，已不需要）push 用后台 + yieldMs=180000 + process(poll) 等 "proceeding with push"~~
 - **验证 push 真成功**（别只看 exit code，SSH 收尾有 SIGPIPE 噪声）：
   ```bash
   git fetch origin && [ "$(git rev-parse origin/<branch>)" = "$(git rev-parse <branch>)" ] && echo OK
