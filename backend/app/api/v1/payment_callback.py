@@ -109,6 +109,16 @@ async def wechat_pay_callback(
 
         if not trade_no:
             logger.warning("Pay callback missing trade_no: %s", data)
+            # [W19-P0-06 follow-up] API-layer early reject must also emit the
+            # ``payment_callback_empty_txn_total`` metric so dashboards see
+            # the full rejection volume — not just the service-layer path.
+            from app.observability.payment_metrics import (
+                PAYMENT_CALLBACK_EMPTY_TXN_TOTAL,
+            )
+
+            PAYMENT_CALLBACK_EMPTY_TXN_TOTAL.labels(
+                provider=provider_name, callback_type="pay"
+            ).inc()
             return _success_response()
 
         # 3) Idempotency gate — drop duplicates with SUCCESS.
@@ -197,6 +207,15 @@ async def wechat_refund_callback(
 
         if not refund_id:
             logger.warning("Refund callback missing refund_id: %s", data)
+            # [W19-P0-06 follow-up] mirror the pay-callback metric for refunds
+            # so dashboards stay symmetric between callback types.
+            from app.observability.payment_metrics import (
+                PAYMENT_CALLBACK_EMPTY_TXN_TOTAL,
+            )
+
+            PAYMENT_CALLBACK_EMPTY_TXN_TOTAL.labels(
+                provider=provider_name, callback_type="refund"
+            ).inc()
             return _success_response()
 
         is_new = await svc.record_callback_or_skip(
