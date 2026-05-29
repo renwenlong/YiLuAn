@@ -1,0 +1,57 @@
+{
+  "_format": "guarded-field-signatures-v1",
+  "signatures": {
+    "CreateShareRequest::share_scope": [
+      "#/components/schemas/ShareScope",
+      false
+    ],
+    "CreateShareResponse::share_expires_at": [
+      "string",
+      true
+    ],
+    "CreateShareResponse::share_revoked_at": [
+      "?ref",
+      false
+    ],
+    "CreateShareResponse::share_scope": [
+      "#/components/schemas/ShareScope",
+      true
+    ],
+    "CreateShareResponse::share_token": [
+      "string",
+      true
+    ],
+    "ExchangeSessionResponse::share_scope": [
+      "#/components/schemas/ShareScope",
+      true
+    ],
+    "ExchangeSessionResponse::share_session": [
+      "string",
+      true
+    ],
+    "ShareOrderResponse::patient_name_masked": [
+      "?ref",
+      false
+    ],
+    "ShareOrderResponse::share_scope": [
+      "#/components/schemas/ShareScope",
+      true
+    ],
+    "ShareTokenResponse::share_expires_at": [
+      "string",
+      true
+    ],
+    "ShareTokenResponse::share_revoked_at": [
+      "?ref",
+      false
+    ],
+    "ShareTokenResponse::share_scope": [
+      "#/components/schemas/ShareScope",
+      true
+    ],
+    "ShareTokenResponse::share_token": [
+      "string",
+      true
+    ]
+  }
+}
