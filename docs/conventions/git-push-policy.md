@@ -51,12 +51,21 @@ git checkout main && git pull origin main
 | 强制 approval 数 | ❌ **= 0** | **单账号无法 approve 自己 PR，故去掉**（见 §4 坑3）|
 | PR comment 必须 resolve | ✅ 强制 | reviewer 意见 resolve 才能合 |
 | 禁 force push / 禁删 main | ✅ 强制 | — |
-| 全量 pytest + jest + release gate | ✅ **CI required check** | `required_status_checks` strict=true：`Backend Tests` / `Docker Build Verification` / `WeChat Mini Program Tests`，PR 三个全绿 + 基于最新 main 才能合（S2-OPS-003）|
+| 全量 pytest + jest + release gate | ✅ **CI required check** | `required_status_checks` strict=true：`Backend Tests` / `Docker Build Verification` / `WeChat Mini Program Tests`，PR 三个全绿 + 基于最新 main 才能合（负向验证已证红 PR 被锁，S2-OPS-003）|
 | 本地 pre-push 快速门 | ✅ `.githooks/pre-push` | ruff lint(改动文件) + marker gate(`money_safety/share_security`, ~12s)，秒级；全量交 CI（启用：`bash scripts/setup-hooks.sh`）|
 
-**质量门没放水**：approval 仪式去掉，但靠 ① comment resolve ② **CI required check 全量 gate**（负向验证确认红 PR 真合不了）③ 本地 marker gate 守资金/分享最高危线 ④ 高风险 PR reviewer 显式 LGTM。
+**质量门没放水**：approval 仪式去掉，但靠 ① comment resolve ② **CI required check 全量 gate**（机制硬闸，负向验证确认红 PR 真合不了）③ 本地 marker gate 守资金/分享最高危线 ④ 高风险 PR reviewer 显式 LGTM 四道补偿。
 
 > 注：早前「pre-push 本地跑全量 6min」已废弃——会撞 SSH idle-timeout 致 push 失败（见 §4 坑4）。全量已平移到 CI required check。
+
+### 🔴 红线：禁止 `gh pr merge --admin` 绕 required check
+
+`--admin` 是机制内唯一能绕过 required check 的后门（`enforce_admins=false`）。机制挡不住它，**靠纪律 + 留痕守**：
+
+- **绝不**用 `gh pr merge --admin` / 任何 admin 强合绕过红 CI（尤其 `money_safety` / `share_security` 这种最高危 gate）
+- **若确有紧急必须 admin 强合**：事后**必须**在项目群 + 该 PR comment 显式报备——**谁、哪个 PR、为什么绕、绕过了哪个红 check**
+- **审计**：灰度前测试员（release gate）查 main 的 merge 历史，**有未报备的 admin merge = release gate 直接 fail**
+- 理由：admin 无声绕过 = 资金/隐私风险无痕进生产。机制挡不住 admin，那就让 admin **留痕可审计**，这是 gate 的最后一道。
 
 ---
 
