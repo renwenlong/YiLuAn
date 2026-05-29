@@ -1,0 +1,6 @@
+# 本地真值密钥，绝不入库
+env.staging.local
+env.production
+*.local
+
+# 演练报告归档（保留 reports/ 下已入库的样例，忽略新增运行产物可按需放开）

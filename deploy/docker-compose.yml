@@ -1,0 +1,152 @@
+# YiLuAn 通用部署编排（多环境共用骨架）
+#
+# 设计：单一 docker-compose.yml + env.<环境> 配置文件。
+#   切环境只需换 --env-file，不改 compose 本身。
+#
+# 用法（从 deploy/ 目录，由 up.sh / up.ps1 封装）：
+#   staging:    docker compose --env-file env.staging [--env-file env.staging.local] \
+#                 --profile staging up -d --build
+#
+# 本地密钥覆盖（staging）：
+#   env.staging 入库放假值；env.staging.local（gitignore）放真值，
+#   作为第二个 --env-file 叠加，后者覆盖前者。
+#
+# 多环境说明：
+#   * 项目名（name）与宿主端口当前写死为 staging 值（帝君决策 ④：先不参数化）。
+#   * env.production.example 为将来扩 production 时的配置模板预留。
+#
+# profiles:
+#   * mock-pay-stub / mock-sms-stub 仅在 `staging` profile 下启用；
+#     生产不激活该 profile → 不会起 mock。
+#
+# Network:
+#   * 仅 nginx 暴露宿主端口；其余服务只在内部网络可达。
+
+name: yiluan-staging
+
+services:
+  pg:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - yiluan-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    networks:
+      - yiluan-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  mock-pay-stub:
+    profiles: ["staging"]
+    build:
+      context: ./mock-pay-stub
+      dockerfile: Dockerfile
+    environment:
+      BACKEND_URL: http://backend:8000
+      PAY_CALLBACK_PATH: /api/v1/payments/wechat/callback
+    networks:
+      - yiluan-net
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8001/health',timeout=2).status==200 else 1)"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mock-sms-stub:
+    profiles: ["staging"]
+    build:
+      context: ./mock-sms-stub
+      dockerfile: Dockerfile
+    networks:
+      - yiluan-net
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8002/health',timeout=2).status==200 else 1)"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT}
+      DEBUG: ${DEBUG}
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pg:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      ADMIN_API_TOKEN: ${ADMIN_API_TOKEN}
+      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER}
+      SMS_PROVIDER: ${SMS_PROVIDER}
+      MOCK_PAY_BASE_URL: ${MOCK_PAY_BASE_URL:-}
+      MOCK_SMS_BASE_URL: ${MOCK_SMS_BASE_URL:-}
+      WECHAT_PAY_NOTIFY_URL: ${WECHAT_PAY_NOTIFY_URL:-}
+      WECHAT_APP_ID: ${WECHAT_APP_ID:-}
+      WECHAT_APP_SECRET: ${WECHAT_APP_SECRET:-}
+      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-false}
+      WS_PUBSUB_ENABLED: ${WS_PUBSUB_ENABLED:-true}
+    depends_on:
+      pg:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - yiluan-net
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/ping',timeout=3).status==200 else 1)"
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  nginx:
+    image: nginx:1.27-alpine
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:18080:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../admin-h5:/usr/share/nginx/admin-h5:ro
+    networks:
+      - yiluan-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://127.0.0.1/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  yiluan-net:
+    driver: bridge
+
+volumes:
+  pgdata:
