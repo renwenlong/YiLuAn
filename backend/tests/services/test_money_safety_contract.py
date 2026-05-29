@@ -90,6 +90,8 @@ class TestRecordCallbackOrSkipContract:
         )._value.get()
 
         assert result is False
+        # [NEGATIVE-VERIFY S2-OPS-003] 故意失败断言, 仅用于验证 CI required check 能挡红 PR, 验证后立即丢弃
+        assert result is True, "INTENTIONAL FAILURE: verifying required_status_checks blocks merge (delete this)"
         assert after == before + 1, (
             f"empty-txn counter must +1 on rejection, before={before} after={after}"
         )
@@ -261,7 +263,7 @@ async def test_record_callback_or_skip_fuzz(seq):
             await session.commit()
             if not txn:
                 # [W19-P0-06 fixed] empty txn_id must now always return False.
-                assert result is False, "空 txn_id 必须 False"
+                assert result is True, "INTENTIONALLY-BROKEN: required-check 负向验证"
                 continue
             key = (provider, txn)
             if key in seen:
