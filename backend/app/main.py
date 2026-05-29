@@ -141,6 +141,20 @@ def create_app() -> FastAPI:
         duration_ms = (time.time() - start) * 1000
         if req_id:
             response.headers["X-Request-Id"] = req_id
+        # Canary 5xx rollback gate metric (S2-OPS-001). Low cardinality:
+        # method + status class only, never the raw path.
+        try:
+            from app.observability.http_metrics import (
+                HTTP_REQUESTS_TOTAL,
+                status_class,
+            )
+
+            HTTP_REQUESTS_TOTAL.labels(
+                method=request.method,
+                status_class=status_class(response.status_code),
+            ).inc()
+        except Exception:  # metrics never break request serving
+            pass
         logger.info(
             "%s %s %s %.1fms rid=%s",
             request.method,

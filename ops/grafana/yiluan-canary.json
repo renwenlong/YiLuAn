@@ -1,0 +1,176 @@
+{
+  "title": "YiLuAn / W20 Top1 Canary Rollback Gate",
+  "uid": "yiluan-canary-w20",
+  "schemaVersion": 39,
+  "version": 1,
+  "tags": ["yiluan", "canary", "S2-OPS-001"],
+  "timezone": "",
+  "time": { "from": "now-6h", "to": "now" },
+  "refresh": "30s",
+  "templating": { "list": [] },
+  "panels": [
+    {
+      "id": 1,
+      "type": "row",
+      "title": "Rollback gates (PRD §8.1 — firing = ROLL BACK F2)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "5xx rate (rollback @ 2% / 30m)",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.02 }
+            ]
+          },
+          "custom": { "thresholdsStyle": { "mode": "line+area" } }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_requests_total{status_class=\"5xx\"}[5m])) / clamp_min(sum(rate(http_requests_total[5m])), 1e-9)",
+          "legendFormat": "5xx rate"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Share abuse rate (rollback @ 5% / 2h)",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.05 }
+            ]
+          },
+          "custom": { "thresholdsStyle": { "mode": "line+area" } }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(share_token_auto_revoked_total[1h])) / clamp_min(sum(rate(share_token_created_total[1h])), 1e-9)",
+          "legendFormat": "auto-revoke / created"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "AI degrade rate (rollback @ 20% / 4h)",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 1 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 0.2 }
+            ]
+          },
+          "custom": { "thresholdsStyle": { "mode": "line+area" } }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(ai_summary_degraded_total[1h])) / clamp_min(sum(rate(ai_summary_generated_total[1h])), 1e-9)",
+          "legendFormat": "degrade / generated"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "row",
+      "title": "Reverse validation (restart-canary health — NOT alerts, dashboard only)",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 9 }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "5xx rate — healthy ≤ 0.5% / 6h",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 10 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 0.005 }
+            ]
+          },
+          "custom": { "thresholdsStyle": { "mode": "line" } }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(http_requests_total{status_class=\"5xx\"}[6h])) / clamp_min(sum(rate(http_requests_total[6h])), 1e-9)",
+          "legendFormat": "5xx 6h"
+        }
+      ]
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "Share abuse — healthy ≤ 1% / 12h",
+      "gridPos": { "h": 8, "w": 8, "x": 8, "y": 10 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 0.01 }
+            ]
+          },
+          "custom": { "thresholdsStyle": { "mode": "line" } }
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(share_token_auto_revoked_total[12h])) / clamp_min(sum(rate(share_token_created_total[12h])), 1e-9)",
+          "legendFormat": "abuse 12h"
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "AI degrade ≤ 5% + daily cost (¥, budget 50)",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 10 },
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(ai_summary_degraded_total[1h])) / clamp_min(sum(rate(ai_summary_generated_total[1h])), 1e-9)",
+          "legendFormat": "degrade rate"
+        },
+        {
+          "refId": "B",
+          "expr": "sum(increase(ai_summary_cost_cny_total[1d]))",
+          "legendFormat": "daily cost ¥"
+        }
+      ]
+    }
+  ]
+}

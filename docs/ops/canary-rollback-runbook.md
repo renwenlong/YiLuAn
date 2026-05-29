@@ -1,0 +1,74 @@
+# Canary Rollback Runbook — W20 Top1 (S2-OPS-001)
+
+当 `yiluan_canary_rollback` 组的任一 alert 触发（`action=rollback, gate=canary`），
+执行本 runbook。三档阈值（帝君 2026-05-28 10:24 UTC 批准）：
+
+| Alert | 触发条件 | PRD |
+|---|---|---|
+| `CanaryHttp5xxRateHigh` | 5xx 错误率 > 2% 持续 30min | §8.1 #1 |
+| `CanaryShareAbuseRateHigh` | share token 滥用率 > 5% 持续 2h | §8.1 #2 |
+| `CanaryAiDegradeRateHigh` | AI 摘要降级率 > 20% 持续 4h | §8.1 #3 |
+
+## 1. 立即回滚（流量层，最快）
+
+灰度由 nginx `split_clients` 控制，回滚 = 把 `backend_new` 权重打到 0%。
+
+**位置**：生产 `/etc/nginx/conf.d/yiluan-canary.conf`
+（模板 `ops/canary/nginx.canary.conf.template`，搜 `split_clients`）。
+
+```nginx
+# 把当前生效的 split_clients 块替换为 Rollback 块：
+split_clients "${canary_key}" $canary_pool {
+    *       "backend_stable";
+}
+```
+
+应用：
+```bash
+sudo nginx -t && sudo nginx -s reload     # reload 不断连
+```
+
+> reload 后所有新请求走 `backend_stable`；带 `canary_bucket=new` cookie 的老用户
+> 仍可能粘在 new — 如需强制全停，同时下线 `backend_new` upstream（见 §2）。
+
+## 2. 强制全停 backend_new（粘性 cookie 也踢走）
+
+把 `map $canary_key $final_pool` 默认值强制 stable：
+```nginx
+map $canary_key $final_pool {
+    default              "backend_stable";   # was: $canary_pool
+    "__force_new"        "backend_new";      # 仅保留 QA 显式覆盖
+    "__force_stable"     "backend_stable";
+}
+```
+`nginx -t && nginx -s reload`。
+
+## 3. 验证回滚生效
+
+- Grafana **YiLuAn / W20 Top1 Canary Rollback Gate**（`ops/grafana/yiluan-canary.json`）
+  上三档曲线回落到阈值线下；
+- `sum(rate(http_requests_total[5m]))` 中 `backend_new` 池流量归零
+  （`Canary split (by pool label)` 面板）；
+- alert 在 `resolve_timeout`（5m）后自动 resolved，Alertmanager 推 resolved 通知。
+
+## 4. 通知链（自动）
+
+Alert 触发即经 Alertmanager `canary-rollback-ops-pm` receiver fan-out：
+- 运营企业微信群（`wechat-work-webhook?channel=ops-canary`）
+- 运营 + PM 邮件（`CANARY_OPS_EMAIL` / `CANARY_PM_EMAIL`）
+
+收到后由 **on-call 执行 §1**，并在群内同步「已回滚 + 触发 alert 名 + 当前指标值」。
+
+## 5. 回滚后
+
+1. 冻结 F2 再灰度，开 incident；
+2. 按触发 alert 定位根因（5xx → 看 backend 日志 / Sentry；滥用率 → 看
+   `share_token_auto_revoked_total{reason}`；AI 降级 → 看 `ai_summary_degraded_total{reason}`）；
+3. 修复 + staging 复跑灰度逆向验证（5xx ≤ 0.5%/6h、滥用 ≤ 1%/12h、
+   AI 降级 ≤ 5% 且日成本在 ¥50 预算内）达标后再重新放量。
+
+## 附：相关文件
+- alert rules: `deploy/prometheus/yiluan-canary.yml`
+- alertmanager 路由: `prometheus/alertmanager.yml`（receiver `canary-rollback-ops-pm`）
+- dashboard: `ops/grafana/yiluan-canary.json`
+- 灰度流量: `ops/canary/nginx.canary.conf.template` / ADR-0028

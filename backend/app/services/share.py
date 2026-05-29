@@ -124,6 +124,16 @@ class ShareService:
             order_completed_at=order_completed_at,
             share_scope=share_scope,
         )
+        try:
+            from app.observability.share_metrics import (
+                SHARE_TOKEN_CREATED_TOTAL,
+            )
+
+            SHARE_TOKEN_CREATED_TOTAL.labels(
+                share_scope=getattr(share_scope, "value", str(share_scope))
+            ).inc()
+        except Exception:  # metrics never break the create path
+            pass
         active = await self.tokens.list_active_for_order(order_id)
         return token, len(active)
 

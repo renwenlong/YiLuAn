@@ -32,6 +32,16 @@ route:
       receiver: wechat-work-critical
       group_wait: 10s
       continue: false
+    # S2-OPS-001: W20 Top1 canary rollback gate. Any alert tagged
+    # action=rollback fans out to 运营 + PM immediately (these demand a
+    # human rollback decision, not just on-call triage).
+    - matchers:
+        - action = "rollback"
+        - gate = "canary"
+      receiver: canary-rollback-ops-pm
+      group_wait: 10s
+      repeat_interval: 10m
+      continue: false
 
 inhibit_rules:
   # When a service is throwing 5xx, latency alerts from the same service are
@@ -59,3 +69,15 @@ receivers:
         send_resolved: true
         headers:
           Subject: "[CRITICAL] {{ .CommonLabels.alertname }} on {{ .CommonLabels.service }}"
+
+  # S2-OPS-001 canary rollback fan-out: 运营群机器人 + PM 邮件.
+  - name: canary-rollback-ops-pm
+    webhook_configs:
+      - url: "http://wechat-work-webhook:5001/alert?channel=ops-canary"
+        send_resolved: true
+        max_alerts: 0
+    email_configs:
+      - to: "${CANARY_OPS_EMAIL:-ops@yiluan.example.com},${CANARY_PM_EMAIL:-pm@yiluan.example.com}"
+        send_resolved: true
+        headers:
+          Subject: "[ROLLBACK] {{ .CommonLabels.alertname }} — F2 canary rollback required"

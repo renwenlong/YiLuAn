@@ -1,0 +1,77 @@
+# =============================================================================
+# YiLuAn W20 Top1 canary rollback alert rules  (S2-OPS-001)
+# -----------------------------------------------------------------------------
+# PRD-001 v1.2 §8.1 + §附 C.2. Thresholds approved by 帝君 2026-05-28 10:24 UTC
+# (hard-coded per report). Each firing alert means: ROLL BACK the F2 canary.
+#
+# Manual rollback runbook: docs/ops/canary-rollback-runbook.md
+# Alertmanager routing (运营 + PM): ops/alertmanager/wechat-work-webhook.py
+#
+# Reverse-validation (restart-canary health) targets are NOT alerts — they are
+# dashboard panels (ops/grafana/yiluan-canary.json):
+#   5xx ≤ 0.5%/6h, abuse ≤ 1%/12h, AI degrade ≤ 5% & cost in budget.
+# =============================================================================
+groups:
+  - name: yiluan_canary_rollback
+    rules:
+      # -- Rule 1: 5xx error rate > 2% sustained 30min → rollback -------------
+      - alert: CanaryHttp5xxRateHigh
+        expr: >
+          (
+            sum(rate(http_requests_total{status_class="5xx"}[5m]))
+            /
+            clamp_min(sum(rate(http_requests_total[5m])), 1e-9)
+          ) > 0.02
+        for: 30m
+        labels:
+          severity: P0
+          action: rollback
+          gate: canary
+        annotations:
+          summary: "Canary 5xx rate > 2% for 30m — ROLL BACK F2"
+          description: >
+            5xx error rate is {{ $value | humanizePercentage }} (threshold 2%)
+            sustained 30m. PRD §8.1 rollback rule #1. Follow
+            docs/ops/canary-rollback-runbook.md.
+
+      # -- Rule 2: share-token abuse rate > 5% sustained 2h → rollback -------
+      # abuse = auto-revoked (distinct-openid leak) / tokens created.
+      - alert: CanaryShareAbuseRateHigh
+        expr: >
+          (
+            sum(rate(share_token_auto_revoked_total[1h]))
+            /
+            clamp_min(sum(rate(share_token_created_total[1h])), 1e-9)
+          ) > 0.05
+        for: 2h
+        labels:
+          severity: P0
+          action: rollback
+          gate: canary
+        annotations:
+          summary: "Share-token abuse rate > 5% for 2h — ROLL BACK F2"
+          description: >
+            Auto-revoke/create ratio is {{ $value | humanizePercentage }}
+            (threshold 5%) sustained 2h — token URLs are leaking widely.
+            PRD §8.1 rollback rule #2.
+
+      # -- Rule 3: AI summary degrade rate > 20% sustained 4h → rollback ----
+      # degrade = budget + post-check + provider failure, all reasons summed.
+      - alert: CanaryAiDegradeRateHigh
+        expr: >
+          (
+            sum(rate(ai_summary_degraded_total[1h]))
+            /
+            clamp_min(sum(rate(ai_summary_generated_total[1h])), 1e-9)
+          ) > 0.20
+        for: 4h
+        labels:
+          severity: P0
+          action: rollback
+          gate: canary
+        annotations:
+          summary: "AI summary degrade rate > 20% for 4h — ROLL BACK F2"
+          description: >
+            AI degrade ratio is {{ $value | humanizePercentage }} (threshold
+            20%) sustained 4h (budget + post-check + provider failures).
+            PRD §8.1 rollback rule #3.

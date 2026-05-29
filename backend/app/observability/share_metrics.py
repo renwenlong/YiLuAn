@@ -43,3 +43,12 @@ SHARE_ACCESS_LOGGED_TOTAL: Counter = _get_or_create_counter(
     "Family-share view accesses recorded into the audit log.",
     (),
 )
+
+SHARE_TOKEN_CREATED_TOTAL: Counter = _get_or_create_counter(
+    "share_token_created",
+    (
+        "Family-share tokens successfully created. Denominator for the canary "
+        "abuse-rate rollback gate (auto_revoked / created). Labels: share_scope."
+    ),
+    ("share_scope",),
+)
