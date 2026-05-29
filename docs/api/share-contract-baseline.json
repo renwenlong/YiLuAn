@@ -1,0 +1,123 @@
+{
+  "fields": {
+    "CreateShareRequest.share_scope": {
+      "type": "ref:ShareScope",
+      "required": false,
+      "enum": null,
+      "nullable": false,
+      "format": null
+    },
+    "CreateShareResponse.share_active_count": {
+      "type": "integer",
+      "required": true,
+      "enum": null,
+      "nullable": false,
+      "format": null
+    },
+    "CreateShareResponse.share_expires_at": {
+      "type": "string",
+      "required": true,
+      "enum": null,
+      "nullable": false,
+      "format": "date-time"
+    },
+    "CreateShareResponse.share_revoked_at": {
+      "type": "string",
+      "required": false,
+      "enum": null,
+      "nullable": true,
+      "format": null
+    },
+    "CreateShareResponse.share_scope": {
+      "type": "ref:ShareScope",
+      "required": true,
+      "enum": null,
+      "nullable": false,
+      "format": null
+    },
+    "CreateShareResponse.share_token": {
+      "type": "string",
+      "required": true,
+      "enum": null,
+      "nullable": false,
+      "format": null
+    },
+    "CreateShareResponse.share_url": {
+      "type": "string",
+      "required": true,
+      "enum": null,
+      "nullable": false,
+      "format": null
+    },
+    "ExchangeSessionResponse.share_scope": {
+      "type": "ref:ShareScope",
+      "required": true,
+      "enum": null,
+      "nullable": false,
+      "format": null
+    },
+    "ExchangeSessionResponse.share_session": {
+      "type": "string",
+      "required": true,
+      "enum": null,
+      "nullable": false,
+      "format": null
+    },
+    "ExchangeSessionResponse.share_session_expires_at": {
+      "type": "string",
+      "required": true,
+      "enum": null,
+      "nullable": false,
+      "format": "date-time"
+    },
+    "ListSharesResponse.share_active_count": {
+      "type": "integer",
+      "required": true,
+      "enum": null,
+      "nullable": false,
+      "format": null
+    },
+    "ShareOrderResponse.share_scope": {
+      "type": "ref:ShareScope",
+      "required": true,
+      "enum": null,
+      "nullable": false,
+      "format": null
+    },
+    "ShareTokenResponse.share_expires_at": {
+      "type": "string",
+      "required": true,
+      "enum": null,
+      "nullable": false,
+      "format": "date-time"
+    },
+    "ShareTokenResponse.share_revoked_at": {
+      "type": "string",
+      "required": false,
+      "enum": null,
+      "nullable": true,
+      "format": null
+    },
+    "ShareTokenResponse.share_scope": {
+      "type": "ref:ShareScope",
+      "required": true,
+      "enum": null,
+      "nullable": false,
+      "format": null
+    },
+    "ShareTokenResponse.share_token": {
+      "type": "string",
+      "required": true,
+      "enum": null,
+      "nullable": false,
+      "format": null
+    },
+    "ShareTokenResponse.share_url": {
+      "type": "string",
+      "required": true,
+      "enum": null,
+      "nullable": false,
+      "format": null
+    }
+  }
+}

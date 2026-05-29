@@ -1,0 +1,106 @@
+# =============================================================================
+# OpenAPI §2.7 cross-platform contract drift gate  (S2-DEV-004 / ADR-0036 §3.6)
+# -----------------------------------------------------------------------------
+# ADR-0036 §2.7 defines 7 cross-platform fields shared by backend / WeChat /
+# iOS. A silent rename / type change / required flip breaks one client's
+# deserialization at runtime. This workflow is the hard gate:
+#
+#   backend  → re-extract the §2.7 field contract, diff the committed
+#              docs/api/share-contract-baseline.json, any drift fails.
+#   wechat   → tsc typecheck (catches d.ts ↔ services/*.js field misuse).
+#   ios      → ShareEndpointContractTests deserialization assertions
+#              (run via the existing ios-tests workflow; gated separately).
+#
+# Legal change path (printed on failure): revise ADR-0036 §2.7 + dual
+# sign-off PR + `python scripts/extract_share_contract.py --write`. There is
+# NO human force-merge escape hatch — the baseline must move in the PR.
+# =============================================================================
+
+name: openapi-diff
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/app/schemas/share.py"
+      - "backend/app/api/v1/share.py"
+      - "backend/app/api/v1/ws.py"
+      - "backend/app/main.py"
+      - "backend/scripts/extract_share_contract.py"
+      - "docs/api/share-contract-baseline.json"
+      - "wechat/services/**"
+      - ".github/workflows/openapi-diff.yml"
+  pull_request:
+    paths:
+      - "backend/app/schemas/share.py"
+      - "backend/app/api/v1/share.py"
+      - "backend/app/api/v1/ws.py"
+      - "backend/app/main.py"
+      - "backend/scripts/extract_share_contract.py"
+      - "docs/api/share-contract-baseline.json"
+      - "wechat/services/**"
+      - ".github/workflows/openapi-diff.yml"
+
+concurrency:
+  group: openapi-diff-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-contract:
+    name: Backend §2.7 contract diff
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: backend/requirements.txt
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+
+      - name: Verify §2.7 field contract matches committed baseline
+        working-directory: backend
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python scripts/extract_share_contract.py --check
+
+  wechat-typecheck:
+    name: WeChat tsc typecheck (d.ts ↔ services)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: wechat/package-lock.json
+
+      - name: Install WeChat deps
+        working-directory: wechat
+        run: npm ci || npm install
+
+      - name: Typecheck (fails on §2.7 field misuse)
+        working-directory: wechat
+        run: npm run typecheck
+
+  # iOS deserialization assertions live in ShareEndpointContractTests and run
+  # through the existing ios-tests workflow (macOS runner cost-gated by
+  # IOS_CI_ENABLED, per D-039). Kept as a documented pointer here so the §2.7
+  # three-platform gate is discoverable from one place.
+  ios-pointer:
+    name: iOS contract (see ios-tests.yml)
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          echo "iOS §2.7 deserialization assertions: ios/YiLuAnTests/ShareEndpointContractTests.swift"
+          echo "Executed by .github/workflows/ios-tests.yml (gated by IOS_CI_ENABLED / D-039)."
