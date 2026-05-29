@@ -133,4 +133,4 @@ Backend test fixtures: `seed_user`, `seed_hospital`, `seed_order`, `authenticate
 
 Backend config via pydantic-settings from `.env`. Key vars: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET_KEY`, `WECHAT_APP_ID`, `WECHAT_APP_SECRET`, `SMS_PROVIDER` (mock/aliyun), `ENVIRONMENT` (development/production).
 
-Docker Compose (`backend/docker-compose.yaml`) provides PostgreSQL 15 on port 5432 and Redis 7 on port 6379.
+Local dev stack (`backend/docker-compose.dev.yml`) provides PostgreSQL 15 on host port 5433 and Redis 7 on host port 6380 (ports avoid agent-squad's 5432/6379; run backend via `uvicorn` directly). Full multi-env container stack lives in `deploy/docker-compose.yml` (switch env with `--env-file`, see `deploy/up.sh`).
