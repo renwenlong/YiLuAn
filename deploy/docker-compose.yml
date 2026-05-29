@@ -12,37 +12,28 @@
 #   作为第二个 --env-file 叠加，后者覆盖前者。
 #
 # 多环境说明：
+#   * 本骨架服务 staging / production（容器化全栈：nginx + backend + pg + redis [+ mock]）。
+#   * 本地 dev 是独立的轻量栈，见 dev/docker-compose.yml（只 db+redis，后端 uvicorn 裸跑）。
 #   * 项目名（name）与宿主端口当前写死为 staging 值（帝君决策 ④：先不参数化）。
 #   * env.production.example 为将来扩 production 时的配置模板预留。
 #
 # profiles:
-#   * pg / redis 是基础服务，属于全部 profile（dev/staging/production）。
 #   * mock-pay-stub / mock-sms-stub 仅在 `staging` profile 下启用；
 #     生产不激活该 profile → 不会起 mock。
-#   * backend-dev / nginx-dev-skip：dev profile 提供轻量本地后端
-#     （pg+redis+backend, 暴露宿主端口 8000/5432/6379, 热挂载 ./app,
-#      不带 nginx/mock/seed），替代被删的 backend/docker-compose.yaml。
-#     用法见 up.sh dev：`./up.sh dev`
 #
 # Network:
-#   * staging/production：仅 nginx 暴露宿主端口；其余只在内部网络可达。
-#   * dev：backend/pg/redis 直接暴露宿主端口，方便本地 pytest/调试。
+#   * 仅 nginx 暴露宿主端口；其余服务只在内部网络可达。
 
 name: yiluan-staging
 
 services:
   pg:
     image: postgres:15-alpine
-    profiles: ["dev", "staging", "production"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
-    # 端口绑定由 env.<环境> 的 PG_HOST_PORT 控制：
-    #   dev 设 5432 → 暴露到宿主（本地 pytest 连 localhost:5432）
-    #   staging/production 设 127.0.0.1:0 等价不需要 → 不暴露（留空变量后只绑本地随机口）
-    ports:
-      - "${PG_HOST_BIND:-127.0.0.1}:${PG_HOST_PORT:-15432}:5432"
+    # staging/production 不暴露 pg 到宿主，仅内部网络可达
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
@@ -55,9 +46,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    profiles: ["dev", "staging", "production"]
-    ports:
-      - "${REDIS_HOST_BIND:-127.0.0.1}:${REDIS_HOST_PORT:-16379}:6379"
     networks:
       - yiluan-net
     healthcheck:
@@ -124,47 +112,6 @@ services:
       WECHAT_APP_SECRET: ${WECHAT_APP_SECRET:-}
       SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-false}
       WS_PUBSUB_ENABLED: ${WS_PUBSUB_ENABLED:-true}
-    depends_on:
-      pg:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - yiluan-net
-    healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/ping',timeout=3).status==200 else 1)"
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 20s
-
-  # dev profile 专用轻量后端：热挂载 ./app + 直接暴露 8000，
-  # 不走 nginx/mock/seed。替代被删的 backend/docker-compose.yaml。
-  backend-dev:
-    profiles: ["dev"]
-    build:
-      context: ../backend
-      dockerfile: Dockerfile
-    ports:
-      - "${BACKEND_HOST_BIND:-127.0.0.1}:${BACKEND_HOST_PORT:-8000}:8000"
-    environment:
-      ENVIRONMENT: ${ENVIRONMENT}
-      DEBUG: ${DEBUG}
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pg:5432/${POSTGRES_DB}
-      REDIS_URL: redis://redis:6379/0
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
-      ADMIN_API_TOKEN: ${ADMIN_API_TOKEN}
-      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER}
-      SMS_PROVIDER: ${SMS_PROVIDER}
-      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-false}
-      WS_PUBSUB_ENABLED: ${WS_PUBSUB_ENABLED:-true}
-    # 热挂载源码，保留被删 dev 栈的开发体验
-    volumes:
-      - ../backend/app:/app/app
     depends_on:
       pg:
         condition: service_healthy

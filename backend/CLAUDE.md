@@ -36,10 +36,11 @@ python -m alembic revision --autogenerate -m "description"
 curl -X POST http://localhost:8000/api/v1/hospitals/seed
 
 # Seed dev data (users, orders, etc.) directly to DB
-psql -U postgres -d yiluan < seed.sql
+# seed.sql 现位于仓库根 deploy/dev/seed.sql
+psql -h 127.0.0.1 -p 5433 -U postgres -d yiluan < ../deploy/dev/seed.sql
 
-# Docker
-docker compose up -d
+# Local dev db+redis 轻量栈（后端用 uvicorn 裸跑，端口 5433/6380）
+cd ../deploy && ./up.sh dev
 ```
 
 ## Architecture
@@ -66,7 +67,7 @@ Request → API Router → Service → Repository → SQLAlchemy Model → Postg
 - **Order state machine** — Transitions defined in `ORDER_TRANSITIONS` dict in `app/models/order.py`: `created → accepted → in_progress → completed → reviewed`, with cancel branches.
 - **Service prices hardcoded** — `SERVICE_PRICES` dict in `app/services/order.py`: full_accompany=299, half_accompany=199, errand=149.
 - **Mock payments** — Always succeed. No real payment gateway.
-- **Hospital seed data** — `app/data/hospitals.json` (97 hospitals) loaded via `POST /hospitals/seed`. `seed.sql` has a smaller set for direct DB seeding.
+- **Hospital seed data** — `app/data/hospitals.json` (97 hospitals) loaded via `POST /hospitals/seed`. `deploy/dev/seed.sql` has a smaller set for direct DB seeding.
 
 ### Dependency injection
 

@@ -5,30 +5,51 @@
 
 ---
 
-## 1. 快速开始（Docker 一键启动）
+## 1. 快速开始
 
-```powershell
-# 克隆 & 进入
-cd C:\Users\wenlongren\Desktop\PZAPP\YiLuAn\backend
+部署编排统一在 `deploy/`。本地开发推荐：`deploy/dev/` 起 db+redis 轻量栈 + 后端 uvicorn 裸跑（热重载）。
 
-# 启动 api + postgres + redis 三容器
-docker compose up -d --build
+### 方式一：本地 dev（推荐，热重载）
 
-# 跑 alembic 迁移（首次 / 或 schema 有变）
-docker compose exec api alembic upgrade head
+```bash
+# 1. 起 db + redis 轻量栈（宿主端口 5433 / 6380，避开 agent-squad 的 5432/6379）
+cd deploy
+./up.sh dev                          # 自动 cp dev/env.dev.example -> dev/env.dev
 
-# 灌测试数据
-Get-Content seed.sql -Raw | docker compose exec -T db psql -U postgres -d yiluan
+# 2. 后端虚拟环境 + 依赖 + 迁移 + 裸跑
+cd ../backend
+python -m venv venv && source venv/bin/activate    # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+# backend/.env 连 5433/6380：
+#   DATABASE_URL=postgresql+asyncpg://postgres:postgres@127.0.0.1:5433/yiluan
+#   REDIS_URL=redis://127.0.0.1:6380/0
+alembic upgrade head
 
-# 验证
+# 3. 灌测试数据（seed.sql 现位于 deploy/dev/）
+psql -h 127.0.0.1 -p 5433 -U postgres -d yiluan < ../deploy/dev/seed.sql
+# Windows PowerShell:
+#   Get-Content ../deploy/dev/seed.sql -Raw | psql -h 127.0.0.1 -p 5433 -U postgres -d yiluan
+
+# 4. 启动
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# 5. 验证
 curl http://localhost:8000/health        # 进程活着
 curl http://localhost:8000/readiness     # 依赖就绪（D-021）
 ```
 
-服务监听：
-- API：`http://localhost:8000`
-- Postgres：`localhost:5432`（user=postgres, password=postgres, db=yiluan）
-- Redis：`localhost:6379`
+### 方式二：全栈 staging（贴近预发，一键起）
+
+```bash
+cd deploy
+./up.sh                              # api + nginx + mock-pay/sms + pg + redis, 入口 127.0.0.1:18080
+./down.sh                            # 停并清数据
+```
+
+服务监听（方式一）：
+- API：`http://localhost:8000`（uvicorn 裸跑）
+- Postgres：`127.0.0.1:5433`（user=postgres, password=postgres, db=yiluan）
+- Redis：`127.0.0.1:6380`
 
 ---
 
@@ -84,10 +105,9 @@ python -m pytest -q
 ### 3.2 Smoke 测试（真 PG + alembic，防脱钩）
 
 ```bash
-# 先起 PG 容器
-cd backend
-docker compose up -d db redis
-docker compose exec api alembic upgrade head
+# 先起 db+redis 轻量栈（deploy/dev/，端口 5433/6380）
+cd deploy && ./up.sh dev
+cd ../backend && alembic upgrade head    # 后端裸跑环境连 5433/6380
 
 # 跑 smoke
 python -m pytest -m smoke -q
@@ -163,7 +183,7 @@ alembic revision -m "your message"
 - [ ] 跑 `alembic check`，返回 "No new upgrade operations detected."
 - [ ] 跑 `pytest -m smoke`，全绿
 - [ ] 跑 `pytest -q`（常规测试），全绿
-- [ ] 如有 seed 数据依赖新字段/枚举，同步更新 `seed.sql`
+- [ ] 如有 seed 数据依赖新字段/枚举，同步更新 `deploy/dev/seed.sql`
 - [ ] commit：model 变更 + 迁移文件**一起** commit，message 说明改了什么
 
 跳过任一步 → 参考 2026-04-17 事故（pytest 全绿 / PG 部署炸）。
@@ -180,29 +200,29 @@ alembic revision -m "your message"
 ## 7. 常用命令速查
 
 ```bash
-# 重置 DB（清卷 → 重建 → 迁移 → 灌 seed）
-cd backend
-docker compose down -v
-docker compose up -d
-docker compose exec api alembic upgrade head
-Get-Content seed.sql -Raw | docker compose exec -T db psql -U postgres -d yiluan
+# 重置 DB（清卷 → 重建 → 迁移 → 灌 seed）—— dev 轻量栈
+cd deploy
+./down.sh dev                # 清卷
+docker compose -p yiluan-dev --env-file dev/env.dev -f dev/docker-compose.yml up -d
+cd ../backend && alembic upgrade head
+psql -h 127.0.0.1 -p 5433 -U postgres -d yiluan < ../deploy/dev/seed.sql
+# Windows: Get-Content ../deploy/dev/seed.sql -Raw | psql -h 127.0.0.1 -p 5433 -U postgres -d yiluan
 
-# 看当前 alembic 版本
-docker compose exec api alembic current
-docker compose exec api alembic heads
-docker compose exec api alembic history
+# alembic（后端裸跑环境直接跑，无需进容器）
+alembic current
+alembic heads
+alembic history
 
 # 直连 PG
-docker compose exec db psql -U postgres -d yiluan
+psql -h 127.0.0.1 -p 5433 -U postgres -d yiluan
 
 # 看 enum 实际值
-docker compose exec db psql -U postgres -d yiluan -c "SELECT enum_range(NULL::orderstatus);"
+psql -h 127.0.0.1 -p 5433 -U postgres -d yiluan -c "SELECT enum_range(NULL::orderstatus);"
 
 # 看某表 schema
-docker compose exec db psql -U postgres -d yiluan -c "\d payments"
+psql -h 127.0.0.1 -p 5433 -U postgres -d yiluan -c "\d payments"
 
-# 看日志
-docker compose logs -f api
+# 看后端日志（uvicorn 裸跑，直接看终端输出；全栈 staging 看：docker compose -p yiluan-staging logs -f backend）
 ```
 
 ---

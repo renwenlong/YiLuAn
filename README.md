@@ -2,11 +2,12 @@
 
 连接需要就医陪伴的患者与专业陪诊师，提供全程陪诊、半程陪诊、代办跑腿等服务。
 
-> **最后更新：** 2026-04-29（Sprint W18 Day 3 / Release Wrap-Up）
-> **后端测试：** 1101 passed　**前端测试（微信小程序）：** 256 passed　**iOS 测试：** 57 passed (XCTest 离线快照)
-> **新增子项目：** `admin-h5/`（管理后台 MVP，陪诊师审核）
-> **关键能力新增：** 微信真实支付/退款回调（幂等）、Aliyun SMS、OTP 暴破防护、订单过期自动退款、统一 outbound 可靠性装饰器（timeout + retry + circuit breaker）、`/readiness` 健康探针、APScheduler 部署、WS 同用户连接数限制
-> **关键决策索引：** ADR-0026（outbound 可靠性）/ D-018~D-020（调度+连接限制）/ D-027（callback log TTL + OSS 归档）/ D-028（零提交日告警）/ D-029-D-030（Sprint W17 backlog）/ D-031（fix 与 test 优先级）/ D-032（XcodeGen）
+> **最后更新：** 2026-05-29（文档全量审计对齐最新 code；git HEAD `013cecf`）
+> **后端测试：** pytest 全绿（118 个测试文件；具体 passed 数以 CI `deploy.yml` 实跑为准，本次文档审计未重跑）　**前端测试（微信小程序）：** 369 passed / 54 suites（Jest，本次实跑）　**iOS 测试：** XCTest 离线快照（需 macOS/Xcode，本次未跑）
+> **代码规模（本次审计实测）：** 30 张表 / 44 个 alembic 迁移 / 27 个 model 文件 / 23 个 service / 14 个 repository（+ 泛型基类）/ 15 个 schema 模块 / 10 个 provider 文件 / 102 个 REST + WS 路由
+> **子项目：** `admin-h5/`（管理后台，陪诊师审核等）
+> **关键能力（已落地）：** 微信真实支付/退款回调（幂等）、Aliyun SMS、OTP 暴破防护、订单过期自动退款、统一 outbound 可靠性装饰器（timeout + retry + circuit breaker）、`/readiness` 健康探针、APScheduler 调度、WS 同用户连接数限制；紧急联系人/呼叫（PII 加密）、代下单家属管理、复诊提醒、家属订单分享（短链 + share_session）、追加式钱包账本、AI 订单摘要、资金对账、死信补偿队列、HTTP 幂等键、前端遥测埋点、Apple Sign-In
+> **关键决策索引：** ADR-0026（outbound 可靠性）/ ADR-0029（PII 加密）/ ADR-0032（钱包账本 + 对账）/ ADR-0034（admin v2 JWT）/ ADR-0036（家属分享）/ D-018~D-020（调度+连接限制）/ D-027（callback log TTL + OSS 归档）/ D-028（零提交日告警）/ D-031（fix 与 test 优先级）/ D-032（XcodeGen）/ D-056（家属）/ D-058（幂等键）
 
 ---
 
@@ -79,35 +80,62 @@ backend/
 │   ├── database.py            # create_async_engine (pool_size=20, max_overflow=10)
 │   ├── dependencies.py        # get_db, get_current_user (HTTPBearer → JWT 解析)
 │   ├── exceptions.py          # AppException 体系 (400/401/403/404/409)
-│   ├── api/v1/
+│   ├── api/v1/                # 20 个路由模块 + admin 子包，共 102 个路由（75 直属含 3 WS + 27 admin）
 │   │   ├── router.py          # v1 路由聚合 + /ping
 │   │   ├── auth.py            # OTP登录 + 微信登录 + JWT刷新 + 手机绑定 (限频5/min)
+│   │   ├── auth_apple.py      # Apple Sign-In 登录 (/auth/apple/login)
 │   │   ├── users.py           # 用户资料 CRUD + 头像上传
 │   │   ├── patients.py        # 患者档案 CRUD
+│   │   ├── family_members.py  # 代下单家属管理 CRUD (/users/me/family-members)
+│   │   ├── followup_reminders.py # 复诊提醒 创建/列表/取消
 │   │   ├── companions.py      # 陪诊师列表/详情/申请/更新/统计
 │   │   ├── hospitals.py       # 医院搜索/详情/种子数据
-│   │   ├── orders.py          # 订单 CRUD + 状态操作 + 支付/退款
+│   │   ├── orders.py          # 订单 CRUD + 状态机 + 双确认开始 + 支付/退款 + 过期扫描
 │   │   ├── chats.py           # 聊天消息 + 已读回执
 │   │   ├── reviews.py         # 评价提交/查看
+│   │   ├── emergency.py       # 紧急联系人 CRUD + 热线 + 紧急事件
 │   │   ├── notifications.py   # 通知列表/已读/设备令牌
-│   │   └── ws.py              # WebSocket 聊天 (/ws/chat/{order_id})
-│   ├── models/                # 13 个 SQLAlchemy 2.0 模型
-│   │   ├── base.py            # DeclarativeBase
+│   │   ├── wallet.py          # 钱包概览 + 交易流水
+│   │   ├── payment_callback.py # 微信支付/退款 v3 回调 (幂等)
+│   │   ├── share.py           # 家属订单分享 token + share_session 换发 + 脱敏视图
+│   │   ├── telemetry.py       # 前端埋点/异常事件上报
+│   │   ├── health.py          # /health (liveness) + /readiness
+│   │   ├── openapi_meta.py    # OpenAPI tags/description/错误模板 (非路由)
+│   │   ├── admin/             # 管理后台子包：auth/companions/orders/users/
+│   │   │                      #   wallet_ledger/reconciliation/dead_letters/
+│   │   │                      #   audit_logs/notes/dashboard/telemetry
+│   │   └── ws.py              # WebSocket：/ws/chat/{order_id} + /ws/notifications + /ws/share/{token}
+│   ├── models/                # 27 个 model 文件 → 30 张表的 SQLAlchemy 2.0 映射
+│   │   ├── base.py            # DeclarativeBase（Base 实际在 app/database.py）
 │   │   ├── user.py            # users + UserRole enum
 │   │   ├── patient_profile.py # patient_profiles
 │   │   ├── companion_profile.py # companion_profiles + VerificationStatus enum
 │   │   ├── hospital.py        # hospitals
-│   │   ├── order.py           # orders + ServiceType/OrderStatus enum + 状态机
+│   │   ├── order.py           # orders + ServiceType/OrderStatus(9态)/PaymentState/RefundState enum + 状态机 + 家属冗余字段
 │   │   ├── order_status_history.py # order_status_history
-│   │   ├── payment.py         # payments
+│   │   ├── payment.py         # payments（trade_no/prepay_id/refund_id/callback_raw/sign_params_cache）
 │   │   ├── chat_message.py    # chat_messages + MessageType enum
 │   │   ├── review.py          # reviews
 │   │   ├── notification.py    # notifications + NotificationType enum
 │   │   ├── device_token.py    # device_tokens
 │   │   ├── payment_callback_log.py # 支付回调审计 + TTL (D-027)
-│   │   └── admin_audit_log.py # 管理后台操作审计
-│   ├── schemas/               # Pydantic v2 请求/响应模型
-│   │   ├── auth.py            # SendOTP, VerifyOTP, WeChatLogin, TokenResponse...
+│   │   ├── wallet_ledger.py   # wallet_ledger 追加式钱包账本 (ADR-0032)
+│   │   ├── reconciliation.py  # reconciliation_runs/diffs/actions 3 表 (ADR-0032)
+│   │   ├── emergency.py       # emergency_contacts/emergency_events 2 表 (ADR-0029 PII 加密)
+│   │   ├── family_member.py   # family_members 代下单家属 (D-056)
+│   │   ├── followup_reminder.py # followup_reminders 复诊提醒 (F-07)
+│   │   ├── order_share_token.py # order_share_tokens 家属分享 token (ADR-0036)
+│   │   ├── order_share_access_log.py # order_share_access_logs 分享访问审计
+│   │   ├── ai_digest.py       # ai_digests 每单 AI 摘要缓存
+│   │   ├── idempotency_key.py # idempotency_keys HTTP 幂等键 (D-058)
+│   │   ├── dead_letter.py     # dead_letters 失败副作用补偿队列
+│   │   ├── sms_send_log.py    # sms_send_log 短信发送审计 (D-033)
+│   │   ├── telemetry_event.py # telemetry_events 前端埋点/异常
+│   │   ├── admin_user.py      # admin_users 后台操作员 (ADR-0034)
+│   │   ├── admin_note.py      # admin_notes 后台内部备注
+│   │   └── admin_audit_log.py # admin_audit_logs 管理后台操作审计
+│   ├── schemas/               # 15 个 Pydantic v2 请求/响应模块
+│   │   ├── auth.py            # SendOTP, VerifyOTP, WeChatLogin, TokenResponse, Apple...
 │   │   ├── user.py            # UpdateUserRequest, UserResponse, AvatarUploadResponse
 │   │   ├── patient.py         # PatientProfileResponse, UpdatePatientProfileRequest
 │   │   ├── companion.py       # CompanionList/Detail/Stats Response, Apply/Update Request
@@ -115,27 +143,45 @@ backend/
 │   │   ├── order.py           # CreateOrderRequest, OrderResponse, PaymentResponse
 │   │   ├── chat.py            # SendMessageRequest, ChatMessageResponse
 │   │   ├── review.py          # CreateReviewRequest, ReviewResponse
-│   │   └── notification.py    # NotificationResponse, RegisterDeviceRequest
-│   ├── services/              # 24 个业务服务（含 7 个 provider 实现）
+│   │   ├── notification.py    # NotificationResponse, RegisterDeviceRequest
+│   │   ├── device_token.py    # DeviceTokenResponse
+│   │   ├── emergency.py       # 紧急联系人/事件 请求响应
+│   │   ├── family_member.py   # 家属 CRUD 请求响应 (F-05)
+│   │   ├── followup_reminder.py # 复诊提醒 请求响应 (F-07)
+│   │   ├── share.py           # 分享 token/session/脱敏订单视图
+│   │   └── telemetry.py       # 埋点事件上报 (PII 校验拦截)
+│   ├── services/              # 23 个顶层 service 文件 + order/ai_summary/reconciliation 3 个子包 + providers/ 下 10 个 provider 文件
 │   │   ├── auth.py            # AuthService (OTP, JWT, 微信登录, 手机绑定)
+│   │   ├── refresh_tokens.py  # Refresh token 轮转/废除
 │   │   ├── user.py            # UserService
 │   │   ├── patient_profile.py # PatientProfileService
 │   │   ├── companion_profile.py # CompanionProfileService (含 get_stats)
 │   │   ├── hospital.py        # HospitalService (含种子数据)
-│   │   ├── order.py           # OrderService (状态机, 支付, 反规范化)
+│   │   ├── family_member.py   # 代下单家属 (F-05)
+│   │   ├── followup_reminder.py # 复诊提醒编排 (F-07)
+│   │   ├── emergency.py       # 紧急联系人/事件（PII 加密）
 │   │   ├── chat.py            # ChatService
 │   │   ├── review.py          # ReviewService (含 avg_rating 反规范化)
 │   │   ├── notification.py    # NotificationService (含触发器)
+│   │   ├── subscribe_message.py # 微信订阅消息下发
 │   │   ├── upload.py          # UploadService (Azure Blob)
 │   │   ├── wechat.py          # WeChatAPIClient (jscode2session)
-│   │   ├── payment_service.py # 统一支付编排（+ 显式抛错 + 结构化错误日志, C6）
-│   │   ├── sms.py             # SMS 服务编排（+ OTP 暴破防护, C1）
+│   │   ├── payment_service.py # 统一支付编排（+ 显式抛错 + 结构化错误日志）
 │   │   ├── wallet.py          # 钱包余额 + 退款入账
+│   │   ├── wallet_ledger_writer.py # 追加式账本写入（幂等）
+│   │   ├── share.py           # 家属分享 token 生成/换发/脱敏视图
+│   │   ├── share_otp.py       # 家属端 OTP 下发/校验
+│   │   ├── sms.py             # SMS 服务编排（+ OTP 暴破防护）
+│   │   ├── idempotency.py     # HTTP 幂等键回放 (D-058)
+│   │   ├── dead_letter.py     # 死信补偿队列写入
 │   │   ├── admin_audit.py     # 后台操作审计写入
-│   │   └── providers/         # provider 抽象（基类 + 工厂 + 具体实现）
+│   │   ├── order/             # 订单子包：lifecycle/cancel/expiry/payment/query/_recon_guard
+│   │   ├── ai_summary/        # AI 摘要子包：digester/deepseek_client/budget/post_check
+│   │   ├── reconciliation/    # 对账子包：diff/autofix/incremental (ADR-0032)
+│   │   └── providers/         # provider 抽象（10 个文件：基类 + 工厂 + 具体实现）
 │   │       ├── payment/       # base / factory / mock / wechat（v3 真实回调 + 幂等）
-│   │       └── sms/           # base / factory / mock / aliyun + rate_limit
-│   ├── repositories/          # 11 个数据仓储 (泛型 BaseRepository[T])
+│   │       └── sms/           # base / factory / mock / aliyun + rate_limit + logging_wrapper
+│   ├── repositories/          # 14 个数据仓储 + 泛型基类 BaseRepository[T]
 │   │   ├── base.py            # BaseRepository[T] — get_by_id, create, update, delete
 │   │   ├── user.py            # by_phone, by_wechat_openid
 │   │   ├── patient_profile.py # by_user_id, upsert
@@ -146,7 +192,11 @@ backend/
 │   │   ├── chat_message.py    # by_order_id, mark_read
 │   │   ├── review.py          # by_order_id, by_companion
 │   │   ├── notification.py    # by_user_id, unread_count, mark_all_read
-│   │   └── device_token.py    # by_user_id, by_token
+│   │   ├── device_token.py    # by_user_id, by_token
+│   │   ├── family_member.py   # 代下单家属（软删除过滤）
+│   │   ├── followup_reminder.py # 复诊提醒查询
+│   │   ├── emergency.py       # 紧急联系人/事件（按 phone_hash 查询）
+│   │   └── order_share_token.py # 分享 token + active 上限控制
 │   └── core/
 │       ├── security.py        # JWT 签发/验证 (create_access_token, decode_token)
 │       ├── redis.py           # init_redis, get_redis (app.state 注入)
@@ -155,7 +205,7 @@ backend/
 ├── alembic/                   # 数据库迁移
 │   ├── env.py                 # 异步迁移环境
 │   └── versions/              # 迁移版本文件
-├── tests/                     # 573 passed / 1 xfailed（pytest-asyncio + 全 provider mock）
+├── tests/                     # 118 个测试文件（pytest-asyncio + 全 provider mock；passed 数以 CI 为准）
 │   ├── conftest.py            # SQLite 内存 DB + FakeRedis + 全套 seed fixtures
 │   ├── test_auth.py           # OTP 登录全流程 (32 tests)
 │   ├── test_wechat_auth.py    # 微信登录 + 手机绑定 (12 tests)
@@ -181,11 +231,13 @@ backend/
 │   ├── test_alembic_smoke.py            # PG+alembic schema 漂移 smoke（TD-CI-01）
 │   └── test_ws_*.py                     # WS 限连接数 + Pub/Sub outbound 可靠性（D-020/A21-03）
 ├── Dockerfile                 # python:3.11-slim
-├── docker-compose.dev.yml     # 本地开发轻量栈: postgres:15-alpine + redis:7-alpine (后端用 uvicorn 直接跑)
+├── Dockerfile                 # python:3.11-slim（全栈/staging 用，deploy/docker-compose.yml 引用）
 ├── requirements.txt
 ├── pyproject.toml             # black (100 chars) + ruff (E/F/I/W) + pytest
 └── alembic.ini
 ```
+
+> 📦 **本地 dev 的 db/redis 轻量栈在 `deploy/dev/docker-compose.yml`**（非 backend 目录），种子数据 `deploy/dev/seed.sql`。
 
 ### 微信小程序 `wechat/`
 
@@ -238,7 +290,7 @@ wechat/
 │   ├── profile/bind-phone/         # 绑定手机号 (OTP 验证)
 │   ├── profile/settings/           # 设置 (清除缓存)
 │   └── profile/about/              # 关于 (版本信息)
-└── __tests__/                       # 165 passed / 30 suites（Jest 单元测试）
+└── __tests__/                       # 369 passed / 54 suites（Jest 单元测试，本次审计实跑）
     ├── setup.js                    # wx 全局对象 mock
     ├── pages/
     │   ├── bind-phone.test.js     # 绑定手机页面 (3 tests)
@@ -310,7 +362,17 @@ YiLuAn/
 
 ## 数据库设计
 
-共 **13 张表**（含 `payment_callback_log`、`admin_audit_log`），全部使用 UUID 主键 + UTC 时区时间戳。Alembic 已累计 **18 个迁移版本**（最近变更：`payments` 新增 `trade_no` / `prepay_id` / `refund_id` / `callback_raw` 4 列 + `trade_no` 唯一索引；`OrderStatus` enum 新增 `rejected_by_companion` / `expired`；`payment_callback_log` 新增 `expires_at` 用于 TTL）。
+共 **30 张表**（本次审计实测，27 个 model 文件映射，其中 emergency.py 含 2 表、reconciliation.py 含 3 表），绝大多数表使用 UUID 主键 + UTC 时区时间戳（`sms_send_log` / `telemetry_events` / `admin_users` 用 BIGINT 自增主键）。Alembic 已累计 **44 个迁移版本**。
+
+> **表清单（按模块分组）**
+>
+> - **核心业务（旧 13 张）**：`users`、`patient_profiles`、`companion_profiles`、`hospitals`、`orders`、`order_status_history`、`payments`、`chat_messages`、`reviews`、`notifications`、`device_tokens`、`payment_callback_log`、`admin_audit_logs`
+> - **资金 / 对账（ADR-0032）**：`wallet_ledger`、`reconciliation_runs`、`reconciliation_diffs`、`reconciliation_actions`
+> - **家属 / 紧急 / 复诊**：`family_members`(D-056)、`emergency_contacts`/`emergency_events`(ADR-0029)、`followup_reminders`(F-07)
+> - **家属分享（ADR-0036）**：`order_share_tokens`、`order_share_access_logs`
+> - **运维 / 可观测 / 后台**：`ai_digests`、`idempotency_keys`(D-058)、`dead_letters`、`sms_send_log`(D-033)、`telemetry_events`、`admin_users`(ADR-0034)、`admin_notes`
+
+> ⚠️ **以下旧 13 张表的详细列定义在多个 Sprint 后有微调**（例如 `orders.price` / `payments.amount` 已从 FLOAT 改为 `Numeric(10,2)`，`orders` 新增 `payment_state` / `refund_state` / `family_member_*` / `expires_at`，`payments` 新增 `trade_no` / `prepay_id` / `refund_id` / `callback_raw` / `sign_params_cache`，`OrderStatus` enum 增至 9 态），以 `backend/app/models/*.py` 为准。
 
 ### users
 
@@ -379,14 +441,19 @@ YiLuAn/
 | `companion_id` | UUID | FK(users), INDEX, nullable | 陪诊师 (接单后填入) |
 | `hospital_id` | UUID | FK(hospitals) | 就诊医院 |
 | `service_type` | ENUM(full_accompany, half_accompany, errand) | not null | 服务类型 |
-| `status` | ENUM(7种状态) | INDEX, default created | 订单状态 |
+| `status` | ENUM(9种状态) | INDEX, default created | 订单状态 |
+| `payment_state` | ENUM(none, paying, paid, failed, abnormal) | default none | 支付态（与 status 解耦） |
+| `refund_state` | ENUM(none, refunding, refunded, failed, manual_review) | default none | 退款态 |
 | `appointment_date` | VARCHAR(10) | not null | 预约日期 YYYY-MM-DD |
 | `appointment_time` | VARCHAR(5) | not null | 预约时间 HH:MM |
 | `description` | TEXT | nullable | 备注 |
-| `price` | FLOAT | not null | 服务价格 |
+| `price` | NUMERIC(10,2) | not null | 服务价格 |
 | `hospital_name` | VARCHAR(200) | nullable | 反规范化 |
 | `companion_name` | VARCHAR(100) | nullable | 反规范化 |
 | `patient_name` | VARCHAR(100) | nullable | 反规范化 |
+| `family_member_id` | UUID | nullable | 代下单家属 (D-056) |
+| `family_member_name` / `family_member_relation` / `family_member_phone` | VARCHAR | nullable | 家属反规范化快照 |
+| `expires_at` | TIMESTAMP WITH TZ | nullable | 订单过期时间（自动取消/退款） |
 | `created_at` / `updated_at` | TIMESTAMP WITH TZ | | |
 
 ### order_status_history
@@ -408,9 +475,11 @@ YiLuAn/
 | `id` | UUID | PK | |
 | `order_id` | UUID | FK(orders), INDEX | |
 | `user_id` | UUID | FK(users) | 操作人 |
-| `amount` | FLOAT | not null | 金额 |
+| `amount` | NUMERIC(10,2) | not null | 金额 |
 | `payment_type` | VARCHAR(20) | not null | `pay` 或 `refund` |
-| `status` | VARCHAR(20) | default success | MVP 模拟支付始终成功 |
+| `status` | VARCHAR(20) | default success | 支付状态 |
+| `trade_no` / `prepay_id` / `refund_id` | VARCHAR | nullable | 微信交易号 / 预支付 / 退款号（`trade_no` 唯一） |
+| `callback_raw` / `sign_params_cache` | TEXT | nullable | 回调原始报文 / 验签参数缓存 |
 | `created_at` | TIMESTAMP WITH TZ | | |
 
 ### chat_messages
@@ -461,12 +530,98 @@ YiLuAn/
 | `device_type` | VARCHAR(20) | not null | ios / android / wechat |
 | `created_at` | TIMESTAMP WITH TZ | | |
 
+### 新增表简表（仅核心列，详见 `backend/app/models/*.py`）
+
+#### wallet_ledger（追加式钱包账本, ADR-0032）
+
+| 列 | 类型 | 说明 |
+|----|------|------|
+| `id` | UUID PK | |
+| `user_id` | UUID FK(users), INDEX | 账本归属用户 |
+| `order_id` | UUID, INDEX, nullable | 关联订单 |
+| `provider_txn_id` | VARCHAR(128) | provider 交易号 |
+| `amount` | NUMERIC(10,2) | 金额 |
+| `direction` | ENUM(in, out) | 入/出账 |
+| `reason` | ENUM(pay, refund, adjust) | 记账原因 |
+| `occurred_at` / `created_at` | TIMESTAMP WITH TZ | 发生/写入时间 |
+
+> 余额 = `SUM(amount * sign(direction))`；`(provider_txn_id, direction)` 唯一索引保证幂等，只追加不就地修改。
+
+#### order_share_tokens（家属分享 token, ADR-0036）
+
+| 列 | 类型 | 说明 |
+|----|------|------|
+| `id` | UUID PK | |
+| `order_id` | UUID FK(orders, CASCADE), INDEX | |
+| `created_by` | UUID FK(users, CASCADE), INDEX | 下单人 |
+| `token` | VARCHAR(64) UNIQUE | URL-safe 随机串（长 32） |
+| `share_scope` | ENUM(full, progress_only) | 可见数据范围 |
+| `expires_at` | TIMESTAMP WITH TZ | 默认 completed_at+24h，硬上限 created_at+7d |
+| `revoked_at` / `revoked_by` | | 吊销时间 / 操作人 |
+| `first_accessed_at` / `first_accessor_openid` / `distinct_accessor_count` / `last_accessed_at` | | 访问聚合（避免每次访问写行） |
+
+> 每订单最多 3 个 active token；24h 滑窗 distinct 访问者 > 5 触发自动吊销 + 告警。`order_share_access_logs` 为逐次访问追加式审计表。
+
+#### emergency_contacts / emergency_events（紧急联系人/事件, ADR-0029 PII 加密）
+
+| 表 | 核心列 |
+|----|--------|
+| `emergency_contacts` | `id`, `user_id`(INDEX), `name`, `phone_encrypted`(AES-256-GCM 密文), `phone_hash`(HMAC-SHA256, INDEX), `relationship`, `expires_at`(90d grace), `created_at`/`updated_at` |
+| `emergency_events` | `id`, `patient_id`, `order_id`(nullable), `contact_called_encrypted`/`contact_called_hash`, `contact_type`(contact/hotline), `location`, `triggered_at`, `expires_at`(180d) |
+
+> 手机号一律加密落库，只能通过 `app.core.pii.decrypt_phone` 解密；日志必须走 mask_phone。
+
+#### family_members（代下单家属, D-056）
+
+| 列 | 类型 | 说明 |
+|----|------|------|
+| `id` | UUID PK | |
+| `user_id` | UUID, INDEX | 一个用户多个家属 |
+| `name` | VARCHAR(50) | |
+| `relation` | ENUM(self/parent/spouse/child/sibling/grandparent/relative/friend/other) | |
+| `gender` | ENUM(unknown/male/female) | |
+| `phone` / `age` / `medical_notes` | nullable | |
+| `deleted_at` | TIMESTAMP, INDEX | 软删除（历史订单保留引用） |
+
+#### followup_reminders（复诊提醒, F-07）
+
+| 列 | 说明 |
+|----|------|
+| `id` / `user_id`(INDEX) / `order_id`(INDEX) | 仅 completed/reviewed 订单可预约 |
+| `remind_at`(INDEX) | 提醒时间 |
+| `status` | ENUM(pending/sent/failed/cancelled)，连续失败 3 次锁定 failed |
+| `attempts` / `last_error` / `note` / `provider_message_id` / `sent_at` | 重试与送达元信息 |
+
+#### ai_digests（每单 AI 摘要缓存）
+
+| 列 | 说明 |
+|----|------|
+| `id` / `order_id`(UNIQUE) | 一单一行 |
+| `status` | ENUM(pending/ok/degraded/failed) |
+| `summary` / `model` | 文本摘要 + 生成模型 |
+| `cost_yuan` | NUMERIC(10,4) 本次花费（单单 ¥0.05 / 日 ¥50 预算上限） |
+| `degraded_reason` | 降级原因标签 |
+
+#### 运维 / 可观测类表
+
+| 表 | 用途 |
+|----|------|
+| `idempotency_keys` | HTTP `Idempotency-Key` 重放（`(user_id, endpoint, key)` 唯一，TTL 24h，首期仅 `POST /orders`）(D-058) |
+| `dead_letters` | 失败副作用补偿队列（channel/reason/payload(JSON)/status pending→resolved） |
+| `sms_send_log` | SMS 发送审计（phone_masked + phone_hash，**不存 OTP 明文**，BIGINT 主键，90d TTL）(D-033) |
+| `telemetry_events` | 前端漏斗/错误上报（event_type + payload(JSONB) + client_meta，**不含 PII**，BIGINT 主键） |
+| `admin_users` | 后台操作员（username UNIQUE + bcrypt + role super/ops/finance，ADR-0034） |
+| `admin_notes` | 后台内部备注（`(target_type, target_id)` 寻址） |
+| `reconciliation_runs/diffs/actions` | 资金对账三表（run 扫描窗口 / diff 差异明细 / action 处理动作，ADR-0032） |
+
 ### 缓存设计 (Redis)
 
 | Key 模式 | TTL | 说明 |
 |----------|-----|------|
 | `otp:{phone}` | 300s (5分钟) | OTP 验证码存储 |
 | `otp:rate:{phone}` | 60s | OTP 发送频率限制 |
+
+> 另有 OTP 暴破锁定、WS 连接计数、熔断器状态等 Redis key，详见下文「可靠性与容错」。
 
 ### ER 关系图
 
@@ -476,14 +631,23 @@ users ─────────┬──── 1:1 ──── patient_profil
                ├──── 1:N ──── orders (as patient)
                ├──── 1:N ──── orders (as companion)
                ├──── 1:N ──── notifications
-               └──── 1:N ──── device_tokens
+               ├──── 1:N ──── device_tokens
+               ├──── 1:N ──── family_members
+               ├──── 1:N ──── emergency_contacts / emergency_events
+               ├──── 1:N ──── followup_reminders
+               ├──── 1:N ──── wallet_ledger
+               └──── 1:N ──── order_share_tokens (as created_by)
 
 orders ────────┬──── 1:N ──── order_status_history
                ├──── 1:N ──── payments
                ├──── 1:N ──── chat_messages
-               └──── 1:1 ──── reviews
+               ├──── 1:1 ──── reviews
+               ├──── 1:1 ──── ai_digests
+               └──── 1:N ──── order_share_tokens ── 1:N ── order_share_access_logs
 
 hospitals ─────┴──── 1:N ──── orders
+
+reconciliation_runs ─ 1:N ─ reconciliation_diffs ─ 1:N ─ reconciliation_actions
 ```
 
 ---
@@ -501,6 +665,10 @@ hospitals ─────┴──── 1:N ──── orders
 | `reviewed` | 已评价 | `#52C41A` (绿) | 患者已评价, 订单关闭 |
 | `cancelled_by_patient` | 患者取消 | `#FF4D4F` (红) | 患者主动取消 |
 | `cancelled_by_companion` | 陪诊师取消 | `#FF4D4F` (红) | 陪诊师取消接单 |
+| `rejected_by_companion` | 陪诊师拒单 | `#FF4D4F` (红) | 陪诊师 created 阶段拒接 |
+| `expired` | 已过期 | `#BFBFBF` (灰) | 超时未接单，调度器自动置位 + 自动退款 |
+
+> 状态机另有 `payment_state`（none/paying/paid/failed/abnormal）与 `refund_state`（none/refunding/refunded/failed/manual_review）两个与 `status` **解耦** 的状态机，负责追踪资金侧；开始服务支持「陪诊师发起（request-start）→ 患者确认（confirm-start）」双确认路径。详见 `backend/app/models/order.py::ORDER_TRANSITIONS`。
 
 ### 状态流转
 
@@ -533,7 +701,30 @@ created ──→ accepted ──→ in_progress ──→ completed ──→ r
 
 ## API 设计
 
-共 32 个端点 (含 1 个 WebSocket)。所有 REST 端点前缀 `/api/v1`。
+共 **102 个路由**（本次审计按 router 装饰器实测：v1 直属 75 含 3 个 WebSocket + admin 子包 27 个后台端点）。所有 REST 端点前缀 `/api/v1`。下表按分组列出代表性端点，完整列表以 OpenAPI (`/docs`) 为准。
+
+### 分组总览
+
+| 分组 | 前缀 | 端点数 | 说明 |
+|------|------|--------|------|
+| auth | `/auth/*` | 6 + 1 | OTP/微信/刷新/绑定 + Apple Sign-In (`/auth/apple/login`) |
+| users / patients | `/users/*` | 5 + 2 | 用户资料/头像 + 患者档案 |
+| family-members | `/users/me/family-members` | 4 | 代下单家属 CRUD (F-05) |
+| companions | `/companions/*` | 6 | 列表/详情/申请/更新/统计 |
+| hospitals | `/hospitals/*` | 5 | 搜索/详情/种子 |
+| orders | `/orders/*` | 13 | CRUD + 状态机 + 双确认开始 + 支付/退款 + 过期扫描 |
+| followup-reminders | `/orders/*` `/users/me/*` | 3 | 复诊提醒 (F-07) |
+| reviews | `/orders/*` `/companions/*` | 3 | 评价 |
+| chats | `/chats/*` | 4 | 聊天消息/已读 |
+| emergency | `/emergency/*` | 7 | 紧急联系人/热线/事件 |
+| notifications | `/notifications/*` | 6 | 通知/设备令牌 |
+| wallet | `/wallet/*` | 2 | 钱包概览/流水 |
+| payment-callbacks | `/payments/*` | 2 | 微信支付/退款回调 |
+| share | `/orders/{id}/shares` `/shares/*` | 6 | 家属订单分享 |
+| telemetry | `/telemetry/events` | 1 | 前端埋点/异常上报 |
+| health | `/health` `/readiness` | 2 | liveness / readiness |
+| admin | `/admin/*` | ~32 | 后台登录/陪诊师审核/订单/用户/账本/对账/死信/审计/备注/看板/遥测 |
+| WebSocket | `/ws/*` | 3 | 聊天/通知/家属分享 |
 
 ### 基础
 
@@ -551,6 +742,7 @@ created ──→ accepted ──→ in_progress ──→ completed ──→ r
 | POST | `/auth/refresh` | 无 | — | `{refresh_token}` | `RefreshTokenResponse` |
 | POST | `/auth/wechat-login` | 无 | — | `{code}` | `TokenResponse` |
 | POST | `/auth/bind-phone` | Bearer | — | `{phone, code}` | `UserResponse` |
+| POST | `/auth/apple/login` | 无 | — | `{identity_token, ...}` | `TokenResponse` (Apple Sign-In) |
 
 > **开发便利**: OTP `000000` 始终有效; 微信 code `dev_test_code` 绕过微信服务器。
 
@@ -594,12 +786,16 @@ created ──→ accepted ──→ in_progress ──→ completed ──→ r
 | POST | `/orders` | Bearer | `{service_type, hospital_id, appointment_date, appointment_time, description?}` | `OrderResponse` (201) |
 | GET | `/orders` | Bearer | `?status=&page=1&page_size=20` | `{items, total}` |
 | GET | `/orders/{id}` | Bearer | — | `OrderResponse` |
-| POST | `/orders/{id}/accept` | Bearer | — | `OrderResponse` |
-| POST | `/orders/{id}/start` | Bearer | — | `OrderResponse` |
+| POST | `/orders/{id}/accept` | Bearer | — | `OrderResponse` (陪诊师接单) |
+| POST | `/orders/{id}/reject` | Bearer | — | `OrderResponse` (陪诊师拒单) |
+| POST | `/orders/{id}/start` | Bearer | — | `OrderResponse` (直接开始) |
+| POST | `/orders/{id}/request-start` | Bearer | — | `OrderResponse` (陪诊师发起开始请求) |
+| POST | `/orders/{id}/confirm-start` | Bearer | — | `OrderResponse` (患者确认开始) |
 | POST | `/orders/{id}/complete` | Bearer | — | `OrderResponse` |
 | POST | `/orders/{id}/cancel` | Bearer | — | `OrderResponse` |
 | POST | `/orders/{id}/pay` | Bearer | — | `PaymentResponse` |
 | POST | `/orders/{id}/refund` | Bearer | — | `PaymentResponse` |
+| POST | `/orders/check-expired` | 运维/定时 | — | 扫描并取消过期订单 |
 
 ### 聊天 Chats — `/api/v1/chats/*`
 
@@ -628,11 +824,74 @@ created ──→ accepted ──→ in_progress ──→ completed ──→ r
 | POST | `/notifications/device-token` | Bearer | `{token, device_type}` | `DeviceTokenResponse` |
 | DELETE | `/notifications/device-token` | Bearer | `{token}` | `{success}` |
 
-### WebSocket — `/ws/chat/{order_id}`
+### 家属（代下单）Family Members — `/api/v1/users/me/family-members` (F-05)
+
+| 方法 | 路径 | 认证 | 说明 |
+|------|------|------|------|
+| GET | `/users/me/family-members` | Bearer | 获取我的家人列表 |
+| POST | `/users/me/family-members` | Bearer | 新增一位家人 |
+| PATCH | `/users/me/family-members/{member_id}` | Bearer | 更新家人 |
+| DELETE | `/users/me/family-members/{member_id}` | Bearer | 软删除家人 |
+
+### 紧急 Emergency — `/api/v1/emergency/*`
+
+| 方法 | 路径 | 认证 | 说明 |
+|------|------|------|------|
+| GET / POST | `/emergency/contacts` | Bearer | 紧急联系人列表 / 新增（最多 3 个） |
+| PUT / DELETE | `/emergency/contacts/{contact_id}` | Bearer | 更新 / 删除紧急联系人 |
+| GET | `/emergency/hotline` | Bearer | 平台客服热线 |
+| POST / GET | `/emergency/events` | Bearer | 触发紧急事件 / 我的事件历史 |
+
+### 复诊提醒 Follow-up Reminders (F-07)
+
+| 方法 | 路径 | 认证 | 说明 |
+|------|------|------|------|
+| POST | `/orders/{order_id}/followup-reminders` | Bearer | 为已完成订单创建复诊提醒 |
+| GET | `/users/me/followup-reminders` | Bearer | 我的全部复诊提醒 |
+| DELETE | `/users/me/followup-reminders/{reminder_id}` | Bearer | 取消一条 pending 提醒 |
+
+### 钱包 Wallet — `/api/v1/wallet/*`
+
+| 方法 | 路径 | 认证 | 说明 |
+|------|------|------|------|
+| GET | `/wallet` | Bearer | 钱包概览（余额 = 账本聚合） |
+| GET | `/wallet/transactions` | Bearer | 钱包交易流水 |
+
+### 家属分享 Share — `/api/v1/orders/{order_id}/shares` + `/api/v1/shares/*` (ADR-0036)
+
+| 方法 | 路径 | 认证 | 说明 |
+|------|------|------|------|
+| POST | `/orders/{order_id}/shares` | Bearer | 下单人创建家属分享 token |
+| GET | `/orders/{order_id}/shares` | Bearer | 查看当前 active token |
+| DELETE | `/orders/{order_id}/shares/{token_id}` | Bearer | 吸销指定 token |
+| POST | `/shares/{token}/otp` | 无 | 家属端请求下发短信验证码 |
+| POST | `/shares/{token}/session` | 无 | token + openid/(phone+otp) 换 share_session JWT |
+| GET | `/shares/session/order` | share_session | 拉脱敏订单视图 |
+
+### 支付回调 Payment Callbacks — `/api/v1/payments/*`
+
+| 方法 | 路径 | 认证 | 说明 |
+|------|------|------|------|
+| POST | `/payments/wechat/callback` | 验签 | 微信支付结果回调（幂等） |
+| POST | `/payments/wechat/refund-callback` | 验签 | 微信退款结果回调 |
+
+### 遥测 Telemetry — `/api/v1/telemetry/*`
+
+| 方法 | 路径 | 认证 | 说明 |
+|------|------|------|------|
+| POST | `/telemetry/events` | 可选 Bearer | 上报埋点/异常事件（未登录也可上报，拒 PII） |
+
+### 管理后台 Admin — `/api/v1/admin/*`
+
+独立路由子包，~32 个端点，涵盖：`/admin/auth/login`、`/admin/companions`（审核）、`/admin/orders`（强制状态/退款）、`/admin/users`、`/admin/wallet-ledger`、`/admin/reconciliation`、`/admin/dead-letters`、`/admin/audit-logs`、`/admin/notes`、`/admin/dashboard`、`/admin/telemetry`。鉴权双轨：传统 `X-Admin-Token` + admin v2 JWT (`require_admin_jwt`, ADR-0034)。
+
+### WebSocket — `/ws/*`
 
 | 连接 | 认证 | 说明 |
 |------|------|------|
-| `ws://host/ws/chat/{order_id}?token={jwt}` | query 参数 | 实时聊天 |
+| `ws://host/ws/chat/{order_id}?token={jwt}` | query 参数 | 订单内实时聊天 |
+| `ws://host/ws/notifications?token={jwt}` | query 参数 | 实时通知推送 |
+| `ws://host/ws/share/{token}` | share 会话 | 家属端只读订单/进度实时视图 |
 
 **消息格式：**
 - 发送: `{"type": "text|image|system", "content": "..."}`
@@ -665,8 +924,10 @@ OrderResponse:
   service_type / status: str
   appointment_date / appointment_time: str
   description: str | null
-  price: float
+  price: Decimal           # Numeric(10,2)
+  payment_state / refund_state: str
   hospital_name / companion_name / patient_name: str | null
+  family_member_name / family_member_relation / family_member_phone: str | null
   created_at / updated_at: datetime
 ```
 
@@ -764,11 +1025,11 @@ Request → API Route → Service → Repository → Database
 
 | 层级 | 职责 | 文件 |
 |------|------|------|
-| **API Route** | 请求校验, 依赖注入, HTTP 响应 | `api/v1/*.py` (含 admin 子路由) |
-| **Service** | 业务逻辑, 事务编排, 触发器 | `services/*.py` + `services/providers/**/*` (24 个) |
-| **Repository** | 数据访问, SQL 查询封装 | `repositories/*.py` (泛型基类 `BaseRepository[T]`) |
-| **Schema** | Pydantic v2 请求/响应模型 | `schemas/*.py` (9 个模块) |
-| **Model** | SQLAlchemy 2.0 ORM 映射 | `models/*.py` (13 个表) |
+| **API Route** | 请求校验, 依赖注入, HTTP 响应 | `api/v1/*.py`（20 个路由模块 + admin 子包，102 路由） |
+| **Service** | 业务逻辑, 事务编排, 触发器 | `services/*.py` + `order/`/`ai_summary/`/`reconciliation/` 子包 + `providers/**/*`（23 顶层文件） |
+| **Repository** | 数据访问, SQL 查询封装 | `repositories/*.py`（14 个 + 泛型基类 `BaseRepository[T]`） |
+| **Schema** | Pydantic v2 请求/响应模型 | `schemas/*.py`（15 个模块） |
+| **Model** | SQLAlchemy 2.0 ORM 映射 | `models/*.py`（27 个文件 / 30 张表） |
 
 ### 异常处理体系
 
@@ -779,6 +1040,8 @@ Request → API Route → Service → Repository → Database
 | `ForbiddenException` | 403 | 权限不足 (角色校验) |
 | `NotFoundException` | 404 | 资源不存在 |
 | `ConflictException` | 409 | 手机号已被占用, 重复申请 |
+| `TooManyRequestsException` | 429 | 限频触发（OTP 发送 / 暴破锁定 / 全局速率限制） |
+| `NotExpirableOrderError` / `OrderBlockedByReconciliationError` | 409 | 订单不可过期 / 被对账冻结（资金安全理路） |
 
 ---
 
@@ -795,35 +1058,42 @@ Request → API Route → Service → Repository → Database
 | Xcode | 15+ | iOS 开发 (macOS only) |
 | 微信开发者工具 | latest | 小程序调试/预览 |
 
-> ℹ️ **全栈部署**（api + nginx + mock stub 等多容器，按环境切换）已迁移到 `deploy/docker-compose.yml`，用 `deploy/up.sh` 起，见下文 [§部署](#部署) 与 `deploy/up.sh`。
-> 本地开发推荐 **uvicorn 直接跑后端 + 轻量 db/redis 栈**（热重载快、贴近调试），即下面「方式一」。
+> ℹ️ **部署编排统一在 `deploy/` 目录**：通用骨架 `deploy/docker-compose.yml` + `env.<环境>` 配置，切环境只改 `--env-file`。
+> - **本地 dev**：轻量栈 `deploy/dev/`（只 db+redis）+ 后端用 uvicorn 裸跑 → 见「方式一」（推荐日常迭代）。
+> - **全栈 staging**（api + nginx + mock stub）：`deploy/up.sh` → 见下文 [§部署](#部署)。
 
 ### 方式一：本地直接运行后端 + 轻量 db/redis 栈 (推荐, 开发调试)
 
-```bash
-cd backend
+dev 栈只起 db + redis 两个容器（`deploy/dev/docker-compose.yml`），后端用 uvicorn 直接裸跑（改代码秒级热重载）。
+**db/redis 暴露宿主 `5433` / `6380`**（避开本机 agent-squad 占用的 5432/6379）。
 
-# 1. 创建虚拟环境
+```bash
+# 1. 起 dev 轻量栈 (db + redis), 端口 5433 / 6380
+cd deploy
+./up.sh dev             # 自动 cp dev/env.dev.example -> dev/env.dev, 起 db+redis
+# (Windows PowerShell: cd deploy/dev; docker compose --env-file env.dev -p yiluan-dev up -d)
+
+# 2. 后端虚拟环境 + 依赖
+cd ../backend
 python -m venv venv
 source venv/bin/activate          # Windows: venv\Scripts\activate
-
-# 2. 安装依赖
 pip install -r requirements.txt
 
-# 3. 启动外部服务 (只起 DB + Redis 轻量栈, 不含 API 容器)
-docker compose -f docker-compose.dev.yml up -d
-
-# 4. 创建 .env 文件 (可选, 也可用默认值)
+# 3. 创建 backend/.env (连 dev 栈的 5433/6380)
 cat > .env << 'EOF'
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/yiluan
-REDIS_URL=redis://localhost:6379/0
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@127.0.0.1:5433/yiluan
+REDIS_URL=redis://127.0.0.1:6380/0
 JWT_SECRET_KEY=my-dev-secret-key
 DEBUG=true
 ENVIRONMENT=development
 EOF
 
-# 5. 数据库迁移
+# 4. 数据库迁移
 alembic upgrade head
+
+# 5. (可选) 灌测试数据 —— seed.sql 现位于 deploy/dev/
+psql -h 127.0.0.1 -p 5433 -U postgres -d yiluan < ../deploy/dev/seed.sql
+# 或灌进容器: docker compose -p yiluan-dev exec -T db psql -U postgres -d yiluan < ../deploy/dev/seed.sql
 
 # 6. 启动开发服务器 (热重载)
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
@@ -836,37 +1106,31 @@ curl -X POST http://localhost:8000/api/v1/hospitals/seed
 #    Swagger UI:  http://localhost:8000/docs
 #    ReDoc:       http://localhost:8000/redoc
 
-# 9. 停止轻量栈
-docker compose -f docker-compose.dev.yml down
-# 停止并清除数据
-docker compose -f docker-compose.dev.yml down -v
+# 9. 停止 dev 栈
+cd ../deploy && ./down.sh dev      # 停并清数据
 ```
 
-`backend/docker-compose.dev.yml` 包含的服务：
+`deploy/dev/docker-compose.yml` 包含的服务（project 名 `yiluan-dev`）：
 
-| 服务 | 镜像 | 端口 | 说明 |
-|------|------|------|------|
-| `db` | postgres:15-alpine | 5432 | 用户 postgres, 密码 postgres, 库 yiluan |
-| `redis` | redis:7-alpine | 6379 | 内存缓存 |
+| 服务 | 镜像 | 宿主端口 | 说明 |
+|------|------|---------|------|
+| `db` | postgres:15-alpine | `127.0.0.1:5433` | 用户 postgres, 密码 postgres, 库 yiluan |
+| `redis` | redis:7-alpine | `127.0.0.1:6380` | 内存缓存 |
 
 ### 方式二：全栈容器化 (deploy 骨架, 贴近 staging / 一键起干净环境)
 
-如需在容器里跑完整后端栈（含 API 容器、nginx、mock stub），用 `deploy/` 的多环境骨架（按 `--env-file` 切环境）：
+如需在容器里跑完整后端栈（含 API 容器、nginx、mock stub、seed），用 `deploy/` 的多环境骨架（按 `--env-file` 切环境）：
 
 ```bash
 cd deploy
 
-# 一键容器化 dev: pg + redis + backend-dev(热挂载 ../backend/app), 不起 nginx/mock/seed
-# 端口避开 agent-squad: pg 5433 / redis 6380 / backend 8001
-./up.sh dev             # 自动 cp env.dev.example -> env.dev, 起栈 + alembic upgrade head
-./down.sh dev           # 停并清数据
-
-# 完整 staging 栈(api + nginx + mock stub + seed), 入口 127.0.0.1:18080
-./up.sh                 # 默认 staging profile, 6 容器 healthy + alembic head + readiness 绿
-./down.sh               # 停
+# 完整 staging 栈 (pg + redis + backend + nginx + mock-pay/mock-sms), 入口 127.0.0.1:18080
+./up.sh                 # 默认 staging profile: 6 容器 healthy + alembic head + seed + readiness 绿
+#                         自动叠加 env.staging.local (gitignore 的真值) 覆盖 env.staging 假值
+./down.sh               # 停并清数据
 ```
 
-> `./up.sh dev` 与「方式一」的区别：方式一后端用宿主 uvicorn 裸跑（改代码秒级热重载、最适合日常迭代）；`./up.sh dev` 把后端也放进容器（一键起干净隔离环境，适合新人上手 / CI / 不想配本地 Python 环境）。两者互补，按场景选。
+> **dev vs staging**：dev（方式一）后端用宿主 uvicorn 裸跑，最适合日常迭代；staging（方式二）全栈进容器、走 nginx 网关 + mock provider，贴近预发环境，适合联调 / 演练 / 验收。
 
 ### 运行测试
 
@@ -880,7 +1144,7 @@ python -m pytest tests/ -v --tb=short   # 简短错误信息
 # 微信小程序
 cd wechat
 npm install
-npm test                                # 165 passed / 30 suites
+npm test                                # 369 passed / 54 suites
 npm test -- --verbose                   # 详细输出
 npm test -- --watch                     # 监听模式
 
@@ -1017,11 +1281,12 @@ alembic history
 | `SMS_PROVIDER` | str | `"mock"` | 短信服务商 (mock: 不发真实短信) |
 | `CORS_ORIGINS` | list | `["*"]` | 允许的跨域来源 (**生产环境应限制**) |
 
-### 最小 `.env` 示例 (本地开发)
+### 最小 `.env` 示例 (本地开发，后端 uvicorn 裸跑 + `deploy/dev/` 栈)
 
 ```env
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/yiluan
-REDIS_URL=redis://localhost:6379/0
+# 连 deploy/dev/ 轻量栈暴露的宿主端口 5433/6380（避开 agent-squad 的 5432/6379）
+DATABASE_URL=postgresql+asyncpg://postgres:postgres@127.0.0.1:5433/yiluan
+REDIS_URL=redis://127.0.0.1:6380/0
 JWT_SECRET_KEY=my-local-dev-secret
 ```
 
@@ -1063,9 +1328,9 @@ SMS_PROVIDER=aliyun
 
 | 平台 | 框架 | 测试数 | 状态 |
 |------|------|--------|------|
-| 后端 | pytest + pytest-asyncio | **573 passed / 1 xfailed** | ✅ 全部通过（含支付幂等、SMS 限频、outbound 装饰器、admin 审核、PG+alembic smoke）|
-| 微信小程序 | Jest | **165 / 30 suites** | ✅ 全部通过 |
-| iOS | XCTest（离线快照） | **57 passed** | ✅ macOS runner workflow 已 stub（A21-10），4/22 起跑 GitHub Actions |
+| 后端 | pytest + pytest-asyncio | 118 个测试文件（具体 passed 数以 CI `deploy.yml` 实跑为准） | ✅ CI 门禁要求全量 pytest 必绿才能 push（含支付幂等、SMS 限频、outbound 装饰器、admin、PG+alembic smoke）|
+| 微信小程序 | Jest | 369 passed / 54 suites（本次审计实跑） | ✅ CI 跑 npm test |
+| iOS | XCTest（离线快照） | 见 macOS runner workflow | ✅ GitHub Actions macOS runner（A21-10）|
 
 ---
 
@@ -1174,8 +1439,8 @@ backend/app/services/providers/payment/
 
 `alembic/versions/` 中支付相关：
 
-- `b7c8d9e0f1a2_*`：`payments` 加 `trade_no` / `prepay_id` / `refund_id` / `callback_raw` 4 列 + `trade_no` 唯一索引；`OrderStatus` enum `ADD VALUE rejected_by_companion / expired`（autocommit block）
-- `<later>_*`：新建 `payment_callback_log` 表 + `(provider, transaction_id)` 唯一约束 + `expires_at` TTL（D-027）
+- `b7c8d9e0f1a2_align_payments_columns_and_verify_enums`：`payments` 加 `trade_no` / `prepay_id` / `refund_id` / `callback_raw` 4 列 + `trade_no` 唯一索引；`OrderStatus` enum `ADD VALUE rejected_by_companion / expired`（autocommit block）
+- `c8d9e0f1a2b3_add_payment_callback_log`：新建 `payment_callback_log` 表 + `(provider, transaction_id)` 唯一约束；后续 `6bf94c0a3831_add_expires_at_to_payment_callback_log` 补 `expires_at` TTL（D-027）
 
 ---
 

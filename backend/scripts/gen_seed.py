@@ -1,7 +1,7 @@
 """
 Generate the SQL body (orders + chats + notifications + payments + reviews
 + F-03 emergency_contacts + F-05 family_members + F-07 followup_reminders)
-for YiLuAn seed.sql.  Outputs to stdout.
+for YiLuAn deploy/dev/seed.sql.  Outputs to stdout.
 
 Dev-only: emergency_contacts 的手机号用与 .env.example 默认值一致的 envelope
 key / salt 加密。生产环境换 key 后 seed 失效（这是预期的）。
