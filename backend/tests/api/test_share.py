@@ -226,6 +226,7 @@ async def test_exchange_session_with_wx_openid_returns_jwt(
     assert data["share_scope"] == "full"
     payload = decode_share_session(data["share_session"])
     assert payload["type"] == SHARE_SESSION_TOKEN_TYPE
+    assert payload["aud"] == "share"  # ADR-0036 §3.5 #5 follow-up
     assert payload["acc"] == "wx-openid-1"
 
 

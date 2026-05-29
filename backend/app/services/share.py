@@ -44,6 +44,11 @@ from app.repositories.order_share_token import OrderShareTokenRepository
 SHARE_URL_TEMPLATE: Final[str] = "https://m.yiluan.cn/s/{token}"
 SHARE_SESSION_TTL: Final[timedelta] = timedelta(minutes=30)
 SHARE_SESSION_TOKEN_TYPE: Final[str] = "share_session"
+# Defense-in-depth alongside `type`: pin JWT audience so even if the same
+# secret/algorithm is ever reused for a different surface, a stolen share
+# session can't replay against, say, an access-token endpoint that forgets
+# to check `type`. See ADR-0036 §3.5 #5 + S1-DEV-001 review 三.1.
+SHARE_SESSION_AUDIENCE: Final[str] = "share"
 
 
 def build_share_url(token: str) -> str:
@@ -61,6 +66,7 @@ def _sign_share_session(
 ) -> str:
     payload = {
         "type": SHARE_SESSION_TOKEN_TYPE,
+        "aud": SHARE_SESSION_AUDIENCE,
         "tid": str(token_id),
         "oid": str(order_id),
         "scope": share_scope.value,
@@ -86,6 +92,7 @@ def decode_share_session(token: str) -> dict:
             token,
             settings.jwt_secret_key,
             algorithms=[settings.jwt_algorithm],
+            audience=SHARE_SESSION_AUDIENCE,
         )
     except PyJWTError as exc:
         raise UnauthorizedException("Invalid or expired share session") from exc
@@ -254,6 +261,7 @@ class ShareService:
 __all__ = [
     "ACTIVE_TOKEN_CAP_PER_ORDER",
     "SHARE_SESSION_TTL",
+    "SHARE_SESSION_AUDIENCE",
     "SHARE_SESSION_TOKEN_TYPE",
     "SHARE_URL_TEMPLATE",
     "ShareService",
