@@ -118,19 +118,15 @@ git checkout main && git pull origin main
 - **规避**：protection 已设 approval=0（A 方案），review 走 comment（§3）。**不要再尝试 approve 按钮。**
 - **中期**：若要恢复硬 approval，配 reviewer-bot 独立账号（backlog，非当前必须）
 
-### 坑 4：pre-push hook 全量 pytest 跑 6 分钟 / 被 timeout 杀
-- **现象**：push "失败"，但其实是 hook 在跑全量测试没跑完被 timeout 中断
-- **根因**：pre-push 跑 1349 pytest + 369 jest 约 6 分钟，前台 exec timeout 太短杀了它
-- **规避**：push 用后台执行 + 给足时间：
-  ```
-  exec(background=true, command="git push origin feature/xxx", yieldMs=180000)
-  然后 process(poll) 等到出现 "proceeding with push" + 远端 HEAD 更新
-  ```
-- **验证 push 真成功**（别只看 exit code，SSH 收尾有 SIGPIPE 噪声）：
-  ```bash
-  git fetch origin && [ "$(git rev-parse origin/<branch>)" = "$(git rev-parse <branch>)" ] && echo OK
-  ```
-- ⚠️ **绝不 `--no-verify` 绕过**——hook 今天 3 次挡住真回归（4 个过时测试断言），这是底线
+### 坑 4（已修复 S2-OPS-003）：pre-push hook 全量 pytest 跑 6 分钟 → SSH idle-timeout 断连
+- **原现象**：push “失败”（`Connection closed by remote host` + exit 141），但 gate 已全绿。
+- **真根因**（已诊断）：pre-push 跑 ~6 分钟全量 pytest+jest 期间，到 GitHub 的 SSH 连接空闲被服务端 idle-timeout 断开 → hook 跑完传输发不出。复现铁证：带全量 hook push 连续 2 次失败，`--no-verify` 纯 push 秒成。
+- **✅ 修复（S2-OPS-003）**：
+  - 本地 pre-push hook 瘦身为 `ruff lint(改动文件) + marker gate(money_safety/share_security, ~12s)`，不再跑全量 → push **秒级完成**（实测 14.8s，含 force update），不再撞 SSH 超时。
+  - 全量 pytest+jest 平移到 GitHub Actions CI required check（质量门不丢，负向验证已证红 PR 被锁）。
+  - 启用新 hook：`bash scripts/setup-hooks.sh`（设 `core.hooksPath=.githooks`）。
+- **负面参考（旧现象，保留备查）**：若未来又出现长耗时 pre-push 导致 push 卡顿，优先查是不是又把重活塞回了本地 hook。
+- ✅ 仍然：**绝不 `--no-verify` 绕过**（本地 marker gate 秒级，没理由绕；plus CI required check 是真闸）。
 
 ---
 
