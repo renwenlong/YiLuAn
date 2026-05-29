@@ -126,6 +126,12 @@ npx vite --port 8080
 
 差异 status 枚举：`pending / matched / mismatched / compensated / closed`；kind 枚举：`missing_payment / orphan_payment / amount_mismatch / status_mismatch`。仅 `pending / mismatched / compensated` 状态的差异可走双签关单。
 
+## 部署校验（W19-P0-11）
+
+生产部署 admin-h5 前，**必须**确保后端 `ADMIN_API_TOKEN` 环境变量已显式设置为高熵随机串。后端在 `environment=production` 时会校验该值不能为 `dev-admin-token` / 空 / `None`，否则启动 fail（见 `backend/app/config.py::validate_production_config`）。
+
+admin-h5 登录页不再展示任何默认 token 提示；运维通过密钥分发渠道（KMS / 1Password / 内部 secret 仓库）将 token 交付给运营人员，登录时手工粘贴。
+
 ## 不在 MVP 范围
 
 - 资质材料图片预览（待后端补图片 URL 列表）

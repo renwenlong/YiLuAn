@@ -22,8 +22,7 @@
   <main id="loginMain" hidden>
     <section id="loginView" class="card login-card">
       <h2>登录</h2>
-      <p class="hint">输入后端 <code>ADMIN_TOKEN</code> 环境变量的值，会以 <code>X-Admin-Token</code> header 送出。Token 仅缓存在本机 sessionStorage（关闭标签页后失效）。</p>
-      <p class="hint" style="color:#888;font-size:12px">当前环境默认 Token：<code>staging-admin-token</code></p>
+      <p class="hint">输入后端 <code>ADMIN_API_TOKEN</code> 环境变量的值，会以 <code>X-Admin-Token</code> header 送出。Token 仅缓存在本机 sessionStorage（关闭标签页后失效）。</p>
       <div class="form-row">
         <label for="tokenInput">Admin Token</label>
         <input id="tokenInput" type="password" placeholder="请输入 X-Admin-Token" />
