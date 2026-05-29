@@ -20,6 +20,15 @@ Redis 不可用时 **fail-closed** —— 拒绝继续调用 LLM。理由：金�
 打爆。``BudgetExhausted(reason="redis_unavailable")`` 由上游计入
 ``ai_summary_degraded_total{reason="daily_budget"}`` （归并降级原因，
 不为这一种添新 reason，符合 PRD §F2 监控基线）。
+
+Float drift note (IEEE 754)
+---------------------------
+``INCRBYFLOAT`` 在 Redis 内部用 long double 存累计值，跨 N 次小额累加
+会出现尾位漂移（典型表现：``spent=49.99999999998`` 而非 ``50``）。SRE
+看监控时不要惊慌——超限判定用的是 ``Decimal(str(...)) > limit``，多
+出来的 1e-12 永远 < ¥0.0001 的最小可计费粒度，不影响门限语义；如果
+需要精确审计请走每日跑批从 ``ai_summary_cost_cny_total`` Prom 抽样
+汇总（那条是 ``inc(float(Decimal))``，无累加漂移）。
 """
 from __future__ import annotations
 
