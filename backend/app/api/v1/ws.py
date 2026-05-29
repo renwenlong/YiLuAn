@@ -23,6 +23,9 @@ Close codes:
 - 4004  order not found (chat)
 - 4008  evicted by newer connection (per-user cap)
 - 4011  auth handshake timeout / invalid auth frame
+- 4012  family-share viewer sent an upstream write frame (ADR-0036 §2.4)
+- 4013  family-share token revoked while connection was live
+- 4014  per-share-token connection cap exceeded
 """
 import asyncio
 import json
@@ -348,3 +351,185 @@ async def websocket_chat(websocket: WebSocket, order_id: UUID):
         pass
     finally:
         await chat_broker.unregister(order_id, websocket)
+
+
+# ---------------------------------------------------------------------------
+# ADR-0036 §2.4 family-share WebSocket
+# ---------------------------------------------------------------------------
+
+SHARE_LOC_CACHE_KEY = "share:loc:{order_id}"
+
+
+def _get_or_create_share_broker(app) -> WsPubSubBroker:
+    from app.ws.pubsub import get_ws_share_broker_from_app
+
+    broker = get_ws_share_broker_from_app(app)
+    if broker is not None:
+        return broker
+    # Local fallback for tests / single-instance dev: in-memory only, no
+    # Redis fanout. Mirrors the chat broker fallback pattern above.
+    global _fallback_share_broker
+    try:
+        _fallback_share_broker  # type: ignore[name-defined]
+    except NameError:
+        _fallback_share_broker = None  # type: ignore[assignment]
+    if _fallback_share_broker is None:  # type: ignore[name-defined]
+        _fallback_share_broker = WsPubSubBroker(  # type: ignore[assignment]
+            redis_client=None, enabled=False, key_field="order_id"
+        )
+        _fallback_share_broker._started = True  # type: ignore[attr-defined]
+    return _fallback_share_broker  # type: ignore[return-value]
+
+
+async def _share_auth_handshake(websocket: WebSocket) -> dict | None:
+    """Wait for the first ``{type: 'share_auth', session: <JWT>}`` frame.
+
+    Returns the decoded JWT payload on success, else closes the socket
+    with the appropriate ``4011`` and returns ``None``.
+    """
+    from app.services.share import decode_share_session
+    from app.exceptions import UnauthorizedException
+
+    try:
+        raw = await asyncio.wait_for(
+            websocket.receive_text(),
+            timeout=WS_AUTH_HANDSHAKE_TIMEOUT_SECONDS,
+        )
+    except (asyncio.TimeoutError, WebSocketDisconnect):
+        try:
+            await websocket.close(code=4011, reason="auth_timeout")
+        except Exception:
+            pass
+        return None
+
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError):
+        await websocket.close(code=4011, reason="invalid_auth_frame")
+        return None
+
+    if data.get("type") != "share_auth":
+        await websocket.close(code=4011, reason="invalid_auth_frame")
+        return None
+
+    session_jwt = data.get("session")
+    if not session_jwt or not isinstance(session_jwt, str):
+        await websocket.close(code=4001, reason="missing_session")
+        return None
+
+    try:
+        payload = decode_share_session(session_jwt)
+    except UnauthorizedException:
+        await websocket.close(code=4001, reason="invalid_session")
+        return None
+
+    return payload
+
+
+@router.websocket("/ws/share/{token}")
+async def websocket_share(websocket: WebSocket, token: str):
+    """Family-share read-only WebSocket (ADR-0036 §2.4).
+
+    Auth: first frame ``{type: "share_auth", session: "<share_session_jwt>"}``.
+    Server-to-client only — any upstream non-ping frame closes with 4012.
+    """
+    await websocket.accept()
+    payload = await _share_auth_handshake(websocket)
+    if payload is None:
+        return
+
+    from app.repositories.order_share_token import OrderShareTokenRepository
+
+    # Re-validate the underlying token row server-side: even with a valid
+    # JWT the row might be revoked or expired in the meantime.
+    async with async_session() as session:
+        row_repo = OrderShareTokenRepository(session)
+        token_row = await row_repo.get_by_token(token)
+        if token_row is None or not token_row.is_active:
+            await websocket.close(code=4013, reason="token_revoked_or_expired")
+            return
+        # The JWT was minted for *this* token id — defend against a stolen
+        # JWT being re-bound to a different token in the URL.
+        if str(token_row.id) != payload.get("tid"):
+            await websocket.close(code=4001, reason="token_mismatch")
+            return
+
+    order_id = token_row.order_id
+    share_broker = _get_or_create_share_broker(websocket.app)
+
+    # Per-token connection cap (ADR-0036 §2.4: ≤ 3). We key by the *token*
+    # value here so different tokens for the same order don't collide.
+    cap = settings.ws_share_max_connections_per_token
+    if cap and cap > 0:
+        # We piggy-back on register_with_cap's "evict oldest" semantics but
+        # close with 4014 instead of 4008 because the contract is different
+        # (cap-exceeded, not user-replaced).
+        evicted = await share_broker.register_with_cap(
+            f"token:{token}", websocket, cap
+        )
+        for old_ws in evicted:
+            try:
+                await old_ws.close(code=4014, reason="per_token_cap_exceeded")
+            except Exception:
+                pass
+
+    # Subscribe to share:{order_id} via the same broker for fanout.
+    await share_broker.register(order_id, websocket)
+
+    # Replay the cached last-known position so a reconnect doesn't show
+    # a blank map (ADR-0036 §2.4 断线重连补偿).
+    redis = getattr(websocket.app.state, "redis", None)
+    if redis is not None:
+        try:
+            cached = await redis.get(
+                SHARE_LOC_CACHE_KEY.format(order_id=order_id)
+            )
+            if cached:
+                cached_str = (
+                    cached.decode("utf-8") if isinstance(cached, bytes) else cached
+                )
+                await websocket.send_text(
+                    json.dumps({"type": "location_replay", "data": json.loads(cached_str)})
+                )
+        except Exception:  # pragma: no cover — best effort
+            logger.debug("share loc cache replay failed", exc_info=True)
+
+    await websocket.send_text(json.dumps({"type": "share_auth_ok"}))
+
+    try:
+        while True:
+            try:
+                raw = await asyncio.wait_for(
+                    websocket.receive_text(),
+                    timeout=WS_IDLE_TIMEOUT_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                ws_idle_timeout_total.labels(channel="share").inc()
+                try:
+                    await websocket.close(code=4002, reason="idle_timeout")
+                except Exception:
+                    pass
+                break
+
+            try:
+                data = json.loads(raw)
+            except (TypeError, ValueError):
+                # 仅 ping 允许上行；非 JSON 直接当违规 close 4012
+                await websocket.close(code=4012, reason="upstream_write_forbidden")
+                break
+
+            if data.get("type") == "ping":
+                await websocket.send_text(json.dumps({"type": "pong"}))
+                continue
+
+            # 任意非 ping 上行都是禁止的写入尝试 (§2.4 + §3.5 #6)
+            await websocket.close(code=4012, reason="upstream_write_forbidden")
+            break
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        await share_broker.unregister(order_id, websocket)
+        if cap and cap > 0:
+            await share_broker.unregister(f"token:{token}", websocket)

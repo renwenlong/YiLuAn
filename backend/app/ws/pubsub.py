@@ -421,3 +421,50 @@ def get_ws_broker_from_app(app: FastAPI) -> Optional[WsPubSubBroker]:
 
 def get_ws_chat_broker_from_app(app: FastAPI) -> Optional[WsPubSubBroker]:
     return getattr(app.state, "ws_chat_broker", None)
+
+
+# ---------------------------------------------------------------------------
+# Share broker (ADR-0036 §2.4): order-scoped read-only fanout for the W20
+# family-companion view. Reuses ``WsPubSubBroker`` (class, not instance) so
+# the chat channel never sees share frames and vice versa.
+# ---------------------------------------------------------------------------
+
+_current_share_broker: Optional["WsPubSubBroker"] = None
+
+
+def get_current_share_broker() -> Optional["WsPubSubBroker"]:
+    return _current_share_broker
+
+
+def get_ws_share_broker_from_app(app: FastAPI) -> Optional[WsPubSubBroker]:
+    return getattr(app.state, "ws_share_broker", None)
+
+
+async def start_ws_share_pubsub(
+    app: FastAPI, *, enabled: bool, channel: str
+) -> WsPubSubBroker:
+    """Create + start the share broker, attach to ``app.state.ws_share_broker``."""
+    global _current_share_broker
+    redis_client = getattr(app.state, "redis", None)
+    broker = WsPubSubBroker(
+        redis_client=redis_client,
+        channel=channel,
+        enabled=enabled,
+        key_field="order_id",
+    )
+    await broker.start()
+    app.state.ws_share_broker = broker
+    _current_share_broker = broker
+    return broker
+
+
+async def stop_ws_share_pubsub(app: FastAPI) -> None:
+    global _current_share_broker
+    broker: Optional[WsPubSubBroker] = getattr(
+        app.state, "ws_share_broker", None
+    )
+    if broker is not None:
+        await broker.stop()
+        app.state.ws_share_broker = None
+    if _current_share_broker is broker:
+        _current_share_broker = None

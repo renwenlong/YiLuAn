@@ -103,6 +103,13 @@ class Settings(BaseSettings):
     # WebSocket 聊天 Pub/Sub (D-019 Update / 聊天通道迁移)
     ws_chat_pubsub_enabled: bool = True  # 生产多副本必开；本地/测试可关
     ws_chat_pubsub_channel: str = "yiluan:ws:chat"
+    # ADR-0036 §2.4 family-share broker；独立 channel 隔离, key_field=order_id
+    ws_share_pubsub_enabled: bool = True
+    ws_share_pubsub_channel: str = "yiluan:ws:share"
+    # ADR-0036 §2.4 per-token 连接数硬上限（防 token 泄露后 idle 占资源）
+    ws_share_max_connections_per_token: int = 3
+    # ADR-0036 §2.4 位置 cache TTL；用于断线重连首帧补偿
+    ws_share_loc_cache_ttl_seconds: int = 60
 
     # ADR-0032 / D-044 Q3: 资金对账历史豁免 cutoff。
     # 早于该时刻产生的 amount_mismatch diff 视为已豁免，guard 不阻断订单

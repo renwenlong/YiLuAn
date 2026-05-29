@@ -20,8 +20,10 @@ from app.tasks.scheduler import shutdown_scheduler, start_scheduler
 from app.ws.pubsub import (
     start_ws_chat_pubsub,
     start_ws_pubsub,
+    start_ws_share_pubsub,
     stop_ws_chat_pubsub,
     stop_ws_pubsub,
+    stop_ws_share_pubsub,
 )
 
 logger = logging.getLogger(__name__)
@@ -57,6 +59,15 @@ async def lifespan(app: FastAPI):
         )
     except Exception as exc:  # pragma: no cover
         logger.exception("Failed to start ws chat pubsub broker: %s", exc)
+    # ADR-0036 §2.4 family-share broker：独立 channel，只读 fanout
+    try:
+        await start_ws_share_pubsub(
+            app,
+            enabled=settings.ws_share_pubsub_enabled,
+            channel=settings.ws_share_pubsub_channel,
+        )
+    except Exception as exc:  # pragma: no cover
+        logger.exception("Failed to start ws share pubsub broker: %s", exc)
     # APScheduler (D-018): 开启后台定时任务（过期订单自动扫描）
     if settings.scheduler_enabled:
         try:
@@ -66,6 +77,7 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown
     await shutdown_scheduler()
+    await stop_ws_share_pubsub(app)
     await stop_ws_chat_pubsub(app)
     await stop_ws_pubsub(app)
     if app.state.redis:
