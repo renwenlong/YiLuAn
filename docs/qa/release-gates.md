@@ -15,6 +15,11 @@
 | 微信 schema 校验 | 每个 PR | S2-TEST-002 / PRD-001 §6.C AC#23 | `scripts/qa/wechat_openapi_check.sh` | 刻晴 |
 | iOS `APIEndpointTests` 反序列化 | iOS-tests workflow | S2-TEST-002 / PRD-001 §6.C AC#24 | `ios/YiLuAnTests/APIEndpointTests.swift` | 刻晴 |
 | Alembic up/down smoke | 每个 PR | alembic-smoke.yml | 既有 | 魈 |
+| **全量 `pytest -q` 必绿（push 闸）** | **pre-push hook（本地）+ 主分支** | 2026-05-29 push 拦截事件 | `pytest -q`（无 marker 过滤）| 刻晴 |
+
+> ⚠️ **关键纪律（2026-05-29 立）**：marker gate（money_safety / share_security）**绿 ≠ 全量绿**。
+> 改实现时旧测试的过时断言不会被 marker gate 捕获，但会被 **pre-push hook 的全量 `pytest`** 挡下。
+> **push 前置硬条件 = 全量 `pytest -q` 0 fail**，不是只跑 marker。改实现连带的旧断言必须同步更新（改测试不改实现，除非实现真错）。
 
 ---
 
