@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# 防手滑：禁止直接在受保护分支(main/develop)上 commit（S2-OPS-005）。
+# 受保护分支禁直推 + 必走 PR，本地在其上 commit 必是手滑。机制拦截 > 文档加粗。
+# 逃生口：极少数确需在本地受保护分支临时 commit 时 `git commit --no-verify`。
+set -e
+
+branch="$(git symbolic-ref --short HEAD 2>/dev/null || echo '')"
+
+case "$branch" in
+  main|master|develop)
+    echo "✋ 拒绝：当前在受保护分支 '$branch' 上 commit。"
+    echo ""
+    echo "   受保护分支禁直推、必走 PR，本地在其上 commit 几乎一定是手滑。"
+    echo "   正确做法：先开 feature 分支再 commit —"
+    echo "     git switch -c feature/<your-branch>"
+    echo "     git commit ..."
+    echo ""
+    echo "   （若确需在本地 '$branch' 临时 commit，用 git commit --no-verify 跳过本检查）"
+    exit 1
+    ;;
+esac
+
+exit 0
