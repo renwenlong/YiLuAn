@@ -6,10 +6,57 @@ on:
   pull_request:
     branches: [main, develop]
 
+# ---------------------------------------------------------------------------
+# CI 分流设计（S2-OPS-004）
+#
+# 背景：三个 job 是 main 分支的 required status checks
+#   (Backend Tests / Docker Build Verification / WeChat Mini Program Tests)。
+#
+# ❌ 不能用 workflow 级 `on.pull_request.paths` 过滤：
+#    path 不匹配时整个 workflow 不触发 → required check 变 **missing(永久 pending)**
+#    → 前端 PR 永久 BLOCKED（刻晴预判的锁死陷阱）。
+#
+# ✅ 正确做法：workflow 永远触发；用前置 `changes` job(dorny/paths-filter)
+#    输出各端是否改动，重活 job 用 `if:` 按路径条件跑。
+#    被 `if` skip 的 required job → GitHub **计为 success(算过)**，不是 missing。
+#    所以纯前端 PR 的 backend job 几秒 skip 即绿，required 不锁死。
+#
+# 级联(acceptance #6)：docker-build `needs: backend`，backend skip 时它随之
+#   skip(同样算过)；这是 needs 级联，非 path 过滤本身。
+# ---------------------------------------------------------------------------
+
 jobs:
+  # 前置：检测本次改动命中哪些端，供下游 job 的 if 条件使用。
+  # 永远会跑(无 paths 过滤)，因此不会让任何 required check 变 missing。
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      wechat: ${{ steps.filter.outputs.wechat }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          # push 事件无 PR base，显式给 base 指向当前分支以与目标分支比较；
+          # PR 事件下 paths-filter 默认按 PR base 比较(此 base 参数被忽略, 无害)。
+          base: ${{ github.event.pull_request.base.ref || github.ref_name }}
+          filters: |
+            backend:
+              - 'backend/**'
+              - 'scripts/qa/**'
+              - '.github/workflows/test.yml'
+            wechat:
+              - 'wechat/**'
+              - '.github/workflows/test.yml'
+
   backend:
     name: Backend Tests
     runs-on: ubuntu-latest
+    needs: changes
+    # 仅当 backend 相关路径改动时跑；否则 skip(required 计为 success)。
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -54,7 +101,10 @@ jobs:
   docker-build:
     name: Docker Build Verification
     runs-on: ubuntu-latest
-    needs: backend
+    needs: [changes, backend]
+    # backend skip 时此 job 随 needs 级联 skip(required 计为 success)。
+    # 显式 if 限定仅在 backend 相关路径改动时构建。
+    if: ${{ needs.changes.outputs.backend == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -64,6 +114,9 @@ jobs:
   wechat:
     name: WeChat Mini Program Tests
     runs-on: ubuntu-latest
+    needs: changes
+    # 仅当 wechat 相关路径改动时跑；否则 skip(required 计为 success)。
+    if: ${{ needs.changes.outputs.wechat == 'true' }}
     steps:
       - uses: actions/checkout@v4
 
