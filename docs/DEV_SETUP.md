@@ -7,7 +7,7 @@
 
 ## 1. 快速开始
 
-部署编排统一在 `deploy/`。本地开发推荐：`deploy/dev/` 起 db+redis 轻量栈 + 后端 uvicorn 裸跑（热重载）。
+部署编排统一在 `deploy/`。本地开发推荐：`deploy/docker-compose.yml` 的 **dev profile**（`./up.sh dev` 起 pg+redis+backend-dev，后端容器热挂载源码）。如需 uvicorn 裸跑，可只起 pg+redis 再本地跑 uvicorn。
 
 ### 方式一：本地 dev（推荐，热重载）
 
@@ -25,10 +25,8 @@ pip install -r requirements.txt
 #   REDIS_URL=redis://127.0.0.1:6380/0
 alembic upgrade head
 
-# 3. 灌测试数据（seed.sql 现位于 deploy/dev/）
-psql -h 127.0.0.1 -p 5433 -U postgres -d yiluan < ../deploy/dev/seed.sql
-# Windows PowerShell:
-#   Get-Content ../deploy/dev/seed.sql -Raw | psql -h 127.0.0.1 -p 5433 -U postgres -d yiluan
+# 3. 灌测试数据（dev profile 不再附带 seed.sql，走 API 端点）
+curl -X POST http://127.0.0.1:8001/api/v1/hospitals/seed
 
 # 4. 启动
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
@@ -105,7 +103,7 @@ python -m pytest -q
 ### 3.2 Smoke 测试（真 PG + alembic，防脱钩）
 
 ```bash
-# 先起 db+redis 轻量栈（deploy/dev/，端口 5433/6380）
+# 先起 dev profile 栈（deploy/，pg+redis+backend-dev，端口 5433/6380/8001）
 cd deploy && ./up.sh dev
 cd ../backend && alembic upgrade head    # 后端裸跑环境连 5433/6380
 
@@ -183,7 +181,7 @@ alembic revision -m "your message"
 - [ ] 跑 `alembic check`，返回 "No new upgrade operations detected."
 - [ ] 跑 `pytest -m smoke`，全绿
 - [ ] 跑 `pytest -q`（常规测试），全绿
-- [ ] 如有 seed 数据依赖新字段/枚举，同步更新 `deploy/dev/seed.sql`
+- [ ] 如有 seed 数据依赖新字段/枚举，同步更新种子来源 `backend/app/data/hospitals.json`（经 `POST /hospitals/seed` 灌入）
 - [ ] commit：model 变更 + 迁移文件**一起** commit，message 说明改了什么
 
 跳过任一步 → 参考 2026-04-17 事故（pytest 全绿 / PG 部署炸）。
@@ -205,8 +203,8 @@ cd deploy
 ./down.sh dev                # 清卷
 docker compose -p yiluan-dev --env-file dev/env.dev -f dev/docker-compose.yml up -d
 cd ../backend && alembic upgrade head
-psql -h 127.0.0.1 -p 5433 -U postgres -d yiluan < ../deploy/dev/seed.sql
-# Windows: Get-Content ../deploy/dev/seed.sql -Raw | psql -h 127.0.0.1 -p 5433 -U postgres -d yiluan
+curl -X POST http://127.0.0.1:8001/api/v1/hospitals/seed   # dev profile 走 API 端点灌种子
+# (旧 deploy/dev/seed.sql 已随方案B回退移除)
 
 # alembic（后端裸跑环境直接跑，无需进容器）
 alembic current
