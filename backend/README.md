@@ -11,8 +11,8 @@ pip install -r requirements.txt
 # Run locally
 uvicorn app.main:app --reload
 
-# Run with Docker (轻量 dev 栈: db + redis, 端口 5433/6380)
-cd ../deploy && ./up.sh dev      # 或: docker compose -p yiluan-dev --env-file dev/env.dev -f dev/docker-compose.yml up -d
+# Run with Docker (轻量 dev 栈: db + redis + backend-dev, 端口 8001/5433/6380)
+cd ../deploy && ./up.sh dev      # 或: docker compose -p yiluan-dev --env-file env.dev --profile dev -f docker-compose.yml up -d
 
 # Run tests
 pytest
