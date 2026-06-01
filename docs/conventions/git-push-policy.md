@@ -54,6 +54,19 @@ git checkout main && git pull origin main
 | 全量 pytest + jest + release gate | ✅ **CI required check** | `required_status_checks` strict=true：`Backend Tests` / `Docker Build Verification` / `WeChat Mini Program Tests`，PR 三个全绿 + 基于最新 main 才能合（负向验证已证红 PR 被锁，S2-OPS-003）|
 | 本地 pre-push 快速门 | ✅ `.githooks/pre-push` | ruff lint(改动文件) + marker gate(`money_safety/share_security`, ~12s)，秒级；全量交 CI（启用：`bash scripts/setup-hooks.sh`）|
 
+#### CI 路径分流（S2-OPS-004）
+
+`test.yml` 按改动路径分流，纯前端/纯后端 PR 不再跑无关全量 job：
+
+| PR 改动命中 | 跑哪些 required check | 其余 required check |
+|---|---|---|
+| `backend/**`、`scripts/qa/**` | **Backend Tests** + **Docker Build Verification**(needs:backend) | WeChat → skip(计为 success) |
+| `wechat/**` | **WeChat Mini Program Tests** | Backend / Docker Build → skip(计为 success) |
+| `.github/workflows/test.yml` | 全部三个（改 CI 本身全跑） | — |
+| 纯文档/其余（不碰上述路径） | 无重活 job | 三个均 skip(计为 success)，PR 不被锁死 |
+
+> ⚠️ 实现关键：**不能用 workflow 级 `on.pull_request.paths` 过滤** required check job——path 不匹配时整个 workflow 不触发，required check 变 **missing(永久 pending)** → PR 永久 BLOCKED。正确做法：workflow 永远触发，前置 `changes` job(dorny/paths-filter) 输出各端是否改动，重活 job 用 `if:` 按路径条件跑；被 `if` skip 的 required job **GitHub 计为 success(算过)**，不是 missing。详见 `test.yml` 顶部注释。
+
 **质量门没放水**：approval 仪式去掉，但靠 ① comment resolve ② **CI required check 全量 gate**（机制硬闸，负向验证确认红 PR 真合不了）③ 本地 marker gate 守资金/分享最高危线 ④ 高风险 PR reviewer 显式 LGTM 四道补偿。
 
 > 注：早前「pre-push 本地跑全量 6min」已废弃——会撞 SSH idle-timeout 致 push 失败（见 §4 坑4）。全量已平移到 CI required check。
