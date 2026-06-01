@@ -39,8 +39,9 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
-          # push 事件无 PR base，paths-filter 会回退到与上一个 commit 比较；
-          # 给 base 显式指向目标分支以稳健处理 PR 与 push。
+          # push 事件无 PR base，显式给 base 指向当前分支以与目标分支比较；
+          # PR 事件下 paths-filter 默认按 PR base 比较(此 base 参数被忽略, 无害)。
+          base: ${{ github.event.pull_request.base.ref || github.ref_name }}
           filters: |
             backend:
               - 'backend/**'
