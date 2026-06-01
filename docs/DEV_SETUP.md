@@ -14,7 +14,7 @@
 ```bash
 # 1. 起 db + redis 轻量栈（宿主端口 5433 / 6380，避开 agent-squad 的 5432/6379）
 cd deploy
-./up.sh dev                          # 自动 cp dev/env.dev.example -> dev/env.dev
+./up.sh dev                          # 自动 cp env.dev.example -> env.dev
 
 # 2. 后端虚拟环境 + 依赖 + 迁移 + 裸跑
 cd ../backend
@@ -201,7 +201,7 @@ alembic revision -m "your message"
 # 重置 DB（清卷 → 重建 → 迁移 → 灌 seed）—— dev 轻量栈
 cd deploy
 ./down.sh dev                # 清卷
-docker compose -p yiluan-dev --env-file dev/env.dev -f dev/docker-compose.yml up -d
+docker compose -p yiluan-dev --env-file env.dev --profile dev -f docker-compose.yml up -d
 cd ../backend && alembic upgrade head
 curl -X POST http://127.0.0.1:8001/api/v1/hospitals/seed   # dev profile 走 API 端点灌种子
 # (旧 deploy/dev/seed.sql 已随方案B回退移除)
