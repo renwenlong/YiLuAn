@@ -15,6 +15,25 @@
 
 ---
 
+## 0b. 测试分层（魈 #104 review 澄清，2026-05-29）
+
+> **关键**：单元 pytest 与集成测试走不同环境，不可混淆。
+
+| 层 | 依赖 | 跑在哪 | 结果一致性 |
+|----|------|--------|-----------|
+| **单元 pytest（1349）** | conftest 内存 SQLite + FakeRedis | 任何环境，无需 Docker | 与本地 dev 栈**完全解耦**，天然一致；pre-push hook 已强制 |
+| **集成测试** | 真实 PG + Redis | **统一用 `./up.sh dev` 容器栈**（端口固定 5433/6380），不用裸跑各人本地 PG（版本不一易踩坑） | 依赖真实中间件，必须固定栈 |
+
+**D4-D10 联调期集成测试清单（需真实 PG/Redis，归本 checklist §2/§3 真验项的环境基准）**：
+- share token 真 Redis TTL 过期（cache 60s / session 30min 真到点失效）
+- WS 真 broker fanout（非 FakeRedis，多连接真订阅）
+- alembic 迁移幂等 + up/down 真 PG 验证
+- N4 distinct openid 24h 滚动窗口真 Redis 计数自动 revoke
+
+> 集成测试统一跑 `./up.sh dev` 栈，避免裸跑环境分裂。单元 pytest 任何环境 1349 必绿不变。
+
+---
+
 ## 1. 资金线（接熔断器后必验）
 
 > 背景：支付路径接了 outbound circuit breaker（ADR-0026r1），CI 不能打真实微信支付，必须 staging 真实回调验。
