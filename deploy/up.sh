@@ -4,7 +4,7 @@
 #
 # 用法：
 #   ./up.sh            # staging（默认，自动叠加 env.staging.local 若存在）
-#   ./up.sh dev        # dev 轻量本地后端（pg+redis+backend-dev，暴露 8000/5432/6379）
+#   ./up.sh dev        # dev 轻量本地后端（pg+redis+backend-dev，暴露 8001/5433/6380，避开 agent-squad 占用的 8000/5432/6379）
 #   ./up.sh staging    # 同默认
 #
 set -euo pipefail

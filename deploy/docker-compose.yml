@@ -22,7 +22,7 @@
 #   * pg / redis 是基础服务，属于全部 profile（dev/staging/production）。
 #   * mock-pay-stub / mock-sms-stub 仅在 `staging` profile 下启用；
 #     生产不激活该 profile → 不会起 mock。
-#   * backend-dev：仅 dev profile，热挂载源码 + 暴露 8000(默认)；dev 不起 nginx/mock/seed。
+#   * backend-dev：仅 dev profile，热挂载源码 + 暴露宿主 8001（env.dev 的 BACKEND_HOST_PORT，避开 agent-squad 的 8000）；dev 不起 nginx/mock/seed。
 #
 # Network:
 #   * staging/production：仅 nginx 暴露宿主端口；其余只在内部网络可达。
@@ -143,7 +143,7 @@ services:
       retries: 12
       start_period: 20s
 
-  # dev profile 专用轻量后端：热挂载 ../backend/app + 直接暴露 8000，
+  # dev profile 专用轻量后端：热挂载 ../backend/app + 暴露宿主 8001（env.dev 的 BACKEND_HOST_PORT，避开 agent-squad 的 8000），
   # 不走 nginx/mock/seed。替代被删的 backend/docker-compose.yaml。
   backend-dev:
     profiles: ["dev"]
