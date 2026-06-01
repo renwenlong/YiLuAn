@@ -46,6 +46,7 @@
 | 1.4 | CB 状态机 open→half-open（N=3 连胜）→closed | Prometheus metric 正确记录三态转换 | ⬜ | | |
 | 1.5 | 退款真实回调 → ledger 平账 | in/out 双账方向相反金额相等 | ⬜ | | |
 | 1.6 | 空 transaction_id 回调（P0-C 验证） | 拒绝 + `payment_callback_empty_txn_total` counter +1 | ⬜ | | |
+| 1.7 | 同一 transaction_id 重复回调（幂等重放） | 只入账一行，ledger 不重复；第二次幂等返回 | ⬜ | | |
 
 ## 2. Share Token 端到端（双端真机）
 
@@ -61,6 +62,7 @@
 | 2.8 | 断线 90s 重连（cache 60s 已过期） | UI 提示"位置缓存过期，等待下次上报"，不悬空旧点 | ⬜ | | |
 | 2.9 | token revoke 后已建立 WS | close 4013 主动断开 | ⬜ | | |
 | 2.10 | 上行写帧 / per-token 连接 > 3 | close 4012 / 4014 | ⬜ | | |
+| 2.11 | 用 aud≠share 的 JWT（如 access token）冒充 share_session（N11 负向） | 401，audience 锁拒绝 | ⬜ | | |
 
 ## 3. IDOR / 越权（staging 真实 endpoint）
 
@@ -73,6 +75,7 @@
 | 3.3 | JWT alg=none 攻击 | 401 | ⬜ | | |
 | 3.4 | distinct openid > 5 / 24h 滚动窗口 | 自动 revoke + 告警 counter | ⬜ | | |
 | 3.5 | OTP 错 5 次 | 锁号 10min | ⬜ | | |
+| 3.6 | OTP 发送频控（S2-DEV-011）：同号 1min 内第 2 次发送 / 1h 内第 6 次 | 拒绝（1min≤1 / 1h≤5） | ⬜ | | |
 
 ## 4. AI 摘要成本 & 合规（实测）
 
@@ -84,6 +87,7 @@
 | 4.4 | post-check 关键词命中（"建议服用/确诊为/请按 X 剂量"） | 命中即降级模板，不输出违规医疗建议 | ⬜ | | |
 | 4.5 | ai_blocklist.yaml 热更新 | 改词典不重启生效 | ⬜ | | |
 | 4.6 | `@with_scheduler_lock` 多副本去重 | AI job 不重复扣费 | ⬜ | | |
+| 4.7 | 并发两请求同时触发同订单 AI 摘要（真并发竞态） | 总扣费 ≤ 单次成本，不双扣 | ⬜ | | |
 
 ## 5. 回滚演练（必须真演一次）
 
