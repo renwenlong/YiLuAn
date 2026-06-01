@@ -237,7 +237,7 @@ backend/
 └── alembic.ini
 ```
 
-> 📦 **本地 dev 的 db/redis 轻量栈在 `deploy/dev/docker-compose.yml`**（非 backend 目录），种子数据 `deploy/dev/seed.sql`。
+> 📦 **本地 dev 栈 = `deploy/docker-compose.yml` 的 dev profile**（pg + redis + backend-dev），一键：`cd deploy && ./up.sh dev`。医院种子数据走 `POST /api/v1/hospitals/seed`。
 
 ### 微信小程序 `wechat/`
 
@@ -1059,63 +1059,42 @@ Request → API Route → Service → Repository → Database
 | 微信开发者工具 | latest | 小程序调试/预览 |
 
 > ℹ️ **部署编排统一在 `deploy/` 目录**：通用骨架 `deploy/docker-compose.yml` + `env.<环境>` 配置，切环境只改 `--env-file`。
-> - **本地 dev**：轻量栈 `deploy/dev/`（只 db+redis）+ 后端用 uvicorn 裸跑 → 见「方式一」（推荐日常迭代）。
+> - **本地 dev**：`deploy/docker-compose.yml` 的 **dev profile**（pg + redis + backend-dev 一栈，后端容器热挂载源码）→ 见「方式一」（推荐日常迭代）。
 > - **全栈 staging**（api + nginx + mock stub）：`deploy/up.sh` → 见下文 [§部署](#部署)。
 
-### 方式一：本地直接运行后端 + 轻量 db/redis 栈 (推荐, 开发调试)
+### 方式一：dev profile 一键起本地后端栈 (推荐, 开发调试)
 
-dev 栈只起 db + redis 两个容器（`deploy/dev/docker-compose.yml`），后端用 uvicorn 直接裸跑（改代码秒级热重载）。
-**db/redis 暴露宿主 `5433` / `6380`**（避开本机 agent-squad 占用的 5432/6379）。
+`deploy/docker-compose.yml` 的 **dev profile** 一键起 pg + redis + backend-dev 三容器，backend-dev 热挂载 `../backend/app`（改代码即生效）。
+**后端暴露宿主 `8001`、db/redis 暴露 `5433` / `6380`**（避开本机 agent-squad 占用的 8000/5432/6379）。
 
 ```bash
-# 1. 起 dev 轻量栈 (db + redis), 端口 5433 / 6380
+# 1. 一键起 dev 栈 (pg + redis + backend-dev), 端口 8001 / 5433 / 6380
 cd deploy
-./up.sh dev             # 自动 cp dev/env.dev.example -> dev/env.dev, 起 db+redis
-# (Windows PowerShell: cd deploy/dev; docker compose --env-file env.dev -p yiluan-dev up -d)
+./up.sh dev             # 自动 cp env.dev.example -> env.dev, --profile dev 起三容器 + alembic upgrade head
 
-# 2. 后端虚拟环境 + 依赖
-cd ../backend
-python -m venv venv
-source venv/bin/activate          # Windows: venv\Scripts\activate
-pip install -r requirements.txt
+# 2. 访问 (后端已在容器里跑, 热挂载源码)
+#    API:         http://127.0.0.1:8001/api/v1/ping
+#    Health:      http://127.0.0.1:8001/health
+#    Swagger UI:  http://127.0.0.1:8001/docs
+#    Postgres:    127.0.0.1:5433  (本地 pytest 可直连)
+#    Redis:       127.0.0.1:6380
 
-# 3. 创建 backend/.env (连 dev 栈的 5433/6380)
-cat > .env << 'EOF'
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@127.0.0.1:5433/yiluan
-REDIS_URL=redis://127.0.0.1:6380/0
-JWT_SECRET_KEY=my-dev-secret-key
-DEBUG=true
-ENVIRONMENT=development
-EOF
+# 3. 初始化医院种子数据
+curl -X POST http://127.0.0.1:8001/api/v1/hospitals/seed
 
-# 4. 数据库迁移
-alembic upgrade head
-
-# 5. (可选) 灌测试数据 —— seed.sql 现位于 deploy/dev/
-psql -h 127.0.0.1 -p 5433 -U postgres -d yiluan < ../deploy/dev/seed.sql
-# 或灌进容器: docker compose -p yiluan-dev exec -T db psql -U postgres -d yiluan < ../deploy/dev/seed.sql
-
-# 6. 启动开发服务器 (热重载)
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-
-# 7. 初始化医院种子数据
-curl -X POST http://localhost:8000/api/v1/hospitals/seed
-
-# 8. 访问
-#    API:         http://localhost:8000
-#    Swagger UI:  http://localhost:8000/docs
-#    ReDoc:       http://localhost:8000/redoc
-
-# 9. 停止 dev 栈
+# 4. 停 dev 栈
 cd ../deploy && ./down.sh dev      # 停并清数据
 ```
 
-`deploy/dev/docker-compose.yml` 包含的服务（project 名 `yiluan-dev`）：
+> 💡 想要**本地 uvicorn 裸跑**（不走容器、热重载更快）：先 `./up.sh dev` 起 pg+redis（backend-dev 可用 `docker compose ... stop backend-dev` 停掉），再在 `backend/` 下用 venv 跑 `uvicorn app.main:app --reload --port 8000`，`.env` 连 `127.0.0.1:5433/6380` 即可。
+
+`deploy/docker-compose.yml` dev profile 包含的服务（project 名 `yiluan-dev`）：
 
 | 服务 | 镜像 | 宿主端口 | 说明 |
 |------|------|---------|------|
-| `db` | postgres:15-alpine | `127.0.0.1:5433` | 用户 postgres, 密码 postgres, 库 yiluan |
+| `pg` | postgres:15-alpine | `127.0.0.1:5433` | 用户 postgres, 库 yiluan |
 | `redis` | redis:7-alpine | `127.0.0.1:6380` | 内存缓存 |
+| `backend-dev` | 本地 Dockerfile + 热挂载 ../backend/app | `127.0.0.1:8001` | FastAPI, 改代码即生效 |
 
 ### 方式二：全栈容器化 (deploy 骨架, 贴近 staging / 一键起干净环境)
 
@@ -1281,10 +1260,10 @@ alembic history
 | `SMS_PROVIDER` | str | `"mock"` | 短信服务商 (mock: 不发真实短信) |
 | `CORS_ORIGINS` | list | `["*"]` | 允许的跨域来源 (**生产环境应限制**) |
 
-### 最小 `.env` 示例 (本地开发，后端 uvicorn 裸跑 + `deploy/dev/` 栈)
+### 最小 `.env` 示例 (本地开发，后端 uvicorn 裸跑 + `deploy/` dev profile 栈)
 
 ```env
-# 连 deploy/dev/ 轻量栈暴露的宿主端口 5433/6380（避开 agent-squad 的 5432/6379）
+# 连 deploy/ dev profile 轻量栈暴露的宿主端口 5433/6380（避开 agent-squad 的 5432/6379）
 DATABASE_URL=postgresql+asyncpg://postgres:postgres@127.0.0.1:5433/yiluan
 REDIS_URL=redis://127.0.0.1:6380/0
 JWT_SECRET_KEY=my-local-dev-secret

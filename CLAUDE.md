@@ -45,8 +45,7 @@ python -m alembic upgrade head
 python -m alembic revision --autogenerate -m "description"
 
 # Seed data
-curl -X POST http://localhost:8000/api/v1/hospitals/seed   # via API
-psql -U postgres -d yiluan < ../deploy/dev/seed.sql           # direct SQL (seed.sql 现在 deploy/dev/)
+curl -X POST http://localhost:8000/api/v1/hospitals/seed   # via API（dev profile 后端在 8001）
 ```
 
 ### WeChat Mini Program
@@ -133,4 +132,4 @@ Backend test fixtures: `seed_user`, `seed_hospital`, `seed_order`, `authenticate
 
 Backend config via pydantic-settings from `.env`. Key vars: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET_KEY`, `WECHAT_APP_ID`, `WECHAT_APP_SECRET`, `SMS_PROVIDER` (mock/aliyun), `ENVIRONMENT` (development/production).
 
-Local dev stack (`deploy/dev/docker-compose.yml`, project `yiluan-dev`) provides PostgreSQL 15 on host port 5433 and Redis 7 on host port 6380 (ports avoid agent-squad's 5432/6379; start it with `cd deploy && ./up.sh dev`, then run backend via `uvicorn` directly). Dev seed data: `deploy/dev/seed.sql`. Full multi-env container stack lives in `deploy/docker-compose.yml` (switch env with `--env-file`, see `deploy/up.sh`).
+Local dev stack = the **dev profile** in `deploy/docker-compose.yml` (project `yiluan-dev`): pg + redis + backend-dev, exposing PostgreSQL 15 on host port 5433, Redis 7 on host port 6380, and backend on 8001 (ports avoid agent-squad's 5432/6379/8000). Start with `cd deploy && ./up.sh dev` (backend-dev hot-mounts ../backend/app). Dev seed data: `POST /api/v1/hospitals/seed`. Full multi-env container stack also lives in `deploy/docker-compose.yml` (switch profile/env with `--env-file`, see `deploy/up.sh`).

@@ -4,7 +4,7 @@
 #
 # 用法：
 #   ./up.sh            # staging（默认，自动叠加 env.staging.local 若存在）
-#   ./up.sh dev        # dev 轻量本地栈（仅 db+redis，后端 uvicorn 裸跑）
+#   ./up.sh dev        # dev 轻量本地后端（pg+redis+backend-dev，暴露 8001/5433/6380，避开 agent-squad 占用的 8000/5432/6379）
 #   ./up.sh staging    # 同默认
 #
 set -euo pipefail
@@ -12,24 +12,11 @@ cd "$(dirname "$0")"
 
 ENVNAME="${1:-staging}"
 
-# ---- dev：独立轻量栈（dev/docker-compose.yml，仅 db+redis；后端裸跑）----
-if [ "$ENVNAME" = "dev" ]; then
-  cd dev
-  if [ ! -f env.dev ]; then
-    echo "未找到 dev/env.dev，从 env.dev.example 复制一份默认值。" >&2
-    cp env.dev.example env.dev
-  fi
-  echo "==> docker compose up -d (env=dev, db+redis only)"
-  docker compose -p yiluan-dev --env-file env.dev -f docker-compose.yml up -d
-  echo "==> dev infra is up（后端请在 backend/ 下用 uvicorn 裸跑）"
-  echo "   Postgres : 127.0.0.1:5433 (DATABASE_URL=...@127.0.0.1:5433/yiluan)"
-  echo "   Redis    : 127.0.0.1:6380 (REDIS_URL=redis://127.0.0.1:6380/0)"
-  echo ""
-  echo "Tear down : ./down.sh dev"
-  exit 0
-fi
-
 case "$ENVNAME" in
+  dev)
+    PROJECT="yiluan-dev"
+    PROFILE="dev"
+    ;;
   staging)
     PROJECT="yiluan-staging"
     PROFILE="staging"
@@ -46,8 +33,13 @@ esac
 
 # 解析 env 文件：env.<环境> + 可选 env.<环境>.local 叠加
 if [ ! -f "env.${ENVNAME}" ]; then
-  echo "缺少 env.${ENVNAME}，请先从 env.${ENVNAME}.example 复制。" >&2
-  exit 2
+  if [ "$ENVNAME" = "dev" ] && [ -f env.dev.example ]; then
+    echo "未找到 env.dev，从 env.dev.example 复制一份默认值。" >&2
+    cp env.dev.example env.dev
+  else
+    echo "缺少 env.${ENVNAME}，请先从 env.${ENVNAME}.example 复制。" >&2
+    exit 2
+  fi
 fi
 
 ENV_FILES=( --env-file "env.${ENVNAME}" )
@@ -60,6 +52,30 @@ COMPOSE=( docker compose -p "$PROJECT" "${ENV_FILES[@]}" --profile "$PROFILE" -f
 
 echo "==> docker compose up -d --build (env=${ENVNAME}, profile=${PROFILE})"
 "${COMPOSE[@]}" up -d --build
+
+if [ "$ENVNAME" = "dev" ]; then
+  echo "==> waiting for backend-dev healthcheck..."
+  deadline=$(( $(date +%s) + 180 ))
+  while [ "$(date +%s)" -lt "$deadline" ]; do
+    if curl -fsS --max-time 3 http://127.0.0.1:8001/api/v1/ping >/dev/null 2>&1; then
+      echo "backend-dev ready"
+      break
+    fi
+    sleep 3
+  done
+
+  echo "==> running alembic upgrade head"
+  "${COMPOSE[@]}" exec -T backend-dev alembic upgrade head
+
+  echo "==> dev is up"
+  echo "   Backend  : http://127.0.0.1:8001/api/v1/ping"
+  echo "   Health   : http://127.0.0.1:8001/health"
+  echo "   Postgres : 127.0.0.1:5433 (本地 pytest 直连)"
+  echo "   Redis    : 127.0.0.1:6380"
+  echo ""
+  echo "Tear down : ./down.sh dev"
+  exit 0
+fi
 
 # ---- staging 流程 ----
 echo "==> waiting for backend healthcheck..."

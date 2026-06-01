@@ -1,7 +1,7 @@
 # 手动验收测试用例：陪诊师拒单 + 订单过期
 
 > 覆盖：D-014（拒单机制）+ D-015（订单超时自动取消）的端到端验收。
-> 执行环境：开发/预发；测试账号见 `docs/TEST_ACCOUNTS.md`（或 `deploy/dev/seed.sql`）。
+> 执行环境：开发/预发；测试账号见 `docs/TEST_ACCOUNTS.md`（或经 `POST /hospitals/seed` 灌入的种子数据）。
 > 统一验证点：订单状态、支付/退款状态、通知是否下发、WebSocket 实时到达、日志无异常。
 
 ---

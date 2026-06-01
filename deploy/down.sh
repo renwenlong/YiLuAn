@@ -10,16 +10,8 @@ cd "$(dirname "$0")"
 
 ENVNAME="${1:-staging}"
 
-# ---- dev：独立轻量栈（dev/docker-compose.yml）----
-if [ "$ENVNAME" = "dev" ]; then
-  cd dev
-  echo "==> docker compose down -v --remove-orphans (env=dev)"
-  docker compose -p yiluan-dev -f docker-compose.yml down -v --remove-orphans
-  echo "==> torn down"
-  exit 0
-fi
-
 case "$ENVNAME" in
+  dev)     PROJECT="yiluan-dev";     PROFILE="dev" ;;
   staging) PROJECT="yiluan-staging"; PROFILE="staging" ;;
   *) echo "未知环境: $ENVNAME（支持 dev|staging）" >&2; exit 2 ;;
 esac
