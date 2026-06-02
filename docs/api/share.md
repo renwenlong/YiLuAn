@@ -29,7 +29,7 @@
 
 ### `GET /api/v1/orders/{order_id}/shares` — 下单人查看当前 active 分享 token
 
-
+下单人（owner）查询指定订单下当前处于 active 状态的家属分享 token 列表，返回 token 概要及 ``share_active_count`` 计数。需 owner 身份鉴权。
 
 **参数：**
 
