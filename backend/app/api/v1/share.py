@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from redis.asyncio import Redis
 
@@ -29,7 +29,7 @@ from app.exceptions import (
     TooManyRequestsException,
     UnauthorizedException,
 )
-from app.models.order_share_token import ACTIVE_TOKEN_CAP_PER_ORDER, ShareScope
+from app.models.order_share_token import ACTIVE_TOKEN_CAP_PER_ORDER
 from app.repositories.order import OrderRepository
 from app.schemas.share import (
     CreateShareRequest,
@@ -42,6 +42,7 @@ from app.schemas.share import (
     ShareOrderResponse,
     ShareTokenResponse,
 )
+from app.services.providers.sms.base import mask_phone_sms
 from app.services.share import (
     ShareService,
     build_share_url,
@@ -53,8 +54,6 @@ from app.services.share_otp import (
     OtpSendError,
     OtpService,
 )
-from app.services.providers.sms.base import mask_phone_sms
-
 
 # Two routers so URL prefixes stay close to the spec. They are both
 # included under ``api_v1_router`` by ``app.api.v1.router``.
@@ -149,6 +148,10 @@ async def create_share(
     "",
     response_model=ListSharesResponse,
     summary="下单人查看当前 active 分享 token",
+    description=(
+        "下单人（owner）查询指定订单下当前处于 active 状态的家属分享 token 列表，"
+        "返回 token 概要及 ``share_active_count`` 计数。需 owner 身份鉴权。"
+    ),
     responses={**err(401, 403, 404, 500)},
 )
 async def list_shares(

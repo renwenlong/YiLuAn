@@ -43,6 +43,8 @@ CONTRACT_FIELDS = {
     "share_active_count",
     # 伴生但同属换取响应的硬字段，一并锚定避免被悄悄改类型。
     "share_session_expires_at",
+    # ShareOrderResponse 脱敏视图字段，跨端同属硬契约（S2-INT-002 魈拍板补入）。
+    "patient_name_masked",
 }
 
 DEFAULT_BASELINE = (
@@ -171,11 +173,11 @@ def _diff(baseline: dict, live: dict) -> list[str]:
     for added in sorted(l_keys - b_keys):
         diffs.append(f"ADDED field anchor: {added} (was not in baseline)")
     for key in sorted(b_keys & l_keys):
-        b, l = baseline[key], live[key]
+        base_sig, live_sig = baseline[key], live[key]
         for attr in ("type", "required", "enum", "nullable", "format"):
-            if b.get(attr) != l.get(attr):
+            if base_sig.get(attr) != live_sig.get(attr):
                 diffs.append(
-                    f"CHANGED {key}.{attr}: {b.get(attr)!r} → {l.get(attr)!r}"
+                    f"CHANGED {key}.{attr}: {base_sig.get(attr)!r} → {live_sig.get(attr)!r}"
                 )
     return diffs
 

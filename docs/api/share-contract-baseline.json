@@ -77,6 +77,13 @@
       "nullable": false,
       "format": null
     },
+    "ShareOrderResponse.patient_name_masked": {
+      "type": "string",
+      "required": false,
+      "enum": null,
+      "nullable": true,
+      "format": null
+    },
     "ShareOrderResponse.share_scope": {
       "type": "ref:ShareScope",
       "required": true,

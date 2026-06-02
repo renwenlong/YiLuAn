@@ -5,6 +5,10 @@
       "#/components/schemas/ShareScope",
       false
     ],
+    "CreateShareResponse::share_active_count": [
+      "integer",
+      true
+    ],
     "CreateShareResponse::share_expires_at": [
       "string",
       true
@@ -21,12 +25,24 @@
       "string",
       true
     ],
+    "CreateShareResponse::share_url": [
+      "string",
+      true
+    ],
     "ExchangeSessionResponse::share_scope": [
       "#/components/schemas/ShareScope",
       true
     ],
     "ExchangeSessionResponse::share_session": [
       "string",
+      true
+    ],
+    "ExchangeSessionResponse::share_session_expires_at": [
+      "string",
+      true
+    ],
+    "ListSharesResponse::share_active_count": [
+      "integer",
       true
     ],
     "ShareOrderResponse::patient_name_masked": [
@@ -50,6 +66,10 @@
       true
     ],
     "ShareTokenResponse::share_token": [
+      "string",
+      true
+    ],
+    "ShareTokenResponse::share_url": [
       "string",
       true
     ]
