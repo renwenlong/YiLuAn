@@ -308,6 +308,17 @@ K8s / ACA 探针使用：
 | `DELETE` | `/api/v1/orders/me/followup-reminders/{reminder_id}` | 取消一条 pending 复诊提醒 (F-07) |
 | `POST` | `/api/v1/orders/{order_id}/followup-reminders` | 为一笔已完成订单创建复诊提醒 (F-07) |
 
+### [share](./share.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/orders/{order_id}/shares` | 下单人查看当前 active 分享 token |
+| `POST` | `/api/v1/orders/{order_id}/shares` | 下单人创建家属分享 token |
+| `DELETE` | `/api/v1/orders/{order_id}/shares/{token_id}` | 下单人吊销指定分享 token |
+| `GET` | `/api/v1/shares/session/order` | 家属端用 share_session 拉脱敏订单视图 |
+| `POST` | `/api/v1/shares/{token}/otp` | 家属端（iOS/H5）请求下发短信验证码 |
+| `POST` | `/api/v1/shares/{token}/session` | 家属端用 token + openid/(phone+otp) 换 share_session JWT |
+
 ### [telemetry](./telemetry.md)
 
 | 方法 | 路径 | 说明 |

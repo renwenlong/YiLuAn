@@ -942,6 +942,35 @@
         "title": "CompanionListResponse",
         "type": "object"
       },
+      "CompanionPublicView": {
+        "properties": {
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "陪诊师姓名（完整）",
+            "title": "Name"
+          }
+        },
+        "title": "CompanionPublicView",
+        "type": "object"
+      },
       "CompanionSearchItem": {
         "properties": {
           "name": {
@@ -1331,6 +1360,101 @@
           "content"
         ],
         "title": "CreateReviewRequest",
+        "type": "object"
+      },
+      "CreateShareRequest": {
+        "description": "POST /api/v1/orders/{order_id}/shares body.",
+        "properties": {
+          "share_scope": {
+            "$ref": "#/components/schemas/ShareScope",
+            "default": "full",
+            "description": "分享数据切片：full=位置+进度+影像+摘要，progress_only=仅进度"
+          }
+        },
+        "title": "CreateShareRequest",
+        "type": "object"
+      },
+      "CreateShareResponse": {
+        "description": "POST returns the freshly minted token (single row + meta).",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "distinct_accessor_count": {
+            "default": 0,
+            "description": "去重访问人数（aggregate, 上限 3 提示警告）",
+            "title": "Distinct Accessor Count",
+            "type": "integer"
+          },
+          "first_accessed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Accessed At"
+          },
+          "id": {
+            "description": "token 行 ID（DELETE 时使用）",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "share_active_count": {
+            "description": "同订单当前 active token 计数（上限 3）",
+            "title": "Share Active Count",
+            "type": "integer"
+          },
+          "share_expires_at": {
+            "description": "过期时间 (UTC, ISO8601)",
+            "format": "date-time",
+            "title": "Share Expires At",
+            "type": "string"
+          },
+          "share_revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "吊销时间，未吊销为 null",
+            "title": "Share Revoked At"
+          },
+          "share_scope": {
+            "$ref": "#/components/schemas/ShareScope",
+            "description": "分享数据切片"
+          },
+          "share_token": {
+            "description": "URL-safe random token，短链 ID",
+            "title": "Share Token",
+            "type": "string"
+          },
+          "share_url": {
+            "description": "短链 URL；模板 https://m.yiluan.cn/s/{token}",
+            "title": "Share Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "share_token",
+          "share_url",
+          "share_scope",
+          "share_expires_at",
+          "created_at",
+          "share_active_count"
+        ],
+        "title": "CreateShareResponse",
         "type": "object"
       },
       "DashboardCard": {
@@ -1845,6 +1969,84 @@
           "phone_to_call"
         ],
         "title": "EmergencyTriggerResponse",
+        "type": "object"
+      },
+      "ExchangeSessionRequest": {
+        "description": "POST /api/v1/shares/{token}/session body.\n\nFamily viewer arrives via the short link, then exchanges *token + auth\nproof* for a short-lived ``share_session`` JWT (TTL 30min).\n\nEither ``wx_openid`` (微信小程序静默) or ``otp`` (iOS App / 外部浏览器\nSMS fallback) MUST be provided. Validation lives in the service layer\nso we can return a unified 401 instead of a 422.",
+        "properties": {
+          "otp": {
+            "anyOf": [
+              {
+                "maxLength": 12,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "iOS/H5 fallback：6 位短信验证码（需与 phone 同传）",
+            "title": "Otp"
+          },
+          "phone": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "iOS/H5 fallback：收验证码的手机号（与 otp 成对提交）",
+            "title": "Phone"
+          },
+          "wx_openid": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "微信静默授权返回的 openid (jscode2session 路径)",
+            "title": "Wx Openid"
+          }
+        },
+        "title": "ExchangeSessionRequest",
+        "type": "object"
+      },
+      "ExchangeSessionResponse": {
+        "description": "POST /shares/{token}/session response.",
+        "properties": {
+          "order_id": {
+            "format": "uuid",
+            "title": "Order Id",
+            "type": "string"
+          },
+          "share_scope": {
+            "$ref": "#/components/schemas/ShareScope"
+          },
+          "share_session": {
+            "description": "JWT，TTL 30 分钟；存 sessionStorage",
+            "title": "Share Session",
+            "type": "string"
+          },
+          "share_session_expires_at": {
+            "description": "JWT 过期时间 (UTC, ISO8601)",
+            "format": "date-time",
+            "title": "Share Session Expires At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "share_session",
+          "share_session_expires_at",
+          "share_scope",
+          "order_id"
+        ],
+        "title": "ExchangeSessionResponse",
         "type": "object"
       },
       "FamilyMemberListResponse": {
@@ -2445,6 +2647,28 @@
           "created_at"
         ],
         "title": "LedgerRowResponse",
+        "type": "object"
+      },
+      "ListSharesResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ShareTokenResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "share_active_count": {
+            "description": "当前 active token 计数（上限 3）",
+            "title": "Share Active Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "share_active_count"
+        ],
+        "title": "ListSharesResponse",
         "type": "object"
       },
       "ManualAdjustmentRequest": {
@@ -3938,6 +4162,242 @@
           "phone"
         ],
         "title": "SendOTPRequest",
+        "type": "object"
+      },
+      "SendOtpRequest": {
+        "description": "POST /api/v1/shares/{token}/otp body — 请求下发短信验证码。",
+        "properties": {
+          "phone": {
+            "description": "接收验证码的手机号",
+            "maxLength": 20,
+            "minLength": 6,
+            "title": "Phone",
+            "type": "string"
+          }
+        },
+        "required": [
+          "phone"
+        ],
+        "title": "SendOtpRequest",
+        "type": "object"
+      },
+      "SendOtpResponse": {
+        "description": "POST /shares/{token}/otp response.",
+        "properties": {
+          "expires_in": {
+            "description": "验证码有效期（秒）",
+            "title": "Expires In",
+            "type": "integer"
+          },
+          "masked_phone": {
+            "description": "掩码手机号，如 138****0001",
+            "title": "Masked Phone",
+            "type": "string"
+          },
+          "sent": {
+            "default": true,
+            "description": "验证码是否已下发",
+            "title": "Sent",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "masked_phone",
+          "expires_in"
+        ],
+        "title": "SendOtpResponse",
+        "type": "object"
+      },
+      "ShareOrderResponse": {
+        "description": "GET /shares/session/order response — desensitized order view.\n\nStrict subset of ``OrderResponse`` — PII fields (患者电话/身份证/病情\n描述) are intentionally absent. Family-facing fields only.",
+        "properties": {
+          "appointment_date": {
+            "title": "Appointment Date",
+            "type": "string"
+          },
+          "appointment_time": {
+            "title": "Appointment Time",
+            "type": "string"
+          },
+          "can_view_ai_summary": {
+            "description": "同上 (scope gating, §2.5 + AC#21)",
+            "title": "Can View Ai Summary",
+            "type": "boolean"
+          },
+          "can_view_images": {
+            "description": "scope=full 时为 true；progress_only 为 false",
+            "title": "Can View Images",
+            "type": "boolean"
+          },
+          "companion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompanionPublicView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "hospital_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hospital Name"
+          },
+          "order_id": {
+            "format": "uuid",
+            "title": "Order Id",
+            "type": "string"
+          },
+          "order_number": {
+            "title": "Order Number",
+            "type": "string"
+          },
+          "patient_name_masked": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "患者姓名首字 + **（§2.5 脱敏）",
+            "title": "Patient Name Masked"
+          },
+          "service_type": {
+            "title": "Service Type",
+            "type": "string"
+          },
+          "share_scope": {
+            "$ref": "#/components/schemas/ShareScope"
+          },
+          "status": {
+            "description": "订单状态",
+            "title": "Status",
+            "type": "string"
+          },
+          "timeline": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeline"
+          }
+        },
+        "required": [
+          "order_id",
+          "order_number",
+          "status",
+          "service_type",
+          "appointment_date",
+          "appointment_time",
+          "hospital_name",
+          "companion",
+          "share_scope",
+          "can_view_images",
+          "can_view_ai_summary"
+        ],
+        "title": "ShareOrderResponse",
+        "type": "object"
+      },
+      "ShareScope": {
+        "description": "Slice of order data visible to family viewers.",
+        "enum": [
+          "full",
+          "progress_only"
+        ],
+        "title": "ShareScope",
+        "type": "string"
+      },
+      "ShareTokenResponse": {
+        "description": "Single token row payload returned to the order owner.",
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "distinct_accessor_count": {
+            "default": 0,
+            "description": "去重访问人数（aggregate, 上限 3 提示警告）",
+            "title": "Distinct Accessor Count",
+            "type": "integer"
+          },
+          "first_accessed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "First Accessed At"
+          },
+          "id": {
+            "description": "token 行 ID（DELETE 时使用）",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "share_expires_at": {
+            "description": "过期时间 (UTC, ISO8601)",
+            "format": "date-time",
+            "title": "Share Expires At",
+            "type": "string"
+          },
+          "share_revoked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "吊销时间，未吊销为 null",
+            "title": "Share Revoked At"
+          },
+          "share_scope": {
+            "$ref": "#/components/schemas/ShareScope",
+            "description": "分享数据切片"
+          },
+          "share_token": {
+            "description": "URL-safe random token，短链 ID",
+            "title": "Share Token",
+            "type": "string"
+          },
+          "share_url": {
+            "description": "短链 URL；模板 https://m.yiluan.cn/s/{token}",
+            "title": "Share Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "share_token",
+          "share_url",
+          "share_scope",
+          "share_expires_at",
+          "created_at"
+        ],
+        "title": "ShareTokenResponse",
         "type": "object"
       },
       "SwitchRoleRequest": {
@@ -12620,6 +13080,292 @@
         ]
       }
     },
+    "/api/v1/orders/{order_id}/shares": {
+      "get": {
+        "operationId": "list_shares_api_v1_orders__order_id__shares_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ListSharesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "下单人查看当前 active 分享 token",
+        "tags": [
+          "share"
+        ]
+      },
+      "post": {
+        "description": "创建一条 OrderShareToken 并返回短链。单订单 active token 数硬上限 = 3，已达上限时自动 revoke 最老一条。",
+        "operationId": "create_share_api_v1_orders__order_id__shares_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateShareRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateShareResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "下单人创建家属分享 token",
+        "tags": [
+          "share"
+        ]
+      }
+    },
+    "/api/v1/orders/{order_id}/shares/{token_id}": {
+      "delete": {
+        "description": "幂等吊销。WS 服务端读 ``revoked_at``，已建立的家属连接将以 code 4013 主动断开（S2-DEV-003 实现）。",
+        "operationId": "revoke_share_api_v1_orders__order_id__shares__token_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "token_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Token Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "下单人吊销指定分享 token",
+        "tags": [
+          "share"
+        ]
+      }
+    },
     "/api/v1/orders/{order_id}/start": {
       "post": {
         "description": "陪诊师标记开始服务（已与患者线下见面），订单进入 `in_service`。",
@@ -12804,6 +13550,237 @@
         "summary": "就绪检查（readiness）",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/api/v1/shares/session/order": {
+      "get": {
+        "description": "返回 §2.5 PII 表筛选后的字段集。``scope=progress_only`` 时影像 + AI 摘要的 can_* 标志为 false (AC#21)。",
+        "operationId": "get_share_session_order_api_v1_shares_session_order_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ShareOrderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "家属端用 share_session 拉脱敏订单视图",
+        "tags": [
+          "share"
+        ]
+      }
+    },
+    "/api/v1/shares/{token}/otp": {
+      "post": {
+        "description": "iOS App / 外部浏览器无微信静默授权时的降级路径（ADR-0036 §2.2）。双轴频控：单 token 24h ≤ 5 次、单手机号 1h ≤ 3 个不同 token，超限 429 转人工。成功后验证码有效期 5min。",
+        "operationId": "send_share_otp_api_v1_shares__token__otp_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SendOtpRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SendOtpResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Rate limit exceeded: 5 per 1 minute"
+                }
+              }
+            },
+            "description": "触发限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "summary": "家属端（iOS/H5）请求下发短信验证码",
+        "tags": [
+          "share"
+        ]
+      }
+    },
+    "/api/v1/shares/{token}/session": {
+      "post": {
+        "description": "微信小程序静默路径传 ``wx_openid``；iOS / 外部浏览器路径先调 ``POST /shares/{token}/otp`` 收码，再传 ``phone`` + ``otp``（6 位）。过期 / 已 revoke 的 token、验证码错误/过期 一律 401。",
+        "operationId": "exchange_session_api_v1_shares__token__session_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "title": "Token",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExchangeSessionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExchangeSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "summary": "家属端用 token + openid/(phone+otp) 换 share_session JWT",
+        "tags": [
+          "share"
         ]
       }
     },

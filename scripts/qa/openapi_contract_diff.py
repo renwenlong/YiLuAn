@@ -2,9 +2,10 @@
 """
 S2-TEST-002 / PRD-001 §6.C AC#22 — OpenAPI 跨端字段契约 diff 守门人.
 
-只守 ADR-0036 §2.7 七字段（Top1 关键路径），不守全 OpenAPI（避免误杀正常迭代）。
+只守 S2-INT-002 权威表 9 字段（Top1 关键路径），不守全 OpenAPI（避免误杀正常迭代）。
 - 字段名 / 类型 / 必填性任何变更 → exit 1 → CI fail
-- 必须先改 ADR-0036 + 改 baseline + 双签放行，禁止单独改 baseline 蒙混
+- digest_url 为幽灵字段（backend 零命中）已剔除；权威表以 backend schema 为准
+- 必须先改 ADR + 改 baseline + 双签放行，禁止单独改 baseline 蒙混
 """
 from __future__ import annotations
 
@@ -13,14 +14,17 @@ import sys
 from pathlib import Path
 
 GUARDED_FIELDS = {
-    # ADR-0036 §2.7 表
-    "share_token",
-    "share_scope",
-    "share_expires_at",
-    "share_revoked_at",
-    "share_session",
-    "patient_name_masked",
-    "digest_url",
+    # S2-INT-002 权威表（9 字段，魈拍板 + 胡桃定 session_expires_at）
+    "share_token",            # ShareTokenResponse
+    "share_url",              # ShareTokenResponse
+    "share_scope",            # ShareTokenResponse
+    "share_expires_at",       # ShareTokenResponse
+    "share_revoked_at",       # ShareTokenResponse
+    "share_active_count",     # Create/ListSharesResponse
+    "share_session",          # ExchangeShareSessionResponse
+    "share_session_expires_at",  # Exchange（与 share_session 配对）
+    "patient_name_masked",    # ShareOrderResponse（脱敏视图）
+    # digest_url 已剔除：backend 代码零命中（幽灵字段）
 }
 
 REPO_ROOT = Path(__file__).resolve().parents[2]

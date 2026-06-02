@@ -101,3 +101,4 @@ deploy/staging/docker-compose.override.yml
 # Transient task/test artifacts (never commit)
 .taskboard-tmp/
 backend/.hypothesis/
+wechat/types/openapi.d.ts
