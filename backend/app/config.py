@@ -134,6 +134,18 @@ class Settings(BaseSettings):
     share_otp_ttl_seconds: int = 300  # OTP 码有效期 5min
     share_otp_code_length: int = 6
 
+    # S2-OPS-011 火度门 feature flags（火度回滚 runbook 中可热切）。
+    # FEATURE_SHARE_F2_ENABLED=false 后患者端不能新建 share_token
+    # （已发的不受影响，仅不炭毒火度入口）。
+    # 默认 True，指南火度闭闸全量 F2 时 OPS 手动切 False。
+    feature_share_f2_enabled: bool = True
+
+    # READONLY_SHARE_SESSIONS=true 后已发以 share_session 可读视图，
+    # 但不可生新会话（POST /shares/{token}/session 拒 503）
+    # 且不可走 WS（升级拒 503）。
+    # 默认 False，指南火度异常时 OPS 手动切 True 冻结新会话。
+    readonly_share_sessions: bool = False
+
     # ADR-0032 / D-044 Q3: 资金对账历史豁免 cutoff。
     # 早于该时刻产生的 amount_mismatch diff 视为已豁免，guard 不阻断订单
     # 状态机迁移。默认值 = ADR-0032 Accepted 的 UTC 时刻；生产部署可通过

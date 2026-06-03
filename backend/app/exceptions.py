@@ -65,6 +65,27 @@ class TooManyRequestsException(AppException):
         self.retry_after = retry_after
 
 
+class ServiceUnavailableException(AppException):
+    """503 — 服务受 feature flag 控制临时不可用（火度手动热切）。
+
+    使用场景（S2-OPS-011）：
+    - FEATURE_SHARE_F2_ENABLED=false 拒创建 share_token
+    - READONLY_SHARE_SESSIONS=true 拒生新 share_session / 拒 WS 升级
+    """
+
+    def __init__(
+        self,
+        detail: str = "Service temporarily unavailable",
+        *,
+        error_code: str | None = None,
+    ):
+        super().__init__(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail,
+            error_code=error_code,
+        )
+
+
 class NotExpirableOrderError(AppException):
     """Raised when an order cannot be expired (e.g. payment already succeeded)."""
 

@@ -43,6 +43,13 @@ OTP_INVALID = "OTP_INVALID"
 OTP_LOCKED = "OTP_LOCKED"
 SMS_RATE_LIMITED = "SMS_RATE_LIMITED"
 
+# --- S2-OPS-011 火度门 feature flag 热切 ---
+SHARE_F2_DISABLED = "SHARE_F2_DISABLED"
+"""F2 入口已被火度手动关闭（FEATURE_SHARE_F2_ENABLED=false），拒创建新 share_token。"""
+
+SHARE_SESSIONS_READONLY = "SHARE_SESSIONS_READONLY"
+"""share session 被冻结为只读模式（READONLY_SHARE_SESSIONS=true），拒生新会话 / 拒 WS。已发会话可继续读视图。"""
+
 
 __all__ = [
     "PHONE_REQUIRED",
@@ -60,4 +67,6 @@ __all__ = [
     "OTP_INVALID",
     "OTP_LOCKED",
     "SMS_RATE_LIMITED",
+    "SHARE_F2_DISABLED",
+    "SHARE_SESSIONS_READONLY",
 ]
