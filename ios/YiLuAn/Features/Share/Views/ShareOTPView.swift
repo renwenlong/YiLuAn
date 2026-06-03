@@ -15,8 +15,19 @@ struct ShareOTPView: View {
     /// success 后通知外层跳 ShareOrderView（外层提供 orderId / scope 路由）
     var onAuthenticated: ((UUID, ShareScope) -> Void)?
 
-    init(shareToken: String, onAuthenticated: ((UUID, ShareScope) -> Void)? = nil) {
+    /// 是否在 success 后直接 push ShareOrderView（默认 true）
+    /// 外层可设 false 自行控制路由
+    let pushShareOrderViewOnSuccess: Bool
+
+    @State private var navigateToOrderView: Bool = false
+
+    init(
+        shareToken: String,
+        pushShareOrderViewOnSuccess: Bool = true,
+        onAuthenticated: ((UUID, ShareScope) -> Void)? = nil
+    ) {
         _viewModel = StateObject(wrappedValue: ShareOTPViewModel(shareToken: shareToken))
+        self.pushShareOrderViewOnSuccess = pushShareOrderViewOnSuccess
         self.onAuthenticated = onAuthenticated
     }
 
@@ -45,6 +56,11 @@ struct ShareOTPView: View {
             .padding()
             .navigationTitle("家属浏览订单")
             .navigationBarTitleDisplayMode(.inline)
+            .navigationDestination(isPresented: $navigateToOrderView) {
+                if let active = ShareSessionStore.activeSession() {
+                    ShareOrderView(shareSession: active)
+                }
+            }
         }
     }
 
@@ -123,11 +139,11 @@ struct ShareOTPView: View {
                         .font(.body.weight(.semibold))
                         .padding(.horizontal, 32)
                         .frame(height: 44)
-                        .background(viewModel.otp.count < 4 ? Color(.systemGray3) : Color.blue)
+                        .background(viewModel.otp.count != 6 ? Color(.systemGray3) : Color.blue)
                         .foregroundStyle(.white)
                         .cornerRadius(10)
                 }
-                .disabled(viewModel.otp.count < 4)
+                .disabled(viewModel.otp.count != 6)
             }
         }
     }
@@ -150,8 +166,12 @@ struct ShareOTPView: View {
                 .foregroundStyle(.secondary)
         }
         .onAppear {
-            // 触发外层路由（占位：本 PR 未实装 ShareOrderView，后续刀次接入）
+            // 触发外层路由回调
             onAuthenticated?(orderId, scope)
+            // 默认 push ShareOrderView（INT-006 购机回调）
+            if pushShareOrderViewOnSuccess {
+                navigateToOrderView = true
+            }
         }
     }
 

@@ -65,7 +65,7 @@ final class ShareOTPViewModel: ObservableObject {
     // MARK: - Step 2：换 share_session
 
     func exchangeSession() async {
-        guard otp.count >= 4 else {
+        guard otp.count == 6 else {
             stage = .failure(message: "请输入 6 位验证码")
             return
         }
