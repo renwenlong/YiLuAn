@@ -42,6 +42,11 @@ class PaymentState(str, enum.Enum):
     Independent of :class:`OrderStatus`; tracks the money side so the UI
     can show "支付中 / 已付款 / 异常" without coupling to the business
     state machine. ``ORDER_TRANSITIONS`` is intentionally NOT extended.
+
+    解耦契约：**ADR-0041** 支付域与业务域状态机解耦显式化。
+    详见 docs/adr/ADR-0041-payment-business-state-machine-decoupling.md。
+    任何在 ``ORDER_TRANSITIONS`` 中加入「支付意味」状态（如 ``paid``
+    / ``pending_accept`` / ``paying``）的 PR 直接打回 develop。
     """
 
     none = "none"
