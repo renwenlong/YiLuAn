@@ -432,7 +432,18 @@ async def websocket_share(websocket: WebSocket, token: str):
 
     Auth: first frame ``{type: "share_auth", session: "<share_session_jwt>"}``.
     Server-to-client only — any upstream non-ping frame closes with 4012.
+
+    S2-OPS-011 火度门：READONLY_SHARE_SESSIONS=true 时拒 WS 升级（close 4015
+    SHARE_SESSIONS_READONLY），冻结新连接。已存活 WS 本身不受影响。
     """
+    # 火度门拦截：不 accept() 直接 close 避免握手开销
+    from app.config import settings as _settings
+    if _settings.readonly_share_sessions:
+        await websocket.close(
+            code=4015, reason="SHARE_SESSIONS_READONLY"
+        )
+        return
+
     await websocket.accept()
     payload = await _share_auth_handshake(websocket)
     if payload is None:

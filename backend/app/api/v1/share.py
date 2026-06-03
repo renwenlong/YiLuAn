@@ -20,12 +20,14 @@ from redis.asyncio import Redis
 
 from app.api.v1.openapi_meta import err
 from app.config import settings
+from app.core import error_codes
 from app.core.redis import get_redis
 from app.dependencies import CurrentUser, DBSession
 from app.exceptions import (
     BadRequestException,
     ForbiddenException,
     NotFoundException,
+    ServiceUnavailableException,
     TooManyRequestsException,
     UnauthorizedException,
 )
@@ -128,6 +130,18 @@ async def create_share(
     current_user: CurrentUser,
     session: DBSession,
 ):
+    # S2-OPS-011 火度门：FEATURE_SHARE_F2_ENABLED=false 热关 F2 入口
+    if not settings.feature_share_f2_enabled:
+        raise ServiceUnavailableException(
+            "F2 分享入口已临时关闭，请稍后重试",
+            error_code=error_codes.SHARE_F2_DISABLED,
+        )
+    # S2-OPS-011: readonly 模式下也拒创建新 share_token
+    if settings.readonly_share_sessions:
+        raise ServiceUnavailableException(
+            "分享服务临时只读，不允许创建新分享",
+            error_code=error_codes.SHARE_SESSIONS_READONLY,
+        )
     order = await _ensure_order_owner(
         session=session, order_id=order_id, user_id=current_user.id
     )
@@ -244,6 +258,13 @@ async def exchange_session(
     session: DBSession,
     redis: Annotated[Redis, Depends(get_redis)],
 ):
+    # S2-OPS-011 火度门：READONLY_SHARE_SESSIONS=true 冻结新会话
+    # （已发 share_session JWT 仍可继续读视图，仅拒新 exchange）
+    if settings.readonly_share_sessions:
+        raise ServiceUnavailableException(
+            "分享服务临时只读，不允许创建新会话",
+            error_code=error_codes.SHARE_SESSIONS_READONLY,
+        )
     # iOS/H5 OTP path: verify phone+otp first to obtain the phone-hash
     # accessor. 微信路径走 openid 直通。
     verified_accessor: str | None = None

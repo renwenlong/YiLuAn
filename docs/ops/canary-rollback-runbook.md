@@ -72,3 +72,57 @@ Alert 触发即经 Alertmanager `canary-rollback-ops-pm` receiver fan-out：
 - alertmanager 路由: `prometheus/alertmanager.yml`（receiver `canary-rollback-ops-pm`）
 - dashboard: `ops/grafana/yiluan-canary.json`
 - 灰度流量: `ops/canary/nginx.canary.conf.template` / ADR-0028
+
+---
+
+## 附录 B：S2-OPS-011 feature flag 热切（W22+ 灰度通道）
+
+> 配套：S2-OPS-011 灰度通道（接真 wxpay/aliyun_sms）+ `backend/app/config.py` feature flags
+> 适用：灰度通道上 share/F2 链路异常但不需要整体回滚 backend 时的细粒度回滚
+
+### B.1 关 F2 入口（CanaryShareAbuseRateHigh 触发推荐）
+
+```bash
+echo "FEATURE_SHARE_F2_ENABLED=false" >> ~/repo/YiLuAn/deploy/env.canary.local
+cd ~/repo/YiLuAn/deploy
+docker compose --env-file env.staging --env-file env.canary \
+  --env-file env.canary.local restart backend
+
+# 验证 503 + SHARE_F2_DISABLED
+curl -X POST -H "Authorization: Bearer <token>" -d '{"share_scope":"full"}' \
+  https://canary.yiluan.cn/api/v1/orders/<id>/shares
+```
+
+效果：拒新建 share_token；已发 share_token 继续有效（家属仍可用旧链接，但不产新链接）。
+
+### B.2 冻结新 share session（异常严重时）
+
+```bash
+echo "READONLY_SHARE_SESSIONS=true" >> ~/repo/YiLuAn/deploy/env.canary.local
+docker compose --env-file env.staging --env-file env.canary \
+  --env-file env.canary.local restart backend
+```
+
+效果：
+- 拒新换 share_session（POST `/shares/{token}/session` → 503 + `SHARE_SESSIONS_READONLY`）
+- WS share upgrade 直接 close 4015
+- **已发 share_session JWT 仍可拉 GET `/shares/session/order` 读视图**（不影响读，仅冻结新会话）
+
+### B.3 反向回滚（取消 flag）
+
+故障修复 + 验证通过后：
+
+```bash
+sed -i '/^FEATURE_SHARE_F2_ENABLED/d' ~/repo/YiLuAn/deploy/env.canary.local
+sed -i '/^READONLY_SHARE_SESSIONS/d' ~/repo/YiLuAn/deploy/env.canary.local
+docker compose --env-file env.staging --env-file env.canary \
+  --env-file env.canary.local restart backend
+```
+
+### B.4 反向引用
+
+- S2-OPS-011 task 配套
+- backend feature flags 真源：`backend/app/config.py` `feature_share_f2_enabled` / `readonly_share_sessions`
+- 拦截点：`backend/app/api/v1/share.py` create_share + exchange_session / `backend/app/api/v1/ws.py` websocket_share
+- error_code 真源：`backend/app/core/error_codes.py` `SHARE_F2_DISABLED` / `SHARE_SESSIONS_READONLY`
+- 配套部署：`docs/ops/canary-deployment.md`
