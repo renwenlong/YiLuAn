@@ -86,6 +86,7 @@ def estimate_max_completion_tokens_for_budget(
     provider=DEEPSEEK_PROVIDER,
     timeout=settings.deepseek_timeout_seconds,
     max_retries=settings.deepseek_max_retries,
+    distributed=True,
 )
 async def chat_completion(
     *, prompt: str, max_tokens: int, system: str | None = None

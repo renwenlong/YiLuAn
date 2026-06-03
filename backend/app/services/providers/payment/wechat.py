@@ -98,7 +98,7 @@ class WechatPaymentProvider(PaymentProvider):
 
     # ------------------------------------------------------------------ API
 
-    @outbound_call(provider="wechat_pay", timeout=5.0, max_retries=2)
+    @outbound_call(provider="wechat_pay", timeout=5.0, max_retries=2, distributed=True)
     async def create_order(self, order: OrderDTO) -> dict[str, Any]:
         # ADR-0030: amount_yuan is Decimal — convert to fen exactly.
         amount_fen = int(
@@ -183,7 +183,7 @@ class WechatPaymentProvider(PaymentProvider):
             },
         }
 
-    @outbound_call(provider="wechat_pay", timeout=5.0, max_retries=2)
+    @outbound_call(provider="wechat_pay", timeout=5.0, max_retries=2, distributed=True)
     async def refund(self, refund: RefundDTO) -> dict[str, Any]:
         # ADR-0030: amounts are Decimal — convert to fen exactly.
         total_fen = int(
@@ -247,7 +247,7 @@ class WechatPaymentProvider(PaymentProvider):
             "status": data.get("status", "PROCESSING").lower(),
         }
 
-    @outbound_call(provider="wechat_pay", timeout=5.0, max_retries=2)
+    @outbound_call(provider="wechat_pay", timeout=5.0, max_retries=2, distributed=True)
     async def verify_callback(
         self, headers: dict, body: bytes
     ) -> dict[str, Any]:
@@ -268,7 +268,7 @@ class WechatPaymentProvider(PaymentProvider):
             payload["resource"] = self._decrypt_resource(resource)
         return payload
 
-    @outbound_call(provider="wechat_pay", timeout=5.0, max_retries=2)
+    @outbound_call(provider="wechat_pay", timeout=5.0, max_retries=2, distributed=True)
     async def query(self, order: OrderDTO) -> dict[str, Any]:
         # Real implementation would call:
         #   GET /v3/pay/transactions/out-trade-no/{out_trade_no}?mchid={mch_id}

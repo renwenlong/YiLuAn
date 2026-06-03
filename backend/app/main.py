@@ -41,6 +41,21 @@ async def lifespan(app: FastAPI):
     except Exception as exc:  # pragma: no cover - never block boot on this
         logger.warning("prime_alembic_head_cache failed: %s", exc)
     app.state.redis = init_redis()
+    # S2-DEV-012 (ADR-0040 Phase 1) 注入分布式 CB 的 redis client
+    # 使用 sync redis client（CB.allow_request 是 sync 接口，不能 await）
+    # 与业务侧 async redis 同连一个 Redis 实例，不引入新依赖
+    # Redis 不可用时 distributed CB 自动降级到纯本地 CB（不阻断业务）
+    try:
+        from app.core.redis import init_redis_sync
+        from app.utils.distributed_circuit_breaker import (
+            set_distributed_redis_client,
+        )
+        app.state.redis_sync = init_redis_sync()
+        set_distributed_redis_client(app.state.redis_sync)
+    except Exception as exc:  # pragma: no cover - never block boot on CB wire-up
+        logger.warning(
+            "distributed CB redis wire-up failed (will degrade to local CB): %s", exc
+        )
     # WebSocket Pub/Sub broker (D-019): 多副本通知跨副本 fanout
     try:
         await start_ws_pubsub(
@@ -82,6 +97,13 @@ async def lifespan(app: FastAPI):
     await stop_ws_pubsub(app)
     if app.state.redis:
         await app.state.redis.aclose()
+    # S2-DEV-012: 同步关闭 sync redis client（distributed CB 专用）
+    redis_sync = getattr(app.state, "redis_sync", None)
+    if redis_sync is not None:
+        try:
+            redis_sync.close()
+        except Exception:  # pragma: no cover
+            pass
     logger.info("Shutdown complete")
 
 
