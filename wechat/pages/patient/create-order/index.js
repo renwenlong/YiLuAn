@@ -5,6 +5,9 @@ var listFamilyMembers = require('../../../services/familyMember').listFamilyMemb
 var relationLabel = require('../../../utils/familyRelation').relationLabel
 var SERVICE_TYPES = require('../../../utils/constants').SERVICE_TYPES
 var formatCurrency = require('../../../utils/formatCurrency').formatCurrency
+var orderSummary = require('../../../utils/orderSummary')
+var stepper = require('../../../utils/stepperState')
+var fontScale = require('../../../utils/fontScale')
 var store = require('../../../store/index')
 var logger = require('../../../utils/logger')
 var analytics = require('../../../utils/analytics')
@@ -31,7 +34,33 @@ Page({
     familyMembers: [],            // {id, name, relation, relation_label}
     familyMemberOptions: ['本人'], // display labels for <picker>
     familyMemberIndex: 0,         // 0 = 本人
-    familyMemberId: ''
+    familyMemberId: '',
+    // [S2-INT-004 prelude] U-1 折叠分步状态机
+    currentStep: 1,
+    maxReachedStep: 1,
+    stepStates: ['active', 'collapsed', 'collapsed', 'collapsed'],
+    stepTitles: stepper.STEP_TITLES,
+    // 服务类型列表（用于步骤1 渲染）
+    serviceTypes: [
+      { code: 'full_accompany', name: '全程陪诊', price: 299 },
+      { code: 'half_accompany', name: '半程陪诊', price: 199 },
+      { code: 'errand', name: '代办跑腿', price: 149 }
+    ],
+    // 各步骤摘要（接 orderSummary 真源）
+    summaryService: '',
+    summaryHospital: '',
+    summaryDate: '',
+    summaryPatient: '',
+    // 科室（可选）
+    department: '',
+    departmentList: [],
+    departmentIndex: 0,
+    // 时段：上午|下午
+    period: '上午',
+    // 巨字号
+    hugeFont: false,
+    fontTokens: fontScale.tokens(false),
+    canSubmit: false
   },
 
   onLoad(options) {
@@ -65,6 +94,111 @@ Page({
     }
 
     this.loadFamilyMembers()
+
+    // [S2-INT-004 prelude] 巨字号偏好 + 首次状态/摘要重算
+    try {
+      var huge = !!(wx.getStorageSync && wx.getStorageSync('huge_font'))
+      this.setData({ hugeFont: huge, fontTokens: fontScale.tokens(huge) })
+    } catch (_) {}
+    var firstIncomplete = stepper.firstIncompleteStep(this.data)
+    var startStep = firstIncomplete === 0 ? 4 : firstIncomplete
+    this.setData({ currentStep: startStep, maxReachedStep: Math.max(startStep, this.data.maxReachedStep) })
+    this.recomputeSteps()
+  },
+
+  // [S2-INT-004 prelude] 重算步骤三态 + 各步摘要 + canSubmit
+  recomputeSteps: function () {
+    var d = this.data
+    var states = stepper.computeStepStates(d.currentStep, d, d.maxReachedStep)
+    var summaryService = d.serviceType ? orderSummary.summaryService(d.serviceTypeName, d.servicePrice) : ''
+    var summaryHospital = d.hospitalId ? orderSummary.summaryHospital(d.hospitalName, d.department) : ''
+    var summaryDate = (d.date && d.period) ? orderSummary.summaryDate(d.date, d.period) : ''
+    var patient = this.resolvePatient()
+    var summaryPatient = patient ? orderSummary.summaryPatient(patient.name, patient.relation, patient.age) : ''
+    this.setData({
+      stepStates: states,
+      summaryService: summaryService,
+      summaryHospital: summaryHospital,
+      summaryDate: summaryDate,
+      summaryPatient: summaryPatient,
+      canSubmit: stepper.canSubmit(d)
+    })
+  },
+
+  resolvePatient: function () {
+    var d = this.data
+    if (d.familyMemberId) {
+      for (var i = 0; i < d.familyMembers.length; i++) {
+        var m = d.familyMembers[i]
+        if (m.id === d.familyMemberId) {
+          return { name: m.name, relation: relationLabel(m.relation), age: m.age }
+        }
+      }
+    }
+    var state = store.getState ? store.getState() : null
+    var user = (state && state.user) || {}
+    if (user.name) return { name: user.name, relation: '本人', age: user.age }
+    return null
+  },
+
+  onSelectServiceType: function (e) {
+    var d = e.currentTarget.dataset
+    this.setData({
+      serviceType: d.code,
+      serviceTypeName: d.name,
+      servicePrice: Number(d.price),
+      servicePriceText: formatCurrency(Number(d.price))
+    }, this.recomputeSteps.bind(this))
+  },
+
+  onSelectPeriod: function (e) {
+    this.setData({ period: e.currentTarget.dataset.period }, this.recomputeSteps.bind(this))
+  },
+
+  onChangeHospital: function () {
+    router.navigate({ url: '/pages/patient/search-hospital/index?return_to=create-order' })
+  },
+
+  onDepartmentChange: function (e) {
+    var idx = Number(e.detail.value)
+    var dept = this.data.departmentList[idx] || ''
+    this.setData({ departmentIndex: idx, department: dept }, this.recomputeSteps.bind(this))
+  },
+
+  onNextStep: function () {
+    var d = this.data
+    if (!stepper.isStepFilled(d.currentStep, d)) {
+      wx.showToast({ title: '请先完成本步', icon: 'none' })
+      return
+    }
+    var next = Math.min(d.currentStep + 1, stepper.TOTAL_STEPS)
+    this.setData({
+      currentStep: next,
+      maxReachedStep: Math.max(next, d.maxReachedStep)
+    }, this.recomputeSteps.bind(this))
+  },
+
+  onStepTap: function (e) {
+    var step = Number(e.currentTarget.dataset.step)
+    if (step === this.data.currentStep) return
+    // 只有 done 步可点回改
+    if (!stepper.canNavigateTo(step, this.data)) return
+    var self = this
+    wx.showModal({
+      title: '是否回改？',
+      content: '下游已选数据将保留',
+      success: function (res) {
+        if (res.confirm) {
+          self.setData({ currentStep: step }, self.recomputeSteps.bind(self))
+        }
+      }
+    })
+  },
+
+  onToggleHugeFont: function (e) {
+    var huge = !!e.detail.value
+    this.setData({ hugeFont: huge, fontTokens: fontScale.tokens(huge) })
+    try { wx.setStorageSync && wx.setStorageSync('huge_font', huge) } catch (_) {}
   },
 
   // [F-05] 拉取当前用户的家人列表，填充 picker
@@ -91,7 +225,7 @@ Page({
   onFamilyMemberChange: function (e) {
     var idx = Number(e.detail.value)
     var id = idx === 0 ? '' : (this.data.familyMembers[idx - 1] && this.data.familyMembers[idx - 1].id) || ''
-    this.setData({ familyMemberIndex: idx, familyMemberId: id })
+    this.setData({ familyMemberIndex: idx, familyMemberId: id }, this.recomputeSteps.bind(this))
   },
 
   onManageFamilyMembers: function () {
@@ -119,7 +253,7 @@ Page({
   },
 
   onDateChange(e) {
-    this.setData({ date: e.detail.value })
+    this.setData({ date: e.detail.value }, this.recomputeSteps.bind(this))
   },
 
   onTimeChange(e) {
