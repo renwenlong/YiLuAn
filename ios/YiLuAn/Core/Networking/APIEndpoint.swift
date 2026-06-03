@@ -137,4 +137,43 @@ struct APIEndpoint {
     static func cancelFollowupReminder(id: String) -> APIEndpoint {
         APIEndpoint(path: "orders/me/followup-reminders/\(id)", method: .delete, requiresAuth: true)
     }
+
+    // MARK: - Family Share (ADR-0036 §2.7 / PRD-001 v1.2 §4)
+    // F2 家属端分享链路。权限类型按后端镶嵌：
+    //   - 订单 owner 侧（3 个端点）：requiresAuth=true
+    //   - 家属侧走 share_session（3 个端点）：requiresAuth=false，
+    //     调用方手动在 Authorization header 贴 share_session JWT
+
+    /// POST /api/v1/orders/{order_id}/shares  — owner 创建分享链接
+    static func createShare(orderId: String) -> APIEndpoint {
+        APIEndpoint(path: "orders/\(orderId)/shares", method: .post, requiresAuth: true)
+    }
+
+    /// GET /api/v1/orders/{order_id}/shares  — owner 查询当前 active token 列表
+    static func listShares(orderId: String) -> APIEndpoint {
+        APIEndpoint(path: "orders/\(orderId)/shares", method: .get, requiresAuth: true)
+    }
+
+    /// DELETE /api/v1/shares/{token_id}  — owner 吊销单个 token（触发 WS close 4013）
+    static func revokeShare(tokenId: String) -> APIEndpoint {
+        APIEndpoint(path: "shares/\(tokenId)", method: .delete, requiresAuth: true)
+    }
+
+    /// POST /api/v1/shares/{token}/otp  — 家属侧请求下发验证码（40 字符 token）
+    /// requiresAuth=false—家属未登录，仅开放 share 下转
+    static func sendShareOTP(token: String) -> APIEndpoint {
+        APIEndpoint(path: "shares/\(token)/otp", method: .post, requiresAuth: false)
+    }
+
+    /// POST /api/v1/shares/{token}/session  — 换 share_session JWT（40 字符 token）
+    /// requiresAuth=false—未登录家属可访
+    static func exchangeShareSession(token: String) -> APIEndpoint {
+        APIEndpoint(path: "shares/\(token)/session", method: .post, requiresAuth: false)
+    }
+
+    /// GET /api/v1/shares/session/order  — 家属侧拉脱敏订单视图
+    /// requiresAuth=false；Authorization header 贴 share_session JWT 由调用方负责
+    static let getShareSessionOrder = APIEndpoint(
+        path: "shares/session/order", method: .get, requiresAuth: false
+    )
 }
