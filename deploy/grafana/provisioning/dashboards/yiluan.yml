@@ -1,0 +1,15 @@
+# Grafana dashboard provisioning — staging (S2-OPS-010)
+# 自动加载 /var/lib/grafana/dashboards 下的所有 JSON
+apiVersion: 1
+
+providers:
+  - name: yiluan
+    orgId: 1
+    folder: YiLuAn
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: false
