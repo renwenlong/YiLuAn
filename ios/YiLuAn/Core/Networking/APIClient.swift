@@ -114,24 +114,26 @@ actor APIClient {
     func request<T: Decodable>(
         _ endpoint: APIEndpoint,
         body: (some Encodable)? = nil as EmptyBody?,
-        queryItems: [URLQueryItem]? = nil
+        queryItems: [URLQueryItem]? = nil,
+        shareSession: String? = nil
     ) async throws -> T {
-        let request = try buildRequest(endpoint, body: body, queryItems: queryItems)
+        let request = try buildRequest(endpoint, body: body, queryItems: queryItems, shareSession: shareSession)
         return try await execute(request, endpoint: endpoint)
     }
 
     func requestVoid(
         _ endpoint: APIEndpoint,
-        body: (some Encodable)? = nil as EmptyBody?
+        body: (some Encodable)? = nil as EmptyBody?,
+        shareSession: String? = nil
     ) async throws {
-        let request = try buildRequest(endpoint, body: body)
+        let request = try buildRequest(endpoint, body: body, shareSession: shareSession)
         let (data, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
         }
         if httpResponse.statusCode == 401 && endpoint.requiresAuth {
             try await refreshTokenIfNeeded()
-            let retryRequest = try buildRequest(endpoint, body: body)
+            let retryRequest = try buildRequest(endpoint, body: body, shareSession: nil)
             let (retryData, retryResponse) = try await session.data(for: retryRequest)
             guard let retryHttp = retryResponse as? HTTPURLResponse,
                   (200...299).contains(retryHttp.statusCode) else {
@@ -228,7 +230,8 @@ actor APIClient {
     private func buildRequest(
         _ endpoint: APIEndpoint,
         body: (some Encodable)? = nil as EmptyBody?,
-        queryItems: [URLQueryItem]? = nil
+        queryItems: [URLQueryItem]? = nil,
+        shareSession: String? = nil
     ) throws -> URLRequest {
         var components = URLComponents(url: endpoint.url, resolvingAgainstBaseURL: false)
         if let queryItems {
@@ -242,7 +245,10 @@ actor APIClient {
         request.httpMethod = endpoint.method.rawValue
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        if endpoint.requiresAuth, let token = KeychainManager.accessToken {
+        // 走 share_session JWT 优先（F2 家属侧路径，与 access_token 互斥）
+        if let shareSession {
+            request.setValue("Bearer \(shareSession)", forHTTPHeaderField: "Authorization")
+        } else if endpoint.requiresAuth, let token = KeychainManager.accessToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
