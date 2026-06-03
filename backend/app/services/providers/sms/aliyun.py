@@ -93,7 +93,7 @@ class AliyunSMSProvider(SMSProvider):
 
     # ------------------------------------------------------------------ API
 
-    @outbound_call(provider="aliyun_sms", timeout=5.0, max_retries=2)
+    @outbound_call(provider="aliyun_sms", timeout=5.0, max_retries=2, distributed=True)
     async def send_otp(
         self,
         phone: str,
@@ -104,7 +104,7 @@ class AliyunSMSProvider(SMSProvider):
         template_param = json.dumps({"code": code})
         return await self._send_sms(phone, tpl, template_param)
 
-    @outbound_call(provider="aliyun_sms", timeout=5.0, max_retries=2)
+    @outbound_call(provider="aliyun_sms", timeout=5.0, max_retries=2, distributed=True)
     async def send_notification(
         self,
         phone: str,

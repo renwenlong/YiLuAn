@@ -250,14 +250,30 @@ def _get_circuit_breaker(
     timeout: float,
     half_open_success_threshold: int = 3,
     idle_reset_seconds: float | None = None,
+    distributed: bool = False,
+    probe_lock_ttl: float | None = None,
 ) -> CircuitBreaker:
     if provider not in _circuit_breakers:
-        _circuit_breakers[provider] = CircuitBreaker(
-            threshold,
-            timeout,
-            half_open_success_threshold=half_open_success_threshold,
-            idle_reset_seconds=idle_reset_seconds,
-        )
+        if distributed:
+            # 避免顶级循环 import（outbound 被其他包广泛 import）
+            from app.utils.distributed_circuit_breaker import (
+                DistributedCircuitBreaker,
+            )
+            _circuit_breakers[provider] = DistributedCircuitBreaker(
+                threshold=threshold,
+                timeout=timeout,
+                provider=provider,
+                half_open_success_threshold=half_open_success_threshold,
+                idle_reset_seconds=idle_reset_seconds,
+                probe_lock_ttl=probe_lock_ttl,
+            )
+        else:
+            _circuit_breakers[provider] = CircuitBreaker(
+                threshold,
+                timeout,
+                half_open_success_threshold=half_open_success_threshold,
+                idle_reset_seconds=idle_reset_seconds,
+            )
     return _circuit_breakers[provider]
 
 
@@ -281,6 +297,8 @@ def outbound_call(
     circuit_timeout: float = 60,
     half_open_success_threshold: int = 3,
     idle_reset_seconds: float | None = None,
+    distributed: bool = False,
+    probe_lock_ttl: float | None = None,
 ) -> Callable:
     """Decorator adding timeout / retry / circuit-breaker to an async call.
 
@@ -294,6 +312,13 @@ def outbound_call(
         If the provider sees no traffic for this many seconds while CLOSED,
         the accumulated ``failure_count`` is auto-reset on the next call.
         Defaults to ``max(60, circuit_timeout * 10)``.
+    distributed
+        ADR-0040 Phase 1: 开启后多 worker 走分布式 CB——OPEN → HALF_OPEN 转换
+        前 SETNX cb:{provider}:probe_lock，只 1 worker 发探测。默认 False
+        保持与 ADR-0026r1 纯本地 CB 完全一致。
+    probe_lock_ttl
+        distributed=True 下 SETNX EX TTL（秒）。默认按 provider 取表：
+        wxpay 8s / DeepSeek 5s / aliyun_sms 3s / mock 2s / 未知 5s。
     """
 
     def decorator(fn: Callable) -> Callable:
@@ -307,6 +332,8 @@ def outbound_call(
                 circuit_timeout,
                 half_open_success_threshold=half_open_success_threshold,
                 idle_reset_seconds=idle_reset_seconds,
+                distributed=distributed,
+                probe_lock_ttl=probe_lock_ttl,
             )
             start = time.monotonic()
             retries = 0
