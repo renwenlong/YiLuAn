@@ -7,10 +7,15 @@
 # Runner cost: macos runners cost 10x on private repos (~200 free min/month
 # at standard tier; a single full run takes ~12-18 min on a warm cache).
 #
-# OPS toggle: set repository variable IOS_CI_ENABLED=true to actually run.
-# This lets OPS gate the workflow without editing the yml when budget /
-# Apple Silicon runner allocation is uncertain (D-039).
-# A `workflow_dispatch` invocation always runs, regardless of the variable.
+# S2-OPS-008 改造（2026-06-03 帝君拍板硬闸门）：
+#   合 iOS 改动 PR 之前 iOS CI 必须真跑过+实绿。
+#   旧模式：path 过滤 + IOS_CI_ENABLED 变量 → required 锁死 / 流程歧义。
+#   新模式：参考 S2-OPS-004，workflow 永远触发 + path-filter changes job +
+#          build-and-test 用 `if:` 按 changes.ios 决定真跑或 skip。skip 在
+#          required check 里计为 success；真跑则 PR 必须实绿才能合。
+#
+# 配合 main branch protection 把 "Build & Test (iOS Simulator)" 加入
+# required_status_checks（需 admin 一次性配置，本 PR description 给步骤）。
 # =============================================================================
 
 name: iOS CI
@@ -18,13 +23,7 @@ name: iOS CI
 on:
   push:
     branches: [main, ci/ios-green]
-    paths:
-      - 'ios/**'
-      - '.github/workflows/ios-ci.yml'
   pull_request:
-    paths:
-      - 'ios/**'
-      - '.github/workflows/ios-ci.yml'
   workflow_dispatch:
 
 concurrency:
@@ -32,14 +31,36 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # ---------------------------------------------------------------------
+  # 前置：检测本次改动是否命中 iOS 路径，供 build-and-test 的 if 条件使用。
+  # 永远会跑（无 paths 过滤），因此不会让 required check 变 missing。
+  # ---------------------------------------------------------------------
+  changes:
+    name: Detect iOS changes
+    runs-on: ubuntu-latest
+    outputs:
+      ios: ${{ steps.filter.outputs.ios }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          # push 事件无 PR base，显式给 base 指向当前分支；PR 事件下被忽略。
+          base: ${{ github.event.pull_request.base.ref || github.ref_name }}
+          filters: |
+            ios:
+              - 'ios/**'
+              - '.github/workflows/ios-ci.yml'
+
   build-and-test:
     name: Build & Test (iOS Simulator)
-    # Skip automatic runs unless OPS has flipped IOS_CI_ENABLED. Manual dispatch
-    # always runs so engineers can validate without the toggle.
-    # See docs/ios-ci.md for the enable checklist (D-039).
-    if: ${{ github.event_name == 'workflow_dispatch' || vars.IOS_CI_ENABLED == 'true' }}
     runs-on: macos-14
     timeout-minutes: 30
+    needs: changes
+    # 命中 iOS 路径 → 真跑（PR 必须实绿才能合）。
+    # 非 iOS 改动 → skip（required 计为 success，不锁死纯后端/微信/admin PR）。
+    # 手动 dispatch → 仍可跑（旁路 path 判断，便于排查）。
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.ios == 'true' }}
 
     steps:
       - name: Checkout repository
