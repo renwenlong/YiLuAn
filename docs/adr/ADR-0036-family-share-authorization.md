@@ -230,3 +230,47 @@ ADR-0036 §2.7 引入 7 个跨端字段 + 6 个 REST 端点 + 1 个 WS 端点,�
 - **F-2**:AI 摘要的 prompt 模板与 post-check 规则(W19 末出附录)
 - **F-3**:share session JWT 是否需要独立签名密钥(防与主 access_token 串用),W19 实施前定
 - **F-4**:风控告警阈值(5 distinct openid 是否合理)上线后基于真实数据调
+
+---
+
+## 8. 附录：分层错误码语义表（r1 修订 2026-06-03）
+
+> 动因：S2-TEST-006R AC#7 复测发现术语含混——"错误的 share_token + 合法 JWT" 这种场景 nginx 在 WS upgrade 阶段就 403，不会走到 WS share_auth 返回 4001 invalid_session。两个错误码属于不同层，语义不同，客户端处理也应区分。本附录明示分层。
+
+### 8.1 错误码层级
+
+| 层 | 错误码 | 含义 | 触发场景 |
+|---|---|---|---|
+| **nginx (transport)** | `HTTP 403` | URL 路径/host 未命中、IP 黑名单、WS upgrade 被 拒 | URL 写错 share_token 厊 + 传合法 JWT；nginx 在接入 backend 前就拦 |
+| **nginx (transport)** | `HTTP 404` | URL 路径不存在 | 错 endpoint |
+| **FastAPI (handshake)** | `HTTP 401` | API 路径进到后端，但 share_token 在 DB 不存在 / 已 revoked / 已过期 | exchange_share_session 接口上 |
+| **FastAPI (handshake)** | `HTTP 429` | OTP 频控命中 (token-cap / phone-cap) | send_share_otp / exchange_share_session |
+| **WS (application auth)** | `close 4001` | WS 连接已建立 + share_auth 首帧 JWT 验证失败 (签名/aud/exp 不对) | invalid_session / bad_jwt |
+| **WS (application auth)** | `close 4013` | share_token 被 owner revoke 后已建立的 WS 被服务端主动 close | revoke API 后所有存活连接被 close |
+| **WS (application policy)** | `close 4012` | 客户端发上行业务写帧 (的只读 topic) | share 是只读，客户端错误发帧 |
+| **WS (application policy)** | `close 4014` | per-token 连接数超 cap (默认 3) | 超额连接被拒第 4 个 |
+| **WS (canary control)** | `close 4015` | 火度门热切 `READONLY_SHARE_SESSIONS=true` 拒 WS 升级 (S2-OPS-011) | 难于跳动 / 故障快速冻结斶运营手动切开关 |
+
+### 8.2 客户端处理建议
+
+| 错误码 | 客户端动作 |
+|---|---|
+| nginx 403/404 | 提示「访问链接无效」，跳回首页 / 请重新从分享链接进入 |
+| FastAPI 401 (换 session 阶段) | 提示「验证码过期 / 分享已失效」，跳回 OTP 页重报 |
+| FastAPI 429 | 提示「频率超限，稍后重试 / 请联系客服」。客户端不应自动重试 |
+| WS close 4001 / 4013 | `ShareSessionStore.clear()` + 提示「查看链接已失效」 + 重新走 OTP |
+| WS close 4012 | **调用方 bug**（客户端不应发帧）。不重连，上报错日志。 |
+| WS close 4014 | 提示「同时查看设备过多（限 3），请关闭其他设备后重试」，不自动重连 |
+| WS close 4015 | 提示「服务临时只读，请稍后重试」，不自动重连（火度门控制，重试频率应 ≥ 30s退避） |
+| WS 网络拖动 (非 close 码) | 可重连 1-2 次，加退避。超过 fallback 提示 |
+
+### 8.3 实现点
+
+- `ios/YiLuAn/Features/Share/Services/ShareWebSocket.swift` 的 `close code 区分处理` 逻辑已实现 (S2-INT-006 #2)，本附录是语义文档化。
+- 微信端 / admin-h5 同款处理在后续实施时反向引用本附录。
+- nginx 层 403 的调试路径：查看 nginx access_log + error_log；backend log 看不到 (在 nginx 就拦 了)。
+
+### 8.4 反向引用
+
+- S2-TEST-006R 实测发现术语含混 (刻晴)
+- ADR-0036 r1 (本修订)
