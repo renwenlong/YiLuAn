@@ -67,5 +67,21 @@
 	<!-- ===== Encryption export compliance (no custom crypto used) ===== -->
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+
+	<!-- ===== S2-INT-006 #2: URL scheme 家属端 share 链接 fallback ===== -->
+	<!-- Universal Link (m.yiluan.cn) 主路径；URL scheme 作为 debug / 内部测试 fallback
+	     形式：yiluan://share/{token}
+	     解析逻辑集中在 ShareDeepLink.parse（同 source-of-truth） -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.yiluan.share</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>yiluan</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

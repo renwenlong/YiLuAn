@@ -10,5 +10,15 @@
     <array>
         <string>Default</string>
     </array>
+
+    <!-- S2-INT-006 #2: Universal Links 家属端 share 链接截获
+         联动后端 / apple-app-site-association 文件需部署到
+         https://m.yiluan.cn/.well-known/apple-app-site-association（OPS follow-up）
+         未部署前 Universal Link 不生效，但本 entitlement 声明不报错，且
+         URL scheme `yiluan://share/{token}` 可作为 debug fallback 入口。 -->
+    <key>com.apple.developer.associated-domains</key>
+    <array>
+        <string>applinks:m.yiluan.cn</string>
+    </array>
 </dict>
 </plist>

@@ -8,12 +8,15 @@ import SwiftUI
 /// - scope=full：can_view_images + can_view_ai_summary 都 true → 显示影像 / AI 摘要入口
 /// - scope=progress_only：影像 / AI 摘要不可见，仅显示 timeline 进度
 ///
-/// 注意：本视图不显示 PII（电话 / 身份证 / medical_notes），后端已脱敏（§2.5）
+/// **S2-INT-006 #2 增量**：iOS WS share topic 订阅 — 计算退入页面时 disconnect。
 struct ShareOrderView: View {
     let shareSession: ShareSessionStore.SavedSession
 
     @State private var order: ShareOrderResponse?
     @State private var loadState: LoadState = .loading
+    @State private var wsAuthOK: Bool = false
+    @State private var wsClosedMessage: String?
+    @State private var ws: ShareWebSocket?
     @Environment(\.dismiss) private var dismiss
 
     enum LoadState: Equatable {
@@ -46,9 +49,14 @@ struct ShareOrderView: View {
             .navigationBarTitleDisplayMode(.inline)
             .task {
                 await loadOrder()
+                connectWebSocket()
             }
             .refreshable {
                 await loadOrder()
+            }
+            .onDisappear {
+                ws?.disconnect()
+                ws = nil
             }
         }
     }
@@ -100,6 +108,15 @@ struct ShareOrderView: View {
     @ViewBuilder
     private func orderContent(_ order: ShareOrderResponse) -> some View {
         scopeBadge(order.shareScope)
+
+        if wsAuthOK {
+            HStack(spacing: 4) {
+                Circle().fill(.green).frame(width: 6, height: 6)
+                Text("实时连接中").font(.caption).foregroundStyle(.secondary)
+            }
+        } else if let msg = wsClosedMessage {
+            Text(msg).font(.caption).foregroundStyle(.orange)
+        }
 
         section(title: "订单") {
             row("订单号", order.orderNumber)
@@ -231,6 +248,38 @@ struct ShareOrderView: View {
         f.dateFormat = "yyyy-MM-dd HH:mm"
         f.timeZone = TimeZone(identifier: "Asia/Shanghai")
         return f.string(from: date)
+    }
+
+    // MARK: - WebSocket
+
+    private func connectWebSocket() {
+        guard ws == nil else { return }
+        let socket = ShareWebSocket(
+            shareToken: shareSession.shareToken,
+            shareSession: shareSession.jwt
+        )
+        socket.onAuthOK = {
+            Task { @MainActor in wsAuthOK = true }
+        }
+        socket.onClose = { code, reason in
+            Task { @MainActor in
+                wsAuthOK = false
+                if code == 4013 || code == 4001 {
+                    // token revoked / mismatch → session 失效
+                    ShareSessionStore.clear()
+                    loadState = .sessionExpired
+                } else {
+                    wsClosedMessage = "实时连接断开（\(code)）; 可下拉刷新重试"
+                }
+            }
+        }
+        socket.onEvent = { _ in
+            // 本 PR 未接 share order live update 事件解析（后续增量），
+            // 仅证明 WS 能收到服务端事件。后续可提取 'order_status_changed'
+            // 等事件选择性 reload order
+        }
+        ws = socket
+        socket.connect()
     }
 
     // MARK: - Networking
