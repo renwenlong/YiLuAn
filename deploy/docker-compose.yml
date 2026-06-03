@@ -263,7 +263,9 @@ services:
     image: grafana/grafana:11.3.0
     profiles: ["staging"]
     ports:
-      - "127.0.0.1:3000:3000"
+      # avoid 3000 (common dev port; agent-squad / Next.js / Grafana defaults
+      # all bind there). 13000 keeps the "1xxxx staging" convention with 18080.
+      - "127.0.0.1:13000:3000"
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
