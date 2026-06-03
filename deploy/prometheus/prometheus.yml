@@ -1,0 +1,51 @@
+# =============================================================================
+# YiLuAn Prometheus config — staging (S2-OPS-010)
+# -----------------------------------------------------------------------------
+# 配套 deploy/docker-compose.yml staging profile 的 prometheus 服务。
+# 加载 alerts.yml + yiluan-canary.yml（S2-OPS-001 落的灰度回滚阈值）。
+# Alertmanager 路由：alertmanager:9093（容器内网）。
+# =============================================================================
+
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 30s
+  external_labels:
+    env: staging
+    cluster: yiluan-staging
+
+# 加载告警规则
+rule_files:
+  - /etc/prometheus/rules/alerts.yml
+  - /etc/prometheus/rules/yiluan-canary.yml
+
+# Alertmanager（同 compose 网络，hostname=alertmanager）
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+scrape_configs:
+  # backend /metrics
+  - job_name: yiluan-backend-staging
+    metrics_path: /metrics
+    scheme: http
+    static_configs:
+      - targets:
+          - backend:8000
+        labels:
+          service: backend
+          pool: canary  # 灰度池标签，dashboard panel 14 用
+
+  # Prometheus 自身指标
+  - job_name: prometheus
+    static_configs:
+      - targets:
+          - localhost:9090
+
+  # Alertmanager 自身指标
+  - job_name: alertmanager
+    static_configs:
+      - targets:
+          - alertmanager:9093

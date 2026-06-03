@@ -203,9 +203,96 @@ services:
       timeout: 5s
       retries: 5
 
+  # ---------------------------------------------------------------------
+  # S2-OPS-010: Prometheus + Alertmanager + Grafana + alertmanager-webhook
+  # 跟 S2-TEST-004 火度门硬约束走，会被 staging profile 拉起。
+  # ---------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    profiles: ["staging"]
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/alerts.yml:/etc/prometheus/rules/alerts.yml:ro
+      - ./prometheus/yiluan-canary.yml:/etc/prometheus/rules/yiluan-canary.yml:ro
+      - prom-data:/prometheus
+    networks:
+      - yiluan-net
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:9090/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    profiles: ["staging"]
+    ports:
+      - "127.0.0.1:9093:9093"
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - am-data:/alertmanager
+    networks:
+      - yiluan-net
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:9093/-/healthy"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  alertmanager-webhook:
+    build:
+      context: ../ops/alertmanager
+    profiles: ["staging"]
+    networks:
+      - yiluan-net
+    environment:
+      WECHAT_WORK_WEBHOOK_URL: ${WECHAT_WORK_WEBHOOK_URL:-}
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request as u;u.urlopen('http://127.0.0.1:5001/healthz',timeout=2).read()"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    profiles: ["staging"]
+    ports:
+      # avoid 3000 (common dev port; agent-squad / Next.js / Grafana defaults
+      # all bind there). 13000 keeps the "1xxxx staging" convention with 18080.
+      - "127.0.0.1:13000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../ops/grafana/yiluan-overview.json:/var/lib/grafana/dashboards/yiluan-overview.json:ro
+      - ../ops/grafana/yiluan-canary.json:/var/lib/grafana/dashboards/yiluan-canary.json:ro
+      - grafana-data:/var/lib/grafana
+    networks:
+      - yiluan-net
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 networks:
   yiluan-net:
     driver: bridge
 
 volumes:
   pgdata:
+  prom-data:
+  am-data:
+  grafana-data:
