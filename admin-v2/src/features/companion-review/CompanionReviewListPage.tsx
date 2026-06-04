@@ -14,7 +14,7 @@
  * reveal phone 通过独立端点，backend 写 reveal_pii 审计。
  * Phase A cert image：drawer 内可点上传，上传成功后立刻用 backend 返回的 signed URL preview。
  */
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Table,
   Button,
@@ -206,6 +206,53 @@ export function CompanionReviewListPage() {
   const certPreviewUrl =
     uploadedPreviewUrl ?? detailQ.data?.certification_image_signed_url ?? null
 
+  // ADR-0044 r1 §4.2 双闸：signed URL 服务端要 admin token + HMAC，
+  // <img src> 不能携 header，改走 fetch -> blob -> URL.createObjectURL，
+  // 这样 axios interceptor 会添 X-Admin-Token，两道闸都走。
+  const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null)
+  const previewObjectUrlRef = useRef<string | null>(null)
+  const [previewError, setPreviewError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    // 清理上一个 blob URL
+    if (previewObjectUrlRef.current) {
+      URL.revokeObjectURL(previewObjectUrlRef.current)
+      previewObjectUrlRef.current = null
+    }
+    setPreviewObjectUrl(null)
+    setPreviewError(null)
+    if (!certPreviewUrl) return
+    // signed URL 形如 /api/v1/admin/companions/certification-images/<file>?expires=&sig=
+    // apiClient.baseURL 已是 /api/v1，需去掉前缀
+    const pathFromApi = certPreviewUrl.replace(/^\/api\/v1/, '')
+    apiClient
+      .get<Blob>(pathFromApi, { responseType: 'blob' })
+      .then((resp) => {
+        if (cancelled) return
+        const url = URL.createObjectURL(resp.data)
+        previewObjectUrlRef.current = url
+        setPreviewObjectUrl(url)
+      })
+      .catch((err) => {
+        if (cancelled) return
+        setPreviewError((err as Error).message)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [certPreviewUrl])
+
+  useEffect(
+    () => () => {
+      if (previewObjectUrlRef.current) {
+        URL.revokeObjectURL(previewObjectUrlRef.current)
+        previewObjectUrlRef.current = null
+      }
+    },
+    [],
+  )
+
   const uploadProps: UploadProps = {
     accept: 'image/jpeg,image/png,image/webp',
     showUploadList: false,
@@ -381,12 +428,21 @@ export function CompanionReviewListPage() {
                   </Button>
                 </Upload>
               </Space>
-              {certPreviewUrl ? (
+              {previewObjectUrl ? (
                 <Image
-                  src={certPreviewUrl}
+                  src={previewObjectUrl}
                   alt="陪诊师证件图预览"
                   width={360}
                   style={{ maxHeight: 260, objectFit: 'contain' }}
+                />
+              ) : certPreviewUrl ? (
+                <Empty
+                  description={
+                    previewError
+                      ? `证件图加载失败：${previewError}`
+                      : '证件图加载中…（fetch + blob URL 双闸）'
+                  }
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
                 />
               ) : (
                 <Empty

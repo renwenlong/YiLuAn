@@ -333,10 +333,18 @@ async def test_upload_certification_image_and_detail_returns_signed_url(
     assert signed_url is not None
     assert "expires=" in signed_url and "sig=" in signed_url
 
-    image = await client.get(signed_url)
+    image = await client.get(signed_url, headers=_headers())
     assert image.status_code == 200
     assert image.content == b"fake-png-bytes"
     assert image.headers["content-type"] == "image/png"
+
+    # 双闸：同一 signed URL 缺 admin token 拒 401/403
+    no_token = await client.get(signed_url)
+    assert no_token.status_code in (401, 403)
+
+    # 双闸：HMAC 过有错 admin token 仍拒
+    bad_admin = await client.get(signed_url, headers=_headers("bad-token"))
+    assert bad_admin.status_code in (401, 403)
 
 
 @pytest.mark.asyncio
@@ -380,10 +388,10 @@ async def test_signed_certification_image_rejects_tampered_and_expired(
     assert signed is not None
 
     tampered = signed.replace("sig=", "sig=x")
-    resp = await client.get(tampered)
+    resp = await client.get(tampered, headers=_headers())
     assert resp.status_code == 403
 
     expired = cert_image.sign_certification_image_url(marker, now=int(time.time()) - 3600)
     assert expired is not None
-    resp = await client.get(expired)
+    resp = await client.get(expired, headers=_headers())
     assert resp.status_code == 403

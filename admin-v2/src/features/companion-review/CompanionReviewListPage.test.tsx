@@ -80,8 +80,10 @@ describe('CompanionReviewListPage', () => {
     })
   })
 
-  // case 4: detail drawer renders signed certificate image preview (PR-E2 Phase A)
-  it('renders certification image preview when detail returns signed URL', async () => {
+  // case 4: detail drawer renders signed certificate image preview
+  // 双闸 (S2-DEV-013-PR-E2-FOLLOWUP-DOUBLE-GATE): apiClient.get(signed_url, {responseType:'blob'})
+  // -> URL.createObjectURL -> <img src=blob:>
+  it('renders certification image preview via fetch+blob URL (双闸)', async () => {
     mockGet
       .mockResolvedValueOnce({
         data: {
@@ -114,6 +116,19 @@ describe('CompanionReviewListPage', () => {
           user_phone_masked: '138****8000',
         },
       })
+      // 第三个 apiClient.get 是 signed URL blob fetch。
+      .mockResolvedValueOnce({
+        data: new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' }),
+      })
+
+    // happy-dom 不实现 URL.createObjectURL，补充个足够 stub
+    if (typeof URL.createObjectURL !== 'function') {
+      (URL as unknown as { createObjectURL: (b: Blob) => string }).createObjectURL = () =>
+        'blob:mock-cert-image'
+    }
+    if (typeof URL.revokeObjectURL !== 'function') {
+      (URL as unknown as { revokeObjectURL: (u: string) => void }).revokeObjectURL = () => {}
+    }
 
     renderWithProviders(<CompanionReviewListPage />)
     await waitFor(() => expect(screen.getByText('张三')).toBeInTheDocument())
@@ -121,10 +136,15 @@ describe('CompanionReviewListPage', () => {
 
     await waitFor(() => {
       expect(mockGet).toHaveBeenCalledWith('/admin/companions/1')
-      expect(screen.getByAltText('陪诊师证件图预览')).toHaveAttribute(
-        'src',
-        '/api/v1/admin/companions/certification-images/a.png?expires=1&sig=x',
+      // 双闸：signed URL 走 apiClient.get with responseType:'blob'
+      expect(mockGet).toHaveBeenCalledWith(
+        '/admin/companions/certification-images/a.png?expires=1&sig=x',
+        { responseType: 'blob' },
       )
+    })
+    await waitFor(() => {
+      const img = screen.getByAltText('陪诊师证件图预览') as HTMLImageElement
+      expect(img.src).toMatch(/^blob:/)
     })
   })
 

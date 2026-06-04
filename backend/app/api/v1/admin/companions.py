@@ -36,12 +36,15 @@ router = APIRouter(
     dependencies=[Depends(require_admin)],
 )
 
-# Signed image reads are protected by HMAC+expires and must be usable as an
-# <img src>. Browser image requests cannot attach X-Admin-Token, so this tiny
-# router intentionally has no admin dependency.
+# PR-E2 Phase A FOLLOWUP (S2-DEV-013-PR-E2-FOLLOWUP-DOUBLE-GATE):
+# 恢复 ADR-0044 r1 §4.2 双闸契约。admin-v2 drawer 不再用 <img src=signed_url>，
+# 改走 fetch(signed_url, {headers: {X-Admin-Token}}) -> blob -> URL.createObjectURL,
+# 这样作为 XHR 请求可以携带 admin token, 服务端可枚举 admin auth
+# 作为第二道闸（第一道闸是 HMAC + expires + path 白名单）。
 public_certification_images_router = APIRouter(
     prefix="/companions",
     tags=["admin-companions"],
+    dependencies=[Depends(require_admin)],
 )
 
 
@@ -338,15 +341,33 @@ async def upload_certification_image(
 
 @public_certification_images_router.get(
     "/certification-images/{filename}",
-    summary="后台：读取证件图 signed URL",
-    description="校验 HMAC + expires 后返回本地私有证件图 bytes。",
+    summary="后台：读取证件图 signed URL（双闸：admin token + HMAC）",
+    description=(
+        "双闸鉴权（ADR-0044 r1 §4.2）：\n"
+        "1. 闸1 = require_admin（X-Admin-Token / JWT）\n"
+        "2. 闸2 = HMAC 签名 + expires (TTL ≤ 15min) + filename 路径白名单\n"
+        "admin-v2 drawer 走 fetch + blob URL 模式（不能直接 <img src=、否则浏览器不携 header）。"
+        "写 view_cert_image 审计。"
+    ),
 )
 async def get_certification_image(
     filename: str,
     expires: int,
     sig: str,
+    session: DBSession,
+    operator: str = Depends(admin_operator_id),
 ):
     path = verify_signed_certification_image(filename, expires, sig)
+    session.add(
+        AdminAuditLog(
+            target_type="certification_image",
+            target_id=_LIST_TARGET,
+            action="view_cert_image",
+            operator=operator,
+            reason=f"filename={filename} expires={expires}",
+        )
+    )
+    await session.flush()
     return Response(content=path.read_bytes(), media_type=content_type_for(path))
 
 

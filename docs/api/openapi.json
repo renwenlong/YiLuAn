@@ -6151,7 +6151,7 @@
     },
     "/api/v1/admin/companions/certification-images/{filename}": {
       "get": {
-        "description": "校验 HMAC + expires 后返回本地私有证件图 bytes。",
+        "description": "双闸鉴权（ADR-0044 r1 §4.2）：\n1. 闸1 = require_admin（X-Admin-Token / JWT）\n2. 闸2 = HMAC 签名 + expires (TTL ≤ 15min) + filename 路径白名单\nadmin-v2 drawer 走 fetch + blob URL 模式（不能直接 <img src=、否则浏览器不携 header）。写 view_cert_image 审计。",
         "operationId": "get_certification_image_api_v1_admin_companions_certification_images__filename__get",
         "parameters": [
           {
@@ -6180,6 +6180,38 @@
               "title": "Sig",
               "type": "string"
             }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
           }
         ],
         "responses": {
@@ -6202,7 +6234,7 @@
             "description": "Validation Error"
           }
         },
-        "summary": "后台：读取证件图 signed URL",
+        "summary": "后台：读取证件图 signed URL（双闸：admin token + HMAC）",
         "tags": [
           "admin",
           "admin-companions"
