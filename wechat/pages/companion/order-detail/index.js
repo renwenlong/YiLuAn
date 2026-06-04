@@ -28,7 +28,10 @@ Page({
     this.setData({ loading: true })
     try {
       const order = await getOrderDetail(this.orderId)
+      // S2-REQ-003-P5b: 优先 order.service_name_snapshot (P3 快照)，
+      // fallback SERVICE_TYPES dict 兼容历史订单。
       const svc = SERVICE_TYPES[order.service_type] || {}
+      const serviceLabel = order.service_name_snapshot || svc.label || order.service_type
 
       var review = null
       if (order.status === 'reviewed' || order.status === 'completed') {
@@ -47,7 +50,7 @@ Page({
           formattedPrice: order.price ? formatPrice(order.price) : '',
           timelineIndex: order.timeline_index
         },
-        serviceLabel: svc.label || order.service_type
+        serviceLabel: serviceLabel
       })
     } catch (err) {
       wx.showToast({ title: '加载失败', icon: 'none' })
