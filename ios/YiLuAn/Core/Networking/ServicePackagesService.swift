@@ -81,7 +81,7 @@ final class ServicePackagesService {
             price: Decimal(199), sortOrder: 20, isFallback: true
         ),
         ServicePackage(
-            code: "errand", name: "代办跑腿",
+            code: "errand", name: "代办",
             price: Decimal(149), sortOrder: 30, isFallback: true
         ),
     ]
