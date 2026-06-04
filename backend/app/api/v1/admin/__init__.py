@@ -15,11 +15,18 @@ from fastapi import APIRouter
 
 from app.api.v1.admin.audit_logs import router as audit_logs_router
 from app.api.v1.admin.auth import router as auth_router
-from app.api.v1.admin.companions import router as companions_router
+from app.api.v1.admin.companions import (
+    public_certification_images_router,
+)
+from app.api.v1.admin.companions import (
+    router as companions_router,
+)
 from app.api.v1.admin.dashboard import router as dashboard_router
 from app.api.v1.admin.dead_letters import router as dead_letters_router
 from app.api.v1.admin.notes import (
     notes_router as admin_notes_router,
+)
+from app.api.v1.admin.notes import (
     timeline_router as admin_order_timeline_router,
 )
 from app.api.v1.admin.orders import router as orders_router
@@ -33,6 +40,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 router.include_router(auth_router)
 router.include_router(dashboard_router)
 router.include_router(audit_logs_router)
+router.include_router(public_certification_images_router)
 router.include_router(companions_router)
 router.include_router(orders_router)
 router.include_router(admin_order_timeline_router)

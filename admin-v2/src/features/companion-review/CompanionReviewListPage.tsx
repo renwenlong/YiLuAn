@@ -1,21 +1,36 @@
 /**
- * 陪诊师审核样板（S2-DEV-013 PR-E3 / acceptance #3 + ADR-0044 §3.1 + §5）
+ * 陪诊师审核样板（S2-DEV-013 PR-E1/E2/E3 合集 / ADR-0044 §3.1 + §4.1 + §5）
  *
- * 4 个 REST 端点接通：
- * - GET /admin/companions/           （分页列表，强制 status=pending）
- * - GET /admin/companions/{id}       （详情 14 字段，PR-E1 已合）
- * - POST /admin/companions/{id}/approve （通过）
- * - POST /admin/companions/{id}/reject  （拒绝，body.reason 1-500 字）
- * - GET /admin/users/{user_id}?reveal=true （reveal phone，PR-E3 接入）
+ * 端点：
+ * - GET  /admin/companions/                       pending list
+ * - GET  /admin/companions/{id}                   audit detail (14 fields, PR-E1)
+ * - POST /admin/companions/{id}/approve           approve
+ * - POST /admin/companions/{id}/reject            reject (body.reason 1-500)
+ * - GET  /admin/users/{user_id}?reveal=true       reveal phone (PR-E3, writes reveal_pii audit)
+ * - POST /admin/companions/certification-images   Phase A cert image upload (PR-E2)
  *
- * PR-E3 改动（魈 ack 顺序 E1 → E3 → E2）：
- * - drawer 改 useQuery fetchDetail（PR-E1 detail endpoint 已合）
- * - 渲染 14 字段（除 certification_image_signed_url 占位提示，留 PR-E2）
- * - reveal phone 按钮：点击调 /admin/users/{user_id}?reveal=true 替换 masked
- * - reveal_pii 审计由 backend 端点写（admin 看见明文 phone 必留痕）
+ * drawer 通过 useQuery fetchDetail 拉 14 字段；
+ * staleTime=0 + gcTime=0 强制每次打开重 fetch（Phase A signed URL TTL ≤ 15min，不能缓存）。
+ * reveal phone 通过独立端点，backend 写 reveal_pii 审计。
+ * Phase A cert image：drawer 内可点上传，上传成功后立刻用 backend 返回的 signed URL preview。
  */
 import { useState } from 'react'
-import { Table, Button, Drawer, Descriptions, message, Space, Tag, Modal, Input } from 'antd'
+import {
+  Table,
+  Button,
+  Drawer,
+  Descriptions,
+  message,
+  Space,
+  Tag,
+  Modal,
+  Input,
+  Image,
+  Empty,
+  Upload,
+} from 'antd'
+import type { UploadProps } from 'antd'
+import { UploadOutlined } from '@ant-design/icons'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
 import { apiClient } from '../../shared/api/client'
@@ -35,13 +50,13 @@ interface CompanionDetail {
   id_number: string | null
   certifications: string | null
   created_at: string | null
-  // 新增审核字段
+  // 审核字段
   bio: string | null
   verification_status: string
   certified_at: string | null
   certification_type: string | null
   certification_no: string | null
-  certification_image_signed_url: string | null  // PR-E1 占位 None
+  certification_image_signed_url: string | null
   service_area: string | null
   service_city: string | null
   service_hospitals: string | null
@@ -57,6 +72,11 @@ interface UserReveal {
   id: string
   phone: string | null  // reveal=true 时为明文
   phone_masked: string | null
+}
+
+interface UploadCertImageResponse {
+  certification_image_url: string
+  certification_image_signed_url: string
 }
 
 interface ListResponse {
@@ -82,8 +102,7 @@ async function fetchDetail(id: string): Promise<CompanionDetail> {
 }
 
 async function revealPhone(userId: string): Promise<string | null> {
-  // 复用 admin/users.py 已有的 /{user_id}?reveal=true（PR-E3 接入，acceptance #5）
-  // backend 写 audit reveal_pii 行
+  // PR-E3：复用 admin/users.py /{user_id}?reveal=true（backend 写 reveal_pii audit）
   const resp = await apiClient.get<UserReveal>(`/admin/users/${userId}`, {
     params: { reveal: true },
   })
@@ -98,11 +117,23 @@ async function reject(id: string, reason: string): Promise<void> {
   await apiClient.post(`/admin/companions/${id}/reject`, { reason })
 }
 
+async function uploadCertificationImage(file: File): Promise<UploadCertImageResponse> {
+  // PR-E2 Phase A：multipart upload → backend 存本地 cert-image:// + 返 15min signed URL
+  const form = new FormData()
+  form.append('file', file)
+  const resp = await apiClient.post<UploadCertImageResponse>(
+    '/admin/companions/certification-images',
+    form,
+  )
+  return resp.data
+}
+
 export function CompanionReviewListPage() {
   const [page, setPage] = useState(1)
   const [detailId, setDetailId] = useState<string | null>(null)
   const [revealedPhone, setRevealedPhone] = useState<string | null>(null)
   const [revealLoading, setRevealLoading] = useState(false)
+  const [uploadedPreviewUrl, setUploadedPreviewUrl] = useState<string | null>(null)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const qc = useQueryClient()
@@ -112,9 +143,8 @@ export function CompanionReviewListPage() {
     queryFn: () => fetchList(page),
   })
 
-  // PR-E3: fetchDetail 改为真调 PR-E1 detail endpoint
-  // staleTime=0 + gcTime=0 强制每次 open drawer 重 fetch
-  // （PR-E2 signed URL 上线后此约束更关键：URL TTL ≤ 15min，不能缓存）
+  // PR-E3: fetchDetail 真调 PR-E1 detail endpoint
+  // staleTime=0 + gcTime=0 强制每次 open drawer 重 fetch（signed URL TTL ≤ 15min，不缓存）
   const detailQ = useQuery({
     queryKey: ['companion-detail', detailId],
     queryFn: () => fetchDetail(detailId!),
@@ -130,6 +160,7 @@ export function CompanionReviewListPage() {
       qc.invalidateQueries({ queryKey: ['companion-list'] })
       setDetailId(null)
       setRevealedPhone(null)
+      setUploadedPreviewUrl(null)
     },
     onError: (err) => message.error(`通过失败：${(err as Error).message}`),
   })
@@ -144,8 +175,18 @@ export function CompanionReviewListPage() {
       setRejectReason('')
       setDetailId(null)
       setRevealedPhone(null)
+      setUploadedPreviewUrl(null)
     },
     onError: (err) => message.error(`拒绝失败：${(err as Error).message}`),
+  })
+
+  const uploadM = useMutation({
+    mutationFn: (file: File) => uploadCertificationImage(file),
+    onSuccess: (data) => {
+      setUploadedPreviewUrl(data.certification_image_signed_url)
+      message.success('证件图已上传，可预览；提交认证时写入返回的 certification_image_url')
+    },
+    onError: (err) => message.error(`证件图上传失败：${(err as Error).message}`),
   })
 
   async function handleRevealPhone() {
@@ -160,6 +201,23 @@ export function CompanionReviewListPage() {
     } finally {
       setRevealLoading(false)
     }
+  }
+
+  const certPreviewUrl =
+    uploadedPreviewUrl ?? detailQ.data?.certification_image_signed_url ?? null
+
+  const uploadProps: UploadProps = {
+    accept: 'image/jpeg,image/png,image/webp',
+    showUploadList: false,
+    customRequest: async (options) => {
+      const file = options.file as File
+      try {
+        const data = await uploadM.mutateAsync(file)
+        options.onSuccess?.(data)
+      } catch (err) {
+        options.onError?.(err as Error)
+      }
+    },
   }
 
   return (
@@ -205,6 +263,7 @@ export function CompanionReviewListPage() {
                   onClick={() => {
                     setDetailId(row.id)
                     setRevealedPhone(null)
+                    setUploadedPreviewUrl(null)
                   }}
                 >
                   详情
@@ -221,8 +280,9 @@ export function CompanionReviewListPage() {
         onClose={() => {
           setDetailId(null)
           setRevealedPhone(null)
+          setUploadedPreviewUrl(null)
         }}
-        width={620}
+        width={720}
         extra={
           detailQ.data && (
             <Space>
@@ -247,84 +307,95 @@ export function CompanionReviewListPage() {
           </div>
         )}
         {detailQ.data && (
-          <Descriptions column={1} bordered size="small">
-            <Descriptions.Item label="ID">{detailQ.data.id}</Descriptions.Item>
-            <Descriptions.Item label="姓名">{detailQ.data.real_name}</Descriptions.Item>
-            <Descriptions.Item label="身份证（脱敏）">
-              {detailQ.data.id_number ?? '—'}
-            </Descriptions.Item>
-            <Descriptions.Item label="手机号">
-              {revealedPhone ? (
-                <span style={{ fontFamily: 'monospace' }}>{revealedPhone}</span>
+          <Space direction="vertical" size="large" style={{ width: '100%' }}>
+            <Descriptions column={1} bordered size="small">
+              <Descriptions.Item label="ID">{detailQ.data.id}</Descriptions.Item>
+              <Descriptions.Item label="姓名">{detailQ.data.real_name}</Descriptions.Item>
+              <Descriptions.Item label="身份证（脱敏）">
+                {detailQ.data.id_number ?? '—'}
+              </Descriptions.Item>
+              <Descriptions.Item label="手机号">
+                {revealedPhone ? (
+                  <span style={{ fontFamily: 'monospace' }}>{revealedPhone}</span>
+                ) : (
+                  <Space>
+                    <span style={{ fontFamily: 'monospace' }}>
+                      {detailQ.data.user_phone_masked ?? '—'}
+                    </span>
+                    {detailQ.data.user_id && (
+                      <Button
+                        size="small"
+                        loading={revealLoading}
+                        onClick={handleRevealPhone}
+                      >
+                        显示完整
+                      </Button>
+                    )}
+                  </Space>
+                )}
+              </Descriptions.Item>
+              <Descriptions.Item label="审核状态">
+                <Tag color="orange">{detailQ.data.verification_status}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="自述 / 申请理由">
+                {detailQ.data.bio ?? '—'}
+              </Descriptions.Item>
+              <Descriptions.Item label="持证文本">
+                {detailQ.data.certifications ?? '—'}
+              </Descriptions.Item>
+              <Descriptions.Item label="证件类型">
+                {detailQ.data.certification_type ?? '—'}
+              </Descriptions.Item>
+              <Descriptions.Item label="证件编号">
+                {detailQ.data.certification_no ?? '—'}
+              </Descriptions.Item>
+              <Descriptions.Item label="服务城市">
+                {detailQ.data.service_city ?? '—'}
+              </Descriptions.Item>
+              <Descriptions.Item label="服务区域">
+                {detailQ.data.service_area ?? '—'}
+              </Descriptions.Item>
+              <Descriptions.Item label="服务医院">
+                {detailQ.data.service_hospitals ?? '—'}
+              </Descriptions.Item>
+              <Descriptions.Item label="服务类型">
+                {detailQ.data.service_types ?? '—'}
+              </Descriptions.Item>
+              <Descriptions.Item label="历史评分">
+                {detailQ.data.avg_rating.toFixed(1)} 分（共 {detailQ.data.total_orders} 单）
+              </Descriptions.Item>
+              <Descriptions.Item label="申请时间">
+                {detailQ.data.created_at ?? '—'}
+              </Descriptions.Item>
+              <Descriptions.Item label="认证时间">
+                {detailQ.data.certified_at ?? '—'}
+              </Descriptions.Item>
+            </Descriptions>
+
+            <div>
+              <Space style={{ marginBottom: 12 }}>
+                <strong>证件图预览（Phase A signed URL TTL ≤ 15min）</strong>
+                <Upload {...uploadProps}>
+                  <Button icon={<UploadOutlined />} loading={uploadM.isPending}>
+                    上传证件图（Phase A）
+                  </Button>
+                </Upload>
+              </Space>
+              {certPreviewUrl ? (
+                <Image
+                  src={certPreviewUrl}
+                  alt="陪诊师证件图预览"
+                  width={360}
+                  style={{ maxHeight: 260, objectFit: 'contain' }}
+                />
               ) : (
-                <Space>
-                  <span style={{ fontFamily: 'monospace' }}>
-                    {detailQ.data.user_phone_masked ?? '—'}
-                  </span>
-                  {detailQ.data.user_id && (
-                    <Button
-                      size="small"
-                      loading={revealLoading}
-                      onClick={handleRevealPhone}
-                    >
-                      显示完整
-                    </Button>
-                  )}
-                </Space>
+                <Empty
+                  description="暂无证件图（可点上方按钮上传后立刻预览）"
+                  image={Empty.PRESENTED_IMAGE_SIMPLE}
+                />
               )}
-            </Descriptions.Item>
-            <Descriptions.Item label="审核状态">
-              <Tag color="orange">{detailQ.data.verification_status}</Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label="自述 / 申请理由">
-              {detailQ.data.bio ?? '—'}
-            </Descriptions.Item>
-            <Descriptions.Item label="持证文本">
-              {detailQ.data.certifications ?? '—'}
-            </Descriptions.Item>
-            <Descriptions.Item label="证件类型">
-              {detailQ.data.certification_type ?? '—'}
-            </Descriptions.Item>
-            <Descriptions.Item label="证件编号">
-              {detailQ.data.certification_no ?? '—'}
-            </Descriptions.Item>
-            <Descriptions.Item label="证件图查看">
-              {detailQ.data.certification_image_signed_url ? (
-                <a
-                  href={detailQ.data.certification_image_signed_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  点击查看证件图（signed URL TTL ≤ 15min）
-                </a>
-              ) : (
-                <span style={{ color: '#fa8c16' }}>
-                  ⚠️ 证件图查看功能待 PR-E2 实施（signed URL 安全包装）
-                </span>
-              )}
-            </Descriptions.Item>
-            <Descriptions.Item label="服务城市">
-              {detailQ.data.service_city ?? '—'}
-            </Descriptions.Item>
-            <Descriptions.Item label="服务区域">
-              {detailQ.data.service_area ?? '—'}
-            </Descriptions.Item>
-            <Descriptions.Item label="服务医院">
-              {detailQ.data.service_hospitals ?? '—'}
-            </Descriptions.Item>
-            <Descriptions.Item label="服务类型">
-              {detailQ.data.service_types ?? '—'}
-            </Descriptions.Item>
-            <Descriptions.Item label="历史评分">
-              {detailQ.data.avg_rating.toFixed(1)} 分（共 {detailQ.data.total_orders} 单）
-            </Descriptions.Item>
-            <Descriptions.Item label="申请时间">
-              {detailQ.data.created_at ?? '—'}
-            </Descriptions.Item>
-            <Descriptions.Item label="认证时间">
-              {detailQ.data.certified_at ?? '—'}
-            </Descriptions.Item>
-          </Descriptions>
+            </div>
+          </Space>
         )}
       </Drawer>
 

@@ -4,6 +4,7 @@ Tests for admin companions audit endpoints (B1).
 Covers: auth (token), list, approve, reject, edge cases.
 """
 
+import time
 import uuid
 
 import pytest
@@ -223,7 +224,8 @@ async def test_get_companion_detail_returns_14_fields(client):
     assert data["certified_at"] is None  # 未 certify
     assert data["certification_type"] == "护士资格证"
     assert data["certification_no"] == "RN20250001"
-    assert data["certification_image_signed_url"] is None  # ⚠️ PR-E1 占位
+    # legacy external URL remains hidden until Phase B migration
+    assert data["certification_image_signed_url"] is None
     assert data["service_area"] == "北京"
     assert data["service_city"] == "北京"
     assert data["avg_rating"] == 4.8
@@ -280,14 +282,13 @@ async def test_get_companion_detail_requires_admin_token(client):
 
 
 @pytest.mark.asyncio
-async def test_get_companion_detail_cert_signed_url_is_none_in_pr_e1(client):
-    """PR-E1 acceptance 显式降级：cert_image_signed_url 必须返 None
-    （即使 DB cert_image_url 已存值），PR-E2 才补 signed URL service。"""
+async def test_get_companion_detail_hides_legacy_external_cert_url(client):
+    """PR-E2 Phase A only signs local cert-image:// objects; legacy external URLs stay hidden."""
     profile = await _create_profile()
 
     async with test_session_factory() as session:
         p = await session.get(CompanionProfile, profile.id)
-        p.certification_image_url = "https://public.example.com/cert.jpg"  # 模拟已存 public URL
+        p.certification_image_url = "https://public.example.com/cert.jpg"  # Phase B migrates these
         await session.commit()
 
     resp = await client.get(
@@ -295,5 +296,94 @@ async def test_get_companion_detail_cert_signed_url_is_none_in_pr_e1(client):
         headers=_headers(),
     )
     assert resp.status_code == 200
-    # PR-E1 占位：即使 DB 有 cert_image_url，detail 也不返
     assert resp.json()["certification_image_signed_url"] is None
+
+
+@pytest.mark.asyncio
+async def test_upload_certification_image_and_detail_returns_signed_url(
+    client,
+    tmp_path,
+    monkeypatch,
+):
+    from app.services import certification_image as cert_image
+
+    monkeypatch.setattr(cert_image, "CERT_IMAGE_DIR", tmp_path)
+    profile = await _create_profile()
+
+    upload = await client.post(
+        f"{BASE}/certification-images",
+        headers=_headers(),
+        files={"file": ("cert.png", b"fake-png-bytes", "image/png")},
+    )
+    assert upload.status_code == 200
+    body = upload.json()
+    assert body["certification_image_url"].startswith("cert-image://")
+    assert body["certification_image_signed_url"].startswith(
+        "/api/v1/admin/companions/certification-images/"
+    )
+
+    async with test_session_factory() as session:
+        p = await session.get(CompanionProfile, profile.id)
+        p.certification_image_url = body["certification_image_url"]
+        await session.commit()
+
+    detail = await client.get(f"{BASE}/{profile.id}", headers=_headers())
+    assert detail.status_code == 200
+    signed_url = detail.json()["certification_image_signed_url"]
+    assert signed_url is not None
+    assert "expires=" in signed_url and "sig=" in signed_url
+
+    image = await client.get(signed_url)
+    assert image.status_code == 200
+    assert image.content == b"fake-png-bytes"
+    assert image.headers["content-type"] == "image/png"
+
+
+@pytest.mark.asyncio
+async def test_upload_certification_image_rejects_invalid_type(client, tmp_path, monkeypatch):
+    from app.services import certification_image as cert_image
+
+    monkeypatch.setattr(cert_image, "CERT_IMAGE_DIR", tmp_path)
+    resp = await client.post(
+        f"{BASE}/certification-images",
+        headers=_headers(),
+        files={"file": ("cert.txt", b"not image", "text/plain")},
+    )
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_upload_certification_image_rejects_too_large(client, tmp_path, monkeypatch):
+    from app.services import certification_image as cert_image
+
+    monkeypatch.setattr(cert_image, "CERT_IMAGE_DIR", tmp_path)
+    resp = await client.post(
+        f"{BASE}/certification-images",
+        headers=_headers(),
+        files={"file": ("cert.jpg", b"x" * (5 * 1024 * 1024 + 1), "image/jpeg")},
+    )
+    assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_signed_certification_image_rejects_tampered_and_expired(
+    client,
+    tmp_path,
+    monkeypatch,
+):
+    from app.services import certification_image as cert_image
+
+    monkeypatch.setattr(cert_image, "CERT_IMAGE_DIR", tmp_path)
+    marker = "cert-image://abc123.png"
+    (tmp_path / "abc123.png").write_bytes(b"image")
+    signed = cert_image.sign_certification_image_url(marker, now=int(time.time()))
+    assert signed is not None
+
+    tampered = signed.replace("sig=", "sig=x")
+    resp = await client.get(tampered)
+    assert resp.status_code == 403
+
+    expired = cert_image.sign_certification_image_url(marker, now=int(time.time()) - 3600)
+    assert expired is not None
+    resp = await client.get(expired)
+    assert resp.status_code == 403

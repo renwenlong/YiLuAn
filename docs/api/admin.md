@@ -20,6 +20,8 @@
 | --- | --- | --- |
 | `GET` | `/api/v1/admin/audit-logs` | 后台：审计日志列表 |
 | `GET` | `/api/v1/admin/companions/` | 后台：待审核陪诊师列表 |
+| `POST` | `/api/v1/admin/companions/certification-images` | 后台：上传陪诊师证件图（Phase A 本地私有存储） |
+| `GET` | `/api/v1/admin/companions/certification-images/{filename}` | 后台：读取证件图 signed URL |
 | `GET` | `/api/v1/admin/companions/search` | 后台：陪诊师轻量搜索（钱包账本筛选用） |
 | `GET` | `/api/v1/admin/companions/{companion_id}` | 后台：陪诊师审核详情 |
 | `POST` | `/api/v1/admin/companions/{companion_id}/approve` | 后台：批准陪诊师入驻 |
@@ -114,6 +116,57 @@ curl -X GET 'https://api.yiluan.example.com/api/v1/admin/companions/' \
 
 ---
 
+### `POST /api/v1/admin/companions/certification-images` — 后台：上传陪诊师证件图（Phase A 本地私有存储）
+
+仅 admin 可用。保存 jpg/jpeg/png/webp <= 5MB 到 backend 私有本地目录，返回可写入 certify.certification_image_url 的 cert-image:// 标识 + 15min signed URL。
+
+**参数：**
+
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X POST 'https://api.yiluan.example.com/api/v1/admin/companions/certification-images' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `GET /api/v1/admin/companions/certification-images/{filename}` — 后台：读取证件图 signed URL
+
+校验 HMAC + expires 后返回本地私有证件图 bytes。
+
+**参数：**
+
+- `filename` (path, string, required=✅) — 
+- `expires` (query, integer, required=✅) — 
+- `sig` (query, string, required=✅) — 
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X GET 'https://api.yiluan.example.com/api/v1/admin/companions/certification-images/{filename}' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
 ### `GET /api/v1/admin/companions/search` — 后台：陪诊师轻量搜索（钱包账本筛选用）
 
 按姓名或手机号模糊搜索陪诊师，返回 user_id + 姓名 + 手机号尾 4 位。默认仅返回 `verified` 状态；传 `status=all` 取消该过滤。
@@ -144,7 +197,7 @@ curl -X GET 'https://api.yiluan.example.com/api/v1/admin/companions/search' \
 
 ### `GET /api/v1/admin/companions/{companion_id}` — 后台：陪诊师审核详情
 
-返回单个陪诊师 14 字段审核视图。⚠️ `certification_image_signed_url` 在 PR-E1 为占位 `None`，实安全包装留 PR-E2（storage 后端调研 + ADR-0044 r1 amend）。reveal phone 走独立端点 `GET /admin/users/{user_id}?reveal=true`。 写入 view_companion_detail 审计。
+返回单个陪诊师 14 字段审核视图。`certification_image_signed_url` 对 PR-E2 Phase A 本地 cert-image:// 对象返回 15min signed URL；历史外部 URL 返回 None，待 Phase B storage 迁移。reveal phone 走独立端点 `GET /admin/users/{user_id}?reveal=true`。 写入 view_companion_detail 审计。
 
 **参数：**
 
