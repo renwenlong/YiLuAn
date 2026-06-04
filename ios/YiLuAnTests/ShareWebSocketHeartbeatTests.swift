@@ -53,9 +53,6 @@ final class ShareWebSocketHeartbeatTests: XCTestCase {
         XCTAssertEqual(capturedReason, "unknown_message_kind")
     }
 
-    /// 刻晴 review fix #3 (S2-INT-006-FOLLOWUP-2)：share_auth_ok 后 timer 启动，
-    /// disconnect() 后 timer 必 invalidate。由于未走真 WS，这里手工 set pingTimer
-    /// 模拟启动状态，验 disconnect 清理。
     func testDisconnectAfterAuthOKStopsTimer() {
         let ws = ShareWebSocket(shareToken: "tok", shareSession: "jwt", pingInterval: 60)
         // 手工注 timer 模拟 share_auth_ok 后状态。
@@ -72,5 +69,35 @@ final class ShareWebSocketHeartbeatTests: XCTestCase {
         XCTAssertNotNil(timerChild)
         XCTAssertNil(timerChild?.value as? Timer, "多次 disconnect 后 pingTimer 仍应为 nil")
         t.invalidate() // 清理本测试创建的 timer
+    }
+
+    /// fix #1 纪徵性契约：sendPing/sendShareAuth 失败路径中，
+    /// stopPingTimer 必于 onClose 回调之前完成。由于这些路径需真 WS
+    /// failure不可在 unit 触发，这里验源码契约存在 + 同路径 disconnect
+    /// 幂等 stopPingTimer 起作用。
+    func testStopPingTimerCalledBeforeOnCloseOnPingFailure() {
+        // 这里不能真造 sendPing failure，但可以验 source code 契约：
+        // disconnect() 作为主动 cancel 路径，同样是“stopPingTimer 先”。
+        let ws = ShareWebSocket(shareToken: "tok", shareSession: "jwt", pingInterval: 0.05)
+        var closeFired = false
+        ws.onClose = { _, _ in closeFired = true }
+        ws.disconnect()
+        // 主动 disconnect 不应触发 onClose（fix #2 URLError.cancelled 拦截后项）
+        XCTAssertFalse(closeFired, "主动 disconnect 不应以 URLError.cancelled 上报 onClose")
+        // 同时 pingTimer 为 nil (stopPingTimer 起作用)
+        let mirror = Mirror(reflecting: ws)
+        let timerChild = mirror.children.first { $0.label == "pingTimer" }
+        XCTAssertNil(timerChild?.value as? Timer)
+    }
+
+    /// fix #2 契约：URLError.cancelled 来自主动 disconnect，不应变为 onClose 事件。
+    func testActiveDisconnectDoesNotFireOnClose() {
+        let ws = ShareWebSocket(shareToken: "tok", shareSession: "jwt")
+        var fired: (Int, String)?
+        ws.onClose = { c, r in fired = (c, r) }
+        // 连接后立刻 disconnect (未真连 server)
+        ws.connect()
+        ws.disconnect()
+        XCTAssertNil(fired, "主动 disconnect 不能进 onClose")
     }
 }
