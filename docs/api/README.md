@@ -177,6 +177,11 @@
 | `POST` | `/api/v1/admin/reconciliation/diffs/{diff_id}/close-confirms` | Confirm Close |
 | `POST` | `/api/v1/admin/reconciliation/diffs/{diff_id}/close-requests` | Request Close |
 | `GET` | `/api/v1/admin/reconciliation/runs` | 后台：对账 run 列表 |
+| `GET` | `/api/v1/admin/service-packages/` | 后台：服务档位列表 |
+| `POST` | `/api/v1/admin/service-packages/` | 后台：新建服务档位 |
+| `DELETE` | `/api/v1/admin/service-packages/{pkg_id}` | 后台：软删服务档位 |
+| `GET` | `/api/v1/admin/service-packages/{pkg_id}` | 后台：服务档位详情 |
+| `PATCH` | `/api/v1/admin/service-packages/{pkg_id}` | 后台：更新服务档位 |
 | `GET` | `/api/v1/admin/telemetry/events` | 埋点事件列表（admin） |
 | `GET` | `/api/v1/admin/users` | 后台：用户列表 |
 | `GET` | `/api/v1/admin/users/{user_id}` | 后台：用户详情 |
@@ -271,6 +276,16 @@ K8s / ACA 探针使用：
 | `POST` | `/api/v1/admin/reconciliation/diffs/{diff_id}/close-confirms` | Confirm Close |
 | `POST` | `/api/v1/admin/reconciliation/diffs/{diff_id}/close-requests` | Request Close |
 | `GET` | `/api/v1/admin/reconciliation/runs` | 后台：对账 run 列表 |
+
+### [admin-service-packages](./admin-service-packages.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/admin/service-packages/` | 后台：服务档位列表 |
+| `POST` | `/api/v1/admin/service-packages/` | 后台：新建服务档位 |
+| `DELETE` | `/api/v1/admin/service-packages/{pkg_id}` | 后台：软删服务档位 |
+| `GET` | `/api/v1/admin/service-packages/{pkg_id}` | 后台：服务档位详情 |
+| `PATCH` | `/api/v1/admin/service-packages/{pkg_id}` | 后台：更新服务档位 |
 
 ### [admin-telemetry](./admin-telemetry.md)
 
