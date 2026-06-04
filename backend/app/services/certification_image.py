@@ -16,7 +16,13 @@ from pathlib import Path
 from fastapi import UploadFile
 
 from app.config import settings
-from app.exceptions import BadRequestException, ForbiddenException, NotFoundException
+from app.exceptions import (
+    BadRequestException,
+    ForbiddenException,
+    NotFoundException,
+    PayloadTooLargeException,
+    UnsupportedMediaTypeException,
+)
 
 ALLOWED_CERT_IMAGE_TYPES = {
     "image/jpeg": ".jpg",
@@ -99,13 +105,13 @@ def verify_signed_certification_image(filename: str, expires: int, sig: str) -> 
 
 async def save_certification_image(file: UploadFile) -> str:
     if file.content_type not in ALLOWED_CERT_IMAGE_TYPES:
-        raise BadRequestException(
+        raise UnsupportedMediaTypeException(
             "Invalid file type. Only jpg/jpeg/png/webp are allowed"
         )
 
     content = await file.read()
     if len(content) > MAX_CERT_IMAGE_SIZE:
-        raise BadRequestException("File too large. Maximum size is 5MB")
+        raise PayloadTooLargeException("File too large. Maximum size is 5MB")
 
     ext = ALLOWED_CERT_IMAGE_TYPES[file.content_type]
     filename = f"{uuid.uuid4().hex}{ext}"

@@ -53,6 +53,20 @@ class ConflictException(AppException):
         super().__init__(status.HTTP_409_CONFLICT, detail, error_code=error_code)
 
 
+class PayloadTooLargeException(AppException):
+    def __init__(
+        self, detail: str = "Payload too large", *, error_code: str | None = None
+    ):
+        super().__init__(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail, error_code=error_code)
+
+
+class UnsupportedMediaTypeException(AppException):
+    def __init__(
+        self, detail: str = "Unsupported media type", *, error_code: str | None = None
+    ):
+        super().__init__(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail, error_code=error_code)
+
+
 class TooManyRequestsException(AppException):
     def __init__(
         self,
