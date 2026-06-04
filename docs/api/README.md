@@ -152,7 +152,7 @@
 | `GET` | `/api/v1/admin/audit-logs` | 后台：审计日志列表 |
 | `GET` | `/api/v1/admin/companions/` | 后台：待审核陪诊师列表 |
 | `POST` | `/api/v1/admin/companions/certification-images` | 后台：上传陪诊师证件图（Phase A 本地私有存储） |
-| `GET` | `/api/v1/admin/companions/certification-images/{filename}` | 后台：读取证件图 signed URL |
+| `GET` | `/api/v1/admin/companions/certification-images/{filename}` | 后台：读取证件图 signed URL（双闸：admin token + HMAC） |
 | `GET` | `/api/v1/admin/companions/search` | 后台：陪诊师轻量搜索（钱包账本筛选用） |
 | `GET` | `/api/v1/admin/companions/{companion_id}` | 后台：陪诊师审核详情 |
 | `POST` | `/api/v1/admin/companions/{companion_id}/approve` | 后台：批准陪诊师入驻 |
@@ -198,7 +198,7 @@
 | --- | --- | --- |
 | `GET` | `/api/v1/admin/companions/` | 后台：待审核陪诊师列表 |
 | `POST` | `/api/v1/admin/companions/certification-images` | 后台：上传陪诊师证件图（Phase A 本地私有存储） |
-| `GET` | `/api/v1/admin/companions/certification-images/{filename}` | 后台：读取证件图 signed URL |
+| `GET` | `/api/v1/admin/companions/certification-images/{filename}` | 后台：读取证件图 signed URL（双闸：admin token + HMAC） |
 | `GET` | `/api/v1/admin/companions/search` | 后台：陪诊师轻量搜索（钱包账本筛选用） |
 | `GET` | `/api/v1/admin/companions/{companion_id}` | 后台：陪诊师审核详情 |
 | `POST` | `/api/v1/admin/companions/{companion_id}/approve` | 后台：批准陪诊师入驻 |

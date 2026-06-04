@@ -21,7 +21,7 @@
 | `GET` | `/api/v1/admin/audit-logs` | 后台：审计日志列表 |
 | `GET` | `/api/v1/admin/companions/` | 后台：待审核陪诊师列表 |
 | `POST` | `/api/v1/admin/companions/certification-images` | 后台：上传陪诊师证件图（Phase A 本地私有存储） |
-| `GET` | `/api/v1/admin/companions/certification-images/{filename}` | 后台：读取证件图 signed URL |
+| `GET` | `/api/v1/admin/companions/certification-images/{filename}` | 后台：读取证件图 signed URL（双闸：admin token + HMAC） |
 | `GET` | `/api/v1/admin/companions/search` | 后台：陪诊师轻量搜索（钱包账本筛选用） |
 | `GET` | `/api/v1/admin/companions/{companion_id}` | 后台：陪诊师审核详情 |
 | `POST` | `/api/v1/admin/companions/{companion_id}/approve` | 后台：批准陪诊师入驻 |
@@ -146,15 +146,20 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/admin/companions/certificati
 
 ---
 
-### `GET /api/v1/admin/companions/certification-images/{filename}` — 后台：读取证件图 signed URL
+### `GET /api/v1/admin/companions/certification-images/{filename}` — 后台：读取证件图 signed URL（双闸：admin token + HMAC）
 
-校验 HMAC + expires 后返回本地私有证件图 bytes。
+双闸鉴权（ADR-0044 r1 §4.2）：
+1. 闸1 = require_admin（X-Admin-Token / JWT）
+2. 闸2 = HMAC 签名 + expires (TTL ≤ 15min) + filename 路径白名单
+admin-v2 drawer 走 fetch + blob URL 模式（不能直接 <img src=、否则浏览器不携 header）。写 view_cert_image 审计。
 
 **参数：**
 
 - `filename` (path, string, required=✅) — 
 - `expires` (query, integer, required=✅) — 
 - `sig` (query, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
 
 **响应：**
 
