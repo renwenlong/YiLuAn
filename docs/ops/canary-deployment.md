@@ -160,6 +160,70 @@ docker compose --env-file env.staging --env-file env.canary --env-file env.canar
 
 ---
 
+## 4.6 E+B 务实兜底路径（推荐 D+0 起跳方案）
+
+> 背景：S2-TEST-004 灰度回归 acceptance §1 原要求 "真 wxpay 下单→支付→回调" 硬路径。但现实：真 wxpay 商户号 + ICP 备案 + 公网域名 是周级周期，会极大延后灰度上路。魈 + 刻晴 + PM 2026-06-04 同推 **E+B 务实兜底**：分两步跳过这个卡。
+
+### 路径拆解
+
+| 阶段 | E 阶段（立即起跳） | B 阶段（后补真签名） |
+|---|---|---|
+| 支付 provider | mock-pay-stub 内部 callback 链路 | ngrok 隔离补跑 §1.1 真 wxpay 签名一条 case |
+| 覆盖 acceptance | §1.2~§1.6（CB 抖动 / 退款平账 / 空 txn_id 拒 / 同 txn_id 幂等 / WS / callback 链路）+ §4 AI 成本 + §5 回滚演练 + §6 四方签字 | 仅 §1.1 真 wxpay 下单→支付→回调验证签名/证书链路 |
+| 外部资源 | **零**（不需帝君提供任何账号） | ngrok authtoken 一项（帝君注册 ngrok.com 5min） |
+| 门锁占比 | §§1-6 中占 ~50%+ 路径（业务逻辑全走通，仅缺真签名验证） | 补上后 §1 全部过，灰度门可推全 |
+| 启动设置 | `PAYMENT_PROVIDER=mock` + `MOCK_PAY_BASE_URL=http://mock-pay-stub:8001` | E 保留，并行起 ngrok 代理 + 另一份 `env.canary.b.local` 启 WeChat provider |
+
+### E 阶段启步（0 外部资源）
+
+```bash
+cd ~/repo/YiLuAn/deploy
+# 已在 staging 起栈则跳过 build。mock-pay-stub 已 OPS-011 落盘
+export PAYMENT_PROVIDER=mock
+export MOCK_PAY_BASE_URL=http://mock-pay-stub:8001
+./up.sh staging --profile staging  # mock provider 本身已 healthy
+# 刻晴 §1.2~1.6 + §4 + §5 + §6 起跑。§1.1 注 "E 阶段跳过，待 B 阶段补"
+```
+
+### B 阶段补跑（需 ngrok authtoken）
+
+```bash
+# 1. 安装 ngrok（PM 主 tree）
+curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc > /dev/null
+echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+sudo apt update && sudo apt install -y ngrok
+ngrok config add-authtoken <帝君提供的 authtoken>
+
+# 2. 起 ngrok 隧道指向 staging nginx:18080
+ngrok http 18080 > /tmp/ngrok.log &
+sleep 3
+NGROK_URL=$(curl -s http://localhost:4040/api/tunnels | python3 -c "import json,sys;print(json.load(sys.stdin)['tunnels'][0]['public_url'])")
+echo "ngrok URL: $NGROK_URL"
+
+# 3. 配 wxpay 沙箱走 ngrok callback
+cat > deploy/env.canary.b.local <<EOF2
+PAYMENT_PROVIDER=wechat
+WECHAT_PAY_MCH_ID=<沙箱 mch_id>
+WECHAT_PAY_API_V3_KEY=<沙箱 v3 key>
+WECHAT_PAY_NOTIFY_URL=$NGROK_URL/api/v1/payments/wechat/callback
+EOF2
+./up.sh staging --env-file deploy/env.canary.b.local
+
+# 4. 刻晴跑 §1.1 真 wxpay 下单→支付→回调，验签名/证书链路
+# 5. §1.1 PASS 后、灰度门全颁 §1 清单
+```
+
+### 帝君最小输入 checklist
+
+**E 阶段（0 输入）**：PM 可自助起，不卡。
+
+**B 阶段（1 项输入）**：帝君仅需提供 ngrok authtoken（免费版即可，5min 注册），其余微信支付沙箱号 PM 代申请。如帝君有现成公网域名可替代 ngrok。
+
+### 与 A 路径关系
+
+- E+B 走通后灰度路径已证明。A（真接入）只是生产环境换真商户号 + 公网域名，本质是配置替换不是逻辑重走。
+- A 路径依然按本文档 §2.2 说明个别项 checklist 完成，但开启后可以与灰度上线同期。
+
 ## 5. 反向引用
 
 - ADR-0028 灰度发布与回滚机制
