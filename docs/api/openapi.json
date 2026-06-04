@@ -4028,6 +4028,45 @@
         "title": "PhoneBindRequest",
         "type": "object"
       },
+      "PublicServicePackage": {
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "price": {
+            "title": "Price",
+            "type": "string"
+          },
+          "sort_order": {
+            "title": "Sort Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "price",
+          "sort_order"
+        ],
+        "title": "PublicServicePackage",
+        "type": "object"
+      },
       "RefreshTokenRequest": {
         "properties": {
           "refresh_token": {
@@ -14657,6 +14696,32 @@
         "summary": "Ping测试",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/api/v1/public/service-packages": {
+      "get": {
+        "description": "返回当前 active 服务档位，按 sort_order 升序。以此价格为下单准，后台可动态调整。",
+        "operationId": "list_public_service_packages_api_v1_public_service_packages_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/PublicServicePackage"
+                  },
+                  "title": "Response List Public Service Packages Api V1 Public Service Packages Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "获取服务档位列表 (公开)",
+        "tags": [
+          "public"
         ]
       }
     },
