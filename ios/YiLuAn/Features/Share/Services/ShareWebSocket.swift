@@ -119,9 +119,17 @@ final class ShareWebSocket {
         task.sendPing { [weak self] err in
             guard let self else { return }
             if let err {
+                // 刻晴 fix #2: disconnect 会触发 sendPing callback 以 URLError.cancelled
+                // 失败。这类主动取消不算锁列上报 onClose。
+                let nsErr = err as NSError
+                if nsErr.domain == NSURLErrorDomain, nsErr.code == NSURLErrorCancelled {
+                    return
+                }
                 Task { @MainActor [weak self] in
-                    self?.onClose?(-1, "ping_failed: \(err.localizedDescription)")
+                    // 刻晴 fix #1: 先 stopPingTimer 再 onClose。
+                    // 避免 onClose 回调中调 disconnect 老 timer 仍在跳 ping。
                     self?.stopPingTimer()
+                    self?.onClose?(-1, "ping_failed: \(err.localizedDescription)")
                 }
             }
         }
@@ -138,7 +146,12 @@ final class ShareWebSocket {
               let str = String(data: data, encoding: .utf8) else { return }
         task?.send(.string(str)) { [weak self] err in
             if let err {
-                // 鉴权帧发不出去 → 链路断
+                // 刻晴 fix #2: disconnect 会触发 send callback 以 URLError.cancelled
+                // 失败。这类主动取消不算鉴权失败上报 onClose。
+                let nsErr = err as NSError
+                if nsErr.domain == NSURLErrorDomain, nsErr.code == NSURLErrorCancelled {
+                    return
+                }
                 Task { @MainActor [weak self] in
                     self?.onClose?(-1, "send_auth_failed: \(err.localizedDescription)")
                 }
