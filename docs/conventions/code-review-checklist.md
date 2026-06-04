@@ -69,6 +69,7 @@
 - [ ] 资金 / 安全相关改动单测 case 数量 ≥ 5（含 fuzz / property-based 优先）
 - [ ] iOS PR 必跑 iOS CI 真绿（S2-OPS-008 已落 required gate）
 - [ ] 测试 acceptance 与 config 真源一致（不写死硬编码数字而 config 已变化）
+- [ ] 双路径字段（写 DB + 读 API）必须 unit 同时断言 DB row + API response（S2-BUG-S010-01 教训：只验 DB 不验 API schema = 漏暴露字段仍返 None）
 
 ## §8 文档 / 协作
 
