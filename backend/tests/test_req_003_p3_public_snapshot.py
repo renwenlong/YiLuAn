@@ -157,3 +157,61 @@ class TestCreateOrderSnapshot:
                 select(Order).where(Order.order_number == order_data["order_number"])
             )).scalar_one()
             assert order.service_price_snapshot == Decimal("399.00")
+
+
+@pytest.mark.asyncio
+class TestAdminOrderItemSnapshot:
+    """S2-BUG-S010-02: admin/orders/{id} OrderItem schema 须暴露 snapshot 字段."""
+
+    async def test_admin_order_detail_returns_snapshot(
+        self, authenticated_client, admin_client, seed_hospital
+    ):
+        # 患者侧下单
+        hospital = await seed_hospital()
+        resp = await authenticated_client.post(
+            "/api/v1/orders",
+            json={
+                "hospital_id": str(hospital.id),
+                "service_type": "full_accompany",
+                "appointment_date": "2026-12-01",
+                "appointment_time": "09:00",
+                "description": "admin snapshot test",
+            },
+        )
+        assert resp.status_code in (200, 201), resp.text
+        order_id = resp.json()["id"]
+
+        # admin 端拉 detail
+        admin_resp = await admin_client.get(f"/api/v1/admin/orders/{order_id}")
+        assert admin_resp.status_code == 200, admin_resp.text
+        data = admin_resp.json()
+        # S2-BUG-S010-02 fix: admin OrderItem 须返 snapshot
+        assert data.get("service_name_snapshot") == "全程陪诊", \
+            f"admin OrderItem 缺 service_name_snapshot: {data}"
+        assert data.get("service_price_snapshot") == "299.00", \
+            f"admin OrderItem 缺 service_price_snapshot: {data}"
+
+    async def test_admin_order_list_returns_snapshot(
+        self, authenticated_client, admin_client, seed_hospital
+    ):
+        hospital = await seed_hospital()
+        resp = await authenticated_client.post(
+            "/api/v1/orders",
+            json={
+                "hospital_id": str(hospital.id),
+                "service_type": "half_accompany",
+                "appointment_date": "2026-12-02",
+                "appointment_time": "10:00",
+                "description": "list snapshot",
+            },
+        )
+        assert resp.status_code in (200, 201)
+        # admin list (no trailing slash)
+        list_resp = await admin_client.get("/api/v1/admin/orders", follow_redirects=True)
+        assert list_resp.status_code == 200, list_resp.text
+        items = list_resp.json().get("items", [])
+        assert items, "admin list 应至少含 1 单"
+        # 至少有一行 service_name_snapshot 非空 (新订单 snapshot 必填)
+        any_with_snap = any(it.get("service_name_snapshot") for it in items)
+        assert any_with_snap, \
+            "admin list OrderItem 须返 service_name_snapshot"
