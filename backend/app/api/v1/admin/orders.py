@@ -36,7 +36,9 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
-from app.core.admin_auth import require_admin_token  # noqa: F401  (legacy import retained for downstream consumers)
+from app.core.admin_auth import (
+    require_admin_token,  # noqa: F401  (legacy import retained for downstream consumers)
+)
 from app.core.admin_jwt import admin_operator_id, require_admin
 from app.core.pii import mask_phone
 from app.dependencies import DBSession
@@ -141,6 +143,16 @@ class OrderItem(BaseModel):
     appointment_date: str = Field(..., description="预约日期 YYYY-MM-DD")
     appointment_time: str = Field(..., description="预约时间 HH:MM")
     price: str = Field(..., description="订单金额（元，字符串保两位小数）")
+    service_name_snapshot: str | None = Field(
+        None,
+        description="下单时 service_packages.name 快照 (S2-REQ-003-P3, admin 改价不影响历史订单显示)",  # noqa: E501
+        examples=["全程陪诊"],
+    )
+    service_price_snapshot: str | None = Field(
+        None,
+        description="下单时 service_packages.price 快照 (支付/退款以此为准, S2-REQ-003-P3)",
+        examples=["299.00"],
+    )
     created_at: str | None = Field(None, description="创建时间 ISO8601")
 
 
@@ -202,6 +214,12 @@ def _build_item(o: Order, users_by_id: dict[UUID, User]) -> dict:
         "appointment_date": o.appointment_date,
         "appointment_time": o.appointment_time,
         "price": str(Decimal(str(o.price)).quantize(Decimal("0.01"))),
+        "service_name_snapshot": o.service_name_snapshot,
+        "service_price_snapshot": (
+            str(Decimal(str(o.service_price_snapshot)).quantize(Decimal("0.01")))
+            if o.service_price_snapshot is not None
+            else None
+        ),
         "created_at": o.created_at.isoformat() if o.created_at else None,
     }
 
@@ -314,7 +332,7 @@ async def list_orders(
     "/{order_id}",
     response_model=OrderItem,
     summary="后台：订单详情",
-    description="返回单个订单的完整字段（含 patient_display_name / companion_display_name / patient_phone_masked / price），并写入 view_order_detail 审计行。",
+    description="返回单个订单的完整字段（含 patient_display_name / companion_display_name / patient_phone_masked / price），并写入 view_order_detail 审计行。",  # noqa: E501
 )
 async def get_order(
     order_id: UUID,
