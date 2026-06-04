@@ -14,7 +14,6 @@ from __future__ import annotations
 import asyncio
 import json
 import uuid
-from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -39,11 +38,15 @@ class FakeWebSocket:
     def __init__(self):
         self.sent: list[str] = []
         self.fail = False
+        self.closed_with: tuple[int, str] | None = None
 
     async def send_text(self, text: str) -> None:
         if self.fail:
             raise RuntimeError("send fail")
         self.sent.append(text)
+
+    async def close(self, code: int = 1000, reason: str = "") -> None:
+        self.closed_with = (code, reason)
 
 
 class FakePubSub:
@@ -660,3 +663,59 @@ async def test_notification_and_chat_brokers_coexist_on_same_bus():
 
     await noti.stop()
     await chat.stop()
+
+
+# ---------------------------------------------------------------------------
+# S2-TEST-006R3 AC#9: close_all_for_key — revoke fanout
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_close_all_for_key_closes_all_local_conns_and_removes_key():
+    broker = WsPubSubBroker(redis_client=None, enabled=False)
+    await broker.start()
+    key = "token:abc"
+    ws1, ws2 = FakeWebSocket(), FakeWebSocket()
+    await broker.register(key, ws1)
+    await broker.register(key, ws2)
+    assert broker.local_connection_count(key) == 2
+
+    closed = await broker.close_all_for_key(
+        key, code=4013, reason="token_revoked_or_expired"
+    )
+    assert closed == 2
+    assert ws1.closed_with == (4013, "token_revoked_or_expired")
+    assert ws2.closed_with == (4013, "token_revoked_or_expired")
+    # key 应被从 _local 移除
+    assert broker.local_connection_count(key) == 0
+    await broker.stop()
+
+
+@pytest.mark.asyncio
+async def test_close_all_for_key_unknown_key_returns_zero():
+    broker = WsPubSubBroker(redis_client=None, enabled=False)
+    await broker.start()
+    closed = await broker.close_all_for_key(
+        "token:none", code=4013, reason="x"
+    )
+    assert closed == 0
+    await broker.stop()
+
+
+@pytest.mark.asyncio
+async def test_close_all_for_key_swallows_per_ws_close_failure():
+    """单个 ws.close 抛错不影响其他 close。"""
+    broker = WsPubSubBroker(redis_client=None, enabled=False)
+    await broker.start()
+
+    class BadCloseWS(FakeWebSocket):
+        async def close(self, code=1000, reason=""):
+            raise RuntimeError("close fail")
+
+    key = "token:mix"
+    bad = BadCloseWS()
+    good = FakeWebSocket()
+    await broker.register(key, bad)
+    await broker.register(key, good)
+    closed = await broker.close_all_for_key(key, code=4013, reason="r")
+    assert closed == 2  # 都尝试了
+    assert good.closed_with == (4013, "r")
+    await broker.stop()

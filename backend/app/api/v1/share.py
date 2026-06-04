@@ -202,10 +202,30 @@ async def revoke_share(
         session=session, order_id=order_id, user_id=current_user.id
     )
     svc = ShareService(session)
-    await svc.revoke(
+    token_value = await svc.revoke(
         order_id=order_id, token_id=token_id, revoked_by=current_user.id
     )
     await session.commit()
+
+    # S2-TEST-006R3 AC#9: revoke 后主动推 close 4013 给该 token 的全部 live WS。
+    # 不等下一次 ping recheck 发现 (间隔 ⊤ 30s 可能所起 + 轻口客户端不发 ping)。
+    # 幂等 revoke 返回 None 跳过 broadcast 以免忧六迭代 close。
+    if token_value is not None:
+        try:
+            from fastapi import Request as _Req  # type hint only
+            _ = _Req  # silence unused warning
+            # endpoint context: 如 request 未注入，边使用 ShareService session bind
+            # 取 app instance: session 不能获取 fastapi app，改走 module-level singleton
+            from app.ws.pubsub import get_current_share_broker
+            broker = get_current_share_broker()
+            if broker is not None:
+                await broker.close_all_for_key(
+                    f"token:{token_value}",
+                    code=4013,
+                    reason="token_revoked_or_expired",
+                )
+        except Exception:  # noqa: BLE001 - best effort; ping recheck 兌底
+            pass
 
 
 # Viewer-side endpoints -------------------------------------------------------
