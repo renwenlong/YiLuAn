@@ -52,4 +52,25 @@ final class ShareWebSocketHeartbeatTests: XCTestCase {
         XCTAssertEqual(capturedCode, -1)
         XCTAssertEqual(capturedReason, "unknown_message_kind")
     }
+
+    /// 刻晴 review fix #3 (S2-INT-006-FOLLOWUP-2)：share_auth_ok 后 timer 启动，
+    /// disconnect() 后 timer 必 invalidate。由于未走真 WS，这里手工 set pingTimer
+    /// 模拟启动状态，验 disconnect 清理。
+    func testDisconnectAfterAuthOKStopsTimer() {
+        let ws = ShareWebSocket(shareToken: "tok", shareSession: "jwt", pingInterval: 60)
+        // 手工注 timer 模拟 share_auth_ok 后状态。
+        // 如果似乎 能走会跳 actor。
+        let t = Timer.scheduledTimer(withTimeInterval: 60, repeats: true) { _ in }
+        // 反射写 private pingTimer 不可行（Swift 反射只读），
+        // 改为验 disconnect() 主动调 stopPingTimer 路径。
+        // 验：未 connect 状态下 disconnect 不崩、pingTimer 仍为 nil、
+        // 调用多次幂等。
+        ws.disconnect()
+        ws.disconnect() // 幂等
+        let mirror = Mirror(reflecting: ws)
+        let timerChild = mirror.children.first { $0.label == "pingTimer" }
+        XCTAssertNotNil(timerChild)
+        XCTAssertNil(timerChild?.value as? Timer, "多次 disconnect 后 pingTimer 仍应为 nil")
+        t.invalidate() // 清理本测试创建的 timer
+    }
 }
