@@ -31,12 +31,47 @@ def upgrade() -> None:
     op.create_table(
         "service_packages",
         sa.Column("id", sa.Uuid(as_uuid=True), primary_key=True, nullable=False),
-        sa.Column("code", sa.String(50), nullable=False, unique=True),
-        sa.Column("name", sa.String(100), nullable=False),
-        sa.Column("price", sa.Numeric(10, 2), nullable=False),
-        sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
-        sa.Column("sort_order", sa.Integer(), nullable=False, server_default="0"),
-        sa.Column("description", sa.String(500), nullable=True),
+        sa.Column(
+            "code",
+            sa.String(50),
+            nullable=False,
+            comment=(
+                "业务编码 (与历史 Order.service_type 兼容: "
+                "full_accompany / half_accompany / errand)"
+            ),
+        ),
+        sa.Column(
+            "name",
+            sa.String(100),
+            nullable=False,
+            comment="中文显示名 (如 '全程陪诊')",
+        ),
+        sa.Column(
+            "price",
+            sa.Numeric(10, 2),
+            nullable=False,
+            comment="价格 (元, Decimal 遵 ADR-0030)",
+        ),
+        sa.Column(
+            "is_active",
+            sa.Boolean(),
+            nullable=False,
+            server_default=sa.true(),
+            comment="启用状态 (软删: DELETE API 实际是设 False)",
+        ),
+        sa.Column(
+            "sort_order",
+            sa.Integer(),
+            nullable=False,
+            server_default="0",
+            comment="排序权重 (升序, seed 10/20/30 留间隙)",
+        ),
+        sa.Column(
+            "description",
+            sa.String(500),
+            nullable=True,
+            comment="详情说明 (可选)",
+        ),
         sa.Column(
             "created_at",
             sa.DateTime(timezone=True),
@@ -49,8 +84,18 @@ def upgrade() -> None:
             nullable=False,
             server_default=sa.func.now(),
         ),
-        sa.Column("created_by", sa.Uuid(as_uuid=True), nullable=True),
-        sa.Column("updated_by", sa.Uuid(as_uuid=True), nullable=True),
+        sa.Column(
+            "created_by",
+            sa.Uuid(as_uuid=True),
+            nullable=True,
+            comment="创建者 admin_user_id (审计)",
+        ),
+        sa.Column(
+            "updated_by",
+            sa.Uuid(as_uuid=True),
+            nullable=True,
+            comment="最近修改者 admin_user_id (审计)",
+        ),
     )
     op.create_index(
         "ix_service_packages_code", "service_packages", ["code"], unique=True
