@@ -4,8 +4,8 @@
  *
  * 用 happy-dom + mock axios 不依赖真后端。
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react'
 import { BrowserRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ConfigProvider } from 'antd'
@@ -43,6 +43,12 @@ beforeEach(() => {
   mockGet.mockReset()
   mockPost.mockReset()
   sessionStorage.clear()
+})
+
+afterEach(() => {
+  cleanup()
+  // AntD Drawer/Modal portals may linger; explicit clear
+  document.body.innerHTML = ''
 })
 
 describe('CompanionReviewListPage', () => {
@@ -148,68 +154,112 @@ describe('CompanionReviewListPage', () => {
     })
   })
 
-  // case 5: 通过 mutation 成功
-  // TODO(PR-B): AntD Table column render 里的 Button 在 vitest+happy-dom 环境下渲染
-  // 报 "Unable to find role button name /详情/"。本地未能复制, 待 PR-B 环境准备后调试
-  // (可能需 happy-dom 升级 / fireEvent.click 换 userEvent / waitFor 加 timeout)
-  // 该 3 case 不阻塞骨架 land，8 个 RBAC+authStore case 足以覆盖依赖模块正确性.
-  it.skip('calls approve API on click', async () => {
+  it('calls approve API on click', async () => {
     mockGet
       .mockResolvedValueOnce({
         data: { items: [{ id: '1', real_name: '李四', id_number: '110101********5678', certifications: null, created_at: '2026-06-04T10:00:00+08:00' }], total: 1 },
       })
-      // PR-A 假招详情是 fetchDetail，现 backend 无 detail endpoint，drawer 复用 list row。
-      // skip 3 case 仍保留（PR-D 改 happy-dom / userEvent 后启用）。
+      .mockResolvedValueOnce({
+        data: {
+          id: '1',
+          real_name: '李四',
+          id_number: '110101********5678',
+          certifications: '护士资格证',
+          created_at: '2026-06-04T10:00:00+08:00',
+          bio: '10 年护理经验',
+          verification_status: 'pending',
+          certified_at: null,
+          certification_type: '护士资格证',
+          certification_no: 'RN20250001',
+          certification_image_signed_url: null,
+          service_area: '朝阳区',
+          service_city: '北京',
+          service_hospitals: '协和区院',
+          service_types: 'full_accompany',
+          avg_rating: 4.8,
+          total_orders: 42,
+          user_id: 'u-li-si',
+          user_phone_masked: '138****8000',
+        },
+      })
     mockPost.mockResolvedValueOnce({ data: {} })
 
     renderWithProviders(<CompanionReviewListPage />)
-    await waitFor(() => screen.getByText('李四'))
-    // AntD Button 文字嵌套，用 getByRole + name 更稳
-    fireEvent.click(screen.getByRole('button', { name: /详情/ }))
-    await waitFor(() => screen.getByRole('button', { name: /通过/ }))
-    fireEvent.click(screen.getByRole('button', { name: /通过/ }))
+    await waitFor(() => expect(screen.getByText('李四')).toBeInTheDocument())
+    fireEvent.click(screen.getByText((text) => text.replace(/\s/g, '') === '详情').closest('button')!)
+    await waitFor(() => expect(mockGet).toHaveBeenCalledWith('/admin/companions/1'))
+    // 等 drawer 打开 + detail 渲染
+    await screen.findByText('陪诊师审核详情', {}, { timeout: 3000 })
+    const approveBtn = await screen.findByRole('button', { name: /通\s*过/ }, { timeout: 3000 })
+    fireEvent.click(approveBtn)
     await waitFor(() => {
       expect(mockPost).toHaveBeenCalledWith('/admin/companions/1/approve')
     })
   })
 
-  // case 5: 通过 mutation 失败
-  it.skip('shows error message when approve fails', async () => {
+  // case 5b: 通过 mutation 失败
+  it('shows error message when approve fails', async () => {
     mockGet
       .mockResolvedValueOnce({
         data: { items: [{ id: '2', real_name: '王五', id_number: null, certifications: null, created_at: null }], total: 1 },
       })
-      // (drawer 复用 list row 不调 detail endpoint)
+      .mockResolvedValueOnce({
+        data: {
+          id: '2', real_name: '王五', id_number: null, certifications: null, created_at: null,
+          bio: null, verification_status: 'pending', certified_at: null,
+          certification_type: null, certification_no: null, certification_image_signed_url: null,
+          service_area: null, service_city: null, service_hospitals: null, service_types: null,
+          avg_rating: 0, total_orders: 0, user_id: 'u-wang-wu', user_phone_masked: null,
+        },
+      })
     mockPost.mockRejectedValueOnce(new Error('403 forbidden'))
 
     renderWithProviders(<CompanionReviewListPage />)
-    await waitFor(() => screen.getByText('王五'))
-    fireEvent.click(screen.getByRole('button', { name: /详情/ }))
-    await waitFor(() => screen.getByRole('button', { name: /通过/ }))
-    fireEvent.click(screen.getByRole('button', { name: /通过/ }))
+    await waitFor(() => expect(screen.getByText('王五')).toBeInTheDocument())
+    fireEvent.click(screen.getByText((text) => text.replace(/\s/g, '') === '详情').closest('button')!)
+    await waitFor(() => expect(mockGet).toHaveBeenCalledWith('/admin/companions/2'))
+    const approveBtn = await screen.findByRole('button', { name: /通\s*过/ }, { timeout: 3000 })
+    fireEvent.click(approveBtn)
     await waitFor(() => {
-      expect(mockPost).toHaveBeenCalled()
+      expect(mockPost).toHaveBeenCalledWith('/admin/companions/2/approve')
     })
   })
 
-  // case 6: 拒绝需要理由（按钮 disabled）
-  it.skip('reject submit disabled when reason empty', async () => {
+  // case 6: 拒绝需要理由（OK 按钮 disabled when reason empty）
+  it('reject submit disabled when reason empty', async () => {
     mockGet
       .mockResolvedValueOnce({
         data: { items: [{ id: '3', real_name: '赵六', id_number: null, certifications: null, created_at: null }], total: 1 },
       })
-      // (drawer 复用 list row 不调 detail endpoint)
+      .mockResolvedValueOnce({
+        data: {
+          id: '3', real_name: '赵六', id_number: null, certifications: null, created_at: null,
+          bio: null, verification_status: 'pending', certified_at: null,
+          certification_type: null, certification_no: null, certification_image_signed_url: null,
+          service_area: null, service_city: null, service_hospitals: null, service_types: null,
+          avg_rating: 0, total_orders: 0, user_id: 'u-zhao-liu', user_phone_masked: null,
+        },
+      })
 
     renderWithProviders(<CompanionReviewListPage />)
-    await waitFor(() => screen.getByText('赵六'))
-    fireEvent.click(screen.getByRole('button', { name: /详情/ }))
-    await waitFor(() => screen.getByRole('button', { name: /拒绝/ }))
-    fireEvent.click(screen.getByRole('button', { name: /拒绝/ }))
-    // Modal 出来，OK 按钮 disabled（reason 空）
-    await waitFor(() => {
-      const okBtn = screen.getAllByText(/确定|OK/).find((el) => el.closest('button'))
-      expect(okBtn?.closest('button')).toBeDisabled()
+    await waitFor(() => expect(screen.getByText('赵六')).toBeInTheDocument())
+    fireEvent.click(screen.getByText((text) => text.replace(/\s/g, '') === '详情').closest('button')!)
+    await waitFor(() => expect(mockGet).toHaveBeenCalledWith('/admin/companions/3'))
+    const rejectBtn = await screen.findByRole('button', { name: /拒\s*绝/ }, { timeout: 3000 })
+    fireEvent.click(rejectBtn)
+    // Modal 打开，reason 空 -> okButtonProps.disabled = true
+    // AntD Modal OK 按钮 text 是默认 “确 定” / OK
+    const okBtn = await waitFor(() => {
+      const candidates = screen.getAllByRole('button').filter((btn) => {
+        const txt = btn.textContent?.replace(/\s/g, '') ?? ''
+        return txt === '确定' || txt === 'OK'
+      })
+      // 取 Modal footer 里那个 (不是抽屉里的 “拒绝”)
+      const modalOk = candidates.find((btn) => btn.closest('.ant-modal'))
+      if (!modalOk) throw new Error('Modal OK button not found yet')
+      return modalOk
     })
+    expect(okBtn).toBeDisabled()
   })
 })
 
