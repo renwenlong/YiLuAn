@@ -113,9 +113,9 @@ ADR-0042 §3 我会单独发 r1 修订 PR 补本附录（小改），不在本 A
 - `certification_image_url` 是 admin 手填的任意 URL 字符串（不是 storage URL）
 - backend 零 storage SDK 依赖（grep oss/azure/s3 0 命中）
 - 现有 `backend/app/services/upload.py` 仅 avatar 用：本地 `STATIC_DIR=backend/static/avatars`，5MB 限，仅 image/jpeg、image/png
-- 业务侧 PM 凝光确认：**证件图是陪诊师审核合规硬要求**（本 ADR §1 钉死），火度推全前必须可用
+- 业务侧 PM 凝光确认：**证件图是陪诊师审核合规硬要求**（本 ADR §1 钉死），灰度推全前必须可用
 
-### 4.1 Phase A：mbvp 本地 storage + HMAC 自签反代（**火度推全前必合**）
+### 4.1 Phase A：mvp 本地 storage + HMAC 自签反代（**灰度推全前必合**）
 
 **范围**：复用 `upload.py` 本地静态文件模式，加 HMAC 自签 signed token + backend 反代路由验证后 serve。不引 OSS/Azure/S3 SDK。
 
@@ -129,7 +129,7 @@ ADR-0042 §3 我会单独发 r1 修订 PR 补本附录（小改），不在本 A
 
 **估时**：~1.5 工作日（PR-E2-impl）
 
-**限制**：不分布式 / 备份难 / 单机督场路 / 适合火度期。Phase B 上线后迁移。
+**限制**：不分布式 / 备份难 / 单机单一故障域 / 适合灰度期。Phase B 上线后迁移。
 
 ### 4.2 Phase B：生产化 storage 后端（**独立后续 ADR**）
 
@@ -146,7 +146,7 @@ ADR-0042 §3 我会单独发 r1 修订 PR 补本附录（小改），不在本 A
 - 历史 cert URL 迁移 cron：扫 Phase A 本地 `/static/cert/*` + 上传 OSS + 更新 DB
 - Phase A 反代路由废弃，切 OSS 原生 signed URL
 
-**不阻塞 S2 火度**。帝君拍后拆低优先级独立表。
+**不阻塞 S2 灰度**。帝君拍后拆低优先级独立表。
 
 ### 4.3 双闸鉴权（Phase A + Phase B 同适用）
 
