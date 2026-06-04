@@ -95,6 +95,42 @@ admin-h5 v1 是 vanilla JS + 单 HTML + 1073 行 app.js 形态。9 项管理能�
 
 ---
 
+### 4.1 每 feature page 标准动作：list + detail + mutation 三件套（r1 补充 2026-06-04）
+
+> 动因：ADR-0044 实施 PR-A/B 过程中发现 PR-A 脚手架假设 backend `GET /admin/companions/{id}` detail endpoint 存在但实际没有，进入 admin 审核能力漏洞（胡桃 PR-A self-review + 魈 ADR-0044 追加）。为避免 Phase 2-9 拷贝同错误路径，本附录钉死 admin feature page 标准三件套。
+
+**admin-v2 任何 feature page 必须齐 list + detail + mutation 三件套**：
+
+| 件 | 责任 | 禁止省略场景 |
+|---|---|---|
+| **list** | 分页 + 过滤 + 跳页 + 排序，row 字段**仅含表格列**（精简，减请求体积） | 全场景不可省略 |
+| **detail** | drawer / 独立页，**展开 row 不可见的所有审核 / 编辑必要字段**（含文件 / 图片 / 关联实体含字 / 历史指标等） | **不可省略**。例外：仅含 list row 同字段的纯本表场景（如纯查询表）可省 detail，但需在 ADR / task acceptance 明示该 feature 不含 detail 以及原因 |
+| **mutation** | approve / reject / patch / delete / 开关切换等动词，**触发后必有 `admin_audit_log` 留痕**（action + target_id + operator + reason） | 只读 feature（仅 view_*_list/view_*_detail 审计）可无 mutation |
+
+**实施前套检查清单**（胡桃 ADR 实施前契约核验 SOP，胡桃 MEMORY 已落）：
+
+```bash
+# 1. backend list endpoint 字段 vs UI 需求 gap 检
+rg "class \w+Item.*BaseModel" backend/app/api/v1/admin/<feature>.py
+rg "class \w+Detail.*BaseModel" backend/app/api/v1/admin/<feature>.py
+
+# 2. mutation endpoint 实现 + audit 核
+rg "@router\.(post|patch|delete).*<feature>" backend/app/api/v1/admin/<feature>.py
+rg "AdminAuditLog" backend/app/api/v1/admin/<feature>.py
+```
+
+任一件缺失 → ping 架构师拍：
+- 小 gap（字段多/少 2-3 个）→ 本 PR 补
+- 全栈改动（模型迁移 / signed URL / PII 挡位策略变化）→ 拆 design task + ADR
+
+**Phase 2-9 每 task acceptance 需钉三件套齐备**，避免 Phase 1 拷贝错误路径重现。Code Review checklist 加一项（已隶 docs/conventions/code-review-checklist.md）：“三件套齐？”
+
+关联：
+- ADR-0044 §3.4：本附录原上下文来源
+- 胡桃 MEMORY SOP（ADR 实施前契约核验）：本附录三件套是 checklist 钉死点之一
+
+---
+
 ## 5. 验收（B1）
 
 - [ ] ADR-0042 落盘（本 ADR Accept）
