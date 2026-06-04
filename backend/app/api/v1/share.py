@@ -212,14 +212,11 @@ async def revoke_share(
     # 幂等 revoke 返回 None 跳过 broadcast 以免忧六迭代 close。
     if token_value is not None:
         try:
-            from fastapi import Request as _Req  # type hint only
-            _ = _Req  # silence unused warning
-            # endpoint context: 如 request 未注入，边使用 ShareService session bind
-            # 取 app instance: session 不能获取 fastapi app，改走 module-level singleton
             from app.ws.pubsub import get_current_share_broker
             broker = get_current_share_broker()
             if broker is not None:
-                await broker.close_all_for_key(
+                # S2-INT-006-AC9-FOLLOWUP: broadcast 跨 replica (local close + Redis fanout)
+                await broker.broadcast_close_all_for_key(
                     f"token:{token_value}",
                     code=4013,
                     reason="token_revoked_or_expired",

@@ -719,3 +719,87 @@ async def test_close_all_for_key_swallows_per_ws_close_failure():
     assert closed == 2  # 都尝试了
     assert good.closed_with == (4013, "r")
     await broker.stop()
+
+
+# ---------------------------------------------------------------------------
+# S2-INT-006-AC9-FOLLOWUP: 多副本 revoke close 4013 跨 replica fanout
+# ---------------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_broadcast_close_all_for_key_local_only_when_disabled():
+    """enabled=False 仅本地 close，不发 publish。"""
+    broker = WsPubSubBroker(redis_client=None, enabled=False)
+    await broker.start()
+    key = "token:abc"
+    ws = FakeWebSocket()
+    await broker.register(key, ws)
+    closed = await broker.broadcast_close_all_for_key(
+        key, code=4013, reason="token_revoked_or_expired"
+    )
+    assert closed == 1
+    assert ws.closed_with == (4013, "token_revoked_or_expired")
+    await broker.stop()
+
+
+@pytest.mark.asyncio
+async def test_broadcast_close_all_for_key_fanout_to_other_replica():
+    """A revoke broadcast → B 上的 WS 收到 close 4013。"""
+    bus = FakeRedisBus()
+    broker_a = WsPubSubBroker(
+        redis_client=bus, enabled=True, instance_id="A-multi"
+    )
+    broker_b = WsPubSubBroker(
+        redis_client=bus, enabled=True, instance_id="B-multi"
+    )
+    await broker_a.start()
+    await broker_b.start()
+
+    key = "token:multi-revoke"
+    ws_on_b = FakeWebSocket()
+    await broker_b.register(key, ws_on_b)
+    # 也在 A 上注册一个 (验本地 + 远端都 close)
+    ws_on_a = FakeWebSocket()
+    await broker_a.register(key, ws_on_a)
+
+    # A revoke broadcast
+    closed_locally = await broker_a.broadcast_close_all_for_key(
+        key, code=4013, reason="token_revoked_or_expired"
+    )
+    assert closed_locally == 1  # 本地 A 上 1 个
+    assert ws_on_a.closed_with == (4013, "token_revoked_or_expired")
+
+    # listen loop 异步调度，等 B 上的 WS 收到 close
+    for _ in range(40):
+        await asyncio.sleep(0.01)
+        if ws_on_b.closed_with is not None:
+            break
+
+    assert ws_on_b.closed_with == (4013, "token_revoked_or_expired"), \
+        "B replica 上的 WS 必须收到跨 replica close 4013"
+
+    await broker_a.stop()
+    await broker_b.stop()
+
+
+@pytest.mark.asyncio
+async def test_broadcast_close_all_for_key_idempotent_no_re_close():
+    """A 自发 broadcast 不应被 A 自己的 listen_loop 重复 close (origin check)。"""
+    bus = FakeRedisBus()
+    broker_a = WsPubSubBroker(
+        redis_client=bus, enabled=True, instance_id="A-idem"
+    )
+    await broker_a.start()
+    key = "token:idem"
+    ws = FakeWebSocket()
+    await broker_a.register(key, ws)
+
+    closed = await broker_a.broadcast_close_all_for_key(
+        key, code=4013, reason="r"
+    )
+    assert closed == 1
+    initial_state = ws.closed_with
+
+    # 等可能的自回显
+    await asyncio.sleep(0.1)
+    assert ws.closed_with == initial_state, "origin 自回显应被跳过"
+
+    await broker_a.stop()
