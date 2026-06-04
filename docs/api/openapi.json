@@ -3228,18 +3228,6 @@
         "title": "NotificationResponse",
         "type": "object"
       },
-      "OkResponse": {
-        "properties": {
-          "ok": {
-            "default": true,
-            "description": "是否成功",
-            "title": "Ok",
-            "type": "boolean"
-          }
-        },
-        "title": "OkResponse",
-        "type": "object"
-      },
       "OrderFamilyMemberSnapshot": {
         "description": "Denormalized snapshot embedded on Order responses so a deleted\nfamily member still appears correctly in historical orders.",
         "properties": {
@@ -4452,6 +4440,240 @@
         "title": "SendOtpResponse",
         "type": "object"
       },
+      "ServicePackageCreateBody": {
+        "properties": {
+          "code": {
+            "description": "业务编码，unique",
+            "maxLength": 50,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "详情说明（可选）",
+            "title": "Description"
+          },
+          "is_active": {
+            "default": true,
+            "description": "是否启用，默认 true",
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "中文显示名",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Name",
+            "type": "string"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "价格（必须 > 0）",
+            "title": "Price"
+          },
+          "sort_order": {
+            "default": 0,
+            "description": "排序权重",
+            "minimum": 0.0,
+            "title": "Sort Order",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "name",
+          "price"
+        ],
+        "title": "ServicePackageCreateBody",
+        "type": "object"
+      },
+      "ServicePackageItem": {
+        "description": "对外暴露的 ServicePackage 字段（与 ORM 1:1）。",
+        "properties": {
+          "code": {
+            "description": "业务编码（unique，Order.service_type 引用此字段）",
+            "title": "Code",
+            "type": "string"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "创建时间 ISO8601",
+            "title": "Created At"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "详情说明（可选）",
+            "title": "Description"
+          },
+          "id": {
+            "description": "主键 UUID 字符串",
+            "title": "Id",
+            "type": "string"
+          },
+          "is_active": {
+            "description": "启用状态",
+            "title": "Is Active",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "中文显示名",
+            "title": "Name",
+            "type": "string"
+          },
+          "price": {
+            "description": "价格（元，Decimal 遵 ADR-0030）",
+            "title": "Price",
+            "type": "string"
+          },
+          "sort_order": {
+            "description": "排序权重（升序）",
+            "title": "Sort Order",
+            "type": "integer"
+          },
+          "updated_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "更新时间 ISO8601",
+            "title": "Updated At"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "name",
+          "price",
+          "is_active",
+          "sort_order"
+        ],
+        "title": "ServicePackageItem",
+        "type": "object"
+      },
+      "ServicePackageListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ServicePackageItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total": {
+            "default": 0,
+            "description": "总条数",
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "title": "ServicePackageListResponse",
+        "type": "object"
+      },
+      "ServicePackageUpdateBody": {
+        "description": "部分更新；未传字段不动。",
+        "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "is_active": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Active"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "maxLength": 100,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price"
+          },
+          "sort_order": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sort Order"
+          }
+        },
+        "title": "ServicePackageUpdateBody",
+        "type": "object"
+      },
       "ShareOrderResponse": {
         "description": "GET /shares/session/order response — desensitized order view.\n\nStrict subset of ``OrderResponse`` — PII fields (患者电话/身份证/病情\n描述) are intentionally absent. Family-facing fields only.",
         "properties": {
@@ -5513,6 +5735,29 @@
         ],
         "title": "WeChatLoginRequest",
         "type": "object"
+      },
+      "app__api__v1__admin__companions__OkResponse": {
+        "properties": {
+          "ok": {
+            "default": true,
+            "description": "是否成功",
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "title": "OkResponse",
+        "type": "object"
+      },
+      "app__api__v1__admin__service_packages__OkResponse": {
+        "properties": {
+          "ok": {
+            "default": true,
+            "title": "Ok",
+            "type": "boolean"
+          }
+        },
+        "title": "OkResponse",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -6203,7 +6448,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OkResponse"
+                  "$ref": "#/components/schemas/app__api__v1__admin__companions__OkResponse"
                 }
               }
             },
@@ -6377,7 +6622,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OkResponse"
+                  "$ref": "#/components/schemas/app__api__v1__admin__companions__OkResponse"
                 }
               }
             },
@@ -8114,6 +8359,396 @@
         "tags": [
           "admin",
           "admin-reconciliation"
+        ]
+      }
+    },
+    "/api/v1/admin/service-packages/": {
+      "get": {
+        "description": "默认仅返回 is_active=true。?include_inactive=true 拉全部（含软删）。按 sort_order 升序。",
+        "operationId": "list_service_packages_api_v1_admin_service_packages__get",
+        "parameters": [
+          {
+            "description": "为 true 时返回 is_active=false 的软删项",
+            "in": "query",
+            "name": "include_inactive",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "为 true 时返回 is_active=false 的软删项",
+              "title": "Include Inactive",
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServicePackageListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：服务档位列表",
+        "tags": [
+          "admin",
+          "admin-service-packages"
+        ]
+      },
+      "post": {
+        "description": "code 全局唯一；price 必须 > 0；写 admin_audit_log create + before/after diff。",
+        "operationId": "create_service_package_api_v1_admin_service_packages__post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServicePackageCreateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServicePackageItem"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：新建服务档位",
+        "tags": [
+          "admin",
+          "admin-service-packages"
+        ]
+      }
+    },
+    "/api/v1/admin/service-packages/{pkg_id}": {
+      "delete": {
+        "description": "软删（is_active=false）。**不真删**，避免历史 Order.service_type 引用断裂（ADR-0043 §2.2 弱外键策略）。写 admin_audit_log soft_delete。",
+        "operationId": "soft_delete_service_package_api_v1_admin_service_packages__pkg_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pkg_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Pkg Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__api__v1__admin__service_packages__OkResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：软删服务档位",
+        "tags": [
+          "admin",
+          "admin-service-packages"
+        ]
+      },
+      "get": {
+        "operationId": "get_service_package_api_v1_admin_service_packages__pkg_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pkg_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Pkg Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServicePackageItem"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：服务档位详情",
+        "tags": [
+          "admin",
+          "admin-service-packages"
+        ]
+      },
+      "patch": {
+        "description": "部分更新 name/price/is_active/sort_order/description；code 不可改（避免历史 Order.service_type 引用断裂）。写 admin_audit_log update + before/after diff。",
+        "operationId": "update_service_package_api_v1_admin_service_packages__pkg_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pkg_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Pkg Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServicePackageUpdateBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServicePackageItem"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：更新服务档位",
+        "tags": [
+          "admin",
+          "admin-service-packages"
         ]
       }
     },
