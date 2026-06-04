@@ -1,13 +1,14 @@
 /**
- * 陪诊师审核样板（S2-DEV-013 / acceptance #3 ）
+ * 陪诊师审核样板（S2-DEV-013 PR-B / acceptance #3 ）
  *
  * 4 个 REST 端点接通：
- * - GET /admin/companions （列表分页）
- * - GET /admin/companions/{id} （详情）
+ * - GET /admin/companions          （分页列表，强制 status=pending）
  * - POST /admin/companions/{id}/approve （通过）
- * - POST /admin/companions/{id}/reject （拒绝）
+ * - POST /admin/companions/{id}/reject  （拒绝，body.reason 1-500 字）
  *
- * 模式标准：TanStack Query useQuery + useMutation，error boundary，loading skeleton。
+ * 注：后端无 GET /admin/companions/{id} detail 端点（PR-A 假设错误）。
+ * Drawer 直接复用 list row 数据，无需额外 fetch（详 PR-B description 契约对照表）。
+ *
  * 后续 8 项 feature 复制本模板即可（Phase 2-9 复粘式扩展）。
  */
 import { useState } from 'react'
@@ -18,22 +19,25 @@ import { apiClient } from '../../shared/api/client'
 
 interface CompanionRow {
   id: string
-  name: string
-  phone: string
-  status: 'pending' | 'verified' | 'rejected'
-  created_at: string
+  real_name: string
+  id_number: string | null  // 已脱敏（backend mask_id_number）
+  certifications: string | null
+  created_at: string | null
 }
 
 interface ListResponse {
   items: CompanionRow[]
   total: number
+  page: number
+  page_size: number
 }
 
-const PAGE_SIZE = 10
+const PAGE_SIZE = 20
 
 async function fetchList(page: number): Promise<ListResponse> {
-  const resp = await apiClient.get<ListResponse>('/admin/companions', {
-    params: { status: 'pending', page, page_size: PAGE_SIZE },
+  // backend GET /admin/companions 强制 status=pending（不需前端传）
+  const resp = await apiClient.get<ListResponse>('/admin/companions/', {
+    params: { page, page_size: PAGE_SIZE },
   })
   return resp.data
 }
@@ -46,14 +50,9 @@ async function reject(id: string, reason: string): Promise<void> {
   await apiClient.post(`/admin/companions/${id}/reject`, { reason })
 }
 
-async function fetchDetail(id: string): Promise<CompanionRow> {
-  const resp = await apiClient.get<CompanionRow>(`/admin/companions/${id}`)
-  return resp.data
-}
-
 export function CompanionReviewListPage() {
   const [page, setPage] = useState(1)
-  const [detailId, setDetailId] = useState<string | null>(null)
+  const [detail, setDetail] = useState<CompanionRow | null>(null)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const qc = useQueryClient()
@@ -63,37 +62,32 @@ export function CompanionReviewListPage() {
     queryFn: () => fetchList(page),
   })
 
-  const detailQ = useQuery({
-    queryKey: ['companion-detail', detailId],
-    queryFn: () => fetchDetail(detailId!),
-    enabled: !!detailId,
-  })
-
   const approveM = useMutation({
     mutationFn: (id: string) => approve(id),
     onSuccess: () => {
       message.success('已通过')
       qc.invalidateQueries({ queryKey: ['companion-list'] })
-      setDetailId(null)
+      setDetail(null)
     },
     onError: (err) => message.error(`通过失败：${(err as Error).message}`),
   })
 
   const rejectM = useMutation({
-    mutationFn: ({ id, reason }: { id: string; reason: string }) => reject(id, reason),
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      reject(id, reason),
     onSuccess: () => {
       message.success('已拒绝')
       qc.invalidateQueries({ queryKey: ['companion-list'] })
       setRejectingId(null)
       setRejectReason('')
-      setDetailId(null)
+      setDetail(null)
     },
     onError: (err) => message.error(`拒绝失败：${(err as Error).message}`),
   })
 
   return (
     <div data-test-id="companion-review-page">
-      <h2>陪诊师审核</h2>
+      <h2>陪诊师审核（待审核）</h2>
       <Table<CompanionRow>
         rowKey="id"
         loading={listQ.isLoading}
@@ -105,23 +99,31 @@ export function CompanionReviewListPage() {
           onChange: setPage,
         }}
         columns={[
-          { title: '姓名', dataIndex: 'name' },
-          { title: '手机号', dataIndex: 'phone' },
+          { title: '姓名', dataIndex: 'real_name' },
+          {
+            title: '身份证（脱敏）',
+            dataIndex: 'id_number',
+            render: (v: string | null) => v ?? '—',
+          },
+          {
+            title: '持证',
+            dataIndex: 'certifications',
+            render: (v: string | null) => v ?? '—',
+          },
           {
             title: '状态',
-            dataIndex: 'status',
-            render: (s: CompanionRow['status']) => (
-              <Tag color={s === 'pending' ? 'orange' : s === 'verified' ? 'green' : 'red'}>
-                {s}
-              </Tag>
-            ),
+            render: () => <Tag color="orange">pending</Tag>,
           },
-          { title: '申请时间', dataIndex: 'created_at' },
+          {
+            title: '申请时间',
+            dataIndex: 'created_at',
+            render: (v: string | null) => v ?? '—',
+          },
           {
             title: '操作',
             render: (_, row) => (
               <Space>
-                <Button size="small" onClick={() => setDetailId(row.id)}>
+                <Button size="small" onClick={() => setDetail(row)}>
                   详情
                 </Button>
               </Space>
@@ -132,36 +134,40 @@ export function CompanionReviewListPage() {
 
       <Drawer
         title="陪诊师详情"
-        open={!!detailId}
-        onClose={() => setDetailId(null)}
+        open={!!detail}
+        onClose={() => setDetail(null)}
         width={520}
         extra={
-          detailQ.data?.status === 'pending' && (
+          detail && (
             <Space>
               <Button
                 type="primary"
                 loading={approveM.isPending}
-                onClick={() => approveM.mutate(detailId!)}
+                onClick={() => approveM.mutate(detail.id)}
               >
                 通过
               </Button>
-              <Button danger onClick={() => setRejectingId(detailId)}>
+              <Button danger onClick={() => setRejectingId(detail.id)}>
                 拒绝
               </Button>
             </Space>
           )
         }
       >
-        {detailQ.isLoading && '加载中...'}
-        {detailQ.error && (
-          <div style={{ color: 'red' }}>详情加载失败：{(detailQ.error as Error).message}</div>
-        )}
-        {detailQ.data && (
+        {detail && (
           <Descriptions column={1}>
-            <Descriptions.Item label="姓名">{detailQ.data.name}</Descriptions.Item>
-            <Descriptions.Item label="手机号">{detailQ.data.phone}</Descriptions.Item>
-            <Descriptions.Item label="状态">{detailQ.data.status}</Descriptions.Item>
-            <Descriptions.Item label="申请时间">{detailQ.data.created_at}</Descriptions.Item>
+            <Descriptions.Item label="ID">{detail.id}</Descriptions.Item>
+            <Descriptions.Item label="姓名">{detail.real_name}</Descriptions.Item>
+            <Descriptions.Item label="身份证（脱敏）">
+              {detail.id_number ?? '—'}
+            </Descriptions.Item>
+            <Descriptions.Item label="持证">
+              {detail.certifications ?? '—'}
+            </Descriptions.Item>
+            <Descriptions.Item label="状态">pending</Descriptions.Item>
+            <Descriptions.Item label="申请时间">
+              {detail.created_at ?? '—'}
+            </Descriptions.Item>
           </Descriptions>
         )}
       </Drawer>
@@ -184,7 +190,9 @@ export function CompanionReviewListPage() {
           value={rejectReason}
           onChange={(e) => setRejectReason(e.target.value)}
           rows={3}
-          placeholder="请输入拒绝理由（审计行写入）"
+          maxLength={500}
+          showCount
+          placeholder="请输入拒绝理由（1~500 字，审计行写入）"
         />
       </Modal>
     </div>
