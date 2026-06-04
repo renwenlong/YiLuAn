@@ -4,6 +4,7 @@ var getCompanions = require('../../../services/companion').getCompanions
 var listFamilyMembers = require('../../../services/familyMember').listFamilyMembers
 var relationLabel = require('../../../utils/familyRelation').relationLabel
 var SERVICE_TYPES = require('../../../utils/constants').SERVICE_TYPES
+var listPublicServicePackages = require('../../../services/servicePackages').listPublicServicePackages
 var formatCurrency = require('../../../utils/formatCurrency').formatCurrency
 var orderSummary = require('../../../utils/orderSummary')
 var stepper = require('../../../utils/stepperState')
@@ -40,12 +41,14 @@ Page({
     maxReachedStep: 1,
     stepStates: ['active', 'collapsed', 'collapsed', 'collapsed'],
     stepTitles: stepper.STEP_TITLES,
-    // 服务类型列表（用于步骤1 渲染）
+    // 服务类型列表（S2-REQ-003-P5b：onLoad 拉 /public/service-packages、降级 fallback）
     serviceTypes: [
       { code: 'full_accompany', name: '全程陪诊', price: 299 },
       { code: 'half_accompany', name: '半程陪诊', price: 199 },
       { code: 'errand', name: '代办跑腿', price: 149 }
     ],
+    // 服务档位是否使用了降级兼底（API 不可达，显示提示）
+    servicePackagesFallback: false,
     // 各步骤摘要（接 orderSummary 真源）
     summaryService: '',
     summaryHospital: '',
@@ -88,6 +91,30 @@ Page({
     }
 
     this.setData(data)
+
+    // S2-REQ-003-P5b: 拉 /public/service-packages 接口 覆盖默认 3 档
+    // (不 出发 出售), 降级 fallback (FALLBACK_PACKAGES 与默认 3 档一致)
+    var self = this
+    listPublicServicePackages().then(function (pkgs) {
+      var isFallback = pkgs.length > 0 && pkgs[0]._fallback === true
+      self.setData({
+        serviceTypes: pkgs.map(function (p) {
+          return { code: p.code, name: p.name, price: p.price }
+        }),
+        servicePackagesFallback: isFallback
+      })
+      // 如果 URL 带 type 可在动态档位中重启以 sync名称+价格
+      if (self.data.serviceType) {
+        var match = pkgs.filter(function (p) { return p.code === self.data.serviceType })[0]
+        if (match) {
+          self.setData({
+            serviceTypeName: match.name,
+            servicePrice: match.price,
+            servicePriceText: formatCurrency(match.price)
+          }, function () { self.recomputeSteps && self.recomputeSteps() })
+        }
+      }
+    })
 
     if (options.companion_id) {
       this.loadCompanion(options.companion_id)

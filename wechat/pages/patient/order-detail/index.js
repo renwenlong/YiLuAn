@@ -104,7 +104,11 @@ Page({
     this.setData({ loading: true })
     try {
       const order = await getOrderDetail(this.orderId)
+      // S2-REQ-003-P5b: 优先使用 order.service_name_snapshot (P3 快照，
+      // admin 改名改价后历史订单仍显示下单瞬间的看名称)，
+      // 无快照 fallback 到 SERVICE_TYPES dict (兼容历史订单)。
       const svc = SERVICE_TYPES[order.service_type] || {}
+      const serviceLabel = order.service_name_snapshot || svc.label || order.service_type
 
       var review = null
       if (order.status === 'reviewed' || order.status === 'completed') {
@@ -125,7 +129,7 @@ Page({
           formattedPrice: order.price !== undefined && order.price !== null ? formatCurrency(order.price) : '',
           timelineIndex: order.timeline_index
         },
-        serviceLabel: svc.label || order.service_type,
+        serviceLabel: serviceLabel,
         paymentStatusLabel: PAYMENT_STATUS_MAP[paymentStatus] || paymentStatus,
         paymentStatusClass: paymentStatus,
         familyRelationLabel: famLabel
