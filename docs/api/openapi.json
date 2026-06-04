@@ -8593,6 +8593,7 @@
         ]
       },
       "get": {
+        "description": "返回单个服务档位全部字段 (code/name/price/is_active/sort_order/description/created_at/updated_at)。未找到 404。该端点不过滤 is_active，admin 可查软删项用于恢复场景。",
         "operationId": "get_service_package_api_v1_admin_service_packages__pkg_id__get",
         "parameters": [
           {

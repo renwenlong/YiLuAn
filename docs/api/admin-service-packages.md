@@ -111,7 +111,7 @@ curl -X DELETE 'https://api.yiluan.example.com/api/v1/admin/service-packages/{pk
 
 ### `GET /api/v1/admin/service-packages/{pkg_id}` — 后台：服务档位详情
 
-
+返回单个服务档位全部字段 (code/name/price/is_active/sort_order/description/created_at/updated_at)。未找到 404。该端点不过滤 is_active，admin 可查软删项用于恢复场景。
 
 **参数：**
 

@@ -175,6 +175,11 @@ async def list_service_packages(
     "/{pkg_id}",
     response_model=ServicePackageItem,
     summary="后台：服务档位详情",
+    description=(
+        "返回单个服务档位全部字段 (code/name/price/is_active/sort_order/"
+        "description/created_at/updated_at)。未找到 404。该端点不过滤 is_active，"
+        "admin 可查软删项用于恢复场景。"
+    ),
 )
 async def get_service_package(
     pkg_id: UUID,
