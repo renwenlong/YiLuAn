@@ -30,7 +30,7 @@ class _OrderPaymentMixin(_OrderServiceBase):
             order_id=order.id,
             order_number=order.order_number,
             user_id=user.id,
-            amount=order.price,
+            amount=order.service_price_snapshot or order.price,
             description=f"医路安陪诊服务-{order.order_number}",
             openid=getattr(user, "wechat_openid", None),
         )
@@ -72,11 +72,11 @@ class _OrderPaymentMixin(_OrderServiceBase):
         ):
             raise BadRequestException("Only cancelled orders can be refunded")
 
-        result = await self.payment_svc.create_refund(
+        await self.payment_svc.create_refund(
             order_id=order_id,
             user_id=user.id,
-            original_amount=order.price,
-            refund_amount=order.price,
+            original_amount=order.service_price_snapshot or order.price,
+            refund_amount=order.service_price_snapshot or order.price,
         )
         # Return the Payment record for API response compatibility
         payment = await self.payment_repo.get_by_order_and_type(order_id, "refund")

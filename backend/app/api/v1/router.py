@@ -1,30 +1,36 @@
 from fastapi import APIRouter
 
+from app.api.v1.admin import router as admin_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.auth_apple import router as auth_apple_router
 from app.api.v1.chats import router as chats_router
 from app.api.v1.companions import router as companions_router
 from app.api.v1.emergency import router as emergency_router
+from app.api.v1.family_members import router as family_members_router
+from app.api.v1.followup_reminders import router as followup_reminders_router
+from app.api.v1.health import router as health_router
 from app.api.v1.hospitals import router as hospitals_router
 from app.api.v1.notifications import router as notifications_router
 from app.api.v1.orders import router as orders_router
 from app.api.v1.patients import router as patients_router
-from app.api.v1.family_members import router as family_members_router
-from app.api.v1.followup_reminders import router as followup_reminders_router
-from app.api.v1.reviews import router as reviews_router
-from app.api.v1.users import router as users_router
-from app.api.v1.wallet import router as wallet_router
 from app.api.v1.payment_callback import router as payment_callback_router
+from app.api.v1.public_service_packages import router as public_service_packages_router
+from app.api.v1.reviews import router as reviews_router
 from app.api.v1.share import router as share_router
 from app.api.v1.telemetry import router as telemetry_router
-from app.api.v1.admin import router as admin_router
-from app.api.v1.health import router as health_router
+from app.api.v1.users import router as users_router
+from app.api.v1.wallet import router as wallet_router
 from app.api.v1.ws import router as ws_router
 
 api_v1_router = APIRouter()
 
 
-@api_v1_router.get("/ping", summary="Ping测试", description="简单的连通性测试接口，返回pong和API版本号。", tags=["health"])
+@api_v1_router.get(
+    "/ping",
+    summary="Ping测试",
+    description="简单的连通性测试接口，返回pong和API版本号。",
+    tags=["health"],
+)
 async def ping():
     return {"message": "pong", "version": "v1"}
 
@@ -44,6 +50,7 @@ api_v1_router.include_router(emergency_router)
 api_v1_router.include_router(notifications_router)
 api_v1_router.include_router(wallet_router)
 api_v1_router.include_router(payment_callback_router)
+api_v1_router.include_router(public_service_packages_router)
 api_v1_router.include_router(share_router)
 api_v1_router.include_router(telemetry_router)
 api_v1_router.include_router(admin_router)

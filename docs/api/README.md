@@ -340,6 +340,12 @@ K8s / ACA 探针使用：
 | `POST` | `/api/v1/shares/{token}/otp` | 家属端（iOS/H5）请求下发短信验证码 |
 | `POST` | `/api/v1/shares/{token}/session` | 家属端用 token + openid/(phone+otp) 换 share_session JWT |
 
+### [public](./public.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/public/service-packages` | 获取服务档位列表 (公开) |
+
 ### [telemetry](./telemetry.md)
 
 | 方法 | 路径 | 说明 |

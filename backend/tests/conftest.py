@@ -5,8 +5,8 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.core.security import create_access_token
 from app.core.rate_limit import limiter as _rate_limiter
+from app.core.security import create_access_token
 from app.database import Base, get_db
 from app.main import app
 from app.models.chat_message import ChatMessage, MessageType
@@ -197,9 +197,10 @@ async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
 # ---------------------------------------------------------------------------
 def _current_alembic_head() -> str | None:
     try:
+        from pathlib import Path as _P
+
         from alembic.config import Config
         from alembic.script import ScriptDirectory
-        from pathlib import Path as _P
 
         cfg_paths = [_P("alembic.ini"), _P(__file__).resolve().parents[1] / "alembic.ini"]
         cfg_path = next((p for p in cfg_paths if p.exists()), None)
@@ -236,6 +237,42 @@ async def setup_database():
     yield
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)
+
+
+@pytest.fixture(autouse=True)
+async def _seed_service_packages(setup_database, request):
+    """S2-REQ-003-P3: 所有 test 需要 service_packages 档位 (create_order 会查).
+
+    跳过自带 service_packages CRUD 测试文件以免 code unique 冲突。
+    跳过 PG_SMOKE=1 (独立 PG 路径 + 不走 SQLite test_session_factory)。
+    """
+    import os
+    if os.environ.get("PG_SMOKE") == "1":
+        yield
+        return
+    skip_files = {
+        "test_service_package_p1.py",
+        "test_admin_service_packages.py",
+        "test_models_pg_smoke.py",
+    }
+    if request.node.fspath.basename in skip_files:
+        yield
+        return
+    from decimal import Decimal
+
+    from app.models.service_package import ServicePackage as _SP
+    async with test_session_factory() as session:
+        for code, name, price, sort in [
+            ("full_accompany", "全程陪诊", Decimal("299.00"), 10),
+            ("half_accompany", "半程陪诊", Decimal("199.00"), 20),
+            ("errand", "跑腿代办", Decimal("149.00"), 30),
+        ]:
+            session.add(_SP(
+                code=code, name=name, price=price,
+                sort_order=sort, is_active=True,
+            ))
+        await session.commit()
+    yield
 
 
 @pytest.fixture
