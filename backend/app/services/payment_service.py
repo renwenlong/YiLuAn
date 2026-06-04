@@ -30,6 +30,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import (
+    settings,  # noqa: F401  (re-exported for legacy tests using monkeypatch on payment_service.settings)
+)
 from app.exceptions import BadRequestException
 from app.models.order import Order, PaymentState, RefundState
 from app.models.payment import Payment

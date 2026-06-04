@@ -244,10 +244,16 @@ async def _seed_service_packages(setup_database, request):
     """S2-REQ-003-P3: 所有 test 需要 service_packages 档位 (create_order 会查).
 
     跳过自带 service_packages CRUD 测试文件以免 code unique 冲突。
+    跳过 PG_SMOKE=1 (独立 PG 路径 + 不走 SQLite test_session_factory)。
     """
+    import os
+    if os.environ.get("PG_SMOKE") == "1":
+        yield
+        return
     skip_files = {
         "test_service_package_p1.py",
         "test_admin_service_packages.py",
+        "test_models_pg_smoke.py",
     }
     if request.node.fspath.basename in skip_files:
         yield
