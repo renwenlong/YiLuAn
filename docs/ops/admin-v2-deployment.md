@@ -143,6 +143,7 @@ gh run download <run_id> -n admin-v2-dist-<run_id> -D admin-v2/dist
 | `/admin-v2/` 404 | `admin-v2/dist/` 空 | `cd admin-v2 && npm install && npm run build` |
 | nginx 启动报 `admin-v2/dist: no such file or directory` | 主 tree 没有 admin-v2/dist 占位 | 已加 `dist/.gitkeep` 保证目录存在 |
 | `/admin-v2/anywhere` 返 nginx 404 不是 SPA index | nginx location 顺序/优先级 | 检查 `try_files $uri $uri/ /admin-v2/index.html` 在 location 内 |
+| `/admin-v2/assets/*.js` 404 (静态资源取不到) | regex location + alias 拼出路径重复 | 本 PR 已修为 prefix location `/admin-v2/assets/`, 不走 regex 避免 path doubling |
 | v2 调 API 401 | sessionStorage token 失效 / X-Admin-Token header 缺失 | 浏览器开 devtools 看 Network 请求 header；重登录 |
 | v1↔v2 sessionStorage 同步失败 | 跨域 / 同源 storage event 未触发 | 确认两者同源 `127.0.0.1:18080`；不要直连 `localhost:18080` 跨主机 |
 
