@@ -5,9 +5,7 @@ from uuid import UUID
 from pydantic import BaseModel, Field, field_serializer, model_validator
 from pydantic.types import condecimal
 
-
 from app.schemas.family_member import OrderFamilyMemberSnapshot
-
 
 # ADR-0030: 金额统一使用 Decimal(10,2)；JSON 序列化为字符串避免精度漂移
 MoneyDecimal = condecimal(max_digits=10, decimal_places=2)
@@ -21,10 +19,10 @@ class CreateOrderRequest(BaseModel):
         examples=["full_accompany"],
     )
     hospital_id: UUID = Field(..., description="目标医院 ID")
-    appointment_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$", description="预约日期", examples=["2026-05-01"])
-    appointment_time: str = Field(..., pattern=r"^\d{2}:\d{2}$", description="预约时间 HH:MM", examples=["09:30"])
-    description: str | None = Field(None, description="补充说明（病情、特殊需求）", examples=["需要陪同做核磁，行动不便"])
-    companion_id: UUID | None = Field(None, description="可选：直接指派的陪诊师 ID；为空则进入大厅抢单")
+    appointment_date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$", description="预约日期", examples=["2026-05-01"])  # noqa: E501
+    appointment_time: str = Field(..., pattern=r"^\d{2}:\d{2}$", description="预约时间 HH:MM", examples=["09:30"])  # noqa: E501
+    description: str | None = Field(None, description="补充说明（病情、特殊需求）", examples=["需要陪同做核磁，行动不便"])  # noqa: E501
+    companion_id: UUID | None = Field(None, description="可选：直接指派的陪诊师 ID；为空则进入大厅抢单")  # noqa: E501
     family_member_id: UUID | None = Field(
         None,
         description="可选：F-05 代他人下单的家人 ID；为空 = 给本人下单",
@@ -43,12 +41,22 @@ class OrderResponse(BaseModel):
     companion_id: UUID | None = Field(None, description="陪诊师用户 ID（未接单时为空）")
     hospital_id: UUID = Field(..., description="医院 ID")
     service_type: str = Field(..., description="服务类型", examples=["full_accompany"])
+    service_name_snapshot: str | None = Field(
+        None,
+        description="下单时 service_packages.name 快照 (S2-REQ-003-P3, admin 改价不影响历史订单显示)",  # noqa: E501
+        examples=["全程陪诊"],
+    )
+    service_price_snapshot: MoneyDecimal | None = Field(
+        None,
+        description="下单时 service_packages.price 快照 (支付/退款以此为准, S2-REQ-003-P3)",
+        examples=["299.00"],
+    )
     status: str = Field(..., description="订单状态", examples=["paid"])
     appointment_date: str = Field(..., description="预约日期", examples=["2026-05-01"])
     appointment_time: str = Field(..., description="预约时间", examples=["09:30"])
     description: str | None = Field(None, description="患者补充说明")
-    price: MoneyDecimal = Field(..., description="订单金额（元，字符串形式避免浮点误差）", examples=["199.00"])
-    hospital_name: str | None = Field(None, description="医院名称（冗余）", examples=["北京协和医院"])
+    price: MoneyDecimal = Field(..., description="订单金额（元，字符串形式避免浮点误差）", examples=["199.00"])  # noqa: E501
+    hospital_name: str | None = Field(None, description="医院名称（冗余）", examples=["北京协和医院"])  # noqa: E501
     companion_name: str | None = Field(None, description="陪诊师姓名（冗余）", examples=["张三"])
     patient_name: str | None = Field(None, description="患者姓名（冗余）", examples=["小明"])
     family_member: OrderFamilyMemberSnapshot | None = Field(
