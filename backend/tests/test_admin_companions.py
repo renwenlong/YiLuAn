@@ -181,3 +181,119 @@ async def test_reject_missing_reason_returns_422(client):
         json={},
     )
     assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# S2-DEV-013 PR-E1 (ADR-0044 §3.1): detail endpoint
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_get_companion_detail_returns_14_fields(client):
+    """detail endpoint 返 14 字段 + cert_image_signed_url 占位 None (PR-E1)。"""
+    profile = await _create_profile(real_name="详情测试陪诊师")
+
+    # 写一些可选字段值（验证 detail 真返回）
+    async with test_session_factory() as session:
+        p = await session.get(CompanionProfile, profile.id)
+        p.bio = "10 年护理经验"
+        p.service_area = "北京"
+        p.service_city = "北京"
+        p.certification_type = "护士资格证"
+        p.certification_no = "RN20250001"
+        p.certification_image_url = "https://blob.example.com/cert/xxx.jpg"  # PR-E2 才 sign
+        p.avg_rating = 4.8
+        p.total_orders = 42
+        await session.commit()
+
+    resp = await client.get(
+        f"{BASE}/{profile.id}",
+        headers=_headers(),
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    # 5 字段与 list 重叠
+    assert data["id"] == str(profile.id)
+    assert data["real_name"] == "详情测试陪诊师"
+    assert data["id_number"] is None or "*" in data["id_number"]  # masked
+    assert data["created_at"] is not None
+    # 新增 9 字段
+    assert data["bio"] == "10 年护理经验"
+    assert data["verification_status"] == "pending"
+    assert data["certified_at"] is None  # 未 certify
+    assert data["certification_type"] == "护士资格证"
+    assert data["certification_no"] == "RN20250001"
+    assert data["certification_image_signed_url"] is None  # ⚠️ PR-E1 占位
+    assert data["service_area"] == "北京"
+    assert data["service_city"] == "北京"
+    assert data["avg_rating"] == 4.8
+    assert data["total_orders"] == 42
+    # 关联用户
+    assert data["user_id"] is not None
+    assert data["user_phone_masked"] is not None
+    assert "*" in data["user_phone_masked"]  # masked
+
+
+@pytest.mark.asyncio
+async def test_get_companion_detail_writes_audit_log(client):
+    """每次 detail GET 写 view_companion_detail audit。"""
+    profile = await _create_profile(real_name="审计测试")
+
+    resp = await client.get(
+        f"{BASE}/{profile.id}",
+        headers=_headers(),
+    )
+    assert resp.status_code == 200
+
+    async with test_session_factory() as session:
+        result = await session.execute(
+            select(AdminAuditLog).where(
+                AdminAuditLog.target_id == profile.id,
+                AdminAuditLog.action == "view_companion_detail",
+            )
+        )
+        log = result.scalar_one()
+        assert log.action == "view_companion_detail"
+        assert log.target_type == "companion"
+
+
+@pytest.mark.asyncio
+async def test_get_companion_detail_404_for_missing(client):
+    """不存在的 companion_id 返 404。"""
+    fake_id = uuid.uuid4()
+    resp = await client.get(
+        f"{BASE}/{fake_id}",
+        headers=_headers(),
+    )
+    assert resp.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_get_companion_detail_requires_admin_token(client):
+    """缺 admin token 返 401（require_admin dependency）。"""
+    profile = await _create_profile()
+    resp = await client.get(
+        f"{BASE}/{profile.id}",
+        headers={},  # 无 token
+    )
+    assert resp.status_code in (401, 403)
+
+
+@pytest.mark.asyncio
+async def test_get_companion_detail_cert_signed_url_is_none_in_pr_e1(client):
+    """PR-E1 acceptance 显式降级：cert_image_signed_url 必须返 None
+    （即使 DB cert_image_url 已存值），PR-E2 才补 signed URL service。"""
+    profile = await _create_profile()
+
+    async with test_session_factory() as session:
+        p = await session.get(CompanionProfile, profile.id)
+        p.certification_image_url = "https://public.example.com/cert.jpg"  # 模拟已存 public URL
+        await session.commit()
+
+    resp = await client.get(
+        f"{BASE}/{profile.id}",
+        headers=_headers(),
+    )
+    assert resp.status_code == 200
+    # PR-E1 占位：即使 DB 有 cert_image_url，detail 也不返
+    assert resp.json()["certification_image_signed_url"] is None
