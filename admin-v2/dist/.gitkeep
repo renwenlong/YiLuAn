@@ -1,0 +1,3 @@
+# admin-v2 build artifact (dist/) 不入库，但保留空目录避免 docker compose mount 报错。
+# 部署前 OPS 跑: cd admin-v2 && npm install && npm run build
+# CI 跑 npm run build 验证, 但 artifact 不 commit (走 GitHub Actions upload-artifact)
