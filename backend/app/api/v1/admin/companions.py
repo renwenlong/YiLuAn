@@ -7,11 +7,13 @@ Auth: X-Admin-Token header (token-based, TODO: migrate to OAuth/JWT)
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, File, Query, Response, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 
-from app.core.admin_auth import require_admin_token  # noqa: F401  (legacy import retained for downstream consumers)
+from app.core.admin_auth import (
+    require_admin_token,  # noqa: F401  (legacy import retained for downstream consumers)
+)
 from app.core.admin_jwt import admin_operator_id, require_admin
 from app.core.pii import mask_id_number, mask_phone
 from app.dependencies import DBSession
@@ -21,11 +23,25 @@ from app.models.companion_profile import CompanionProfile, VerificationStatus
 from app.models.user import User
 from app.schemas.companion import CertifyCompanionRequest, CompanionDetailResponse
 from app.services.admin_audit import AdminAuditService
+from app.services.certification_image import (
+    content_type_for,
+    save_certification_image,
+    sign_certification_image_url,
+    verify_signed_certification_image,
+)
 
 router = APIRouter(
     prefix="/companions",
     tags=["admin-companions"],
     dependencies=[Depends(require_admin)],
+)
+
+# Signed image reads are protected by HMAC+expires and must be usable as an
+# <img src>. Browser image requests cannot attach X-Admin-Token, so this tiny
+# router intentionally has no admin dependency.
+public_certification_images_router = APIRouter(
+    prefix="/companions",
+    tags=["admin-companions"],
 )
 
 
@@ -39,11 +55,27 @@ _LIST_TARGET = UUID("00000000-0000-0000-0000-000000000000")
 
 
 class CompanionItem(BaseModel):
-    id: str = Field(..., description="陪诊师 ID", examples=["3fa85f64-5717-4562-b3fc-2c963f66afa6"])
+    id: str = Field(
+        ...,
+        description="陪诊师 ID",
+        examples=["3fa85f64-5717-4562-b3fc-2c963f66afa6"],
+    )
     real_name: str = Field(..., description="真实姓名", examples=["张三"])
-    id_number: str | None = Field(None, description="身份证号（脱敏）", examples=["110101********1234"])
-    certifications: str | None = Field(None, description="持证信息串", examples=["护士资格证"])
-    created_at: str | None = Field(None, description="创建时间 ISO8601", examples=["2026-04-24T10:00:00+08:00"])
+    id_number: str | None = Field(
+        None,
+        description="身份证号（脱敏）",
+        examples=["110101********1234"],
+    )
+    certifications: str | None = Field(
+        None,
+        description="持证信息串",
+        examples=["护士资格证"],
+    )
+    created_at: str | None = Field(
+        None,
+        description="创建时间 ISO8601",
+        examples=["2026-04-24T10:00:00+08:00"],
+    )
 
 
 class CompanionDetail(BaseModel):
@@ -52,8 +84,8 @@ class CompanionDetail(BaseModel):
     与 list `CompanionItem` 重叠 5 字段（保证 frontend 不需两套 type）+ 新增 9 字段
     覆盖 admin 真审核场景。
 
-    ⚠️ `certification_image_signed_url` 在 PR-E1 为占位 `None`，实安全包装留 PR-E2
-    （需 storage 后端调研 + ADR-0044 r1 amend）。火度推全前必合 PR-E2。
+    PR-E2 Phase A：`certification_image_signed_url` 对 `cert-image://` 本地私有证件图
+    返回 15min HMAC signed URL；历史外部 URL 继续隐藏，留 Phase B storage 迁移。
     """
 
     # 与 list 重叠
@@ -74,7 +106,8 @@ class CompanionDetail(BaseModel):
     certification_image_signed_url: str | None = Field(
         None,
         description=(
-            "证件图 signed URL (TTL ≤ 15min)。⚠️ PR-E1 占位 None、PR-E2 实装 signed URL service 后补齐。"
+            "证件图 signed URL (TTL ≤ 15min)。PR-E2 Phase A 对 cert-image:// "
+            "本地私有对象签名；历史外部 URL 返回 None。"
         ),
     )
 
@@ -90,7 +123,10 @@ class CompanionDetail(BaseModel):
 
     # 关联用户 (PR-E3 补 reveal phone, 本 PR 仅返 masked)
     user_id: str | None = Field(None, description="关联 User.id（供 reveal phone 调用）")
-    user_phone_masked: str | None = Field(None, description="脸主手机号脱敏。reveal 由独立端点 `/admin/users/{user_id}?reveal=true`")
+    user_phone_masked: str | None = Field(
+        None,
+        description="脸主手机号脱敏。reveal 由独立端点 `/admin/users/{user_id}?reveal=true`",
+    )
 
 
 class PaginatedCompanions(BaseModel):
@@ -101,7 +137,13 @@ class PaginatedCompanions(BaseModel):
 
 
 class RejectBody(BaseModel):
-    reason: str = Field(..., min_length=1, max_length=500, description="驳回原因", examples=["资质证明不清晰"])
+    reason: str = Field(
+        ...,
+        min_length=1,
+        max_length=500,
+        description="驳回原因",
+        examples=["资质证明不清晰"],
+    )
 
 
 class OkResponse(BaseModel):
@@ -117,6 +159,18 @@ class CompanionSearchItem(BaseModel):
 
 class CompanionSearchResponse(BaseModel):
     items: list[CompanionSearchItem] = Field(default_factory=list)
+
+
+class CertificationImageUploadResponse(BaseModel):
+    certification_image_url: str = Field(
+        ...,
+        description="Phase A 本地私有存储标识；可传给 certify.certification_image_url",
+        examples=["cert-image://d9f7c3b8a6f14f91a2b3c4d5e6f70819.jpg"],
+    )
+    certification_image_signed_url: str = Field(
+        ...,
+        description="TTL <= 15min 的相对 signed URL，供 admin-v2 上传后立即预览",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -248,18 +302,66 @@ async def search_companions(
     return CompanionSearchResponse(items=items)
 
 
+@router.post(
+    "/certification-images",
+    response_model=CertificationImageUploadResponse,
+    summary="后台：上传陪诊师证件图（Phase A 本地私有存储）",
+    description=(
+        "仅 admin 可用。保存 jpg/jpeg/png/webp <= 5MB 到 backend 私有本地目录，"
+        "返回可写入 certify.certification_image_url 的 cert-image:// 标识 + 15min signed URL。"
+    ),
+)
+async def upload_certification_image(
+    session: DBSession,
+    file: UploadFile = File(...),
+    operator: str = Depends(admin_operator_id),
+):
+    certification_image_url = await save_certification_image(file)
+    signed_url = sign_certification_image_url(certification_image_url)
+
+    session.add(
+        AdminAuditLog(
+            target_type="companion",
+            target_id=_LIST_TARGET,
+            action="upload_certification_image",
+            operator=operator,
+            reason="PR-E2 Phase A local certification image upload",
+        )
+    )
+    await session.flush()
+
+    return CertificationImageUploadResponse(
+        certification_image_url=certification_image_url,
+        certification_image_signed_url=signed_url or "",
+    )
+
+
+@public_certification_images_router.get(
+    "/certification-images/{filename}",
+    summary="后台：读取证件图 signed URL",
+    description="校验 HMAC + expires 后返回本地私有证件图 bytes。",
+)
+async def get_certification_image(
+    filename: str,
+    expires: int,
+    sig: str,
+):
+    path = verify_signed_certification_image(filename, expires, sig)
+    return Response(content=path.read_bytes(), media_type=content_type_for(path))
+
+
 # S2-DEV-013 PR-E1 detail endpoint (ADR-0044 §3.1)。
-# 位置：必须在 /search (static path) 之后注册，否则 /{companion_id} 会抢先匹配
-# "search" 作为 UUID 解析报 422 (历史 bug: PR-E1 首次提交时放在 /search 前导致
-# test_admin_companions_search 4 case fail)。FastAPI 路由按装饰器出现顺序匹配。
+# 位置：必须在 /search 和 /certification-images/* (static path) 之后注册，否则
+# /{companion_id} 会抢先匹配。FastAPI 路由按装饰器出现顺序匹配。
 @router.get(
     "/{companion_id}",
     response_model=CompanionDetail,
     summary="后台：陪诊师审核详情",
     description=(
-        "返回单个陪诊师 14 字段审核视图。⚠️ `certification_image_signed_url` 在"
-        " PR-E1 为占位 `None`，实安全包装留 PR-E2（storage 后端调研 + ADR-0044 r1"
-        " amend）。reveal phone 走独立端点 `GET /admin/users/{user_id}?reveal=true`。"
+        "返回单个陪诊师 14 字段审核视图。`certification_image_signed_url` 对"
+        " PR-E2 Phase A 本地 cert-image:// 对象返回 15min signed URL；历史外部 URL"
+        " 返回 None，待 Phase B storage 迁移。reveal phone 走独立端点"
+        " `GET /admin/users/{user_id}?reveal=true`。"
         " 写入 view_companion_detail 审计。"
     ),
 )
@@ -301,7 +403,7 @@ async def get_companion_detail(
         certified_at=profile.certified_at.isoformat() if profile.certified_at else None,
         certification_type=profile.certification_type,
         certification_no=profile.certification_no,
-        certification_image_signed_url=None,  # ⚠️ PR-E2 实装 signed URL service 后补
+        certification_image_signed_url=sign_certification_image_url(profile.certification_image_url),
         service_area=profile.service_area,
         service_city=profile.service_city,
         service_hospitals=profile.service_hospitals,

@@ -80,7 +80,55 @@ describe('CompanionReviewListPage', () => {
     })
   })
 
-  // case 4: 通过 mutation 成功
+  // case 4: detail drawer renders signed certificate image preview (PR-E2 Phase A)
+  it('renders certification image preview when detail returns signed URL', async () => {
+    mockGet
+      .mockResolvedValueOnce({
+        data: {
+          items: [
+            { id: '1', real_name: '张三', id_number: '110101********1234', certifications: '护士资格证', created_at: '2026-06-04T10:00:00+08:00' },
+          ],
+          total: 1,
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          id: '1',
+          real_name: '张三',
+          id_number: '110101********1234',
+          certifications: '护士资格证',
+          created_at: '2026-06-04T10:00:00+08:00',
+          bio: '10 年护理经验',
+          verification_status: 'pending',
+          certified_at: null,
+          certification_type: '护士资格证',
+          certification_no: 'RN20250001',
+          certification_image_signed_url: '/api/v1/admin/companions/certification-images/a.png?expires=1&sig=x',
+          service_area: '朝阳区',
+          service_city: '北京',
+          service_hospitals: '协和医院',
+          service_types: 'full_accompany',
+          avg_rating: 4.8,
+          total_orders: 42,
+          user_id: 'u1',
+          user_phone_masked: '138****8000',
+        },
+      })
+
+    renderWithProviders(<CompanionReviewListPage />)
+    await waitFor(() => expect(screen.getByText('张三')).toBeInTheDocument())
+    fireEvent.click(screen.getByText((text) => text.replace(/\s/g, '') === '详情').closest('button')!)
+
+    await waitFor(() => {
+      expect(mockGet).toHaveBeenCalledWith('/admin/companions/1')
+      expect(screen.getByAltText('陪诊师证件图预览')).toHaveAttribute(
+        'src',
+        '/api/v1/admin/companions/certification-images/a.png?expires=1&sig=x',
+      )
+    })
+  })
+
+  // case 5: 通过 mutation 成功
   // TODO(PR-B): AntD Table column render 里的 Button 在 vitest+happy-dom 环境下渲染
   // 报 "Unable to find role button name /详情/"。本地未能复制, 待 PR-B 环境准备后调试
   // (可能需 happy-dom 升级 / fireEvent.click 换 userEvent / waitFor 加 timeout)

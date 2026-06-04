@@ -364,6 +364,43 @@
         "title": "Body_upload_avatar_api_v1_users_me_avatar_post",
         "type": "object"
       },
+      "Body_upload_certification_image_api_v1_admin_companions_certification_images_post": {
+        "properties": {
+          "file": {
+            "format": "binary",
+            "title": "File",
+            "type": "string"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "Body_upload_certification_image_api_v1_admin_companions_certification_images_post",
+        "type": "object"
+      },
+      "CertificationImageUploadResponse": {
+        "properties": {
+          "certification_image_signed_url": {
+            "description": "TTL <= 15min 的相对 signed URL，供 admin-v2 上传后立即预览",
+            "title": "Certification Image Signed Url",
+            "type": "string"
+          },
+          "certification_image_url": {
+            "description": "Phase A 本地私有存储标识；可传给 certify.certification_image_url",
+            "examples": [
+              "cert-image://d9f7c3b8a6f14f91a2b3c4d5e6f70819.jpg"
+            ],
+            "title": "Certification Image Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "certification_image_url",
+          "certification_image_signed_url"
+        ],
+        "title": "CertificationImageUploadResponse",
+        "type": "object"
+      },
       "CertifyCompanionRequest": {
         "description": "管理员为陪诊师设置资质认证（F-01）。",
         "properties": {
@@ -564,7 +601,7 @@
         "type": "object"
       },
       "CompanionDetail": {
-        "description": "S2-DEV-013 PR-E1 (ADR-0044 §3.2)：admin 审核 drawer 用详情。\n\n与 list `CompanionItem` 重叠 5 字段（保证 frontend 不需两套 type）+ 新增 9 字段\n覆盖 admin 真审核场景。\n\n⚠️ `certification_image_signed_url` 在 PR-E1 为占位 `None`，实安全包装留 PR-E2\n（需 storage 后端调研 + ADR-0044 r1 amend）。火度推全前必合 PR-E2。",
+        "description": "S2-DEV-013 PR-E1 (ADR-0044 §3.2)：admin 审核 drawer 用详情。\n\n与 list `CompanionItem` 重叠 5 字段（保证 frontend 不需两套 type）+ 新增 9 字段\n覆盖 admin 真审核场景。\n\nPR-E2 Phase A：`certification_image_signed_url` 对 `cert-image://` 本地私有证件图\n返回 15min HMAC signed URL；历史外部 URL 继续隐藏，留 Phase B storage 迁移。",
         "properties": {
           "avg_rating": {
             "default": 0.0,
@@ -593,7 +630,7 @@
                 "type": "null"
               }
             ],
-            "description": "证件图 signed URL (TTL ≤ 15min)。⚠️ PR-E1 占位 None、PR-E2 实装 signed URL service 后补齐。",
+            "description": "证件图 signed URL (TTL ≤ 15min)。PR-E2 Phase A 对 cert-image:// 本地私有对象签名；历史外部 URL 返回 None。",
             "title": "Certification Image Signed Url"
           },
           "certification_no": {
@@ -5790,6 +5827,143 @@
         ]
       }
     },
+    "/api/v1/admin/companions/certification-images": {
+      "post": {
+        "description": "仅 admin 可用。保存 jpg/jpeg/png/webp <= 5MB 到 backend 私有本地目录，返回可写入 certify.certification_image_url 的 cert-image:// 标识 + 15min signed URL。",
+        "operationId": "upload_certification_image_api_v1_admin_companions_certification_images_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_upload_certification_image_api_v1_admin_companions_certification_images_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CertificationImageUploadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：上传陪诊师证件图（Phase A 本地私有存储）",
+        "tags": [
+          "admin",
+          "admin-companions"
+        ]
+      }
+    },
+    "/api/v1/admin/companions/certification-images/{filename}": {
+      "get": {
+        "description": "校验 HMAC + expires 后返回本地私有证件图 bytes。",
+        "operationId": "get_certification_image_api_v1_admin_companions_certification_images__filename__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "filename",
+            "required": true,
+            "schema": {
+              "title": "Filename",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expires",
+            "required": true,
+            "schema": {
+              "title": "Expires",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sig",
+            "required": true,
+            "schema": {
+              "title": "Sig",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：读取证件图 signed URL",
+        "tags": [
+          "admin",
+          "admin-companions"
+        ]
+      }
+    },
     "/api/v1/admin/companions/search": {
       "get": {
         "description": "按姓名或手机号模糊搜索陪诊师，返回 user_id + 姓名 + 手机号尾 4 位。默认仅返回 `verified` 状态；传 `status=all` 取消该过滤。",
@@ -5901,7 +6075,7 @@
     },
     "/api/v1/admin/companions/{companion_id}": {
       "get": {
-        "description": "返回单个陪诊师 14 字段审核视图。⚠️ `certification_image_signed_url` 在 PR-E1 为占位 `None`，实安全包装留 PR-E2（storage 后端调研 + ADR-0044 r1 amend）。reveal phone 走独立端点 `GET /admin/users/{user_id}?reveal=true`。 写入 view_companion_detail 审计。",
+        "description": "返回单个陪诊师 14 字段审核视图。`certification_image_signed_url` 对 PR-E2 Phase A 本地 cert-image:// 对象返回 15min signed URL；历史外部 URL 返回 None，待 Phase B storage 迁移。reveal phone 走独立端点 `GET /admin/users/{user_id}?reveal=true`。 写入 view_companion_detail 审计。",
         "operationId": "get_companion_detail_api_v1_admin_companions__companion_id__get",
         "parameters": [
           {
