@@ -92,7 +92,6 @@ describe('CompanionReviewListPage', () => {
       })
       // PR-A 假招详情是 fetchDetail，现 backend 无 detail endpoint，drawer 复用 list row。
       // skip 3 case 仍保留（PR-D 改 happy-dom / userEvent 后启用）。
-      })
     mockPost.mockResolvedValueOnce({ data: {} })
 
     renderWithProviders(<CompanionReviewListPage />)
@@ -113,7 +112,6 @@ describe('CompanionReviewListPage', () => {
         data: { items: [{ id: '2', real_name: '王五', id_number: null, certifications: null, created_at: null }], total: 1 },
       })
       // (drawer 复用 list row 不调 detail endpoint)
-      })
     mockPost.mockRejectedValueOnce(new Error('403 forbidden'))
 
     renderWithProviders(<CompanionReviewListPage />)
@@ -133,7 +131,6 @@ describe('CompanionReviewListPage', () => {
         data: { items: [{ id: '3', real_name: '赵六', id_number: null, certifications: null, created_at: null }], total: 1 },
       })
       // (drawer 复用 list row 不调 detail endpoint)
-      })
 
     renderWithProviders(<CompanionReviewListPage />)
     await waitFor(() => screen.getByText('赵六'))
