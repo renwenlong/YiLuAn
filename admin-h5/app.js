@@ -84,6 +84,8 @@ const state = {
   },
   // dashboard (A)
   dashboard: { loaded: false },
+  // service packages (S2-REQ-003-P5a)
+  servicePackages: { items: [] },
   // audit log (C)
   audit: {
     page: 1, total: 0, items: [],
@@ -974,6 +976,7 @@ const ROUTES = {
   reconciliation: { view: '#reconView',      mod: Reconciliation },
   wallet:         { view: '#walletView',     mod: Wallet },
   audit:          { view: '#auditView',      mod: AuditLog },
+  servicePackages: { view: '#servicePackagesView', mod: ServicePackages },
 };
 
 function parseHash() {
@@ -1066,6 +1069,7 @@ function init() {
   Reconciliation.bind();
   Dashboard.bind();
   AuditLog.bind();
+  ServicePackages.bind();
   OrderDetailDrawer.bind();
   if (state.token && state.operator) showShell(); else showLogin();
 }

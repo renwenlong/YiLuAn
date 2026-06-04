@@ -49,6 +49,7 @@
         <a class="side-nav__item" data-route="reconciliation" href="#/reconciliation">资金对账</a>
         <a class="side-nav__item" data-route="wallet" href="#/wallet">钱包账本</a>
         <a class="side-nav__item" data-route="audit" href="#/audit">审计日志</a>
+        <a class="side-nav__item" data-route="servicePackages" href="#/servicePackages">服务档位</a>
       </nav>
     </aside>
 
@@ -432,6 +433,79 @@
           <button id="auditNextBtn" class="btn btn-ghost">下一页</button>
         </div>
       </section>
+
+      <!-- Service Packages view (S2-REQ-003-P5a) -->
+      <section id="servicePackagesView" class="card route-view" hidden>
+        <div class="list-toolbar">
+          <h2>服务档位</h2>
+          <div class="toolbar-right">
+            <button id="spRefreshBtn" class="btn btn-ghost">刷新</button>
+            <button id="spCreateBtn" class="btn btn-primary">新建档位</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="width:140px">代码</th>
+                <th style="width:140px">名称</th>
+                <th style="width:100px">价格 (¥)</th>
+                <th style="width:90px">启用</th>
+                <th style="width:90px">排序</th>
+                <th>描述</th>
+                <th style="width:170px">创建时间</th>
+                <th style="width:230px">操作</th>
+              </tr>
+            </thead>
+            <tbody id="spTbody"><tr><td colspan="8" class="empty">加载中…</td></tr></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Service Package edit modal (S2-REQ-003-P5a) -->
+      <div id="spEditModal" class="modal" hidden>
+        <div class="modal__dialog">
+          <div class="modal__header">
+            <h3 id="spEditTitle">新建档位</h3>
+            <button class="modal__close" data-close-sp>&times;</button>
+          </div>
+          <div class="modal__body">
+            <div class="form-row">
+              <label>代码 (code)</label>
+              <input id="spFieldCode" type="text" maxlength="50" placeholder="如 vip_full / errand_express" />
+              <small class="hint">唯一全局业务码，创建后不可改</small>
+            </div>
+            <div class="form-row">
+              <label>名称</label>
+              <input id="spFieldName" type="text" maxlength="100" placeholder="如 全程陪诊" />
+            </div>
+            <div class="form-row">
+              <label>价格 (元)</label>
+              <input id="spFieldPrice" type="text" inputmode="decimal" placeholder="如 299.00" />
+            </div>
+            <div class="form-row">
+              <label>排序权重</label>
+              <input id="spFieldSortOrder" type="number" min="0" value="10" />
+            </div>
+            <div class="form-row">
+              <label>启用状态</label>
+              <select id="spFieldIsActive">
+                <option value="true">启用</option>
+                <option value="false">停用</option>
+              </select>
+            </div>
+            <div class="form-row">
+              <label>描述 (可选)</label>
+              <textarea id="spFieldDescription" maxlength="500" rows="3"></textarea>
+            </div>
+            <div id="spEditError" class="error" hidden></div>
+          </div>
+          <div class="modal__footer">
+            <button class="btn btn-ghost" data-close-sp>取消</button>
+            <button id="spSubmitBtn" class="btn btn-primary">保存</button>
+          </div>
+        </div>
+      </div>
 
 </main>
   </div>
