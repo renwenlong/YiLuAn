@@ -349,7 +349,7 @@ async def test_upload_certification_image_rejects_invalid_type(client, tmp_path,
         headers=_headers(),
         files={"file": ("cert.txt", b"not image", "text/plain")},
     )
-    assert resp.status_code == 400
+    assert resp.status_code == 415
 
 
 @pytest.mark.asyncio
@@ -362,7 +362,7 @@ async def test_upload_certification_image_rejects_too_large(client, tmp_path, mo
         headers=_headers(),
         files={"file": ("cert.jpg", b"x" * (5 * 1024 * 1024 + 1), "image/jpeg")},
     )
-    assert resp.status_code == 400
+    assert resp.status_code == 413
 
 
 @pytest.mark.asyncio
