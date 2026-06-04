@@ -75,8 +75,8 @@ describe('CompanionReviewListPage', () => {
     mockGet.mockRejectedValueOnce(new Error('500 internal error'))
     renderWithProviders(<CompanionReviewListPage />)
     await waitFor(() => {
-      // Table 应渲染 empty data 占位，不应崩溃
-      expect(screen.getByText('陪诊师审核')).toBeInTheDocument()
+      // page title 含补充括号 (待审核), 用 regex 匹配
+      expect(screen.getByText(/陪诊师审核/)).toBeInTheDocument()
     })
   })
 
