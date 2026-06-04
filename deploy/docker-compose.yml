@@ -195,6 +195,13 @@ services:
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ../admin-h5:/usr/share/nginx/admin-h5:ro
+      # S2-DEV-013 PR-C: admin-v2 React SPA dist mount。
+      # 占位 ./placeholder-admin-v2-dist 文件夹避免 nginx 启动报 源不存在。
+      # 实际部署前 OPS 在主 tree 跑 cd admin-v2 + npm install + npm run build
+      # 产生 admin-v2/dist/, 该路径下最终 mount 到容器内 /usr/share/nginx/admin-v2/
+      # 如 dist 不存在 nginx 仍可起动（/admin-v2/ 路径返 404）不阻断其他服务。
+      # 详 docs/ops/admin-v2-deployment.md
+      - ../admin-v2/dist:/usr/share/nginx/admin-v2:ro
     networks:
       - yiluan-net
     healthcheck:
