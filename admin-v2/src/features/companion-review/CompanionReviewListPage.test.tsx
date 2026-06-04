@@ -93,7 +93,8 @@ describe('CompanionReviewListPage', () => {
 
     renderWithProviders(<CompanionReviewListPage />)
     await waitFor(() => screen.getByText('李四'))
-    fireEvent.click(screen.getByText('详情'))
+    // AntD Button 文字嵌套，用 getByRole + name 更稳
+    fireEvent.click(screen.getByRole('button', { name: /详情/ }))
     await waitFor(() => screen.getByRole('button', { name: /通过/ }))
     fireEvent.click(screen.getByRole('button', { name: /通过/ }))
     await waitFor(() => {
@@ -114,7 +115,7 @@ describe('CompanionReviewListPage', () => {
 
     renderWithProviders(<CompanionReviewListPage />)
     await waitFor(() => screen.getByText('王五'))
-    fireEvent.click(screen.getByText('详情'))
+    fireEvent.click(screen.getByRole('button', { name: /详情/ }))
     await waitFor(() => screen.getByRole('button', { name: /通过/ }))
     fireEvent.click(screen.getByRole('button', { name: /通过/ }))
     await waitFor(() => {
@@ -134,7 +135,7 @@ describe('CompanionReviewListPage', () => {
 
     renderWithProviders(<CompanionReviewListPage />)
     await waitFor(() => screen.getByText('赵六'))
-    fireEvent.click(screen.getByText('详情'))
+    fireEvent.click(screen.getByRole('button', { name: /详情/ }))
     await waitFor(() => screen.getByRole('button', { name: /拒绝/ }))
     fireEvent.click(screen.getByRole('button', { name: /拒绝/ }))
     // Modal 出来，OK 按钮 disabled（reason 空）
