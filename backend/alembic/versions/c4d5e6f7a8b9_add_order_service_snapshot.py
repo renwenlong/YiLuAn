@@ -33,11 +33,21 @@ LEGACY_NAMES = {
 def upgrade() -> None:
     op.add_column(
         'orders',
-        sa.Column('service_name_snapshot', sa.String(length=100), nullable=True),
+        sa.Column(
+            'service_name_snapshot',
+            sa.String(length=100),
+            nullable=True,
+            comment='下单时 service_packages.name 快照 (P3)',
+        ),
     )
     op.add_column(
         'orders',
-        sa.Column('service_price_snapshot', sa.Numeric(10, 2), nullable=True),
+        sa.Column(
+            'service_price_snapshot',
+            sa.Numeric(10, 2),
+            nullable=True,
+            comment='下单时 service_packages.price 快照, 支付/退款一律读此字段 (P3)',
+        ),
     )
 
     # 回填历史数据：service_price_snapshot ← orders.price，service_name_snapshot ← legacy map
