@@ -148,14 +148,48 @@ ADR-0042 §3 我会单独发 r1 修订 PR 补本附录（小改），不在本 A
 
 **不阻塞 S2 灰度**。帝君拍后拆低优先级独立表。
 
-### 4.3 双闸鉴权（Phase A + Phase B 同适用）
+### 4.3 鉴权模型（r2 2026-06-04 修订：detail endpoint 双闸 + cert image GET 单闸）
+
+> **r2 修订动因**：S2-TEST-009R 复测中发现原 §4.3 “双闸”表项“闸 1 admin token 验证”在 cert image GET 路径上**物理不可加**：`<img src="...">` 浏览器原生请求**无法携带自定义 header**（X-Admin-Token 不成立）。加闸 1 需切 fetch+blob URL 模式，实现工作量 ~1h + 实际防护增量边际（blob URL 同样可在 admin 拒屏后被复用）。刻晴 review 后接受单闸 + 多层缓解设计（S2-TEST-009R 实证全 PASS）。
+
+#### 4.3.1 detail endpoint 包含返 signed URL 路径（双闸保留）
 
 | 闸 | 拦截点 | 失败码 |
 |---|---|---|
-| 1 | admin token 验证（detail endpoint 返回 signed URL）| 401 |
-| 2 | signed URL TTL 验证（反代路由 / OSS 原生）| 403 / SAS 过期 |
-| 3 | signed URL 签名验证（防篡改）| 403 |
-| 4 | nginx 不暴露 cert 资源 host 裸 GET | 404 |
+| 1 | admin token 验证（第一重 Depends(require_admin) 获取 signed URL）| 401 |
+| 2 | reveal_pii / view_companion_detail 审计留痕（第二重，任何获 URL 动作可追溯责任人）| - |
+
+#### 4.3.2 cert image GET 路径（单闸 + 多层缓解，<img src> 物理约束）
+
+本路径不可加 admin token（`<img src>` 原生请求，无 fetch 阶段可可兊 header）。依赖以下多层缓解：
+
+| 层 | 拦截点 | 失败码 |
+|---|---|---|
+| 1 | HMAC 签名验证（防篡改，hmac.compare_digest 常量时间比较）| 403 |
+| 2 | TTL 验证（expires 字段 ≤ 15min，提示 TTL 调紧到 5min 看n饱度）| 403 |
+| 3 | path 白名单（_safe_filename + resolve + parent 检查防 path traversal）| 403 / 400 |
+| 4 | nginx 不暴露 `/static/cert/*` / `/private/certification-images/*` 裸 GET（必走反代路由，防 bypass）| 404 明确拒（不允许下发默认 fallback body）|
+| 5 | Referer/Origin 校验（可选，admin-v2 主域）| 403（follow-up）|
+| 6 | 高频访问告警（同一厚 companion image > N 次/min）| metric counter + Alertmanager P2（follow-up）|
+| 7 | 审计 view_cert_image 留痕（反代路由写 admin_audit_log）| -（事后追溯）|
+
+#### 4.3.3 nginx 配置明确拒裸 GET（刻晴 S2-TEST-009R 发现修复点）
+
+S2-TEST-009R 实证发现当前 nginx 访问 `/static/cert/*` 返 HTTP 200 + body `yiluan-staging\n`（nginx 默认 fallback）—— 虽**不泄露文件**（PASS 实质）但行为不规范。修复：
+
+```nginx
+# nginx.conf admin upstream 配置补
+location /static/cert/ {
+    return 404;  # 明确拒，不下发默认指 body
+}
+location /private/certification-images/ {
+    return 404;
+}
+# cert image 只能走反代路由
+# GET /api/v1/admin/companions/cert-image/{filename}?expires=...&sig=...
+```
+
+上面是胡桃 PR-E2-impl follow-up small fix（§10 行 nginx config）。火度推全前必合（与 PR-E2-impl follow-up MIME 415 一起）。
 
 ### 4.4 admin-v2 drawer 行为（不变）
 
