@@ -213,6 +213,32 @@ class WsPubSubBroker:
             return sum(len(v) for v in self._local.values())
         return len(self._local.get(str(key), []))
 
+    async def close_all_for_key(
+        self, key: UUID | str, *, code: int, reason: str
+    ) -> int:
+        """主动关闭本副本上该 key 的全部 WS 连接。
+
+        用于 S2-TEST-006R3 AC#9: revoke share token 后服务端必须主动推 close
+        给已建立连接的家属端，不能等下一次 ping (干净的奇个起 30s + 轻口
+        客户端可能不发 ping)。
+
+        返回本副本实际 close 的连接数（包含失败的 best-effort close）。
+        跨副本走 Redis pub/sub broadcast (下面 push_revoke_close_to_key)。
+        """
+        k = str(key)
+        async with self._lock:
+            conns = list(self._local.get(k, []))
+            if k in self._local:
+                del self._local[k]
+        closed = 0
+        for ws in conns:
+            try:
+                await ws.close(code=code, reason=reason)
+            except Exception:  # noqa: BLE001 - best effort
+                pass
+            closed += 1
+        return closed
+
     # ------------------------------------------------------------------
     # 推送
     # ------------------------------------------------------------------

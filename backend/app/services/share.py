@@ -30,7 +30,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.core.pii import mask_name
 from app.exceptions import (
-    ForbiddenException,
     NotFoundException,
     UnauthorizedException,
 )
@@ -148,14 +147,22 @@ class ShareService:
         order_id: UUID,
         token_id: UUID,
         revoked_by: UUID,
-    ) -> None:
+    ) -> str | None:
+        """Revoke share token; return its token value when actually revoked,
+        or None on idempotent re-revoke / unknown id.
+
+        S2-TEST-006R3 AC#9: caller uses the returned token value to dispatch
+        a server-side close 4013 to any live family WS bound to that token.
+        """
         # Re-load to assert cross-order isolation (Top1 §3.5 #3).
         row = await self.tokens.get_by_id(token_id)
         if row is None or row.order_id != order_id:
             raise NotFoundException("Share token not found")
         if row.revoked_at is not None:
-            return  # idempotent revoke
+            return None  # idempotent revoke; do not re-broadcast close
+        token_value = row.token
         await self.tokens.revoke(row, revoked_by=revoked_by)
+        return token_value
 
     # -- viewer-side: exchange / read --------------------------------------
 
