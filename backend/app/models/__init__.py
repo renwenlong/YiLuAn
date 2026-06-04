@@ -1,6 +1,7 @@
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.admin_note import AdminNote
 from app.models.admin_user import AdminRole, AdminUser
+from app.models.ai_digest import AIDigest, AIDigestStatus
 from app.models.chat_message import ChatMessage, MessageType
 from app.models.companion_profile import CompanionProfile, VerificationStatus
 from app.models.dead_letter import DeadLetter, DeadLetterStatus
@@ -9,6 +10,8 @@ from app.models.emergency import EmergencyContact, EmergencyEvent
 from app.models.family_member import FamilyGender, FamilyMember, FamilyRelation
 from app.models.followup_reminder import (
     MAX_ATTEMPTS as FOLLOWUP_MAX_ATTEMPTS,
+)
+from app.models.followup_reminder import (
     FollowupReminder,
     FollowupReminderStatus,
 )
@@ -20,6 +23,16 @@ from app.models.notification import (
     NotificationType,
 )
 from app.models.order import ORDER_TRANSITIONS, Order, OrderStatus, ServiceType
+from app.models.order_share_access_log import OrderShareAccessLog
+from app.models.order_share_token import (
+    ACTIVE_TOKEN_CAP_PER_ORDER,
+    DEFAULT_EXPIRES_AFTER_COMPLETION,
+    HARD_CAP_EXPIRES_AFTER_CREATION,
+    OrderShareToken,
+    ShareScope,
+    compute_expires_at,
+    generate_token,
+)
 from app.models.order_status_history import OrderStatusHistory
 from app.models.patient_profile import PatientProfile
 from app.models.payment import Payment
@@ -34,18 +47,8 @@ from app.models.reconciliation import (
     ReconRunKind,
     ReconRunStatus,
 )
-from app.models.ai_digest import AIDigest, AIDigestStatus
-from app.models.order_share_token import (
-    ACTIVE_TOKEN_CAP_PER_ORDER,
-    DEFAULT_EXPIRES_AFTER_COMPLETION,
-    HARD_CAP_EXPIRES_AFTER_CREATION,
-    OrderShareToken,
-    ShareScope,
-    compute_expires_at,
-    generate_token,
-)
-from app.models.order_share_access_log import OrderShareAccessLog
 from app.models.review import Review
+from app.models.service_package import ServicePackage
 from app.models.sms_send_log import SmsSendLog
 from app.models.telemetry_event import TelemetryEvent
 from app.models.user import User, UserRole
@@ -113,4 +116,5 @@ __all__ = [
     "ACTIVE_TOKEN_CAP_PER_ORDER",
     "DEFAULT_EXPIRES_AFTER_COMPLETION",
     "HARD_CAP_EXPIRES_AFTER_CREATION",
+    "ServicePackage",
 ]

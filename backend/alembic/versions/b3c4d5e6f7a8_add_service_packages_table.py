@@ -9,16 +9,16 @@ Replaces hardcoded ServiceType Enum + SERVICE_PRICES dict (ADR-0043 §2.1).
 Order.service_type weakly references service_packages.code (no FK constraint,
 per ADR-0043 §2.2 to avoid cascade complexity).
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: b3c4d5e6f7a8
 Revises: f7a8b9c0d1e2
 Create Date: 2026-06-04 04:00:00.000000
 """
-from typing import Sequence, Union
 from decimal import Decimal
+from typing import Sequence, Union
 
 import sqlalchemy as sa
-from alembic import op
 
+from alembic import op
 
 revision: str = 'b3c4d5e6f7a8'
 down_revision: Union[str, None] = 'f7a8b9c0d1e2'
@@ -59,7 +59,8 @@ def upgrade() -> None:
     # ----- seed 3 historical types (与 ServiceType Enum + SERVICE_PRICES 一致) -----
     # 用 op.bulk_insert 避免 ORM 在迁移中的 import cycle 风险
     import uuid as _uuid
-    from datetime import datetime, timezone as _tz
+    from datetime import datetime
+    from datetime import timezone as _tz
 
     now = datetime.now(_tz.utc)
     service_packages = sa.table(
