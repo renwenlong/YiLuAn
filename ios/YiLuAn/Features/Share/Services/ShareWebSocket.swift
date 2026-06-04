@@ -19,12 +19,17 @@ import Foundation
 ///
 /// 断线重连：本类**不内置**重连（避免在已 revoke 场景下死循环），由调用方按
 /// close code 决策——4013/4001 跳回 OTPView；4014/4012/网络抖动可重连 1~2 次。
+///
+/// 心跳（S2-INT-006-FOLLOWUP）：连接成功后每 `pingInterval`（默认 30s）发一次
+/// `URLSessionWebSocketTask.sendPing`，失败 → onClose(-1, "ping_failed")。
+/// 移动网络 NAT 中间设备约 60s~5min 静默回收 idle 连接，30s ping 安全裕度足。
+@MainActor
 final class ShareWebSocket {
 
     // MARK: - Public callbacks
 
-    /// 收到服务端事件（已 JSON-decode 为 `[String: Any]`）。回调在 task queue 上，
-    /// 调用方需切回 `@MainActor`/`DispatchQueue.main` 更新 UI。
+    /// 收到服务端事件（已 JSON-decode 为 `[String: Any]`）。本类整体 @MainActor 隔离，
+    /// callback 在主线程执行。
     var onEvent: (([String: Any]) -> Void)?
 
     /// WS 关闭回调。调用方根据 code 决定重连 / 跳回 OTPView。
@@ -44,14 +49,22 @@ final class ShareWebSocket {
     private let session: URLSession
     private var isConnected: Bool = false
 
+    /// 心跳间隔（秒）。测试可注入更小值。
+    let pingInterval: TimeInterval
+
+    /// 心跳 timer。disconnect / 链路断时 invalidate。
+    private var pingTimer: Timer?
+
     init(
         shareToken: String,
         shareSession: String,
-        urlSession: URLSession = .shared
+        urlSession: URLSession = .shared,
+        pingInterval: TimeInterval = 30
     ) {
         self.shareToken = shareToken
         self.shareSession = shareSession
         self.session = urlSession
+        self.pingInterval = pingInterval
     }
 
     // MARK: - Lifecycle
@@ -74,9 +87,44 @@ final class ShareWebSocket {
 
     /// 主动关闭（视图退出 / 用户关闭）。
     func disconnect() {
+        stopPingTimer()
         task?.cancel(with: .goingAway, reason: nil)
         task = nil
         isConnected = false
+    }
+
+    // MARK: - Heartbeat (S2-INT-006-FOLLOWUP)
+
+    /// 在 share_auth_ok 后启动；scheduleTimer 必须在 @MainActor 的 RunLoop 上跑。
+    private func startPingTimer() {
+        stopPingTimer()
+        pingTimer = Timer.scheduledTimer(
+            withTimeInterval: pingInterval,
+            repeats: true
+        ) { [weak self] _ in
+            // Timer 回调跑在 main RunLoop；显式 hop 回 MainActor 满足并发隔离。
+            Task { @MainActor [weak self] in
+                self?.sendPing()
+            }
+        }
+    }
+
+    private func stopPingTimer() {
+        pingTimer?.invalidate()
+        pingTimer = nil
+    }
+
+    private func sendPing() {
+        guard let task else { return }
+        task.sendPing { [weak self] err in
+            guard let self else { return }
+            if let err {
+                Task { @MainActor [weak self] in
+                    self?.onClose?(-1, "ping_failed: \(err.localizedDescription)")
+                    self?.stopPingTimer()
+                }
+            }
+        }
     }
 
     // MARK: - send (auth only, 不发业务帧)
@@ -91,7 +139,9 @@ final class ShareWebSocket {
         task?.send(.string(str)) { [weak self] err in
             if let err {
                 // 鉴权帧发不出去 → 链路断
-                self?.onClose?(-1, "send_auth_failed: \(err.localizedDescription)")
+                Task { @MainActor [weak self] in
+                    self?.onClose?(-1, "send_auth_failed: \(err.localizedDescription)")
+                }
             }
         }
     }
@@ -100,19 +150,20 @@ final class ShareWebSocket {
 
     private func receiveLoop() {
         task?.receive { [weak self] result in
-            guard let self else { return }
-            switch result {
-            case .failure(let err):
-                let nsErr = err as NSError
-                // URLError.cancelled = 主动 disconnect()，不视作异常
-                if nsErr.domain == NSURLErrorDomain, nsErr.code == NSURLErrorCancelled {
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                switch result {
+                case .failure(let err):
+                    let nsErr = err as NSError
+                    if nsErr.domain == NSURLErrorDomain, nsErr.code == NSURLErrorCancelled {
+                        return
+                    }
+                    self.onClose?(nsErr.code, "recv_failed: \(err.localizedDescription)")
                     return
+                case .success(let message):
+                    self.handleMessage(message)
+                    self.receiveLoop()
                 }
-                self.onClose?(nsErr.code, "recv_failed: \(err.localizedDescription)")
-                return
-            case .success(let message):
-                self.handleMessage(message)
-                self.receiveLoop() // 继续监听下一帧
             }
         }
     }
@@ -125,7 +176,8 @@ final class ShareWebSocket {
         case .data(let d):
             decodeAndDispatch(d)
         @unknown default:
-            return
+            // 防协议漂移：Swift 引入新 WS message kind 不静默丢帧，上报供调用方决策。
+            onClose?(-1, "unknown_message_kind")
         }
     }
 
@@ -137,6 +189,7 @@ final class ShareWebSocket {
         switch type {
         case "share_auth_ok":
             isConnected = true
+            startPingTimer()
             onAuthOK?()
         case "share_auth_err":
             // 服务端鉴权失败（无效 JWT / token mismatch / revoke 等），将被 server close
