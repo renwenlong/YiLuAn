@@ -3610,6 +3610,36 @@
             ],
             "title": "Refund State"
           },
+          "service_name_snapshot": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "下单时 service_packages.name 快照 (S2-REQ-003-P3, admin 改价不影响历史订单显示)",
+            "examples": [
+              "全程陪诊"
+            ],
+            "title": "Service Name Snapshot"
+          },
+          "service_price_snapshot": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "下单时 service_packages.price 快照 (支付/退款以此为准, S2-REQ-003-P3)",
+            "examples": [
+              "299.00"
+            ],
+            "title": "Service Price Snapshot"
+          },
           "service_type": {
             "description": "服务类型",
             "examples": [

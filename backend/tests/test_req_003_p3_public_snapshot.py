@@ -82,7 +82,10 @@ class TestCreateOrderSnapshot:
         order_data = resp.json()
         # API 应返回 price (兼容 iOS)
         assert Decimal(str(order_data["price"])) == Decimal("299.00")
-        # 数据库查 snapshot 字段
+        # S2-BUG-S010-01: API 应暴露 snapshot 字段 (不能靠 DB 查)
+        assert order_data.get("service_name_snapshot") == "全程陪诊"
+        assert Decimal(str(order_data["service_price_snapshot"])) == Decimal("299.00")
+        # 数据库查 snapshot 字段 (双验)
         from tests.conftest import test_session_factory
         async with test_session_factory() as session:
             order = (await session.execute(
