@@ -21,6 +21,7 @@
 | `GET` | `/api/v1/admin/audit-logs` | 后台：审计日志列表 |
 | `GET` | `/api/v1/admin/companions/` | 后台：待审核陪诊师列表 |
 | `GET` | `/api/v1/admin/companions/search` | 后台：陪诊师轻量搜索（钱包账本筛选用） |
+| `GET` | `/api/v1/admin/companions/{companion_id}` | 后台：陪诊师审核详情 |
 | `POST` | `/api/v1/admin/companions/{companion_id}/approve` | 后台：批准陪诊师入驻 |
 | `POST` | `/api/v1/admin/companions/{companion_id}/certify` | 管理员：设置陪诊师资质认证（F-01） |
 | `POST` | `/api/v1/admin/companions/{companion_id}/reject` | 后台：驳回陪诊师申请 |
@@ -136,6 +137,32 @@ curl -X GET 'https://api.yiluan.example.com/api/v1/admin/companions/' \
 
 ```bash
 curl -X GET 'https://api.yiluan.example.com/api/v1/admin/companions/search' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `GET /api/v1/admin/companions/{companion_id}` — 后台：陪诊师审核详情
+
+返回单个陪诊师 14 字段审核视图。⚠️ `certification_image_signed_url` 在 PR-E1 为占位 `None`，实安全包装留 PR-E2（storage 后端调研 + ADR-0044 r1 amend）。reveal phone 走独立端点 `GET /admin/users/{user_id}?reveal=true`。 写入 view_companion_detail 审计。
+
+**参数：**
+
+- `companion_id` (path, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X GET 'https://api.yiluan.example.com/api/v1/admin/companions/{companion_id}' \
   -H 'Authorization: Bearer <access_token>'
 ```
 

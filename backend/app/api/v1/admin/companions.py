@@ -167,65 +167,7 @@ async def list_pending_companions(
     return {**result, "items": masked}
 
 
-@router.get(
-    "/{companion_id}",
-    response_model=CompanionDetail,
-    summary="后台：陪诊师审核详情",
-    description=(
-        "返回单个陪诊师 14 字段审核视图。⚠️ `certification_image_signed_url` 在"
-        " PR-E1 为占位 `None`，实安全包装留 PR-E2（storage 后端调研 + ADR-0044 r1"
-        " amend）。reveal phone 走独立端点 `GET /admin/users/{user_id}?reveal=true`。"
-        " 写入 view_companion_detail 审计。"
-    ),
-)
-async def get_companion_detail(
-    companion_id: UUID,
-    session: DBSession,
-    operator: str = Depends(admin_operator_id),
-):
-    profile = await session.get(CompanionProfile, companion_id)
-    if profile is None:
-        raise NotFoundException("Companion not found")
-
-    # 拉关联 user 取 phone。脱敏后不走这个 endpoint 的 reveal——
-    # admin 需明文 phone 点 frontend reveal 按钮 调
-    # `GET /admin/users/{user_id}?reveal=true` (独立审计 reveal_pii)
-    user = await session.get(User, profile.user_id)
-    user_phone_masked = mask_phone(user.phone) if user and user.phone else None
-
-    # 审计留痕
-    session.add(
-        AdminAuditLog(
-            target_type="companion",
-            target_id=companion_id,
-            action="view_companion_detail",
-            operator=operator,
-            reason="PR-E1 detail endpoint",
-        )
-    )
-    await session.flush()
-
-    return CompanionDetail(
-        id=str(profile.id),
-        real_name=profile.real_name,
-        id_number=mask_id_number(profile.id_number) if profile.id_number else None,
-        certifications=profile.certifications,
-        created_at=profile.created_at.isoformat() if profile.created_at else None,
-        bio=profile.bio,
-        verification_status=profile.verification_status.value,
-        certified_at=profile.certified_at.isoformat() if profile.certified_at else None,
-        certification_type=profile.certification_type,
-        certification_no=profile.certification_no,
-        certification_image_signed_url=None,  # ⚠️ PR-E2 实装 signed URL service 后补
-        service_area=profile.service_area,
-        service_city=profile.service_city,
-        service_hospitals=profile.service_hospitals,
-        service_types=profile.service_types,
-        avg_rating=profile.avg_rating,
-        total_orders=profile.total_orders,
-        user_id=str(profile.user_id),
-        user_phone_masked=user_phone_masked,
-    )
+# detail endpoint 移到 search endpoint 之后（避免 /search 被 /{companion_id} 错误匹配）
 
 
 @router.post(
@@ -304,6 +246,71 @@ async def search_companions(
             )
         )
     return CompanionSearchResponse(items=items)
+
+
+# S2-DEV-013 PR-E1 detail endpoint (ADR-0044 §3.1)。
+# 位置：必须在 /search (static path) 之后注册，否则 /{companion_id} 会抢先匹配
+# "search" 作为 UUID 解析报 422 (历史 bug: PR-E1 首次提交时放在 /search 前导致
+# test_admin_companions_search 4 case fail)。FastAPI 路由按装饰器出现顺序匹配。
+@router.get(
+    "/{companion_id}",
+    response_model=CompanionDetail,
+    summary="后台：陪诊师审核详情",
+    description=(
+        "返回单个陪诊师 14 字段审核视图。⚠️ `certification_image_signed_url` 在"
+        " PR-E1 为占位 `None`，实安全包装留 PR-E2（storage 后端调研 + ADR-0044 r1"
+        " amend）。reveal phone 走独立端点 `GET /admin/users/{user_id}?reveal=true`。"
+        " 写入 view_companion_detail 审计。"
+    ),
+)
+async def get_companion_detail(
+    companion_id: UUID,
+    session: DBSession,
+    operator: str = Depends(admin_operator_id),
+):
+    profile = await session.get(CompanionProfile, companion_id)
+    if profile is None:
+        raise NotFoundException("Companion not found")
+
+    # 拉关联 user 取 phone。脱敏后不走这个 endpoint 的 reveal——
+    # admin 需明文 phone 点 frontend reveal 按钮 调
+    # `GET /admin/users/{user_id}?reveal=true` (独立审计 reveal_pii)
+    user = await session.get(User, profile.user_id)
+    user_phone_masked = mask_phone(user.phone) if user and user.phone else None
+
+    # 审计留痕
+    session.add(
+        AdminAuditLog(
+            target_type="companion",
+            target_id=companion_id,
+            action="view_companion_detail",
+            operator=operator,
+            reason="PR-E1 detail endpoint",
+        )
+    )
+    await session.flush()
+
+    return CompanionDetail(
+        id=str(profile.id),
+        real_name=profile.real_name,
+        id_number=mask_id_number(profile.id_number) if profile.id_number else None,
+        certifications=profile.certifications,
+        created_at=profile.created_at.isoformat() if profile.created_at else None,
+        bio=profile.bio,
+        verification_status=profile.verification_status.value,
+        certified_at=profile.certified_at.isoformat() if profile.certified_at else None,
+        certification_type=profile.certification_type,
+        certification_no=profile.certification_no,
+        certification_image_signed_url=None,  # ⚠️ PR-E2 实装 signed URL service 后补
+        service_area=profile.service_area,
+        service_city=profile.service_city,
+        service_hospitals=profile.service_hospitals,
+        service_types=profile.service_types,
+        avg_rating=profile.avg_rating,
+        total_orders=profile.total_orders,
+        user_id=str(profile.user_id),
+        user_phone_masked=user_phone_masked,
+    )
 
 
 @router.post(
