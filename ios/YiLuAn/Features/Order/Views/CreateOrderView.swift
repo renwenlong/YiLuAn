@@ -18,6 +18,10 @@ struct CreateOrderView: View {
     @AppStorage("huge_font") private var hugeFont: Bool = false
 
     @State private var selectedService: ServiceType?
+    // S2-REQ-003-P5c: 动态服务档位 (onAppear 拉 /public/service-packages)
+    @State private var servicePackages: [ServicePackage] = ServicePackagesService.fallbackPackages
+    @State private var servicePackagesIsFallback: Bool = true
+    @State private var selectedPackageCode: String?
     @State private var hospitalId = ""
     @State private var hospitalName = ""
     @State private var hospitalSearchText = ""
@@ -150,6 +154,7 @@ struct CreateOrderView: View {
             .task {
                 await loadFamilyMembers()
                 await loadCurrentUser()
+                await loadServicePackages()
             }
             .alert(
                 "是否回改？",
@@ -282,42 +287,56 @@ struct CreateOrderView: View {
 
     private var serviceSelectionBody: some View {
         VStack(spacing: 8) {
-            ForEach(ServiceType.allCases, id: \.rawValue) { service in
+            if servicePackagesIsFallback {
+                Text("服务列表已降级，使用默认 3 档")
+                    .font(.system(size: tokens.bodyFont * 0.85))
+                    .foregroundStyle(.orange)
+                    .padding(.bottom, 4)
+            }
+            ForEach(servicePackages) { pkg in
                 Button {
-                    selectedService = service
+                    selectedPackageCode = pkg.code
+                    selectedService = ServiceType(rawValue: pkg.code)
                 } label: {
-                    HStack {
-                        Text(service.displayName)
-                            .font(.system(size: tokens.bodyFont, weight: .medium))
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        Text("¥\(NSDecimalNumber(decimal: service.price).intValue)")
-                            .font(.system(size: tokens.bodyFont, weight: .semibold))
-                            .foregroundStyle(.blue)
-                        if selectedService == service {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(.blue)
-                        }
-                    }
-                    .padding()
-                    .background(
-                        selectedService == service
-                            ? Color.blue.opacity(0.1)
-                            : Color(.systemGray6)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(
-                                selectedService == service ? Color.blue : Color.clear,
-                                lineWidth: 2
-                            )
-                    )
-                    .cornerRadius(12)
+                    servicePackageRow(pkg)
                 }
                 .buttonStyle(.plain)
             }
             stepNextButton
         }
+    }
+
+    @ViewBuilder
+    private func servicePackageRow(_ pkg: ServicePackage) -> some View {
+        let isSelected = selectedPackageCode == pkg.code
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(pkg.name)
+                    .font(.system(size: tokens.bodyFont, weight: .medium))
+                    .foregroundStyle(.primary)
+                Spacer()
+                Text("¥\(NSDecimalNumber(decimal: pkg.price).intValue)")
+                    .font(.system(size: tokens.bodyFont, weight: .semibold))
+                    .foregroundStyle(.blue)
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.blue)
+                }
+            }
+            // S2-REQ-003-P5b fix #4: description 渲染 (与微信端一致)
+            if let desc = pkg.description, !desc.isEmpty {
+                Text(desc)
+                    .font(.system(size: tokens.bodyFont * 0.8))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .background(isSelected ? Color.blue.opacity(0.1) : Color(.systemGray6))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
+        )
+        .cornerRadius(12)
     }
 
     // MARK: - Step 2 body：医院 + 科室
@@ -576,6 +595,18 @@ struct CreateOrderView: View {
         // 本人路径下，从已登录 user 信息填充摘要患者
         // 占位实现：当前 ViewModel 无 currentUser；正式接入待后端 me 端点。
         // 不阻塞 stepper 状态机（patientName 为空摘要返回空串，第④步 isStepFilled 仍恒 true）
+    }
+
+    /// S2-REQ-003-P5c: 拉服务档位。Never throws——API 失败时温柔应用 fallback (acceptance #4)。
+    @MainActor
+    private func loadServicePackages() async {
+        let packages = await ServicePackagesService.shared.list()
+        servicePackages = packages
+        servicePackagesIsFallback = packages.first?.isFallback ?? false
+        // 如预选了 type 从 URL，sync selectedPackageCode
+        if let preselected = selectedService {
+            selectedPackageCode = preselected.rawValue
+        }
     }
 
     private func familyRelation() -> String {

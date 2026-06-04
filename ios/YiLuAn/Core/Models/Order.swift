@@ -56,6 +56,12 @@ struct Order: Codable, Identifiable {
     let appointmentTime: String?
     let description: String?
     let price: Decimal
+    /// S2-REQ-003-P3/P5c: 下单时 service_packages.name 快照
+    /// (admin 改名后历史订单仍显示下单时名称)
+    let serviceNameSnapshot: String?
+    /// S2-REQ-003-P3/P5c: 下单时 service_packages.price 快照
+    /// (支付/退款以此为准, admin 改价后历史不变)
+    let servicePriceSnapshot: Decimal?
     let createdAt: Date
     let updatedAt: Date
 

@@ -47,7 +47,10 @@ Page({
           ...order,
           review: review,
           formattedDate: formatDate(order.appointment_date),
-          formattedPrice: order.price ? formatPrice(order.price) : '',
+          // S2-REQ-003-P5b fix: 显式优先 servicePriceSnapshot (P3 后 order.price = snapshot)
+          formattedPrice: order.service_price_snapshot
+            ? formatPrice(order.service_price_snapshot)
+            : (order.price ? formatPrice(order.price) : ''),
           timelineIndex: order.timeline_index
         },
         serviceLabel: serviceLabel

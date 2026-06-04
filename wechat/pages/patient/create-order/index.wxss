@@ -634,3 +634,23 @@
   height: var(--primary-btn-h, 50px);
   font-size: var(--body-font, 18px);
 }
+
+/* S2-REQ-003-P5b fix #1 + #4: 降级提示 + description 渲染 */
+.service-fallback-tip {
+  padding: 8rpx 16rpx;
+  margin-bottom: 12rpx;
+  color: #fa8c16;
+  font-size: 24rpx;
+  background: #fff7e6;
+  border-radius: 6rpx;
+}
+.service-main {
+  display: flex;
+  align-items: center;
+}
+.service-desc {
+  display: block;
+  margin-top: 4rpx;
+  color: var(--color-text-secondary, #999);
+  font-size: 24rpx;
+}

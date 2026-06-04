@@ -47,6 +47,13 @@ struct APIEndpoint {
     // MARK: - Orders
     static let orders = APIEndpoint(path: "orders", method: .get, requiresAuth: true)
     static let createOrder = APIEndpoint(path: "orders", method: .post, requiresAuth: true)
+
+    // MARK: - Public (S2-REQ-003-P5c)
+    static let publicServicePackages = APIEndpoint(
+        path: "public/service-packages",
+        method: .get,
+        requiresAuth: false
+    )
     static func order(id: String) -> APIEndpoint {
         APIEndpoint(path: "orders/\(id)", method: .get, requiresAuth: true)
     }
