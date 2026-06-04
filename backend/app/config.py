@@ -32,6 +32,14 @@ class Settings(BaseSettings):
     azure_storage_container_avatars: str = "avatars"
     azure_storage_container_chat: str = "chat-images"
 
+    # S2-DEV-016 / ADR-0045: Storage backend selector (local | azure)
+    # Phase A: local (default, filesystem + HMAC signed URL).
+    # Phase B: azure (mock until 21Vianet account + ENV ready, real azure-storage-blob SDK).
+    storage_backend: str = "local"
+    # Azure cert image container (used when storage_backend=azure).
+    azure_storage_account_name: str = ""
+    azure_storage_container_cert: str = "yiluan-cert-dev"
+
     # Apple Sign-In (W18-A)
     # TODO(PM): supply real values for production. See `placeholders` doc.
     apple_team_id: str = ""  # TODO: 10-char Apple Developer Team ID
