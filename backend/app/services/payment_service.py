@@ -26,13 +26,10 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
-from app.services.providers.payment.base import _to_decimal
-
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.config import settings
 from app.exceptions import BadRequestException
 from app.models.order import Order, PaymentState, RefundState
 from app.models.payment import Payment
@@ -44,6 +41,7 @@ from app.services.providers.payment import (
     WechatPaymentProvider,
     get_payment_provider,
 )
+from app.services.providers.payment.base import _to_decimal
 from app.services.providers.payment.wechat import (
     _platform_cert_cache,  # noqa: F401  (re-exported for legacy tests)
 )
@@ -357,7 +355,7 @@ class PaymentService:
             PaymentState.paid if success else PaymentState.failed,
         )
 
-        from app.utils.metrics import payment_callback_received_total, order_paid_total
+        from app.utils.metrics import order_paid_total, payment_callback_received_total
         payment_callback_received_total.labels(status=payment.status).inc()
         if payment.status == "success":
             order_paid_total.labels(service_type="unknown").inc()
@@ -387,8 +385,8 @@ class PaymentService:
                 await self.create_refund(
                     order_id=order.id,
                     user_id=payment.user_id,
-                    original_amount=order.price,
-                    refund_amount=order.price,
+                    original_amount=order.service_price_snapshot or order.price,
+                    refund_amount=order.service_price_snapshot or order.price,
                 )
             except BadRequestException as e:
                 # Already refunded — idempotent ok.
@@ -529,9 +527,14 @@ class PaymentService:
 
         # H2-be: refund_state → refunding (mock-success will be flipped
         # to ``refunded`` immediately below).
+        _refund_target = (
+            RefundState.refunded
+            if (is_mock and refund.status == "success")
+            else RefundState.refunding
+        )
         await self._set_refund_state(
             order_id,
-            RefundState.refunded if (is_mock and refund.status == "success") else RefundState.refunding,
+            _refund_target,
         )
 
         # Mock provider 即时成功 → 同步追加 ledger（生产走 refund callback）

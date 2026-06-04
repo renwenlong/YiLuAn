@@ -2,7 +2,6 @@ import enum
 import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
-from typing import Optional
 
 from sqlalchemy import DateTime, Enum, Numeric, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
@@ -138,6 +137,16 @@ class Order(Base):
     appointment_time: Mapped[str] = mapped_column(String(5), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
+    # S2-REQ-003-P3 / ADR-0043 §3: 价格快照 (来自 service_packages 档位)
+    # nullable=True 以兼容历史 orders 行 (migration 回填), 新建订单 create_order 强制写入
+    service_name_snapshot: Mapped[str | None] = mapped_column(
+        String(100), nullable=True,
+        comment="下单时 service_packages.name 快照 (P3)",
+    )
+    service_price_snapshot: Mapped[Decimal | None] = mapped_column(
+        Numeric(10, 2), nullable=True,
+        comment="下单时 service_packages.price 快照, 支付/退款一律读此字段 (P3)",
+    )
     hospital_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     companion_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     patient_name: Mapped[str | None] = mapped_column(String(100), nullable=True)

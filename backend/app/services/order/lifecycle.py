@@ -4,10 +4,13 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import select
+
 from app.core import error_codes
 from app.exceptions import BadRequestException, ForbiddenException, NotFoundException
 from app.models.family_member import FamilyMember
-from app.models.order import Order, OrderStatus, SERVICE_PRICES, ServiceType
+from app.models.order import Order, OrderStatus, ServiceType
+from app.models.service_package import ServicePackage
 from app.models.user import User, UserRole
 from app.repositories.family_member import FamilyMemberRepository
 from app.schemas.order import CreateOrderRequest
@@ -39,7 +42,27 @@ class _OrderLifecycleMixin(_OrderServiceBase):
             raise NotFoundException("Hospital not found")
 
         service_type = ServiceType(data.service_type)
-        price = SERVICE_PRICES[service_type]
+
+        # S2-REQ-003-P3 / ADR-0043 §3: 事务内 SELECT FOR UPDATE 锁档位, 避免 admin 改价 race
+        # 档位 code == ServiceType.value (弱外键), 取名称+价格写快照
+        pkg_stmt = (
+            select(ServicePackage)
+            .where(
+                ServicePackage.code == service_type.value,
+                ServicePackage.is_active.is_(True),
+            )
+            .with_for_update()
+        )
+        pkg_result = await self.session.execute(pkg_stmt)
+        pkg = pkg_result.scalar_one_or_none()
+        if pkg is None:
+            raise BadRequestException(
+                f"服务档位 「{service_type.value}」 不存在或已下架",
+                error_code=error_codes.SERVICE_PACKAGE_INVALID,
+            )
+        price = pkg.price
+        service_name_snapshot = pkg.name
+        service_price_snapshot = pkg.price
 
         companion_id = None
         companion_name = None
@@ -72,6 +95,8 @@ class _OrderLifecycleMixin(_OrderServiceBase):
             appointment_time=data.appointment_time,
             description=data.description,
             price=price,
+            service_name_snapshot=service_name_snapshot,
+            service_price_snapshot=service_price_snapshot,
             hospital_name=hospital.name,
             companion_name=companion_name,
             patient_name=user.display_name or user.phone,
@@ -86,7 +111,8 @@ class _OrderLifecycleMixin(_OrderServiceBase):
         await self._record_history(order.id, None, OrderStatus.created, user.id)
 
         from app.utils.metrics import order_created_total
-        order_created_total.labels(service_type=service_type.value if hasattr(service_type, 'value') else service_type).inc()
+        _svc_label = service_type.value if hasattr(service_type, 'value') else service_type
+        order_created_total.labels(service_type=_svc_label).inc()
 
         return order
 
