@@ -11,11 +11,27 @@ from app.models.notification import (
 from app.models.user import User
 from app.repositories.notification import NotificationRepository
 
+# S2-REQ-003-P4 / ADR-0043 §3 Phase 4: 去硬编码
+# 优先读 Order.service_name_snapshot (P3 写入),无快照时 fallback 本 dict。
+# fallback 仅保留历史 order 未回填 snapshot 的缺省显示，不作为运行时业务逻辑。
 SERVICE_TYPE_LABELS = {
     "full_accompany": "全程陪诊",
     "half_accompany": "半程陪诊",
     "errand": "代办跑腿",
 }
+
+
+def _service_label_from_order(order) -> str:
+    """REQ-003 P4: snapshot 优先, dict fallback 兼容历史 order."""
+    snap = getattr(order, "service_name_snapshot", None)
+    if snap:
+        return snap
+    code = (
+        order.service_type.value
+        if hasattr(order.service_type, "value")
+        else order.service_type
+    )
+    return SERVICE_TYPE_LABELS.get(code, "陪诊")
 
 
 class NotificationService:
@@ -73,7 +89,7 @@ class NotificationService:
         # Push real-time via WebSocket broker (D-019):
         # - 本地投递 + Redis Pub/Sub 跨副本 fanout
         # - broker 未启动（产生于启动失败 / 测试未走 lifespan）时退化为禁用模式
-        from app.ws.pubsub import get_current_broker, WsPubSubBroker
+        from app.ws.pubsub import WsPubSubBroker, get_current_broker
 
         broker = get_current_broker()
         if broker is None:
@@ -94,7 +110,7 @@ class NotificationService:
                     "target_type": target_type.value if target_type else None,
                     "target_id": target_id,
                     "is_read": False,
-                    "created_at": notification.created_at.isoformat() if notification.created_at else None,
+                    "created_at": notification.created_at.isoformat() if notification.created_at else None,  # noqa: E501
                 },
             },
         )
@@ -192,15 +208,12 @@ class NotificationService:
         order,
         companion_id: uuid.UUID,
     ) -> Notification:
-        type_label = SERVICE_TYPE_LABELS.get(
-            order.service_type.value if hasattr(order.service_type, "value") else order.service_type,
-            "陪诊",
-        )
+        type_label = _service_label_from_order(order)
         return await self.create_notification(
             user_id=companion_id,
             type=NotificationType.new_order,
             title="🔔 新订单来啦",
-            body=f"{order.patient_name}预约了{order.appointment_date} {order.appointment_time}在{order.hospital_name}的{type_label}服务，请尽快查看并接单",
+            body=f"{order.patient_name}预约了{order.appointment_date} {order.appointment_time}在{order.hospital_name}的{type_label}服务，请尽快查看并接单",  # noqa: E501
             reference_id=str(order.id),
             target_type=NotificationTargetType.order,
             target_id=str(order.id),
@@ -211,17 +224,14 @@ class NotificationService:
         order,
         companion_ids: Sequence[uuid.UUID],
     ) -> list[Notification]:
-        type_label = SERVICE_TYPE_LABELS.get(
-            order.service_type.value if hasattr(order.service_type, "value") else order.service_type,
-            "陪诊",
-        )
+        type_label = _service_label_from_order(order)
         notifications = []
         for cid in companion_ids:
             n = await self.create_notification(
                 user_id=cid,
                 type=NotificationType.new_order,
                 title="🔔 附近有新订单",
-                body=f"有患者预约了{order.appointment_date} {order.appointment_time}在{order.hospital_name}的{type_label}服务，快来抢单吧",
+                body=f"有患者预约了{order.appointment_date} {order.appointment_time}在{order.hospital_name}的{type_label}服务，快来抢单吧",  # noqa: E501
                 reference_id=str(order.id),
                 target_type=NotificationTargetType.order,
                 target_id=str(order.id),
@@ -253,7 +263,7 @@ class NotificationService:
             user_id=recipient_id,
             type=NotificationType.order_status_changed,
             title="⏰ 订单已自动取消",
-            body=f"您的订单因超时未被接单已自动取消，款项将原路退回",
+            body="您的订单因超时未被接单已自动取消，款项将原路退回",
             reference_id=str(order.id),
             target_type=NotificationTargetType.order,
             target_id=str(order.id),
