@@ -223,7 +223,7 @@ class WsPubSubBroker:
         客户端可能不发 ping)。
 
         返回本副本实际 close 的连接数（包含失败的 best-effort close）。
-        跨副本走 Redis pub/sub broadcast (下面 push_revoke_close_to_key)。
+        跨副本走 Redis pub/sub broadcast (下面 broadcast_close_all_for_key)。
         """
         k = str(key)
         async with self._lock:
@@ -238,6 +238,39 @@ class WsPubSubBroker:
                 pass
             closed += 1
         return closed
+
+    async def broadcast_close_all_for_key(
+        self, key: UUID | str, *, code: int, reason: str
+    ) -> int:
+        """S2-INT-006-AC9-FOLLOWUP: local close + Redis pub/sub fanout 到其他 replica。
+
+        production gunicorn -w 2+ 多副本部署下，revoke 仅 close 本 replica WS
+        不合格——其他 replica 上的 live WS 仍能看进度 = 隐私泄露 P0。
+
+        本方法：
+        1. 本副本 close_all_for_key (同步)
+        2. publish envelope 到该 broker channel，action="close_all_for_key"。
+           其他 replica 的 listen_loop 收到后调本地 close_all_for_key。
+        3. Redis 不可用时 best-effort 跳过，ping recheck 兌底 (PR #179 保留)。
+        """
+        local_closed = await self.close_all_for_key(key, code=code, reason=reason)
+
+        if self.enabled and self.redis is not None and self._pubsub is not None:
+            envelope = {
+                "origin": self.instance_id,
+                "action": "close_all_for_key",
+                self.key_field: str(key),
+                "close_code": code,
+                "close_reason": reason,
+            }
+            try:
+                await self._publish_envelope(json.dumps(envelope))
+            except Exception:  # noqa: BLE001 - best effort; ping recheck 兌底
+                logger.warning(
+                    "broadcast_close_all_for_key publish failed channel=%s key=%s",
+                    self.channel, key,
+                )
+        return local_closed
 
     # ------------------------------------------------------------------
     # 推送
@@ -348,6 +381,25 @@ class WsPubSubBroker:
                 origin = envelope.get("origin")
                 if origin == self.instance_id:
                     # 本机 push_to_key 产生的自回显 → 已本地投递过，跳过
+                    continue
+
+                # S2-INT-006-AC9-FOLLOWUP: revoke close 动作 —— 跨 replica fanout
+                if envelope.get("action") == "close_all_for_key":
+                    key = envelope.get(self.key_field) or envelope.get(
+                        "user_id"
+                    ) or envelope.get("order_id")
+                    code = envelope.get("close_code")
+                    reason = envelope.get("close_reason", "")
+                    if key and isinstance(code, int):
+                        try:
+                            await self.close_all_for_key(
+                                key, code=code, reason=reason
+                            )
+                        except Exception:  # noqa: BLE001 - best effort
+                            logger.exception(
+                                "listen_loop close_all_for_key crashed key=%s",
+                                key,
+                            )
                     continue
 
                 # 兼容两种 key_field；优先使用 broker 配置的，fallback 到对端
