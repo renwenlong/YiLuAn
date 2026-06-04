@@ -331,3 +331,152 @@ const OrderDetailDrawer = {
     });
   },
 };
+
+// ---------------------------------------------------------------------------
+// ServicePackages (S2-REQ-003-P5a) — admin CRUD UI for service_packages
+// ---------------------------------------------------------------------------
+const ServicePackages = {
+  _editing: null, // null = create; object = patch
+
+  async load() {
+    const tbody = $('#spTbody');
+    tbody.innerHTML = '<tr><td colspan="8" class="empty">加载中…</td></tr>';
+    try {
+      const data = await apiCall('/api/v1/admin/service-packages/');
+      this.render(data.items || []);
+    } catch (e) {
+      if (handleAuthError(e)) return;
+      tbody.innerHTML =
+        '<tr><td colspan="8" class="empty" style="color:#ff4d4f">加载失败：' +
+        escapeHtml(e.message) + '</td></tr>';
+    }
+  },
+
+  render(items) {
+    const tbody = $('#spTbody');
+    if (!items.length) {
+      tbody.innerHTML = '<tr><td colspan="8" class="empty">暂无档位</td></tr>';
+      return;
+    }
+    tbody.innerHTML = items.map((it) => (
+      '<tr>' +
+        '<td>' + escapeHtml(it.code) + '</td>' +
+        '<td>' + escapeHtml(it.name) + '</td>' +
+        '<td>' + fmtAmount(it.price) + '</td>' +
+        '<td>' + (it.is_active ? '<span style="color:#52c41a">启用</span>' : '<span style="color:#999">停用</span>') + '</td>' +
+        '<td>' + it.sort_order + '</td>' +
+        '<td>' + escapeHtml(it.description || '') + '</td>' +
+        '<td>' + escapeHtml(it.created_at || '') + '</td>' +
+        '<td>' +
+          '<button class="btn btn-ghost btn-sm" data-sp-edit="' + escapeHtml(it.id) + '">编辑</button> ' +
+          '<button class="btn btn-ghost btn-sm" data-sp-toggle="' + escapeHtml(it.id) + '" data-sp-active="' + it.is_active + '">' +
+            (it.is_active ? '停用' : '启用') +
+          '</button> ' +
+          '<button class="btn btn-ghost btn-sm" style="color:#ff4d4f" data-sp-delete="' + escapeHtml(it.id) + '">删除</button>' +
+        '</td>' +
+      '</tr>'
+    )).join('');
+    state.servicePackages = { items };
+  },
+
+  bind() {
+    $('#spRefreshBtn').addEventListener('click', () => this.load());
+    $('#spCreateBtn').addEventListener('click', () => this.openEdit(null));
+    document.querySelectorAll('[data-close-sp]').forEach((el) =>
+      el.addEventListener('click', () => this.closeEdit())
+    );
+    $('#spSubmitBtn').addEventListener('click', () => this.submit());
+
+    // Event delegation on tbody for edit / toggle / delete
+    $('#spTbody').addEventListener('click', async (ev) => {
+      const t = ev.target;
+      const id = t.dataset.spEdit || t.dataset.spToggle || t.dataset.spDelete;
+      if (!id) return;
+      if (t.dataset.spEdit) {
+        const row = (state.servicePackages?.items || []).find((x) => x.id === id);
+        this.openEdit(row || null);
+      } else if (t.dataset.spToggle) {
+        const active = t.dataset.spActive === 'true';
+        try {
+          await apiCall('/api/v1/admin/service-packages/' + id, {
+            method: 'PATCH',
+            body: JSON.stringify({ is_active: !active }),
+          });
+          await this.load();
+        } catch (e) {
+          if (handleAuthError(e)) return;
+          alert('操作失败：' + e.message);
+        }
+      } else if (t.dataset.spDelete) {
+        if (!confirm('确认删除此档位？(软删，历史订单不受影响)')) return;
+        try {
+          await apiCall('/api/v1/admin/service-packages/' + id, { method: 'DELETE' });
+          await this.load();
+        } catch (e) {
+          if (handleAuthError(e)) return;
+          alert('删除失败：' + e.message);
+        }
+      }
+    });
+  },
+
+  openEdit(row) {
+    this._editing = row;
+    $('#spEditTitle').textContent = row ? '编辑档位' : '新建档位';
+    $('#spFieldCode').value = row ? row.code : '';
+    $('#spFieldCode').disabled = !!row; // code 不可改
+    $('#spFieldName').value = row ? row.name : '';
+    $('#spFieldPrice').value = row ? row.price : '';
+    $('#spFieldSortOrder').value = row ? row.sort_order : 10;
+    $('#spFieldIsActive').value = row ? String(row.is_active) : 'true';
+    $('#spFieldDescription').value = row ? (row.description || '') : '';
+    $('#spEditError').hidden = true;
+    $('#spEditModal').hidden = false;
+  },
+
+  closeEdit() {
+    $('#spEditModal').hidden = true;
+  },
+
+  async submit() {
+    const err = $('#spEditError');
+    err.hidden = true;
+    const payload = {
+      name: $('#spFieldName').value.trim(),
+      price: $('#spFieldPrice').value.trim(),
+      sort_order: parseInt($('#spFieldSortOrder').value, 10) || 0,
+      is_active: $('#spFieldIsActive').value === 'true',
+      description: $('#spFieldDescription').value.trim() || null,
+    };
+    if (!this._editing) payload.code = $('#spFieldCode').value.trim();
+    if (!payload.name || !payload.price) {
+      err.textContent = '名称和价格必填';
+      err.hidden = false;
+      return;
+    }
+    try {
+      if (this._editing) {
+        await apiCall('/api/v1/admin/service-packages/' + this._editing.id, {
+          method: 'PATCH',
+          body: JSON.stringify(payload),
+        });
+      } else {
+        if (!payload.code) {
+          err.textContent = '代码必填';
+          err.hidden = false;
+          return;
+        }
+        await apiCall('/api/v1/admin/service-packages/', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      }
+      this.closeEdit();
+      await this.load();
+    } catch (e) {
+      if (handleAuthError(e)) return;
+      err.textContent = '保存失败：' + e.message;
+      err.hidden = false;
+    }
+  },
+};
