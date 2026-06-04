@@ -298,46 +298,45 @@ struct CreateOrderView: View {
                     selectedPackageCode = pkg.code
                     selectedService = ServiceType(rawValue: pkg.code)
                 } label: {
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack {
-                            Text(pkg.name)
-                                .font(.system(size: tokens.bodyFont, weight: .medium))
-                                .foregroundStyle(.primary)
-                            Spacer()
-                            Text("¥\(NSDecimalNumber(decimal: pkg.price).intValue)")
-                                .font(.system(size: tokens.bodyFont, weight: .semibold))
-                                .foregroundStyle(.blue)
-                            if selectedPackageCode == pkg.code {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(.blue)
-                            }
-                        }
-                        // S2-REQ-003-P5b fix #4: description 渲染 (与微信端一致)
-                        if let desc = pkg.description, !desc.isEmpty {
-                            Text(desc)
-                                .font(.system(size: tokens.bodyFont * 0.8))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding()
-                    .background(
-                        selectedPackageCode == pkg.code
-                            ? Color.blue.opacity(0.1)
-                            : Color(.systemGray6)
-                    )
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(
-                                selectedService == service ? Color.blue : Color.clear,
-                                lineWidth: 2
-                            )
-                    )
-                    .cornerRadius(12)
+                    servicePackageRow(pkg)
                 }
                 .buttonStyle(.plain)
             }
             stepNextButton
         }
+    }
+
+    @ViewBuilder
+    private func servicePackageRow(_ pkg: ServicePackage) -> some View {
+        let isSelected = selectedPackageCode == pkg.code
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                Text(pkg.name)
+                    .font(.system(size: tokens.bodyFont, weight: .medium))
+                    .foregroundStyle(.primary)
+                Spacer()
+                Text("¥\(NSDecimalNumber(decimal: pkg.price).intValue)")
+                    .font(.system(size: tokens.bodyFont, weight: .semibold))
+                    .foregroundStyle(.blue)
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.blue)
+                }
+            }
+            // S2-REQ-003-P5b fix #4: description 渲染 (与微信端一致)
+            if let desc = pkg.description, !desc.isEmpty {
+                Text(desc)
+                    .font(.system(size: tokens.bodyFont * 0.8))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding()
+        .background(isSelected ? Color.blue.opacity(0.1) : Color(.systemGray6))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
+        )
+        .cornerRadius(12)
     }
 
     // MARK: - Step 2 body：医院 + 科室
