@@ -1,15 +1,18 @@
 /**
- * 陪诊师审核样板（S2-DEV-013 PR-B / acceptance #3 ）
+ * 陪诊师审核样板（S2-DEV-013 PR-E3 / acceptance #3 + ADR-0044 §3.1 + §5）
  *
  * 4 个 REST 端点接通：
- * - GET /admin/companions          （分页列表，强制 status=pending）
+ * - GET /admin/companions/           （分页列表，强制 status=pending）
+ * - GET /admin/companions/{id}       （详情 14 字段，PR-E1 已合）
  * - POST /admin/companions/{id}/approve （通过）
  * - POST /admin/companions/{id}/reject  （拒绝，body.reason 1-500 字）
+ * - GET /admin/users/{user_id}?reveal=true （reveal phone，PR-E3 接入）
  *
- * 注：后端无 GET /admin/companions/{id} detail 端点（PR-A 假设错误）。
- * Drawer 直接复用 list row 数据，无需额外 fetch（详 PR-B description 契约对照表）。
- *
- * 后续 8 项 feature 复制本模板即可（Phase 2-9 复粘式扩展）。
+ * PR-E3 改动（魈 ack 顺序 E1 → E3 → E2）：
+ * - drawer 改 useQuery fetchDetail（PR-E1 detail endpoint 已合）
+ * - 渲染 14 字段（除 certification_image_signed_url 占位提示，留 PR-E2）
+ * - reveal phone 按钮：点击调 /admin/users/{user_id}?reveal=true 替换 masked
+ * - reveal_pii 审计由 backend 端点写（admin 看见明文 phone 必留痕）
  */
 import { useState } from 'react'
 import { Table, Button, Drawer, Descriptions, message, Space, Tag, Modal, Input } from 'antd'
@@ -25,6 +28,37 @@ interface CompanionRow {
   created_at: string | null
 }
 
+interface CompanionDetail {
+  // 与 list 重叠
+  id: string
+  real_name: string
+  id_number: string | null
+  certifications: string | null
+  created_at: string | null
+  // 新增审核字段
+  bio: string | null
+  verification_status: string
+  certified_at: string | null
+  certification_type: string | null
+  certification_no: string | null
+  certification_image_signed_url: string | null  // PR-E1 占位 None
+  service_area: string | null
+  service_city: string | null
+  service_hospitals: string | null
+  service_types: string | null
+  avg_rating: number
+  total_orders: number
+  // 关联用户
+  user_id: string | null
+  user_phone_masked: string | null
+}
+
+interface UserReveal {
+  id: string
+  phone: string | null  // reveal=true 时为明文
+  phone_masked: string | null
+}
+
 interface ListResponse {
   items: CompanionRow[]
   total: number
@@ -35,11 +69,25 @@ interface ListResponse {
 const PAGE_SIZE = 20
 
 async function fetchList(page: number): Promise<ListResponse> {
-  // backend GET /admin/companions 强制 status=pending（不需前端传）
   const resp = await apiClient.get<ListResponse>('/admin/companions/', {
     params: { page, page_size: PAGE_SIZE },
   })
   return resp.data
+}
+
+async function fetchDetail(id: string): Promise<CompanionDetail> {
+  // PR-E1 detail endpoint
+  const resp = await apiClient.get<CompanionDetail>(`/admin/companions/${id}`)
+  return resp.data
+}
+
+async function revealPhone(userId: string): Promise<string | null> {
+  // 复用 admin/users.py 已有的 /{user_id}?reveal=true（PR-E3 接入，acceptance #5）
+  // backend 写 audit reveal_pii 行
+  const resp = await apiClient.get<UserReveal>(`/admin/users/${userId}`, {
+    params: { reveal: true },
+  })
+  return resp.data.phone
 }
 
 async function approve(id: string): Promise<void> {
@@ -52,7 +100,9 @@ async function reject(id: string, reason: string): Promise<void> {
 
 export function CompanionReviewListPage() {
   const [page, setPage] = useState(1)
-  const [detail, setDetail] = useState<CompanionRow | null>(null)
+  const [detailId, setDetailId] = useState<string | null>(null)
+  const [revealedPhone, setRevealedPhone] = useState<string | null>(null)
+  const [revealLoading, setRevealLoading] = useState(false)
   const [rejectingId, setRejectingId] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const qc = useQueryClient()
@@ -62,12 +112,24 @@ export function CompanionReviewListPage() {
     queryFn: () => fetchList(page),
   })
 
+  // PR-E3: fetchDetail 改为真调 PR-E1 detail endpoint
+  // staleTime=0 + gcTime=0 强制每次 open drawer 重 fetch
+  // （PR-E2 signed URL 上线后此约束更关键：URL TTL ≤ 15min，不能缓存）
+  const detailQ = useQuery({
+    queryKey: ['companion-detail', detailId],
+    queryFn: () => fetchDetail(detailId!),
+    enabled: !!detailId,
+    staleTime: 0,
+    gcTime: 0,
+  })
+
   const approveM = useMutation({
     mutationFn: (id: string) => approve(id),
     onSuccess: () => {
       message.success('已通过')
       qc.invalidateQueries({ queryKey: ['companion-list'] })
-      setDetail(null)
+      setDetailId(null)
+      setRevealedPhone(null)
     },
     onError: (err) => message.error(`通过失败：${(err as Error).message}`),
   })
@@ -80,10 +142,25 @@ export function CompanionReviewListPage() {
       qc.invalidateQueries({ queryKey: ['companion-list'] })
       setRejectingId(null)
       setRejectReason('')
-      setDetail(null)
+      setDetailId(null)
+      setRevealedPhone(null)
     },
     onError: (err) => message.error(`拒绝失败：${(err as Error).message}`),
   })
+
+  async function handleRevealPhone() {
+    if (!detailQ.data?.user_id) return
+    setRevealLoading(true)
+    try {
+      const phone = await revealPhone(detailQ.data.user_id)
+      setRevealedPhone(phone)
+      message.success('手机号已显示明文（操作已写入 reveal_pii 审计）')
+    } catch (err) {
+      message.error(`获取明文手机号失败：${(err as Error).message}`)
+    } finally {
+      setRevealLoading(false)
+    }
+  }
 
   return (
     <div data-test-id="companion-review-page">
@@ -123,7 +200,13 @@ export function CompanionReviewListPage() {
             title: '操作',
             render: (_, row) => (
               <Space>
-                <Button size="small" onClick={() => setDetail(row)}>
+                <Button
+                  size="small"
+                  onClick={() => {
+                    setDetailId(row.id)
+                    setRevealedPhone(null)
+                  }}
+                >
                   详情
                 </Button>
               </Space>
@@ -133,40 +216,113 @@ export function CompanionReviewListPage() {
       />
 
       <Drawer
-        title="陪诊师详情"
-        open={!!detail}
-        onClose={() => setDetail(null)}
-        width={520}
+        title="陪诊师审核详情"
+        open={!!detailId}
+        onClose={() => {
+          setDetailId(null)
+          setRevealedPhone(null)
+        }}
+        width={620}
         extra={
-          detail && (
+          detailQ.data && (
             <Space>
               <Button
                 type="primary"
                 loading={approveM.isPending}
-                onClick={() => approveM.mutate(detail.id)}
+                onClick={() => detailId && approveM.mutate(detailId)}
               >
                 通过
               </Button>
-              <Button danger onClick={() => setRejectingId(detail.id)}>
+              <Button danger onClick={() => detailId && setRejectingId(detailId)}>
                 拒绝
               </Button>
             </Space>
           )
         }
       >
-        {detail && (
-          <Descriptions column={1}>
-            <Descriptions.Item label="ID">{detail.id}</Descriptions.Item>
-            <Descriptions.Item label="姓名">{detail.real_name}</Descriptions.Item>
+        {detailQ.isLoading && '加载中...'}
+        {detailQ.isError && (
+          <div style={{ color: 'red' }}>
+            详情加载失败：{(detailQ.error as Error).message}
+          </div>
+        )}
+        {detailQ.data && (
+          <Descriptions column={1} bordered size="small">
+            <Descriptions.Item label="ID">{detailQ.data.id}</Descriptions.Item>
+            <Descriptions.Item label="姓名">{detailQ.data.real_name}</Descriptions.Item>
             <Descriptions.Item label="身份证（脱敏）">
-              {detail.id_number ?? '—'}
+              {detailQ.data.id_number ?? '—'}
             </Descriptions.Item>
-            <Descriptions.Item label="持证">
-              {detail.certifications ?? '—'}
+            <Descriptions.Item label="手机号">
+              {revealedPhone ? (
+                <span style={{ fontFamily: 'monospace' }}>{revealedPhone}</span>
+              ) : (
+                <Space>
+                  <span style={{ fontFamily: 'monospace' }}>
+                    {detailQ.data.user_phone_masked ?? '—'}
+                  </span>
+                  {detailQ.data.user_id && (
+                    <Button
+                      size="small"
+                      loading={revealLoading}
+                      onClick={handleRevealPhone}
+                    >
+                      显示完整
+                    </Button>
+                  )}
+                </Space>
+              )}
             </Descriptions.Item>
-            <Descriptions.Item label="状态">pending</Descriptions.Item>
+            <Descriptions.Item label="审核状态">
+              <Tag color="orange">{detailQ.data.verification_status}</Tag>
+            </Descriptions.Item>
+            <Descriptions.Item label="自述 / 申请理由">
+              {detailQ.data.bio ?? '—'}
+            </Descriptions.Item>
+            <Descriptions.Item label="持证文本">
+              {detailQ.data.certifications ?? '—'}
+            </Descriptions.Item>
+            <Descriptions.Item label="证件类型">
+              {detailQ.data.certification_type ?? '—'}
+            </Descriptions.Item>
+            <Descriptions.Item label="证件编号">
+              {detailQ.data.certification_no ?? '—'}
+            </Descriptions.Item>
+            <Descriptions.Item label="证件图查看">
+              {detailQ.data.certification_image_signed_url ? (
+                <a
+                  href={detailQ.data.certification_image_signed_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  点击查看证件图（signed URL TTL ≤ 15min）
+                </a>
+              ) : (
+                <span style={{ color: '#fa8c16' }}>
+                  ⚠️ 证件图查看功能待 PR-E2 实施（signed URL 安全包装）
+                </span>
+              )}
+            </Descriptions.Item>
+            <Descriptions.Item label="服务城市">
+              {detailQ.data.service_city ?? '—'}
+            </Descriptions.Item>
+            <Descriptions.Item label="服务区域">
+              {detailQ.data.service_area ?? '—'}
+            </Descriptions.Item>
+            <Descriptions.Item label="服务医院">
+              {detailQ.data.service_hospitals ?? '—'}
+            </Descriptions.Item>
+            <Descriptions.Item label="服务类型">
+              {detailQ.data.service_types ?? '—'}
+            </Descriptions.Item>
+            <Descriptions.Item label="历史评分">
+              {detailQ.data.avg_rating.toFixed(1)} 分（共 {detailQ.data.total_orders} 单）
+            </Descriptions.Item>
             <Descriptions.Item label="申请时间">
-              {detail.created_at ?? '—'}
+              {detailQ.data.created_at ?? '—'}
+            </Descriptions.Item>
+            <Descriptions.Item label="认证时间">
+              {detailQ.data.certified_at ?? '—'}
             </Descriptions.Item>
           </Descriptions>
         )}

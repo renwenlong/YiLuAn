@@ -102,43 +102,81 @@ ADR-0042 §3 我会单独发 r1 修订 PR 补本附录（小改），不在本 A
 
 ---
 
-## 4. 安全设计：certification_image_url → signed URL
+## 4. 安全设计：certification_image_url → signed URL（r1 2026-06-04 重写）
 
-**刻晴 review 关切（不可妥协）**：
-- ❌ 当前 DB 字段 `certification_image_url` 是 String(500) 文本，**未明确是否 signed**
-- 风险：若是 public URL（如 Azure Blob anonymous read），admin token 泄露 + URL 截屏 = 身份证图裸露
-- 业务上：身份证 / 资格证扫描件属 PII 极敏感
+> **r1 修订动因**：PR-E2 调研 (PR #158) 实证发现原 §4 假设错误：backend **无任何上传 API + storage 后端零选型**（cert_image_url 是 admin 手填的任意 URL 字符串，业务从未真上线证件图功能）。原路径 A/B 不适用。重写为 Phase A mvp + Phase B 生产化两阶段。
 
-### 4.1 改造路径
+**刻晴 review 关切（不可妥协）仍然有效**：PII 极敏感，上传、存储、分发三环节必须双闸鉴权 + TTL 限制 + 审计。
 
-**Phase A（本 ADR + 实施 PR-E 范围）**：
-1. detail endpoint 返回字段名改为 `certification_image_signed_url`（与 DB 字段区分）
-2. service 层每次 detail 请求时**实时生成 signed URL**（不预存）
-3. TTL ≤ 15min（与 ADR-0036 share_session 30min 同量级，admin 浏览证件用 15min 足够）
-4. 签名机制：参考 W19-P0-08 emergency PII PDF 的 Azure Blob SAS 模式，或 AWS S3 presigned URL（depends on 实际存储后端）
-5. 实测：若当前 DB `certification_image_url` 已是 SAS/presigned URL → wrapper 重签即可；若是 public URL → backend 必须重新生成
+### 4.0 现状（PR #158 调研结论）
 
-### 4.2 双闸鉴权
+- `certification_image_url` 是 admin 手填的任意 URL 字符串（不是 storage URL）
+- backend 零 storage SDK 依赖（grep oss/azure/s3 0 命中）
+- 现有 `backend/app/services/upload.py` 仅 avatar 用：本地 `STATIC_DIR=backend/static/avatars`，5MB 限，仅 image/jpeg、image/png
+- 业务侧 PM 凝光确认：**证件图是陪诊师审核合规硬要求**（本 ADR §1 钉死），火度推全前必须可用
+
+### 4.1 Phase A：mbvp 本地 storage + HMAC 自签反代（**火度推全前必合**）
+
+**范围**：复用 `upload.py` 本地静态文件模式，加 HMAC 自签 signed token + backend 反代路由验证后 serve。不引 OSS/Azure/S3 SDK。
+
+**实现要点**：
+1. 新增 `POST /api/v1/admin/companions/{id}/certify-image-upload`（multipart/form-data）—— 复用 upload.py 模式但独立 STATIC_DIR=`backend/static/cert`，限 5MB，仅 image/jpeg/png/pdf（增 pdf 支持资格证扫件）
+2. 上传后写 `CompanionProfile.certification_image_url = /static/cert/{companion_id}.{ext}`（内部路径，不外露）
+3. detail endpoint 返回时：service 实时生成 HMAC 签名 token = HMAC_SHA256(secret, f"{path}:{exp}") + 拼接 `certification_image_signed_url = /api/v1/admin/cert-image/{token}?path=...&exp=...`
+4. 新增 `GET /api/v1/admin/cert-image/{token}` 反代路由：verify_admin_token + verify HMAC + 检 exp < now 后读本地文件 stream 返 (Content-Type 推断不信任外部) + 写 audit action=view_cert_image
+5. TTL = 15min（与 ADR-0036 share_session 30min 同量级）
+6. nginx 不暴露 `/static/cert/` 路径（仅反代走 `/api/v1/admin/cert-image/`）—— 双闸防裸 GET
+
+**估时**：~1.5 工作日（PR-E2-impl）
+
+**限制**：不分布式 / 备份难 / 单机督场路 / 适合火度期。Phase B 上线后迁移。
+
+### 4.2 Phase B：生产化 storage 后端（**独立后续 ADR**）
+
+**范围**：拆独立 design task **S2-DES-005 storage 后端选型 + 上传链路 + 历史迁移**，下一迭代。
+
+**需 PM 凝光 + Owner 帝君拍**：
+- storage 后端选型：OSS（凝光推，与阿里云 SMS 同账号）/ Azure Blob / AWS S3 / 本地 (Phase A 保留)
+- 企业账号 + 子账号权限
+- 账单 vs 点击金额预估
+
+**实现**（S2-DES-005 安排）：
+- 上传链路改成直传 OSS（不走 backend）使用 STS 临时证书
+- detail endpoint 返 OSS signed URL (SAS / presigned)，TTL 15min
+- 历史 cert URL 迁移 cron：扫 Phase A 本地 `/static/cert/*` + 上传 OSS + 更新 DB
+- Phase A 反代路由废弃，切 OSS 原生 signed URL
+
+**不阻塞 S2 火度**。帝君拍后拆低优先级独立表。
+
+### 4.3 双闸鉴权（Phase A + Phase B 同适用）
 
 | 闸 | 拦截点 | 失败码 |
 |---|---|---|
 | 1 | admin token 验证（detail endpoint 返回 signed URL）| 401 |
-| 2 | signed URL TTL 验证（直访 blob 时）| 403 / SAS 过期 |
+| 2 | signed URL TTL 验证（反代路由 / OSS 原生）| 403 / SAS 过期 |
 | 3 | signed URL 签名验证（防篡改）| 403 |
-| 4 | nginx 不允许 cert blob host 裸 GET（双闸防御）| 404 |
+| 4 | nginx 不暴露 cert 资源 host 裸 GET | 404 |
 
-### 4.3 admin-v2 drawer 行为
+### 4.4 admin-v2 drawer 行为（不变）
 
-- 每次 open drawer **重新 fetch detail endpoint 获新 signed URL**（不 cache URL）
+- 每次 open drawer **重新 fetch detail endpoint 获新 signed URL**（不 cache URL）—— PR-E3 #157 已实现 `staleTime=0 + gcTime=0`
 - 关 drawer 即丢弃 URL
-- 图片预览组件加载失败（URL 过期）显示"链接已过期，请重新打开"，不静默 fail
+- 图片预览加载失败（URL 过期）显示「链接已过期，请重新打开」，不静默 fail
 
-### 4.4 单测/E2E 必须覆盖
+### 4.5 单测/E2E 必须覆盖（Phase A）
 
-- signed URL 过期后 GET 拒（401/403）
-- 缺 admin token + 直访 signed URL 拒（依赖 storage 后端鉴权能力）
-- signed URL 篡改字节 → 拒
-- TTL 内重复 GET 通
+- 上传 endpoint：非 admin token 拒 401 / 超 5MB 拒 413 / 错 MIME 拒 415 / 完整上传后 DB cert_url 写入检
+- signed token 生成：HMAC 可重入验证 / exp 正确计算
+- 反代路由：signed URL 过期后 GET 拒 403 / 缺 admin token 拒 401 / 签名篡改 1 byte 拒 403 / TTL 内重复 GET 通
+- nginx 裸 GET `/static/cert/*` 拒 404（staging 集成测验）
+
+### 4.6 Phase A 限制 → Phase B 迁移检清单
+
+Phase B Accept 后，S2-DES-005 实施 PR 顺手迁移：
+- `backend/static/cert/*` 本地文件 → OSS bucket
+- DB `certification_image_url` 路径重写
+- 反代路由废弃
+- HMAC 签名 service 可保留（本地 stub 用）或废弃
 
 ---
 
