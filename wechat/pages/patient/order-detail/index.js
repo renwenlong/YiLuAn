@@ -126,7 +126,11 @@ Page({
           ...order,
           review: review,
           formattedDate: formatDate(order.appointment_date),
-          formattedPrice: order.price !== undefined && order.price !== null ? formatCurrency(order.price) : '',
+          // S2-REQ-003-P5b fix (魈建议): 显式优先 servicePriceSnapshot, fallback order.price
+          // (P3 后 order.price = snapshot 所写入, 两值相同; 显式读 snapshot 文档化意图)
+          formattedPrice: order.service_price_snapshot !== undefined && order.service_price_snapshot !== null
+            ? formatCurrency(order.service_price_snapshot)
+            : (order.price !== undefined && order.price !== null ? formatCurrency(order.price) : ''),
           timelineIndex: order.timeline_index
         },
         serviceLabel: serviceLabel,

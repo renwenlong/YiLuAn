@@ -166,7 +166,8 @@ struct OrderDetailView: View {
 
     private func orderInfoCard(_ order: Order) -> some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
-            infoRow("服务类型", order.serviceType.displayName)
+            // S2-REQ-003-P5c: 优先显示 snapshot 名称 (admin 改名后历史订单仍显示下单时名称)
+            infoRow("服务类型", order.serviceNameSnapshot ?? order.serviceType.displayName)
             infoRow("医院", order.hospitalName ?? "未知")
             infoRow("预约日期", order.appointmentDate)
             if let time = order.appointmentTime {

@@ -22,6 +22,10 @@
       <text class="step-placeholder" wx:elif="{{stepStates[0] === 'collapsed'}}">未选择</text>
     </view>
     <view class="step-body" wx:if="{{stepStates[0] === 'active'}}" catchtap="">
+      <!-- S2-REQ-003-P5b fix #1: 服务列表降级提示 -->
+      <view class="service-fallback-tip" wx:if="{{servicePackagesFallback}}">
+        <text>⚠️ 服务列表已降级，使用默认 3 档</text>
+      </view>
       <view class="service-option {{serviceType === item.code ? 'active' : ''}}"
             wx:for="{{serviceTypes}}"
             wx:key="code"
@@ -29,9 +33,13 @@
             data-name="{{item.name}}"
             data-price="{{item.price}}"
             bindtap="onSelectServiceType">
-        <text class="service-name">{{item.name}}</text>
-        <text class="service-price">¥{{item.price}}</text>
-        <text class="service-check" wx:if="{{serviceType === item.code}}">✓</text>
+        <view class="service-main">
+          <text class="service-name">{{item.name}}</text>
+          <text class="service-price">¥{{item.price}}</text>
+          <text class="service-check" wx:if="{{serviceType === item.code}}">✓</text>
+        </view>
+        <!-- S2-REQ-003-P5b fix #4: description 渲染 -->
+        <text class="service-desc" wx:if="{{item.description}}">{{item.description}}</text>
       </view>
       <button class="step-next-btn" bindtap="onNextStep" disabled="{{!serviceType}}">下一步</button>
     </view>

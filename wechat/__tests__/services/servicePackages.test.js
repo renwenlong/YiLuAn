@@ -61,3 +61,25 @@ describe('S2-REQ-003-P5b servicePackages service', () => {
     })
   })
 })
+
+// S2-REQ-003-P5b follow-up: 4 review fix
+describe('S2-REQ-003-P5b review fix #2 #3', () => {
+  test('fix #3: FALLBACK_PACKAGES 长度断言 = 3 (防漂移)', () => {
+    const svc = require(servicePath)
+    expect(svc.FALLBACK_PACKAGES).toHaveLength(3)
+  })
+
+  test('fix #3: FALLBACK_PACKAGES 顺序 = [full, half, errand] (sort_order 升序)', () => {
+    const svc = require(servicePath)
+    const codes = svc.FALLBACK_PACKAGES.map((p) => p.code)
+    expect(codes).toEqual(['full_accompany', 'half_accompany', 'errand'])
+  })
+
+  test('fix #2: API timeout (Promise reject mock) 降级 fallback', async () => {
+    // jest 不真等 5s; mock 直接 reject 模拟 timeout 行为
+    const svc = loadServiceWithMock(null, { errMsg: 'request:fail timeout' })
+    const items = await svc.listPublicServicePackages()
+    expect(items).toHaveLength(3)
+    expect(items[0]._fallback).toBe(true)
+  })
+})
