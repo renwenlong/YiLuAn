@@ -13,8 +13,9 @@ from sqlalchemy import or_, select
 
 from app.core.admin_auth import require_admin_token  # noqa: F401  (legacy import retained for downstream consumers)
 from app.core.admin_jwt import admin_operator_id, require_admin
-from app.core.pii import mask_id_number
+from app.core.pii import mask_id_number, mask_phone
 from app.dependencies import DBSession
+from app.exceptions import NotFoundException
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.companion_profile import CompanionProfile, VerificationStatus
 from app.models.user import User
@@ -43,6 +44,53 @@ class CompanionItem(BaseModel):
     id_number: str | None = Field(None, description="身份证号（脱敏）", examples=["110101********1234"])
     certifications: str | None = Field(None, description="持证信息串", examples=["护士资格证"])
     created_at: str | None = Field(None, description="创建时间 ISO8601", examples=["2026-04-24T10:00:00+08:00"])
+
+
+class CompanionDetail(BaseModel):
+    """S2-DEV-013 PR-E1 (ADR-0044 §3.2)：admin 审核 drawer 用详情。
+
+    与 list `CompanionItem` 重叠 5 字段（保证 frontend 不需两套 type）+ 新增 9 字段
+    覆盖 admin 真审核场景。
+
+    ⚠️ `certification_image_signed_url` 在 PR-E1 为占位 `None`，实安全包装留 PR-E2
+    （需 storage 后端调研 + ADR-0044 r1 amend）。火度推全前必合 PR-E2。
+    """
+
+    # 与 list 重叠
+    id: str = Field(..., description="陪诊师 ID")
+    real_name: str = Field(..., description="真实姓名")
+    id_number: str | None = Field(None, description="身份证号（脱敏）")
+    certifications: str | None = Field(None, description="持证信息串")
+    created_at: str | None = Field(None, description="创建时间 ISO8601")
+
+    # 新增：审核必要字段
+    bio: str | None = Field(None, description="陪诊师自述 / 申请理由")
+    verification_status: str = Field(..., description="pending / verified / rejected")
+    certified_at: str | None = Field(None, description="认证完成时间 ISO8601")
+
+    # 证件三件
+    certification_type: str | None = Field(None, description="证件类型")
+    certification_no: str | None = Field(None, description="证件编号")
+    certification_image_signed_url: str | None = Field(
+        None,
+        description=(
+            "证件图 signed URL (TTL ≤ 15min)。⚠️ PR-E1 占位 None、PR-E2 实装 signed URL service 后补齐。"
+        ),
+    )
+
+    # 服务范围
+    service_area: str | None = Field(None, description="服务区域")
+    service_city: str | None = Field(None, description="服务城市")
+    service_hospitals: str | None = Field(None, description="服务医院列表（逗号分隔串）")
+    service_types: str | None = Field(None, description="服务类型列表（逗号分隔串）")
+
+    # 历史指标
+    avg_rating: float = Field(0.0, description="平均评分")
+    total_orders: int = Field(0, description="总单量")
+
+    # 关联用户 (PR-E3 补 reveal phone, 本 PR 仅返 masked)
+    user_id: str | None = Field(None, description="关联 User.id（供 reveal phone 调用）")
+    user_phone_masked: str | None = Field(None, description="脸主手机号脱敏。reveal 由独立端点 `/admin/users/{user_id}?reveal=true`")
 
 
 class PaginatedCompanions(BaseModel):
@@ -117,6 +165,9 @@ async def list_pending_companions(
     await session.flush()
 
     return {**result, "items": masked}
+
+
+# detail endpoint 移到 search endpoint 之后（避免 /search 被 /{companion_id} 错误匹配）
 
 
 @router.post(
@@ -195,6 +246,71 @@ async def search_companions(
             )
         )
     return CompanionSearchResponse(items=items)
+
+
+# S2-DEV-013 PR-E1 detail endpoint (ADR-0044 §3.1)。
+# 位置：必须在 /search (static path) 之后注册，否则 /{companion_id} 会抢先匹配
+# "search" 作为 UUID 解析报 422 (历史 bug: PR-E1 首次提交时放在 /search 前导致
+# test_admin_companions_search 4 case fail)。FastAPI 路由按装饰器出现顺序匹配。
+@router.get(
+    "/{companion_id}",
+    response_model=CompanionDetail,
+    summary="后台：陪诊师审核详情",
+    description=(
+        "返回单个陪诊师 14 字段审核视图。⚠️ `certification_image_signed_url` 在"
+        " PR-E1 为占位 `None`，实安全包装留 PR-E2（storage 后端调研 + ADR-0044 r1"
+        " amend）。reveal phone 走独立端点 `GET /admin/users/{user_id}?reveal=true`。"
+        " 写入 view_companion_detail 审计。"
+    ),
+)
+async def get_companion_detail(
+    companion_id: UUID,
+    session: DBSession,
+    operator: str = Depends(admin_operator_id),
+):
+    profile = await session.get(CompanionProfile, companion_id)
+    if profile is None:
+        raise NotFoundException("Companion not found")
+
+    # 拉关联 user 取 phone。脱敏后不走这个 endpoint 的 reveal——
+    # admin 需明文 phone 点 frontend reveal 按钮 调
+    # `GET /admin/users/{user_id}?reveal=true` (独立审计 reveal_pii)
+    user = await session.get(User, profile.user_id)
+    user_phone_masked = mask_phone(user.phone) if user and user.phone else None
+
+    # 审计留痕
+    session.add(
+        AdminAuditLog(
+            target_type="companion",
+            target_id=companion_id,
+            action="view_companion_detail",
+            operator=operator,
+            reason="PR-E1 detail endpoint",
+        )
+    )
+    await session.flush()
+
+    return CompanionDetail(
+        id=str(profile.id),
+        real_name=profile.real_name,
+        id_number=mask_id_number(profile.id_number) if profile.id_number else None,
+        certifications=profile.certifications,
+        created_at=profile.created_at.isoformat() if profile.created_at else None,
+        bio=profile.bio,
+        verification_status=profile.verification_status.value,
+        certified_at=profile.certified_at.isoformat() if profile.certified_at else None,
+        certification_type=profile.certification_type,
+        certification_no=profile.certification_no,
+        certification_image_signed_url=None,  # ⚠️ PR-E2 实装 signed URL service 后补
+        service_area=profile.service_area,
+        service_city=profile.service_city,
+        service_hospitals=profile.service_hospitals,
+        service_types=profile.service_types,
+        avg_rating=profile.avg_rating,
+        total_orders=profile.total_orders,
+        user_id=str(profile.user_id),
+        user_phone_masked=user_phone_masked,
+    )
 
 
 @router.post(

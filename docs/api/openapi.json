@@ -563,6 +563,213 @@
         "title": "CloseRequest",
         "type": "object"
       },
+      "CompanionDetail": {
+        "description": "S2-DEV-013 PR-E1 (ADR-0044 §3.2)：admin 审核 drawer 用详情。\n\n与 list `CompanionItem` 重叠 5 字段（保证 frontend 不需两套 type）+ 新增 9 字段\n覆盖 admin 真审核场景。\n\n⚠️ `certification_image_signed_url` 在 PR-E1 为占位 `None`，实安全包装留 PR-E2\n（需 storage 后端调研 + ADR-0044 r1 amend）。火度推全前必合 PR-E2。",
+        "properties": {
+          "avg_rating": {
+            "default": 0.0,
+            "description": "平均评分",
+            "title": "Avg Rating",
+            "type": "number"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "陪诊师自述 / 申请理由",
+            "title": "Bio"
+          },
+          "certification_image_signed_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "证件图 signed URL (TTL ≤ 15min)。⚠️ PR-E1 占位 None、PR-E2 实装 signed URL service 后补齐。",
+            "title": "Certification Image Signed Url"
+          },
+          "certification_no": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "证件编号",
+            "title": "Certification No"
+          },
+          "certification_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "证件类型",
+            "title": "Certification Type"
+          },
+          "certifications": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "持证信息串",
+            "title": "Certifications"
+          },
+          "certified_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "认证完成时间 ISO8601",
+            "title": "Certified At"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "创建时间 ISO8601",
+            "title": "Created At"
+          },
+          "id": {
+            "description": "陪诊师 ID",
+            "title": "Id",
+            "type": "string"
+          },
+          "id_number": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "身份证号（脱敏）",
+            "title": "Id Number"
+          },
+          "real_name": {
+            "description": "真实姓名",
+            "title": "Real Name",
+            "type": "string"
+          },
+          "service_area": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "服务区域",
+            "title": "Service Area"
+          },
+          "service_city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "服务城市",
+            "title": "Service City"
+          },
+          "service_hospitals": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "服务医院列表（逗号分隔串）",
+            "title": "Service Hospitals"
+          },
+          "service_types": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "服务类型列表（逗号分隔串）",
+            "title": "Service Types"
+          },
+          "total_orders": {
+            "default": 0,
+            "description": "总单量",
+            "title": "Total Orders",
+            "type": "integer"
+          },
+          "user_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "关联 User.id（供 reveal phone 调用）",
+            "title": "User Id"
+          },
+          "user_phone_masked": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "脸主手机号脱敏。reveal 由独立端点 `/admin/users/{user_id}?reveal=true`",
+            "title": "User Phone Masked"
+          },
+          "verification_status": {
+            "description": "pending / verified / rejected",
+            "title": "Verification Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "real_name",
+          "verification_status"
+        ],
+        "title": "CompanionDetail",
+        "type": "object"
+      },
       "CompanionDetailResponse": {
         "properties": {
           "avg_rating": {
@@ -5686,6 +5893,83 @@
           }
         },
         "summary": "后台：陪诊师轻量搜索（钱包账本筛选用）",
+        "tags": [
+          "admin",
+          "admin-companions"
+        ]
+      }
+    },
+    "/api/v1/admin/companions/{companion_id}": {
+      "get": {
+        "description": "返回单个陪诊师 14 字段审核视图。⚠️ `certification_image_signed_url` 在 PR-E1 为占位 `None`，实安全包装留 PR-E2（storage 后端调研 + ADR-0044 r1 amend）。reveal phone 走独立端点 `GET /admin/users/{user_id}?reveal=true`。 写入 view_companion_detail 审计。",
+        "operationId": "get_companion_detail_api_v1_admin_companions__companion_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "companion_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Companion Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanionDetail"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：陪诊师审核详情",
         "tags": [
           "admin",
           "admin-companions"
