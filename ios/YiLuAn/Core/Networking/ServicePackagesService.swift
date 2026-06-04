@@ -87,20 +87,36 @@ final class ServicePackagesService {
     ]
 
     private let client: APIClient
+    private let listSession: URLSession
 
     init(client: APIClient = APIClient.shared) {
         self.client = client
+        // S2-REQ-003-P5c 可测性建议 #1: 服务档位拉取 5s timeout 与微信端对齐。
+        // 全局 APIClient 30s 不变；仅该端点快失败降级体验更好 (acceptance #4)。
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = 5
+        config.timeoutIntervalForResource = 10
+        self.listSession = URLSession(configuration: config)
     }
 
     /// 拉公开档位列表。Never throws — API 失败时返 fallback。
     /// acceptance #4 降级兜底硬要求。
     func list() async -> [ServicePackage] {
+        let baseURL = AppConfig.apiBaseURL.absoluteString
+        let trimmed = baseURL.hasSuffix("/") ? String(baseURL.dropLast()) : baseURL
+        guard let url = URL(string: trimmed + "/public/service-packages") else {
+            return Self.fallbackPackages
+        }
         do {
-            let packages: [ServicePackage] = try await client.request(.publicServicePackages)
+            let (data, response) = try await listSession.data(from: url)
+            guard let http = response as? HTTPURLResponse,
+                  (200...299).contains(http.statusCode) else {
+                return Self.fallbackPackages
+            }
+            let packages = try JSONDecoder().decode([ServicePackage].self, from: data)
             guard !packages.isEmpty else {
                 return Self.fallbackPackages
             }
-            // 客户端兜底再按 sort_order 排序
             return packages.sorted { $0.sortOrder < $1.sortOrder }
         } catch {
             return Self.fallbackPackages

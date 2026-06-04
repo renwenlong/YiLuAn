@@ -129,3 +129,17 @@ final class ServicePackagesServiceTests: XCTestCase {
         XCTAssertNil(order.servicePriceSnapshot)
     }
 }
+
+    /// S2-REQ-003-P5c 可测性建议 #1: listSession timeout=5s (与微信端对齐)
+    func testListSessionHasFiveSecondTimeout() throws {
+        let svc = ServicePackagesService()
+        let mirror = Mirror(reflecting: svc)
+        let sessionChild = mirror.children.first { $0.label == "listSession" }
+        guard let session = sessionChild?.value as? URLSession else {
+            return XCTFail("listSession should be URLSession")
+        }
+        XCTAssertEqual(
+            session.configuration.timeoutIntervalForRequest, 5,
+            "listSession timeoutIntervalForRequest 必须 5s (与微信端对齐)"
+        )
+    }
