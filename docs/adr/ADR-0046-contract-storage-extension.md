@@ -79,6 +79,7 @@ class ContractStorageBackend(StorageBackend):
 
 **关键约束**：
 - ABC 继承 `StorageBackend`（ADR-0045 同款抽象层）
+- **StorageBackend ABC 新增 `put_if_absent(blob_path, bytes, metadata)` 方法**（胡桃 dev review 细节）：Azure 实现映射 `If-None-Match: *`，OSS/S3 未来实现映射各自条件写；ContractStorageBackend 调该方法防重复写
 - backend 实例 `AzureBlobStorageBackend` 直接复用，无需新起 Azure 账号
 - container 复用 `yiluan-cert-{env}` (省一次 RBAC + 21Vianet 配置)，blob path 用 `contracts/{year}/{month}/{order_id}_{contract_hash}.pdf` namespace 隔离
 
@@ -111,6 +112,47 @@ contract_hash = SHA-256(
 - canonical JSON 必须 `sort_keys=True` + `ensure_ascii=False` + `separators=(',', ':')` 三参数固定（防漂移）
 - patient_pseudonym_hash 计算盐独立 env `CONTRACT_PSEUDONYM_SALT`（不与 cert image 共用 salt）
 
+
+**计算时机 + hash_inputs 落表（刻晴 PR #189 r3 补充 #1）**：
+
+hash 的原材料必须一次性冻结 + 与合同 blob 同步入库，否则用户后续改名 / 修改资料会破 hash 验证：
+
+```python
+# backend/app/services/contract_hash.py
+
+def generate_contract_hash_at_commit_time(order: Order) -> tuple[str, dict]:
+    """
+    合同生成时一次性 snapshot 原材料 + 计算 hash。
+    返回 (contract_hash, hash_inputs_snapshot)。
+    后续用户改名 / 修改资料 → hash_inputs 照生成时记录 → hash 验证仍可重算并匹配。
+    """
+    hash_inputs = {
+        "order_id": str(order.id),
+        "amount_cny": order.price_snapshot,
+        "service_package_id": str(order.service_package_id),
+        "scheduled_at": order.scheduled_at.isoformat(),
+        "patient_pseudonym_hash": hashlib.sha256(
+            (order.patient.name + order.patient.id_card_last4 + os.environ["CONTRACT_PSEUDONYM_SALT"]).encode()
+        ).hexdigest(),
+        "companion_id": str(order.companion_id),
+        "template_version": order.contract_template.version,
+    }
+    contract_hash = hashlib.sha256(
+        (
+            hash_inputs["template_version"]
+            + "|"
+            + json.dumps(hash_inputs, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+        ).encode()
+    ).hexdigest()
+    return contract_hash, hash_inputs
+```
+
+**`service_contracts.hash_inputs` JSONB 字段（同步 ADR-0047 §3.1 表定义）**：
+- `hash_inputs JSONB NOT NULL` — 存生成时 canonical JSON 原始输入
+- 作用 1：用户后续改名 / patient 资料修改，hash 验证用 hash_inputs 重算 → 不破历史合同验证
+- 作用 2：审计可查合同生成时到底用了哪些原始输入 + 验证 hash 公式不被篡改
+- WORM 层：`hash_inputs` 加入 ADR-0047 §3.1 immutable 字段白名单（UPDATE trigger 拒修改）
+
 ### 3.3 P2：WORM 语义实施（魈 spec + 胡桃 impl，~0.25d）
 
 **Azure Blob Immutable Storage Policy**：
@@ -140,7 +182,7 @@ container.set_immutability_policy(
 ```
 events:
   payment.succeeded
-    -> contract.generate.requested (异步 Celery / RQ task)
+    -> contract.generate.requested (异步 apscheduler cron job)
        -> ContractStorageBackend.put_contract()
           -> 成功 → service_contracts.status = active
           -> 失败 → service_contracts.status = generation_failed + retry_count += 1
@@ -322,3 +364,6 @@ python scripts/qa/openapi_contract_diff.py --json-summary
 
 - **r1（2026-06-05）**：Draft 初版，吸收刻晴 tester review §1 3 强约束 + 5 可测建议（合同 hash 公式 + WORM + 双门契约 + 补偿 cron + admin alert）
 - **r2（2026-06-05）**：双门 positive list 加 `companion_cert_*`（PRD-001 v1.2 §F8 AC-F8-7）+ `feedback_*`（PRD-004 AC-8），填补后续 S3-REQ-004/005 实施需要的域前缀，避免 CI gate 误伤
+- **r3（2026-06-05）**：吸收刻晴补充 #1 + 胡桃 dev review 细节
+  - §3.2 明示 `patient_pseudonym_hash` 在合同生成时一次性计算 + `service_contracts.hash_inputs JSONB` 落表，防 user 改名 / patient 资料修改破坏历史 hash 验证
+  - §3.1 StorageBackend ABC 新增 `put_if_absent(blob_path, bytes, metadata)` 方法，Azure 实现映射 `If-None-Match: *`

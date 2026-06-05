@@ -60,28 +60,37 @@ PRD-003 S3-REQ-002 引入 AI 就诊准备包：基于服务档位 + 医院 + 科
 
 ## 3. AIBudgetGuard 设计
 
-### 3.1 双轴配置（刻晴 review §1 AC#8 强约束）
+### 3.1 双轴配置（刻晴 review §1 AC#8 强约束 + 胡桃 dev review #2/#3）
 
 ```python
 # backend/app/config.py
 
 class Settings(BaseSettings):
-    # S2 AI 摘要（已存在）
-    s2_ai_summary_cost_per_order_usd: float = 0.05
-    s2_ai_summary_daily_budget_usd: float = 50.0
-    s2_ai_summary_enabled: bool = True
+    # S2 AI 摘要（已存在）— **保持现名做 BC 真源** (胡桃 review #3)
+    ai_per_order_budget_yuan: float = 0.05
+    ai_daily_budget_yuan: float = 50.0
+    ai_summary_enabled: bool = True
 
-    # S3 AI 就诊准备包（本 ADR 新增）
-    s3_prep_cost_per_order_usd: float = 0.10       # 准备包内容更长，单价 2x S2
-    s3_prep_daily_budget_usd: float = 100.0        # 日预算独立 2x S2
+    # S3 AI 就诊准备包（本 ADR 新增）— deepseek 按 ¥ 报价, 单位统一 yuan (胡桃 review #2)
+    s3_prep_cost_per_order_yuan: float = 0.10       # 准备包内容更长，单价 2x S2
+    s3_prep_daily_budget_yuan: float = 100.0        # 日预算独立 2x S2
     s3_prep_enabled: bool = True
-    s3_prep_fallback_threshold_pct: int = 90       # 日预算用到 90% → 触发降级
+    s3_prep_fallback_threshold_pct: int = 90        # 日预算用到 90% → warn + admin alert
 ```
 
 **配置真源**：
-- env: `S3_PREP_COST_PER_ORDER_USD=0.10`
-- 灰度起步值（PRD §7 指标）: 单订单 ≤ $0.10 / 日预算 ≤ $100
+- S2: **保留现有** `ai_per_order_budget_yuan=0.05` / `ai_daily_budget_yuan=50.0`，不改名，不迁移，零 BC break（胡桃 review #3）
+- S3: 新增 `S3_PREP_COST_PER_ORDER_YUAN=0.10` / `S3_PREP_DAILY_BUDGET_YUAN=100.0`
+- 灰度起步值（PRD §7 指标）: 单订单 ≤ ¥0.10 / 日预算 ≤ ¥100
 - 灰度 1 周后按真实数据调整
+
+**fallback threshold 状态机（刻晴补充 #4）**：
+
+| 日预算使用率 | 状态 | 行为 |
+|---|---|---|
+| 0-89% | NORMAL | 正常调用 LLM |
+| 90-99% | WARN | 允许调用 + fire `ai_budget_soft_warning_{axis}` admin alert |
+| 100%+ | EXHAUSTED | 强制 fallback 通用模板 + fire `ai_budget_exhausted_{axis}` warning |
 
 ### 3.2 BudgetGuard 中间件
 
@@ -93,55 +102,58 @@ class AIBudgetGuard:
 
     def __init__(self, axis: BudgetAxis):  # BudgetAxis.S2_SUMMARY / S3_PREP
         self.axis = axis
-        self.cost_per_order_limit = settings.get_cost_limit(axis)
-        self.daily_budget_limit = settings.get_daily_budget(axis)
+        self.cost_per_order_limit_yuan = settings.get_cost_limit_yuan(axis)
+        self.daily_budget_limit_yuan = settings.get_daily_budget_yuan(axis)
 
     def check_and_reserve(
         self,
         order_id: str,
-        estimated_cost_usd: float,
+        estimated_cost_yuan: float,
     ) -> BudgetCheckResult:
         """返回 ALLOW / FALLBACK_TO_TEMPLATE / REJECT_PERMANENTLY"""
 
         # 1. 单订单门限
-        if estimated_cost_usd > self.cost_per_order_limit:
+        if estimated_cost_yuan > self.cost_per_order_limit_yuan:
             return BudgetCheckResult.FALLBACK_TO_TEMPLATE(
-                reason=f"estimated cost ${estimated_cost_usd} exceeds per-order limit ${self.cost_per_order_limit}"
+                reason=f"estimated cost ¥{estimated_cost_yuan} exceeds per-order limit ¥{self.cost_per_order_limit_yuan}"
             )
 
         # 2. 日预算门限（Redis 原子计数）
         today_spent = redis.get(f"ai_budget:{self.axis}:{today_str()}") or 0
-        if today_spent + estimated_cost_usd > self.daily_budget_limit:
+        usage_ratio = (today_spent + estimated_cost_yuan) / self.daily_budget_limit_yuan
+        if usage_ratio >= 1.0:
             fire_alert(
                 alert_name=f"ai_budget_exhausted_{self.axis}",
                 severity='warning',
                 axis=self.axis,
                 today_spent=today_spent,
-                limit=self.daily_budget_limit,
+                limit=self.daily_budget_limit_yuan,
             )
             return BudgetCheckResult.FALLBACK_TO_TEMPLATE(
-                reason=f"daily budget exhausted: ${today_spent} / ${self.daily_budget_limit}"
+                reason=f"daily budget exhausted: ¥{today_spent} / ¥{self.daily_budget_limit_yuan}"
             )
 
-        # 3. 软门限（90% 触发降级 warning，不 reject）
-        if (today_spent + estimated_cost_usd) / self.daily_budget_limit > 0.9:
+        # 3. 软门限（90-99%: warn + admin alert, 但不 reject）
+        if usage_ratio >= 0.9:
             fire_alert(
                 alert_name=f"ai_budget_soft_warning_{self.axis}",
                 severity='info',
+                axis=self.axis,
+                usage_ratio=usage_ratio,
             )
 
         # 4. 预扣
-        redis.incrbyfloat(f"ai_budget:{self.axis}:{today_str()}", estimated_cost_usd)
+        redis.incrbyfloat(f"ai_budget:{self.axis}:{today_str()}", estimated_cost_yuan)
         return BudgetCheckResult.ALLOW(reservation_id=uuid4())
 
     def report_actual_cost(
         self,
         reservation_id: str,
-        actual_cost_usd: float,
-        estimated_cost_usd: float,
+        actual_cost_yuan: float,
+        estimated_cost_yuan: float,
     ):
         """LLM 调用完成后回补差额"""
-        diff = actual_cost_usd - estimated_cost_usd
+        diff = actual_cost_yuan - estimated_cost_yuan
         redis.incrbyfloat(f"ai_budget:{self.axis}:{today_str()}", diff)
 ```
 
@@ -178,6 +190,14 @@ class BudgetAxis(str, Enum):
 - 后端：不存在 `POST/PUT/DELETE /admin/ai-blocklist` endpoint（API 层禁编辑）
 - 任何 admin 关键词查看操作入 audit_log：`action=ai_blocklist_viewed` + `admin_id` + `timestamp` + `category_filter`
 - 防御层：即使 admin-v2 前端被绕过（curl 直调），backend 也无对应 endpoint 可改
+
+
+**hot reload 时序（刻晴补充 #5）**：
+- admin 触发 `POST /admin/ai-blocklist/reload` 后，所有 backend 实例必须 ≤5s 读到新版本
+- 实现：Redis pub/sub topic `ai_blocklist_reload` 广播 `{version, git_commit_hash, triggered_by_admin_id, triggered_at}`
+- 每个 backend 实例收到事件后重新加载 `docs/medical-content/prohibited-keywords.yml` + 更新内存版本号
+- reload 成功写 metric `ai_blocklist_reload_success_total{instance=...}`；失败 fire `ai_blocklist_reload_failed` warning
+- S3-TEST-002 必加 reload 时序用例：两副本 backend 同时运行，admin trigger 后 ≤5s 两副本 `/debug/ai-blocklist-version` 均返回新 version
 
 ### 4.2 双层过滤设计
 
@@ -313,6 +333,8 @@ def validate_prompt_versions_at_startup():
         if not git_path.exists():
             raise StartupError(f"DB-active prompt version {active_db.version} missing in git: {git_path}")
 
+        # 胡桃 dev review 细节: git_blame_commit 用 subprocess 调 `git log -n 1 -- <path>`，
+        # 不引入 GitPython 依赖（避免新增 runtime dependency）。
         git_commit = git_blame_commit(git_path)
         if git_commit != active_db.git_commit_hash:
             raise StartupError(
@@ -380,8 +402,8 @@ def get_prep_trace(order_id: str):
         "trace_id": ...,
         "prompt_version": ...,
         "model": ...,
-        "estimated_cost_usd": ...,
-        "actual_cost_usd": ...,
+        "estimated_cost_yuan": ...,
+        "actual_cost_yuan": ...,
         "filter_l1_result": ...,
         "filter_l2_result": ...,
         "llm_response_raw": ...,        # 完整 LLM 原始返回
@@ -412,7 +434,7 @@ def get_prep_trace(order_id: str):
 | `user_checked_items` | ✅ | ✅ | ✅ | 用户勾选状态（用于陪诊师协助提醒）|
 | `trace_id` | ❌ | ❌ | ✅ | admin trace 专用 |
 | `prompt_version_id` | ❌ | ❌ | ✅ | admin trace 专用 |
-| `model` / `actual_cost_usd` / `generation_time_ms` | ❌ | ❌ | ✅ | admin trace 专用 |
+| `model` / `actual_cost_yuan` / `generation_time_ms` | ❌ | ❌ | ✅ | admin trace 专用 |
 | `fallback_reason` | ❌ | ❌ | ✅ | admin trace 专用 |
 
 ### 7.0.1 API 层 ABAC 强制（PM 推方案 1）
@@ -474,8 +496,8 @@ class AdminPrepPackageView(_BasePrepFields):
     trace_id: str
     prompt_version_id: UUID
     model: str
-    estimated_cost_usd: Decimal
-    actual_cost_usd: Decimal
+    estimated_cost_yuan: Decimal
+    actual_cost_yuan: Decimal
     generation_time_ms: int
     fallback_reason: str | None
 ```
@@ -523,7 +545,7 @@ def test_admin_view_includes_trace(client, admin_token, sample_order):
     )
     body = resp.json()
     assert "trace_id" in body
-    assert "actual_cost_usd" in body
+    assert "actual_cost_yuan" in body
     assert "fallback_reason" in body
 ```
 
@@ -590,8 +612,8 @@ CREATE TABLE preparation_packages (
     prompt_version_id UUID REFERENCES prompt_versions(id),
     trace_id VARCHAR(64),
     model VARCHAR(64),
-    estimated_cost_usd NUMERIC(8, 6),
-    actual_cost_usd NUMERIC(8, 6),
+    estimated_cost_yuan NUMERIC(8, 6),
+    actual_cost_yuan NUMERIC(8, 6),
     generation_time_ms INTEGER,
     fallback_reason TEXT,                          -- 降级原因（L1_BLOCKED / L2_BLOCKED / BUDGET_EXHAUSTED / LLM_ERROR）
     -- 用户勾选状态
@@ -602,7 +624,7 @@ CREATE TABLE preparation_packages (
 
 CREATE TYPE prep_status AS ENUM (
     'pending',                    -- 初始
-    'generating',                  -- Celery 持锁中
+    'generating',                  -- apscheduler cron job 持锁中
     'active',                      -- AI 生成成功
     'active_fallback_template',    -- 降级到通用模板（fallback_reason 必填）
     'generation_failed'            -- LLM error + 重试 3 次失败（不能 fallback）
@@ -642,7 +664,7 @@ companion_focus_points:
 | P1 | AIBudgetGuard middleware + Redis 双门限计数 | 胡桃 | 0.5d |
 | P2 | 关键词清单首批 + 双层过滤 impl | 凝光 list + 胡桃 impl | 0.5d |
 | P3 | Prompt v1.0.0 + 通用模板 fixture | 凝光 + 医疗顾问 review | 1d（外部依赖）|
-| P4 | Celery task: prep.generate + fallback 逻辑 | 胡桃 | 0.5d |
+| P4 | apscheduler cron: prep.generate + fallback 逻辑 | 胡桃 | 0.5d |
 | P5 | API: order detail 加 prep_package + 用户勾选 | 胡桃 | 0.5d |
 | P6 | admin-v2: prep trace 查询页 + 关键词命中统计 | 胡桃 | 1d |
 | P7 | 灰度 10 单 + 质量评估 | 凝光 + 刻晴 | 1 周（业务监控）|
@@ -703,3 +725,9 @@ companion_focus_points:
   - §7.0.3 集成测哨兵（companion token 访问 /users/ 必 403 / 字段集封闭检查防 schema 漂移）
   - §7.0.4 ABAC 4 层防御架构（Schema/Endpoint/Service/测试，与 ADR-0046 §3.3 WORM 4 层同款架构）
   - §4.1 admin 关键词查看页加 `ai_blocklist_viewed` audit_log + 前后端双层禁编辑（凝光 P1 建议）
+- **r3（2026-06-05）**：吸收刻晴补充 #4/#5 + 胡桃 dev review #1/#2/#3/细节
+  - §3.1 货币单位从 `*_usd` 统一改为 `*_yuan`（deepseek 按 ¥ 报价），并保留现有 S2 `ai_per_order_budget_yuan` / `ai_daily_budget_yuan` 作为真源，新增 `s3_prep_*` 配置实现零 BC break
+  - §3.1 明示 fallback threshold 状态机：0-89% NORMAL / 90-99% WARN + admin alert / 100%+ EXHAUSTED 强制 fallback
+  - 全文 `Celery` 统一改为 `apscheduler cron job`，对齐 backend 实跑依赖
+  - §4.1 加 hot reload 时序：admin 触发后 ≤5s 全 backend 实例更新 + S3-TEST-002 reload 时序用例
+  - §5.2 `git_blame_commit` 明示用 subprocess 调 `git log -n 1 -- <path>`，不引 GitPython runtime dependency

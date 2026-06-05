@@ -46,6 +46,7 @@ CREATE TABLE service_contracts (
     order_id UUID NOT NULL UNIQUE REFERENCES orders(id),  -- 一单一合同
     template_version VARCHAR(32) NOT NULL,                 -- 如 "v1.0.0"
     contract_hash VARCHAR(64) NOT NULL UNIQUE,             -- SHA-256 hex
+    hash_inputs JSONB NOT NULL,                            -- 刻晴补充 #1: 合同生成时一次性冻结的 hash 原材料
     storage_blob_path VARCHAR(512),                        -- contracts/{year}/{month}/{order_id}_{hash}.pdf
     status contract_status NOT NULL DEFAULT 'pending_generation',
     retry_count SMALLINT NOT NULL DEFAULT 0,
@@ -61,7 +62,7 @@ CREATE TABLE service_contracts (
 
 CREATE TYPE contract_status AS ENUM (
     'pending_generation',           -- 初始：支付成功后未开始生成
-    'generating',                    -- Celery task 持锁中
+    'generating',                    -- apscheduler cron job 持锁中
     'active',                        -- 成功生成 + WORM 已存
     'generation_failed',             -- 单次失败（可重试）
     'generation_permanently_failed', -- 3 次重试全失败（不可重试，需 admin 介入）
@@ -75,8 +76,24 @@ CREATE INDEX idx_contracts_status ON service_contracts(status)
 **关键约束**：
 - `order_id` UNIQUE = 一单一合同（不允许重复生成）
 - `contract_hash` UNIQUE = 同 hash 拒重复入库（防双写）
+- `hash_inputs` = 合同生成时一次性冻结的 hash 原材料（防 user 改名 / patient 资料修改破坏历史 hash 验证）
 - `is_immutable` + UPDATE trigger = DB 层 WORM 防御（ADR-0046 §3.3 第 3 层）
 - 索引仅 cover 待补偿状态（status=generation_failed），减小索引大小
+
+**immutable_fields 白名单（刻晴 PR #189 r3 补充 #2）**：
+
+| 字段 | 是否可变 | 理由 |
+|---|---|---|
+| `status` | ✅ 可变 | 状态机推进 / 灰度作废需要 |
+| `retry_count` / `last_error_trace` | ✅ 可变 | 补偿 cron 需要 |
+| `invalidation_reason` / `invalidated_by_admin_id` / `invalidated_at` | ✅ 可变 | `manually_invalidated` 留痕需要 |
+| `contract_hash` | ❌ 不可变 | 合同防篡改核心 |
+| `template_version` | ❌ 不可变 | 历史合同模板版本不可篡改 |
+| `storage_blob_path` | ❌ 不可变 | WORM blob path 不可换 |
+| `hash_inputs` | ❌ 不可变 | hash 验证原材料必须冻结 |
+| `order_id` | ❌ 不可变 | 一单一合同绑定不可变 |
+
+UPDATE trigger 规则：只允许更新 ✅ 字段；任何 ❌ 字段更新直接 raise `ContractImmutableFieldViolation`。
 
 ### 3.2 `service_insurance_records` 表
 
@@ -143,6 +160,32 @@ CREATE UNIQUE INDEX idx_active_template ON contract_templates(is_active) WHERE i
 
 ---
 
+
+### 3.5 `user_audit_logs` 表（电子合同取证专用）
+
+胡桃 dev review #4 指出用户勾选合同事件不能放 `admin_audit_logs`。S3-REQ-001 新增用户侧审计表：
+
+```sql
+CREATE TABLE user_audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id),
+    order_id UUID REFERENCES orders(id),
+    action VARCHAR(64) NOT NULL,        -- contract_acceptance_clicked / contract_viewed / insurance_terms_viewed
+    metadata JSONB NOT NULL DEFAULT '{}',
+    user_agent TEXT,                    -- 刻晴补充 #3: PIPL/民法典电子合同取证
+    client_ip INET,                     -- 刻晴补充 #3: PIPL/民法典电子合同取证
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_user_audit_logs_user_time ON user_audit_logs(user_id, created_at DESC);
+CREATE INDEX idx_user_audit_logs_order_action ON user_audit_logs(order_id, action);
+```
+
+**关键约束**：
+- 用户侧行为（勾选合同 / 查看合同 / 查看保障条款）一律入 `user_audit_logs`
+- admin 操作仍入 `admin_audit_logs`
+- `user_agent` + `client_ip` 必填（可通过反代提取真实 IP，缺失时写 `0.0.0.0` + `missing_ip=true` metadata）
+
 ## 4. 状态机定义
 
 ### 4.1 ContractStateMachine
@@ -153,7 +196,7 @@ CREATE UNIQUE INDEX idx_active_template ON contract_templates(is_active) WHERE i
                           v
                 pending_generation
                           |
-                          v (Celery task pickup)
+                          v (apscheduler cron pickup)
                      generating
                     /         \
               success         failure
@@ -212,11 +255,11 @@ CREATE UNIQUE INDEX idx_active_template ON contract_templates(is_active) WHERE i
 
 ```
 [payment.succeeded] (PaymentService 发出)
-       ├──→ contract.generate.requested (异步 Celery)
+       ├──→ contract.generate.requested (异步 apscheduler cron job)
        │         └──→ ContractStorageBackend.put_contract()
        │              └──→ service_contracts.status: pending_generation → active / generation_failed
        │
-       └──→ insurance.issue.requested (异步 Celery)
+       └──→ insurance.issue.requested (异步 apscheduler cron job)
                  └──→ S3 阶段直接 PLACEHOLDER_VENDOR 写入
                       └──→ service_insurance_records.status: pending_issue → active
 ```
@@ -317,7 +360,7 @@ PRD-003 §3.3 AC-1 "理赔/纠纷处理入口"明示为：
 - checkbox 初始 `checked=false`
 - 支付按钮 `disabled=true` 直到 `checkbox.checked === true`
 - 不允许 "记住选择" 跳过下次确认（PIPL/民法典电子合同合规要求）
-- 勾选事件入 audit_log: `action=contract_acceptance_clicked` + `order_id` + `user_id` + `timestamp` + `template_version`
+- 勾选事件入 **`user_audit_logs`**（胡桃 review #4：不能写 `admin_audit_logs`）: `action=contract_acceptance_clicked` + `order_id` + `user_id` + `timestamp` + `template_version` + `user_agent` + `client_ip`（刻晴补充 #3：PIPL/民法典电子合同取证）
 
 ---
 
@@ -328,7 +371,7 @@ PRD-003 §3.3 AC-1 "理赔/纠纷处理入口"明示为：
 | P0 | DB migration（4 表 + ENUM + UPDATE trigger）| 胡桃 | 0.25d |
 | P1 | ContractStorageBackend impl（ADR-0046 §3.1）| 胡桃 | 0.5d |
 | P2 | 合同 hash 公式 + canonical JSON（ADR-0046 §3.2）| 胡桃 | 0.25d |
-| P3 | Celery task: contract.generate + insurance.issue | 胡桃 | 0.5d |
+| P3 | apscheduler cron: contract.generate + insurance.issue | 胡桃 | 0.5d |
 | P4 | 补偿 cron + alertmanager alert | 胡桃 | 0.25d |
 | P5 | API: order detail 加 contract/insurance 字段（三端）| 胡桃 | 0.5d |
 | P6 | admin-v2: 合同/保险管理页 + 模板维护 | 胡桃 | 1d |
@@ -349,7 +392,7 @@ PRD-003 §3.3 AC-1 "理赔/纠纷处理入口"明示为：
 | AC-4 | 补偿 cron 严格按 5min/30min/2h 退避 + 3 次失败触发 alert | cron 模拟测 + alertmanager fire 验 |
 | AC-5 | 三端 contract_status / insurance_status 字段一致（脱敏视图不变） | 三端 fixture 对比 |
 | AC-6 | 支付前 checkbox 默认 unchecked + 按钮 disabled | UI 集成测 |
-| AC-7 | 勾选事件入 audit_log + template_version 留痕 | audit_log 校验 |
+| AC-7 | 勾选事件入 `user_audit_logs` + template_version + user_agent + client_ip 留痕 | audit_log 校验 |
 
 ---
 
@@ -358,7 +401,7 @@ PRD-003 §3.3 AC-1 "理赔/纠纷处理入口"明示为：
 | 风险 | 概率 | 影响 | 缓解 |
 |---|---|---|---|
 | 合同/保险与订单状态不一致（订单 paid 但 contract pending）| 高 | 用户困惑 | PRD AC-5 明示 "合同生成中" 状态文案 + 补偿 cron 兜底 |
-| Celery task 阻塞导致大量 pending_generation 堆积 | 中 | 用户等不到合同 | 监控 contract status histogram + alertmanager 触发 backlog > 100 告警 |
+| apscheduler cron 阻塞导致大量 pending_generation 堆积 | 中 | 用户等不到合同 | 监控 contract status histogram + alertmanager 触发 backlog > 100 告警 |
 | WORM trigger 误伤合法状态变更（status: active → manually_invalidated）| 低 | 灰度回滚失败 | trigger 仅 reject 修改 `storage_blob_path` / `contract_hash` 等不可变字段；状态字段允许变 |
 | 模板更新影响新订单 / 历史订单 hash 验证 | 低 | 老合同 hash 验证失败 | DB `template_version` 与 ContractTemplate.version 严格绑定 + 历史合同保留原模板版本 |
 | S3 PLACEHOLDER_VENDOR 上线时 vendor 仍未对接 | 高（S3 不接真 vendor 是 PM 明示）| 用户看到 placeholder 字样 | UI 文案使用 "服务保障已激活"，不暴露 placeholder 字样；下迭代接真 vendor 替换底层不改 UI |
@@ -387,3 +430,7 @@ PRD-003 §3.3 AC-1 "理赔/纠纷处理入口"明示为：
 - **r2（2026-06-05）**：吸收凝光 PR #189 business review **P1 建议**
   - §3.1 `service_contracts` 表加 `invalidation_reason TEXT` 必填（当状态 = manually_invalidated）+ `invalidated_by_admin_id` 外键 + `invalidated_at` 时间戳 — 作废动作留迹完整
   - §6.2 客服入口加凝光 PM 同意简化备注（PRD 三种入口 → ADR 简化为微信 + 电话，v1.0 灰度后评估是否补表单系统）
+- **r3（2026-06-05）**：吸收刻晴补充 #2/#3 + 胡桃 dev review #4
+  - §3.1 `service_contracts` 加 `hash_inputs JSONB NOT NULL`，并列明 immutable_fields 白名单：`status` 可变；`contract_hash` / `template_version` / `storage_blob_path` / `hash_inputs` 不可变
+  - §3.5 新增 `user_audit_logs` 表；§6.3 勾选合同事件写 `user_audit_logs` 而非 `admin_audit_logs`，并强制记录 `user_agent` + `client_ip` 作为 PIPL/民法典电子合同取证材料
+  - 全文 `Celery` 统一改为 `apscheduler cron job`，对齐 backend 实跑依赖
