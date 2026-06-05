@@ -19,10 +19,12 @@
 #   * env.production.example 为将来扩 production 时的配置模板预留。
 #
 # profiles:
-#   * pg / redis 是基础服务，属于全部 profile（dev/staging/production）。
-#   * mock-pay-stub / mock-sms-stub 仅在 `staging` profile 下启用；
+#   * pg / redis 是基础服务，属于全部 profile（dev/staging/canary/production）。
+#   * mock-pay-stub / mock-sms-stub 在 `staging` 和 `canary` profile 下启用；
 #     生产不激活该 profile → 不会起 mock。
 #   * backend-dev：仅 dev profile，热挂载源码 + 暴露宿主 8001（env.dev 的 BACKEND_HOST_PORT，避开 agent-squad 的 8000）；dev 不起 nginx/mock/seed。
+#   * canary profile (S2-OPS-013)：mock 链路完整闭环 (帝君拍板不申请真物料)。
+#     用 --env-file env.staging --env-file env.canary 叠加; up.sh canary 自动 -p yiluan-canary 隔离 volume/container。
 #
 # Network:
 #   * staging/production：仅 nginx 暴露宿主端口；其余只在内部网络可达。
@@ -33,7 +35,7 @@ name: yiluan-staging
 services:
   pg:
     image: postgres:15-alpine
-    profiles: ["dev", "staging", "production"]
+    profiles: ["dev", "staging", "canary", "production"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -55,7 +57,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    profiles: ["dev", "staging", "production"]
+    profiles: ["dev", "staging", "canary", "production"]
     # dev 设 6380（避开 agent-squad 占用的 6379）；staging/production 设高位口 16379
     ports:
       - "${REDIS_HOST_BIND:-127.0.0.1}:${REDIS_HOST_PORT:-16379}:6379"
@@ -68,7 +70,7 @@ services:
       retries: 10
 
   mock-pay-stub:
-    profiles: ["staging"]
+    profiles: ["staging", "canary"]
     build:
       context: ./mock-pay-stub
       dockerfile: Dockerfile
@@ -88,7 +90,7 @@ services:
       retries: 5
 
   mock-sms-stub:
-    profiles: ["staging"]
+    profiles: ["staging", "canary"]
     build:
       context: ./mock-sms-stub
       dockerfile: Dockerfile
@@ -108,7 +110,7 @@ services:
     build:
       context: ../backend
       dockerfile: Dockerfile
-    profiles: ["staging", "production"]
+    profiles: ["staging", "canary", "production"]
     environment:
       ENVIRONMENT: ${ENVIRONMENT}
       DEBUG: ${DEBUG}
@@ -186,12 +188,13 @@ services:
 
   nginx:
     image: nginx:1.27-alpine
-    profiles: ["staging", "production"]
+    profiles: ["staging", "canary", "production"]
     depends_on:
       backend:
         condition: service_healthy
     ports:
-      - "127.0.0.1:18080:80"
+      # NGINX_HOST_PORT：staging=18080，canary=18090（env 错开避撞），production=80
+      - "${NGINX_HOST_BIND:-127.0.0.1}:${NGINX_HOST_PORT:-18080}:80"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ../admin-h5:/usr/share/nginx/admin-h5:ro
@@ -216,9 +219,9 @@ services:
   # ---------------------------------------------------------------------
   prometheus:
     image: prom/prometheus:v2.55.1
-    profiles: ["staging"]
+    profiles: ["staging", "canary"]
     ports:
-      - "127.0.0.1:9090:9090"
+      - "${PROM_HOST_BIND:-127.0.0.1}:${PROM_HOST_PORT:-9090}:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/alerts.yml:/etc/prometheus/rules/alerts.yml:ro
@@ -237,9 +240,9 @@ services:
 
   alertmanager:
     image: prom/alertmanager:v0.27.0
-    profiles: ["staging"]
+    profiles: ["staging", "canary"]
     ports:
-      - "127.0.0.1:9093:9093"
+      - "${AM_HOST_BIND:-127.0.0.1}:${AM_HOST_PORT:-9093}:9093"
     volumes:
       - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - am-data:/alertmanager
@@ -254,7 +257,7 @@ services:
   alertmanager-webhook:
     build:
       context: ../ops/alertmanager
-    profiles: ["staging"]
+    profiles: ["staging", "canary"]
     networks:
       - yiluan-net
     environment:
@@ -268,11 +271,12 @@ services:
 
   grafana:
     image: grafana/grafana:11.3.0
-    profiles: ["staging"]
+    profiles: ["staging", "canary"]
     ports:
       # avoid 3000 (common dev port; agent-squad / Next.js / Grafana defaults
       # all bind there). 13000 keeps the "1xxxx staging" convention with 18080.
-      - "127.0.0.1:13000:3000"
+      # canary 用 13001 错开 staging。
+      - "${GRAFANA_HOST_BIND:-127.0.0.1}:${GRAFANA_HOST_PORT:-13000}:3000"
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
