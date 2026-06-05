@@ -162,16 +162,22 @@ class BudgetAxis(str, Enum):
 
 ## 4. 双层禁区关键词过滤
 
-### 4.1 关键词维护方（刻晴 review §2 AC-4 可测建议）
+### 4.1 关键词维护方（刻晴 review §2 AC-4 可测建议 + 凝光 PR #189 P1 建议）
 
 **首批关键词列表来源**：凝光（PM）+ 医疗顾问 review（PRD-003 v0.3 §4.4 AC-4 强化）
 
 **维护方式**：
 - 落 git: `docs/medical-content/prohibited-keywords.yml`
 - 版本控制：每次更新需 PR + 医疗顾问 review approve
-- 运行时：backend 启动时加载 + hot reload (admin 触发)
+- 运行时：backend 启动时加载 + hot reload（admin 触发）
 - admin-v2 提供"关键词查看 + 命中统计"页面（仅查看不编辑）
 - 真要编辑：走 PR + 医疗顾问 review，不允许 admin 后台直改
+
+**前后端双层禁编辑（凝光 PR #189 P1）**：
+- 前端：admin-v2 关键词页面 read-only UI，不渲染 edit / save 按钮（产品层禁编辑）
+- 后端：不存在 `POST/PUT/DELETE /admin/ai-blocklist` endpoint（API 层禁编辑）
+- 任何 admin 关键词查看操作入 audit_log：`action=ai_blocklist_viewed` + `admin_id` + `timestamp` + `category_filter`
+- 防御层：即使 admin-v2 前端被绕过（curl 直调），backend 也无对应 endpoint 可改
 
 ### 4.2 双层过滤设计
 
@@ -386,7 +392,187 @@ def get_prep_trace(order_id: str):
 
 ---
 
-## 7. 数据模型
+## 7. 数据模型 + ABAC 数据访问层（PRD-003 v0.3 §4.4 AC-6 + §2.2 红线强制）
+
+### 7.0 字段级 ABAC 投影矩阵（陪诊师不可见用户病史原文）
+
+**红线**：PRD-003 §2.2 + AC-6 明示陪诊师端**不允许任何路径**见用户病史原文（主诉 / 可能问诊问题 / 到院前注意事项）。本节定义字段级访问控制矩阵 + API 层 ABAC 投影（PM 推方案 1）+ 单元测断言 + 集成测哨兵。
+
+**字段级访问矩阵**：
+
+| 字段 | 用户 | 陪诊师 | admin | 备注 |
+|---|---|---|---|---|
+| `id` | ✅ | ✅ | ✅ | 通用 |
+| `order_id` | ✅ | ✅ | ✅ | 通用 |
+| `status` | ✅ | ✅ | ✅ | 状态字段 |
+| `carry_items` | ✅ | ⚠️ summary 仅 | ✅ | 陪诊师仅看脱敏摘要（条数 + 类别），不见具体内容 |
+| `pre_visit_notes` | ✅ | ❌ | ✅ | **病情主诉相关，陪诊师禁见** |
+| `possible_questions` | ✅ | ❌ | ✅ | **病情主诉相关，陪诊师禁见** |
+| `companion_focus_points` | ⚠️ optional | ✅ | ✅ | 陪诊师专用关注点（用户可选展示）|
+| `user_checked_items` | ✅ | ✅ | ✅ | 用户勾选状态（用于陪诊师协助提醒）|
+| `trace_id` | ❌ | ❌ | ✅ | admin trace 专用 |
+| `prompt_version_id` | ❌ | ❌ | ✅ | admin trace 专用 |
+| `model` / `actual_cost_usd` / `generation_time_ms` | ❌ | ❌ | ✅ | admin trace 专用 |
+| `fallback_reason` | ❌ | ❌ | ✅ | admin trace 专用 |
+
+### 7.0.1 API 层 ABAC 强制（PM 推方案 1）
+
+**Endpoint 投影矩阵**：
+
+```python
+# backend/app/api/v1/users/prep_packages.py
+@router.get("/users/orders/{order_id}/prep-package", response_model=UserPrepPackageView)
+def get_prep_for_user(order_id: str, current_user: User = Depends(get_current_user)):
+    """用户视图：全字段除 admin trace"""
+    ...
+
+# backend/app/api/v1/companions/prep_packages.py
+@router.get("/companions/orders/{order_id}/prep-package", response_model=CompanionPrepPackageView)
+def get_prep_for_companion(order_id: str, current_companion: Companion = Depends(get_current_companion)):
+    """陪诊师视图：强制剔除 pre_visit_notes / possible_questions；carry_items 仅返摘要"""
+    ...
+
+# backend/app/api/v1/admin/prep_packages.py
+@router.get("/admin/prep-packages/{order_id}", response_model=AdminPrepPackageView)
+def get_prep_for_admin(order_id: str, current_admin: Admin = Depends(get_current_admin)):
+    """admin 视图：全字段含 trace"""
+    ...
+```
+
+**Pydantic schema 强制字段过滤**：
+
+```python
+# backend/app/schemas/prep_package.py
+
+class _BasePrepFields(BaseModel):
+    id: UUID
+    order_id: UUID
+    status: PrepStatus
+    user_checked_items: dict
+
+class UserPrepPackageView(_BasePrepFields):
+    """用户视图：完整内容（除 admin trace）"""
+    carry_items: list[CarryItem]
+    pre_visit_notes: list[PreVisitNote]
+    possible_questions: list[PossibleQuestion]
+    companion_focus_points: list[FocusPoint]
+
+class CompanionPrepPackageView(_BasePrepFields):
+    """陪诊师视图：pre_visit_notes / possible_questions 字段不存在（schema 层硬约束）
+    carry_items 仅返摘要（条数 + 类别）
+    """
+    carry_items_summary: CarryItemsSummary  # {total_count: int, categories: list[str]}不返具体内容
+    companion_focus_points: list[FocusPoint]
+    # pre_visit_notes / possible_questions / trace_* 字段在 schema 中根本不存在
+
+class AdminPrepPackageView(_BasePrepFields):
+    """admin 视图：全字段含 trace"""
+    carry_items: list[CarryItem]
+    pre_visit_notes: list[PreVisitNote]
+    possible_questions: list[PossibleQuestion]
+    companion_focus_points: list[FocusPoint]
+    trace_id: str
+    prompt_version_id: UUID
+    model: str
+    estimated_cost_usd: Decimal
+    actual_cost_usd: Decimal
+    generation_time_ms: int
+    fallback_reason: str | None
+```
+
+**关键设计**：
+- 陪诊师 schema **完全不包含** `pre_visit_notes` / `possible_questions` 字段 → 即使 service 层有 bug 漏过滤，Pydantic 序列化时会**直接 drop** 不在 schema 定义的字段（字段级硬约束）
+- 不是 `Optional[None]`也不是空字符串 — 字段**根本不存在于响应**
+- `carry_items_summary` 替代 `carry_items` 给陪诊师 = 显式 API 不对称设计（一个字段名不在另一个响应内）
+
+### 7.0.2 单元测断言（ABAC 字段级硬约束）
+
+```python
+# tests/api/v1/test_prep_package_abac.py
+
+def test_companion_view_must_not_contain_pre_visit_notes(client, companion_token, sample_order):
+    """陪诊师端响应**绝不能**包含 pre_visit_notes 字段（病史主诉）"""
+    resp = client.get(
+        f"/api/v1/companions/orders/{sample_order.id}/prep-package",
+        headers={"Authorization": f"Bearer {companion_token}"},
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert "pre_visit_notes" not in body  # ABAC 红线
+    assert "possible_questions" not in body  # ABAC 红线
+    assert "trace_id" not in body  # admin 字段不外泄
+    assert "carry_items" not in body  # 改为 summary
+    assert "carry_items_summary" in body  # 仅摘要
+
+def test_user_view_includes_full_content(client, user_token, sample_order):
+    """用户端必须能见全内容（但不含 admin trace）"""
+    resp = client.get(
+        f"/api/v1/users/orders/{sample_order.id}/prep-package",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    body = resp.json()
+    assert "pre_visit_notes" in body
+    assert "possible_questions" in body
+    assert "trace_id" not in body
+
+def test_admin_view_includes_trace(client, admin_token, sample_order):
+    """admin 端必须含完整 trace"""
+    resp = client.get(
+        f"/api/v1/admin/prep-packages/{sample_order.id}",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    body = resp.json()
+    assert "trace_id" in body
+    assert "actual_cost_usd" in body
+    assert "fallback_reason" in body
+```
+
+### 7.0.3 集成测哨兵（防 view 跨调用穿越 + 字段集封闭检查）
+
+```python
+# tests/integration/test_prep_package_abac_sentinel.py
+
+def test_companion_cannot_access_user_endpoint(client, companion_token, sample_order):
+    """陪诊师 token 调用 /users/ endpoint 必须 403"""
+    resp = client.get(
+        f"/api/v1/users/orders/{sample_order.id}/prep-package",
+        headers={"Authorization": f"Bearer {companion_token}"},
+    )
+    assert resp.status_code == 403
+
+def test_user_cannot_access_admin_endpoint(client, user_token, sample_order):
+    """用户 token 调用 /admin/ endpoint 必须 403"""
+    resp = client.get(
+        f"/api/v1/admin/prep-packages/{sample_order.id}",
+        headers={"Authorization": f"Bearer {user_token}"},
+    )
+    assert resp.status_code == 403
+
+def test_companion_view_response_field_set_locked(client, companion_token, sample_order):
+    """陪诊师视图字段集是封闭集 — 防 schema 漂移引入新泄露字段"""
+    resp = client.get(
+        f"/api/v1/companions/orders/{sample_order.id}/prep-package",
+        headers={"Authorization": f"Bearer {companion_token}"},
+    )
+    EXPECTED_FIELDS = {
+        "id", "order_id", "status", "user_checked_items",
+        "carry_items_summary", "companion_focus_points",
+    }
+    actual_fields = set(resp.json().keys())
+    assert actual_fields == EXPECTED_FIELDS, (
+        f"陪诊师视图字段集漂移! 新字段={actual_fields - EXPECTED_FIELDS}, "
+        f"缺字段={EXPECTED_FIELDS - actual_fields}"
+    )
+```
+
+### 7.0.4 ABAC 4 层防御（与 ADR-0046 §3.3 WORM 4 层防御同款架构）
+
+| 层 | 防御 |
+|---|---|
+| 1. Schema 层 | Pydantic `CompanionPrepPackageView` 不定义 `pre_visit_notes` / `possible_questions` 字段 — 序列化时自动 drop |
+| 2. Endpoint 层 | 三个独立 endpoint（`/users/` / `/companions/` / `/admin/`）+ Depends 鉴权强制角色 |
+| 3. Service 层 | `get_prep_for_companion()` 内部仅 SELECT 投影到 schema 字段集（DB 层 select 列裁剪）|
+| 4. 测试层 | 单元测 + 集成测哨兵（上述 §7.0.2 / §7.0.3）→ CI required |
 
 ### 7.1 `preparation_packages` 表
 
@@ -510,3 +696,10 @@ companion_focus_points:
 ## 13. 变更记录
 
 - **r1（2026-06-05）**：Draft 初版，吸收刻晴 tester review §1 AC#8 强约束（S2/S3 budget 分轴）+ §2 AC-4 可测建议（关键词维护方 admin 配置 + 后端 hot reload + 凝光 list + git 版本控制）
+- **r2（2026-06-05）**：吸收凝光 PR #189 business review **P0 红线**
+  - §7.0 新增字段级 ABAC 投影矩阵 + API 层 ABAC 强制（PM 推方案 1）
+  - §7.0.1 Pydantic schema 字段级硬约束（陪诊师 schema 完全不包含 `pre_visit_notes` / `possible_questions` 字段，Pydantic 序列化时自动 drop）
+  - §7.0.2 单元测断言 ABAC 字段级硬约束（3 case：companion 不见原文 / user 见全内容 / admin 见 trace）
+  - §7.0.3 集成测哨兵（companion token 访问 /users/ 必 403 / 字段集封闭检查防 schema 漂移）
+  - §7.0.4 ABAC 4 层防御架构（Schema/Endpoint/Service/测试，与 ADR-0046 §3.3 WORM 4 层同款架构）
+  - §4.1 admin 关键词查看页加 `ai_blocklist_viewed` audit_log + 前后端双层禁编辑（凝光 P1 建议）

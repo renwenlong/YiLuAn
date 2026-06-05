@@ -52,6 +52,9 @@ CREATE TABLE service_contracts (
     last_error_trace TEXT,                                 -- 失败原因（最近一次）
     generated_at TIMESTAMPTZ,                              -- 成功生成时间
     is_immutable BOOLEAN NOT NULL DEFAULT TRUE,            -- WORM 标记，UPDATE trigger reject
+    invalidation_reason TEXT,                              -- 凝光 PR #189 P1：manually_invalidated 状态必填
+    invalidated_by_admin_id UUID REFERENCES admins(id),    -- 凝光 PR #189 P1：manually_invalidated 设置人
+    invalidated_at TIMESTAMPTZ,                            -- 作废时间
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -294,6 +297,8 @@ PRD-003 §3.3 AC-1 "理赔/纠纷处理入口"明示为：
 - **备选入口**：客服电话（小程序 `tel:` / iOS `tel:` URI）
 - **S3 不做**：在线表单系统（待 BACKLOG-CUSTOMER-SERVICE-PORTAL）
 
+**凝光 PR #189 备注**：PRD §3.3 AC-1 原写三种入口（微信 / 在线表单 / 电话），ADR §6.2 简化为微信 + 电话 — 凝光 PM 同意简化。v1.0 灰度后评估是否补表单系统，视客服压力 + 用户实际采用入口分布决定。
+
 ### 6.3 支付前合同/保障摘要勾选（PRD-003 §5 AC-3 + 刻晴 review §3 AC-3 强约束）
 
 **默认 unchecked + 支付按钮 disabled**：
@@ -379,3 +384,6 @@ PRD-003 §3.3 AC-1 "理赔/纠纷处理入口"明示为：
 ## 12. 变更记录
 
 - **r1（2026-06-05）**：Draft 初版，吸收刻晴 tester review §1 AC#5 强约束（补偿 cron 5min/30min/2h）+ §3 AC-3 强约束（默认 unchecked + 按钮 disabled）+ AC-1 客服入口（微信 + 电话，不做表单）
+- **r2（2026-06-05）**：吸收凝光 PR #189 business review **P1 建议**
+  - §3.1 `service_contracts` 表加 `invalidation_reason TEXT` 必填（当状态 = manually_invalidated）+ `invalidated_by_admin_id` 外键 + `invalidated_at` 时间戳 — 作废动作留迹完整
+  - §6.2 客服入口加凝光 PM 同意简化备注（PRD 三种入口 → ADR 简化为微信 + 电话，v1.0 灰度后评估是否补表单系统）

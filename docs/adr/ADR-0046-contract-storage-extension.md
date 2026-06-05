@@ -173,10 +173,12 @@ GUARDED_FIELDS = {  # negative list (ADR-0045 已锁，本 ADR 沿用)
     "share_verified",
 }
 
-S3_NEW_FIELD_PREFIXES = {  # positive list (本 ADR 新加)
+S3_NEW_FIELD_PREFIXES = {  # positive list (本 ADR 新加 + r2 加 companion_cert_*)
     "contract_",
     "insurance_",
     "preparation_",
+    "companion_cert_",   # r2: PRD-001 v1.2 §F8 资质透明度 ¨ AC-F8-7 要求强制前缀
+    "feedback_",         # r2: PRD-004 反馈采集 AC-8 要求强制前缀
 }
 
 def check_share_namespace_locked(openapi_spec: dict) -> list[str]:
@@ -319,3 +321,4 @@ python scripts/qa/openapi_contract_diff.py --json-summary
 ## 8. 变更记录
 
 - **r1（2026-06-05）**：Draft 初版，吸收刻晴 tester review §1 3 强约束 + 5 可测建议（合同 hash 公式 + WORM + 双门契约 + 补偿 cron + admin alert）
+- **r2（2026-06-05）**：双门 positive list 加 `companion_cert_*`（PRD-001 v1.2 §F8 AC-F8-7）+ `feedback_*`（PRD-004 AC-8），填补后续 S3-REQ-004/005 实施需要的域前缀，避免 CI gate 误伤
