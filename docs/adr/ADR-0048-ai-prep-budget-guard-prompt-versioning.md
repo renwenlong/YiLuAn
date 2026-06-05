@@ -1,0 +1,512 @@
+# ADR-0048 — AI 就诊准备包预算控件 + Prompt 版本化 + 双层关键词过滤
+
+> 状态：**Draft（待 review + Owner Accept）** · 作者：魈 · 日期：2026-06-05
+> 关联：PRD-003 §4 S3-REQ-002 / ADR-0040 distributed circuit breaker + alertmanager / PRD-003 v0.3 §8 Q3 架构评估 + 刻晴 tester review §1 AC#8 强约束（独立 config）+ §2 AC-4 可测建议（关键词维护方）
+> 触发：S3-REQ-002 AI 就诊准备包 / 帝君 2026-06-05 09:52 UTC v0.3 Owner Accept
+> Owner Approval：**Pending（待 v0.3 三签 + 凝光拆 task ready 后 Accept）**
+
+---
+
+## 1. 背景
+
+PRD-003 S3-REQ-002 引入 AI 就诊准备包：基于服务档位 + 医院 + 科室 + 用户主诉，AI 生成 4 块内容（携带材料、到院前注意事项、可能问诊问题、陪诊师关注点）。
+
+架构 §8 Q3 已拍：
+
+1. **必须新起 AIBudgetGuard 中间件**（成本预算 + 降级 + alert）
+2. **必须复用现有 LLM call layer**（不重复造）
+3. **必须 trace_id 全链路**（admin 可查）
+4. **必须双层禁区关键词过滤**（输入 prompt + 输出文本）
+5. **PromptVersion 版本化**（git tag + db migration 双锁）
+
+刻晴 tester review §1 AC#8 强约束：S3 AI 成本配置必须与 S2 `ai_summary_*` 分轴，避免双轴误算。
+
+---
+
+## 2. 选型对比
+
+### 2.1 AIBudgetGuard 实施
+
+| 候选 | 描述 | 评估 |
+|---|---|---|
+| **A. 中间件层 + 双轴配置（S2 / S3 独立）** | 新起 AIBudgetGuard，单订单 + 日成本双门限，S2/S3 独立 budget pool | ✅ 推荐 |
+| B. LLM call layer 内嵌（每个 caller 自查）| 每个 AI 调用方自实现限额 | ❌ 重复代码 + 易漏 + 难调试 |
+| C. 全局单门限 | S2 + S3 共享 budget pool | ❌ 刻晴强约束反对（S2 摘要短 vs S3 准备包长，单订单成本量级不同）|
+| D. 不做预算控件（信任 LLM provider 限流）| 依赖 OpenAI rate limit | ❌ 成本不可控（rate limit ≠ budget），灰度可能烧穿月度 budget |
+
+**A 推荐理由**：
+1. 中间件层 = 单一职责，所有 AI 调用走同一处 budget check
+2. 双轴配置 = S2 摘要 / S3 准备包独立 pool，避免互相挤占
+3. 刻晴 review §1 AC#8 强约束采纳：`s3_prep_cost_per_order` 与 `s2_ai_summary_cost_per_order` 分离
+4. 与 ADR-0040 alertmanager 集成 fire 告警
+
+### 2.2 Owner 拍板：**A. 中间件层 + 双轴配置**（架构推荐，待 Owner Accept）
+
+### 2.3 Prompt 版本化实施
+
+| 候选 | 描述 | 评估 |
+|---|---|---|
+| **A. git tag + DB migration 双锁** | prompt 文件入 git + 版本号入 DB `prompt_versions` 表 | ✅ 推荐 |
+| B. 仅 git tag | prompt 文件入 git，运行时按 env 读最新 | ❌ 历史订单 prompt 版本无法溯源 |
+| C. 仅 DB 存储 | prompt 全入 DB，运行时按版本号查 | ❌ git diff 看不到 prompt 变更历史，code review 失效 |
+| D. 写死硬编码 | 不版本化 | ❌ 无法 A/B 测试 + 历史溯源 |
+
+**A 推荐理由**：
+1. git tag = code review + 变更历史可追
+2. DB `prompt_versions` 表 = 运行时按版本号查 + 历史订单 trace_id 关联确切 prompt 版本
+3. 双锁 = 任一缺失 fail-fast（启动时 git tag 与 DB 校验）
+
+---
+
+## 3. AIBudgetGuard 设计
+
+### 3.1 双轴配置（刻晴 review §1 AC#8 强约束）
+
+```python
+# backend/app/config.py
+
+class Settings(BaseSettings):
+    # S2 AI 摘要（已存在）
+    s2_ai_summary_cost_per_order_usd: float = 0.05
+    s2_ai_summary_daily_budget_usd: float = 50.0
+    s2_ai_summary_enabled: bool = True
+
+    # S3 AI 就诊准备包（本 ADR 新增）
+    s3_prep_cost_per_order_usd: float = 0.10       # 准备包内容更长，单价 2x S2
+    s3_prep_daily_budget_usd: float = 100.0        # 日预算独立 2x S2
+    s3_prep_enabled: bool = True
+    s3_prep_fallback_threshold_pct: int = 90       # 日预算用到 90% → 触发降级
+```
+
+**配置真源**：
+- env: `S3_PREP_COST_PER_ORDER_USD=0.10`
+- 灰度起步值（PRD §7 指标）: 单订单 ≤ $0.10 / 日预算 ≤ $100
+- 灰度 1 周后按真实数据调整
+
+### 3.2 BudgetGuard 中间件
+
+```python
+# backend/app/services/ai_budget_guard.py
+
+class AIBudgetGuard:
+    """所有 AI 调用前置 check：单订单 + 日预算双门限"""
+
+    def __init__(self, axis: BudgetAxis):  # BudgetAxis.S2_SUMMARY / S3_PREP
+        self.axis = axis
+        self.cost_per_order_limit = settings.get_cost_limit(axis)
+        self.daily_budget_limit = settings.get_daily_budget(axis)
+
+    def check_and_reserve(
+        self,
+        order_id: str,
+        estimated_cost_usd: float,
+    ) -> BudgetCheckResult:
+        """返回 ALLOW / FALLBACK_TO_TEMPLATE / REJECT_PERMANENTLY"""
+
+        # 1. 单订单门限
+        if estimated_cost_usd > self.cost_per_order_limit:
+            return BudgetCheckResult.FALLBACK_TO_TEMPLATE(
+                reason=f"estimated cost ${estimated_cost_usd} exceeds per-order limit ${self.cost_per_order_limit}"
+            )
+
+        # 2. 日预算门限（Redis 原子计数）
+        today_spent = redis.get(f"ai_budget:{self.axis}:{today_str()}") or 0
+        if today_spent + estimated_cost_usd > self.daily_budget_limit:
+            fire_alert(
+                alert_name=f"ai_budget_exhausted_{self.axis}",
+                severity='warning',
+                axis=self.axis,
+                today_spent=today_spent,
+                limit=self.daily_budget_limit,
+            )
+            return BudgetCheckResult.FALLBACK_TO_TEMPLATE(
+                reason=f"daily budget exhausted: ${today_spent} / ${self.daily_budget_limit}"
+            )
+
+        # 3. 软门限（90% 触发降级 warning，不 reject）
+        if (today_spent + estimated_cost_usd) / self.daily_budget_limit > 0.9:
+            fire_alert(
+                alert_name=f"ai_budget_soft_warning_{self.axis}",
+                severity='info',
+            )
+
+        # 4. 预扣
+        redis.incrbyfloat(f"ai_budget:{self.axis}:{today_str()}", estimated_cost_usd)
+        return BudgetCheckResult.ALLOW(reservation_id=uuid4())
+
+    def report_actual_cost(
+        self,
+        reservation_id: str,
+        actual_cost_usd: float,
+        estimated_cost_usd: float,
+    ):
+        """LLM 调用完成后回补差额"""
+        diff = actual_cost_usd - estimated_cost_usd
+        redis.incrbyfloat(f"ai_budget:{self.axis}:{today_str()}", diff)
+```
+
+### 3.3 BudgetAxis enum
+
+```python
+class BudgetAxis(str, Enum):
+    S2_SUMMARY = "s2_summary"     # S2 AI 摘要
+    S3_PREP = "s3_prep"            # S3 AI 就诊准备包
+    # 未来新 AI 用途加新 axis（如 S4 客服 AI、S5 ASR 转录）
+```
+
+**关键约束**：
+- 不允许跨 axis budget 互调
+- 新增 axis 必须更新 Settings + check 函数 + alertmanager rule
+
+---
+
+## 4. 双层禁区关键词过滤
+
+### 4.1 关键词维护方（刻晴 review §2 AC-4 可测建议）
+
+**首批关键词列表来源**：凝光（PM）+ 医疗顾问 review（PRD-003 v0.3 §4.4 AC-4 强化）
+
+**维护方式**：
+- 落 git: `docs/medical-content/prohibited-keywords.yml`
+- 版本控制：每次更新需 PR + 医疗顾问 review approve
+- 运行时：backend 启动时加载 + hot reload (admin 触发)
+- admin-v2 提供"关键词查看 + 命中统计"页面（仅查看不编辑）
+- 真要编辑：走 PR + 医疗顾问 review，不允许 admin 后台直改
+
+### 4.2 双层过滤设计
+
+```python
+# backend/app/services/ai_prep_filter.py
+
+PROHIBITED_PATTERNS = load_yaml("docs/medical-content/prohibited-keywords.yml")
+# 示例:
+# - category: diagnosis
+#   patterns: ["诊断为", "确诊", "怀疑得了", "是否得了"]
+# - category: dosage
+#   patterns: ["mg", "几片", "饭前/饭后服用", "剂量"]
+# - category: prescription
+#   patterns: ["处方", "开药", "建议服用"]
+
+class AIPrepKeywordFilter:
+    """双层过滤：输入 prompt + 输出文本"""
+
+    def filter_input(self, user_input: str) -> FilterResult:
+        """L1: 用户主诉 / chief_complaint 入 prompt 前过滤"""
+        for category, patterns in PROHIBITED_PATTERNS.items():
+            for pattern in patterns:
+                if re.search(pattern, user_input):
+                    metrics.inc(f"ai_prep_filter_l1_blocked_{category}")
+                    return FilterResult.BLOCKED(
+                        layer="L1_INPUT",
+                        category=category,
+                        pattern=pattern,
+                    )
+        return FilterResult.ALLOW
+
+    def filter_output(self, ai_response: str) -> FilterResult:
+        """L2: AI 返回文本过滤（防 LLM 越界生成）"""
+        for category, patterns in PROHIBITED_PATTERNS.items():
+            for pattern in patterns:
+                if re.search(pattern, ai_response):
+                    metrics.inc(f"ai_prep_filter_l2_blocked_{category}")
+                    return FilterResult.BLOCKED(
+                        layer="L2_OUTPUT",
+                        category=category,
+                        pattern=pattern,
+                    )
+        return FilterResult.ALLOW
+```
+
+### 4.3 命中处理
+
+```
+[用户主诉 input]
+       |
+       v
+   L1 filter check
+       |
+   BLOCKED ─→ 直接 fallback 通用模板 + 记录 fallback_reason=L1_BLOCKED_{category}
+       |
+       v ALLOW
+   prompt construction + LLM call
+       |
+       v
+   AI response
+       |
+       v
+   L2 filter check
+       |
+   BLOCKED ─→ fallback 通用模板 + 记录 fallback_reason=L2_BLOCKED_{category}
+       |
+       v ALLOW
+   写入 preparation_packages 表 + 用户可见
+```
+
+### 4.4 灰度监控指标（PRD-003 v0.3 §7）
+
+- `ai_prep_filter_l1_blocked_total{category=...}` — L1 拦截率
+- `ai_prep_filter_l2_blocked_total{category=...}` — L2 拦截率（必须很低，否则 prompt 质量需调整）
+- `ai_prep_fallback_ratio` — fallback 总比例（≤ 10%，PRD §7 强化点指标）
+- alertmanager rule: L2 拦截率 > 5% → warning（LLM 越界生成增多）
+
+---
+
+## 5. PromptVersion 版本化
+
+### 5.1 Git 端
+
+```
+docs/ai-prompts/
+  ├── s3-prep/
+  │   ├── v1.0.0/
+  │   │   ├── system_prompt.md
+  │   │   ├── user_prompt_template.md
+  │   │   └── meta.yml      # model, temperature, max_tokens
+  │   └── v1.1.0/
+  │       ├── system_prompt.md
+  │       └── ...
+```
+
+**git tag**: `prompt-s3-prep-v1.0.0` 标定版本，PR 必须含 tag 才能 merge。
+
+### 5.2 DB 端
+
+```sql
+CREATE TABLE prompt_versions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    axis VARCHAR(32) NOT NULL,           -- 'S3_PREP' / 'S2_SUMMARY'
+    version VARCHAR(32) NOT NULL,         -- semver
+    model VARCHAR(64) NOT NULL,           -- 'gpt-4o-mini' / 'claude-3.5-sonnet'
+    temperature FLOAT NOT NULL,
+    max_tokens INTEGER NOT NULL,
+    git_commit_hash VARCHAR(40) NOT NULL, -- 关联 git 端 prompt 文件 commit
+    is_active BOOLEAN NOT NULL DEFAULT FALSE,
+    activated_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    UNIQUE (axis, version)
+);
+
+CREATE UNIQUE INDEX idx_active_prompt_per_axis
+  ON prompt_versions(axis, is_active) WHERE is_active = TRUE;
+```
+
+**启动时 fail-fast 校验**：
+
+```python
+# backend/app/main.py
+
+def validate_prompt_versions_at_startup():
+    """启动时校验：DB 中 is_active=TRUE 的 prompt 与 git 端文件存在 + commit hash 匹配"""
+    for axis in [BudgetAxis.S3_PREP, BudgetAxis.S2_SUMMARY]:
+        active_db = db.query(PromptVersion).filter_by(axis=axis, is_active=True).one_or_none()
+        if not active_db:
+            raise StartupError(f"No active prompt for axis={axis}")
+
+        git_path = Path(f"docs/ai-prompts/{axis.lower()}/{active_db.version}/system_prompt.md")
+        if not git_path.exists():
+            raise StartupError(f"DB-active prompt version {active_db.version} missing in git: {git_path}")
+
+        git_commit = git_blame_commit(git_path)
+        if git_commit != active_db.git_commit_hash:
+            raise StartupError(
+                f"Git commit mismatch for {axis} v{active_db.version}: "
+                f"DB={active_db.git_commit_hash} vs git={git_commit}"
+            )
+```
+
+### 5.3 历史订单 trace_id 关联
+
+```sql
+ALTER TABLE preparation_packages ADD COLUMN
+    prompt_version_id UUID NOT NULL REFERENCES prompt_versions(id);
+```
+
+**作用**：
+- admin 查任意历史订单可知用了哪个 prompt 版本生成
+- LLM 输出问题排查可定位到确切 prompt + model + temperature
+- 灰度 A/B 测试可按 prompt_version_id 切流量
+
+---
+
+## 6. trace_id 全链路
+
+### 6.1 trace_id 派生
+
+```python
+trace_id = f"ai-prep-{order_id_short}-{uuid4().hex[:8]}"
+# 例: ai-prep-a1b2c3d4-ef567890
+```
+
+### 6.2 全链路传递
+
+```
+[Order created]
+    │
+    v (trace_id 生成)
+[backend.prep.requested event]
+    │
+    v
+[AIBudgetGuard.check_and_reserve(trace_id=...)]
+    │
+    v
+[L1 filter (trace_id=...)]
+    │
+    v
+[LLM call (header X-Trace-Id: ai-prep-...)]
+    │
+    v
+[L2 filter (trace_id=...)]
+    │
+    v
+[Save to preparation_packages (trace_id=...)]
+```
+
+### 6.3 admin 查询
+
+```python
+# backend/app/api/v1/admin/prep_packages.py
+
+@router.get("/admin/prep-packages/{order_id}/trace")
+def get_prep_trace(order_id: str):
+    return {
+        "order_id": order_id,
+        "trace_id": ...,
+        "prompt_version": ...,
+        "model": ...,
+        "estimated_cost_usd": ...,
+        "actual_cost_usd": ...,
+        "filter_l1_result": ...,
+        "filter_l2_result": ...,
+        "llm_response_raw": ...,        # 完整 LLM 原始返回
+        "fallback_reason": ...,          # 如有降级
+        "generation_time_ms": ...,
+    }
+```
+
+---
+
+## 7. 数据模型
+
+### 7.1 `preparation_packages` 表
+
+```sql
+CREATE TABLE preparation_packages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    order_id UUID NOT NULL UNIQUE REFERENCES orders(id),
+    status prep_status NOT NULL DEFAULT 'pending',
+    -- 内容（4 块）
+    carry_items JSONB,                            -- 携带材料
+    pre_visit_notes JSONB,                         -- 到院前注意事项
+    possible_questions JSONB,                      -- 可能问诊问题
+    companion_focus_points JSONB,                  -- 陪诊师关注点
+    -- 元数据
+    prompt_version_id UUID REFERENCES prompt_versions(id),
+    trace_id VARCHAR(64),
+    model VARCHAR(64),
+    estimated_cost_usd NUMERIC(8, 6),
+    actual_cost_usd NUMERIC(8, 6),
+    generation_time_ms INTEGER,
+    fallback_reason TEXT,                          -- 降级原因（L1_BLOCKED / L2_BLOCKED / BUDGET_EXHAUSTED / LLM_ERROR）
+    -- 用户勾选状态
+    user_checked_items JSONB,                      -- 哪些 carry_items 已勾选
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TYPE prep_status AS ENUM (
+    'pending',                    -- 初始
+    'generating',                  -- Celery 持锁中
+    'active',                      -- AI 生成成功
+    'active_fallback_template',    -- 降级到通用模板（fallback_reason 必填）
+    'generation_failed'            -- LLM error + 重试 3 次失败（不能 fallback）
+);
+```
+
+### 7.2 通用模板 fixture
+
+```yaml
+# docs/medical-content/prep-fallback-template.yml
+carry_items:
+  - 身份证 / 医保卡 / 就诊卡
+  - 既往病历本 + 检查报告
+  - 现金 + 移动支付备用
+  - 水杯 + 简餐（如需空腹检查）
+pre_visit_notes:
+  - 提前 30min 到达
+  - 检查项目需空腹的请前晚 22 点后禁食禁水
+  - 穿宽松衣物便于检查
+possible_questions:
+  - 主要症状是什么？持续多久了？
+  - 之前有没有相关检查 / 治疗经历？
+  - 家族病史？
+companion_focus_points:
+  - 协助挂号 / 缴费 / 取报告
+  - 协助记录医生医嘱
+  - 不替代医疗判断
+```
+
+---
+
+## 8. 实施分阶段
+
+| Phase | Task | Owner | 周期 |
+|---|---|---|---|
+| P0 | DB migration (preparation_packages + prompt_versions)  | 胡桃 | 0.25d |
+| P1 | AIBudgetGuard middleware + Redis 双门限计数 | 胡桃 | 0.5d |
+| P2 | 关键词清单首批 + 双层过滤 impl | 凝光 list + 胡桃 impl | 0.5d |
+| P3 | Prompt v1.0.0 + 通用模板 fixture | 凝光 + 医疗顾问 review | 1d（外部依赖）|
+| P4 | Celery task: prep.generate + fallback 逻辑 | 胡桃 | 0.5d |
+| P5 | API: order detail 加 prep_package + 用户勾选 | 胡桃 | 0.5d |
+| P6 | admin-v2: prep trace 查询页 + 关键词命中统计 | 胡桃 | 1d |
+| P7 | 灰度 10 单 + 质量评估 | 凝光 + 刻晴 | 1 周（业务监控）|
+
+**总估** ~4d 实施 + 1 周灰度
+
+---
+
+## 9. 实施 Acceptance（魈 review 阶段硬核）
+
+| AC | 标准 | 验证方式 |
+|---|---|---|
+| AC-1 | S2 / S3 budget 完全独立（互不挤占）| Redis key 隔离测 + alert metric 标签验 |
+| AC-2 | 单订单超 cost limit → fallback 通用模板（不发起 LLM call）| 故障注入测 |
+| AC-3 | 日预算耗尽 → 所有新订单 fallback + alert fire | budget 模拟耗尽测 |
+| AC-4 | L1 拦截输入 / L2 拦截输出，均记录 fallback_reason + metric | 关键词 fuzz 测 |
+| AC-5 | prompt_version DB 与 git 端 commit hash 匹配 fail-fast | 启动时校验测 |
+| AC-6 | 每个 prep package 记录 trace_id + prompt_version_id + actual_cost | 历史订单查询测 |
+| AC-7 | fallback_ratio ≤ 10% (灰度 1 周后)  | metric 业务监控 |
+| AC-8 | 通用模板 fixture 4 块齐 + 无医疗建议字样 | content review |
+
+---
+
+## 10. 风险与缓解
+
+| 风险 | 概率 | 影响 | 缓解 |
+|---|---|---|---|
+| LLM 越界生成医疗建议（L2 漏拦）| 中 | 合规风险 | L2 命中即降级 + alert + 灰度期人工审 100 单 |
+| 灰度期成本超预算 | 中 | 月度账单爆炸 | AIBudgetGuard 双门限 + 90% soft warning |
+| Prompt 版本 git/DB 不同步 | 低 | 启动失败 | fail-fast 启动校验 |
+| 关键词清单过严 → 大量 fallback | 中 | 用户感知 AI 不工作 | 灰度期监控 fallback_ratio + 人工调整清单（走 PR + 医疗顾问 review）|
+| 关键词清单过松 → L1 漏拦危险输入 | 中 | LLM 生成危险内容 | L2 兜底 + 关键词清单定期 review（季度）|
+| Redis 故障导致 budget 计数丢失 | 低 | 短期超 budget | Redis 持久化 + 启动时从 DB 重建当日累计 |
+
+---
+
+## 11. 相关 ADR
+
+- **ADR-0040 distributed circuit breaker + alertmanager**（本 ADR 复用 alert fire 体系）
+- **ADR-0046 contract storage extension**（兄弟 ADR）
+- **ADR-0047 service contract & insurance domain**（兄弟 ADR）
+
+---
+
+## 12. 实施授权
+
+待 v0.3 三签（PM/架构/测试）+ 帝君 Owner Accept → 凝光拆 S3-REQ-002 develop task → 本 ADR Accept → 凝光出关键词清单 + 医疗顾问 review → 胡桃 implement → 灰度。
+
+---
+
+## 13. 变更记录
+
+- **r1（2026-06-05）**：Draft 初版，吸收刻晴 tester review §1 AC#8 强约束（S2/S3 budget 分轴）+ §2 AC-4 可测建议（关键词维护方 admin 配置 + 后端 hot reload + 凝光 list + git 版本控制）
