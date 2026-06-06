@@ -423,6 +423,82 @@ async def get_feedback_for_companion(companion_id: UUID, feedback_id: UUID):
 
 ---
 
-## 10. 变更记录
+## 10. S4 留口与配置默认值（胡桃 review amend）
+
+### 10.1 S4 budget axis 占位
+
+S3 阶段反馈摘要走 **admin 人工脱敏**（PRD-004 v0.3 §安全边界硬要求，不做 AI 自动摘要）。
+
+S4 阶段引入 AI 自动脱敏摘要时启用：
+
+```python
+# app/services/ai_budget.py
+class BudgetAxis(str, Enum):
+    S2_SUMMARY = "s2_summary"
+    S3_PREP = "s3_prep"
+    S4_FEEDBACK_SUMMARY = "s4_feedback_summary"  # S4 启用，S3 占位
+```
+
+**S3 默认配置**：
+
+```yaml
+ai_budget:
+  s4_feedback_summary:
+    daily_budget_yuan: 0.0    # 默认 0 = 自动 fallback 到 admin 人工
+    enabled: false             # S3 阶段强制 false
+    fallback_to_manual: true   # S4 启用时也保留人工 fallback
+```
+
+**配置开关行为**：
+
+| `enabled` | `daily_budget_yuan` | 实际行为 |
+|---|---|---|
+| `false` | 任意 | admin 人工脱敏（S3 强制走此路径） |
+| `true` | `> 0` | AI 自动脱敏 + 超 budget fallback 人工（S4 启用） |
+| `true` | `0` | 配置错误，启动时拒绝（避免静默全 fallback） |
+
+**S3 阶段守护**：app 启动检查 `enabled == false`，否则拒绝启动（避免 PM 误开关）。
+
+### 10.2 附件存储 tier 选择
+
+**Hot tier**（初期 30 天高频读：admin 审核 + 陪诊师 appeal 摘要参考）。
+
+**Azure Blob lifecycle policy**：
+
+```yaml
+feedback_attachment_lifecycle:
+  - rule: hot_to_cool
+    after_days: 30
+    from: hot
+    to: cool
+  - rule: cool_to_archive
+    after_days: 180
+    from: cool
+    to: archive
+```
+
+tier 配置走 app config（不硬编 ADR），便于 ops 按实际访问模式调整。
+
+### 10.3 状态机命名空间隔离
+
+`UserFeedbackStateMachine` 与 `OrderStateMachine` / `ContractStateMachine` / `InsuranceOrderStateMachine` / `AIPrepStateMachine` / `CompanionCertVerificationStateMachine` / `ShareCacheInvalidationStateMachine` 共 7 个状态机**物理隔离**：
+
+- 各自独立 Python module（`app/services/state_machines/{order,contract,insurance_order,ai_prep,companion_cert_verification,share_cache_invalidation,user_feedback}.py`）
+- 各自独立 enum 类型（DB 层 PostgreSQL `CREATE TYPE`，schema 层 Python Enum）
+- 各自独立状态表（不共享 status 列）
+- **禁止跨状态机调用**（CI lint：`grep -rE "from app.services.state_machines.(order|contract|insurance_order|ai_prep|companion_cert_verification|share_cache_invalidation) import" app/services/state_machines/user_feedback.py` 必须 0 命中）
+
+### 10.4 反馈状态机不驱动 Order/Contract 状态
+
+**硬规则**：`UserFeedbackStateMachine` 状态变化**永不**触发 `OrderStateMachine` / `ContractStateMachine` 转换。
+
+反过来也成立：Order/Contract 状态变化**永不**触发反馈状态变化。
+
+反馈是订单**外部观察**，不是订单**内部状态**。
+
+---
+
+## 11. 变更记录
 
 - 2026-06-06 Draft：S3-DES-004 首版，覆盖 PRD-004 v0.3 + 魈架构 review 3 结论 + 凝光 4 ack 点。
+- 2026-06-06 Amend：胡桃 review 3 条补充全采纳（§10.1 S4 axis 默认值 + §10.2 Hot tier + §10.3 命名空间隔离 + §10.4 反馈不驱动 Order）。
