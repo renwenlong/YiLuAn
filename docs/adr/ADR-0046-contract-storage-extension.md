@@ -30,58 +30,101 @@ PRD-003 S3-REQ-001 要求支付成功后异步生成电子服务合同，绑定�
 
 | 候选 | 描述 | 评估 |
 |---|---|---|
-| **A. 复用 ADR-0045 StorageBackend ABC + ContractStorageBackend 子类** | 抽象层延用，合同特化 namespace + WORM policy | ✅ 推荐 |
+| **A. 复用 ADR-0045 StorageBackend ABC + `contract_storage` service module (composition)** | 抽象层延用，合同特化 namespace + WORM policy 由 service module 调底层 backend 实现 | ✅ 推荐 |
 | B. 独立合同存储栈（新起 ContractStorage 不继承 StorageBackend）| 完全独立 SDK + namespace + factory | ❌ 重复造轮子，违反 ADR-0045 抽象意图 |
 | C. 合同 PDF 存 PostgreSQL bytea | 合同直接入库，强一致 | ❌ DB 膨胀（每单 50-200KB × 万级）+ 备份成本爆炸 + 不利 CDN |
 | D. 第三方 e-contract 平台（如法大大/e签宝）| 直接调 vendor API 出合同 | ❌ PRD §2.2 已排除真 CA 签章 vendor，S3 不做 |
 
 **A 推荐理由**：
-1. ADR-0045 已落 StorageBackend ABC + AzureBlobStorageBackend，本 ADR 仅加 ContractStorageBackend 子类 + WORM 配置 + namespace 隔离 = 增量最小
+1. ADR-0045 已落 StorageBackend ABC + AzureBlobStorageBackend，本 ADR 仅加 `contract_storage` service module (composition 复用 `get_storage_backend()`) + WORM 配置 + namespace 隔离 = 增量最小；与既存 `certification_image.py` 模式一致
 2. PIPL 红线统一遵守（cert image PII 跨境禁止已写入 ADR-0045 §7，contract PDF 同等 PII 自动继承）
 3. vendor lock-in 对冲层（StorageBackend ABC factory）已存在，未来切 OSS / S3 同样适用合同存储
 
-### 2.2 Owner 拍板：**A. 复用 ADR-0045 + ContractStorageBackend 子类**（架构推荐，待 Owner Accept）
+### 2.2 Owner 拍板：**A. 复用 ADR-0045 + `contract_storage` service module (composition)**（架构推荐，待 Owner Accept）
 
 ---
 
 ## 3. 实施分阶段
 
-### 3.1 P0：ContractStorageBackend ABC 子类（魈 design + 胡桃 impl，~0.5d）
+### 3.1 P0：`contract_storage` service module + composition（魈 design + 胡桃 impl，~0.5d）
 
 ```python
 # backend/app/services/contract_storage.py
-from app.services.storage_backend import StorageBackend, AzureBlobStorageBackend
+#
+# Pattern: service module + composition (与 certification_image.py 一致)。
+# 不另起 StorageBackend ABC 子类——ABC 仅负责 key→bytes 字节落地，
+# WORM policy / blob_path namespace / ViewerRole TTL 是业务规则，
+# 由本 service module 通过组合调用 backend 实例实现。
 
-class ContractStorageBackend(StorageBackend):
-    """合同存储特化：WORM + 7 年保留 + 强制 namespace + hash 防篡改"""
+from datetime import datetime, timezone
+from app.services.storage_backend import (
+    StoragePutResult,
+    StoredObject,
+    SignedReadURL,
+    get_storage_backend,
+)
 
-    NAMESPACE_PREFIX = "contracts"  # 与 cert image 的 cert/ 隔离
-    RETENTION_YEARS = 7              # 民法典合同存档要求
+NAMESPACE_PREFIX = "contracts"   # 与 cert image 的 cert/ 隔离
+RETENTION_YEARS = 7              # 民法典合同存档要求
+ALLOWED_CONTENT_TYPES = {"application/pdf"}
 
-    def put_contract(
-        self,
-        order_id: str,
-        contract_hash: str,
-        pdf_bytes: bytes,
-        template_version: str,
-    ) -> ContractStorageRef:
-        """WORM 写入：put_if_absent 防重复，blob immutable policy 防修改"""
-        ...
+# ViewerRole TTL 派生（业务规则，service 层管，不入 ABC）
+_VIEWER_TTL_SECONDS = {
+    "user": 15 * 60,
+    "companion": 15 * 60,
+    "admin": 60 * 60,
+}
 
-    def get_contract_signed_url(
-        self,
-        blob_path: str,
-        viewer_role: ViewerRole,  # user / companion / admin
-    ) -> str:
-        """根据 viewer_role 派生不同 TTL SAS URL"""
-        ...
+
+def put_contract(
+    order_id: str,
+    contract_hash: str,
+    pdf_bytes: bytes,
+    template_version: str,
+) -> StoredObject:
+    """WORM 写入：composition 调 backend.put_if_absent + 紧跟 WORM policy hook。
+
+    红线：
+    - blob_path 用 UTC timezone（datetime.now(timezone.utc)），跨年不漂移
+    - contract_hash 必须非空且为 SHA256 hex
+    - content_type 只允许 application/pdf（拒 SVG/HTML XSS）
+    - OSError EEXIST → 复用 already_exists=True；
+      EACCES/EROFS/ENOSPC → 透传 + admin alert + prometheus counter
+    """
+    _assert_contract_hash_valid(contract_hash)
+    backend = get_storage_backend()
+    now = datetime.now(timezone.utc)
+    blob_path = (
+        f"{NAMESPACE_PREFIX}/{now.year}/{now.month:02d}/"
+        f"{order_id}_{contract_hash}.pdf"
+    )
+    result: StoragePutResult = backend.put_if_absent(
+        blob_path,
+        pdf_bytes,
+        content_type="application/pdf",
+        metadata={"template_version": template_version, "order_id": order_id},
+    )
+    # WORM policy 业务 hook (env-driven 开关，staging 关 / prod 开)
+    _set_worm_policy_if_enabled(backend, blob_path)
+    return result.stored
+
+
+def get_contract_signed_url(
+    stored: StoredObject,
+    viewer_role: str,  # user / companion / admin
+) -> SignedReadURL:
+    """根据 viewer_role 派生不同 TTL SAS URL（业务规则，service 层管）。"""
+    backend = get_storage_backend()
+    ttl = _VIEWER_TTL_SECONDS[viewer_role]
+    return backend.sign_read_url(stored, ttl_seconds=ttl)
 ```
 
 **关键约束**：
-- ABC 继承 `StorageBackend`（ADR-0045 同款抽象层）
-- **StorageBackend ABC 新增 `put_if_absent(blob_path, bytes, metadata)` 方法**（胡桃 dev review 细节）：Azure 实现映射 `If-None-Match: *`，OSS/S3 未来实现映射各自条件写；ContractStorageBackend 调该方法防重复写
-- backend 实例 `AzureBlobStorageBackend` 直接复用，无需新起 Azure 账号
+- **不继承 StorageBackend ABC**——service module + composition 模式，与既存 `certification_image.py` 一致；ABC 仅负责字节落地，业务规则（WORM / TTL / namespace）属 service 层
+- **StorageBackend ABC `put_if_absent` 已在 S3-DEV-000 (PR #193, commit `cb98cb9`) 落地**：Azure 实现映射 `If-None-Match: *`，Local 用 `O_CREAT|O_EXCL`，OSS/S3 未来实现映射各自条件写；`contract_storage.put_contract` 调该方法防重复写
+- backend 实例通过 `get_storage_backend()` 拿，无需新起 Azure 账号
 - container 复用 `yiluan-cert-{env}` (省一次 RBAC + 21Vianet 配置)，blob path 用 `contracts/{year}/{month}/{order_id}_{contract_hash}.pdf` namespace 隔离
+- WORM Locked policy 7y 通过 env 开关 `S3_CONTRACT_IMMUTABILITY_ENABLED`：prod=true / staging=false（避免测试数据 7y 占用）
 
 ### 3.2 P1：合同 hash 公式 + 防篡改（魈 spec + 胡桃 impl，~0.25d）
 
@@ -206,7 +249,7 @@ container.set_immutability_policy(
 events:
   payment.succeeded
     -> contract.generate.requested (异步 apscheduler cron job)
-       -> ContractStorageBackend.put_contract()
+       -> contract_storage.put_contract()
           -> 成功 → service_contracts.status = active
           -> 失败 → service_contracts.status = generation_failed + retry_count += 1
 
@@ -348,7 +391,7 @@ python scripts/qa/openapi_contract_diff.py --json-summary
 
 | AC | 标准 | 验证方式 |
 |---|---|---|
-| AC-1 | ContractStorageBackend 子类正确继承 StorageBackend ABC + 复用 AzureBlobStorageBackend 实例 | 单元测试 + ABC 接口 check |
+| AC-1 | `contract_storage` service module 通过 `get_storage_backend()` composition 复用 backend 实例，**不另起 ABC 子类**（与 `certification_image.py` 一致）；业务规则（WORM/TTL/namespace）由 service 层管 | 单元测试 + 反例哨兵（assert `contract_storage` 模块内无 `class.*StorageBackend.*\)`）|
 | AC-2 | 合同 hash 公式产出稳定（同输入恒等输出）+ canonical JSON 三参数固定 | hash repro test + 字段漂移 fuzz |
 | AC-3 | WORM 4 层防御全部生效（storage / app / DB / API）| 集成测：试 delete blob 应 403 / 试 PUT API 应 404 / 试 hash collision insert 应 UNIQUE violation |
 | AC-4 | 合同生成失败 3 次补偿（5min/30min/2h 指数退避）+ admin alert | cron 模拟测 + alertmanager fire 模拟 |
@@ -390,3 +433,10 @@ python scripts/qa/openapi_contract_diff.py --json-summary
 - **r3（2026-06-05）**：吸收刻晴补充 #1 + 胡桃 dev review 细节
   - §3.2 明示 `patient_pseudonym_hash` 在合同生成时一次性计算 + `service_contracts.hash_inputs JSONB` 落表，防 user 改名 / patient 资料修改破坏历史 hash 验证
   - §3.1 StorageBackend ABC 新增 `put_if_absent(blob_path, bytes, metadata)` 方法，Azure 实现映射 `If-None-Match: *`
+- **r4（2026-06-06）**：胡桃 S3-DEV-001-CONTRACT-STORAGE implement 起手前的模式拍板 amend
+  - §2.2 / §3.1：从「ContractStorageBackend ABC 子类」改为「`contract_storage` service module + composition」
+  - 触发：胡桃指出 codebase 既存 `certification_image.py` 是 service module 模式，原 ADR 设计为 ABC 子类与之矛盾（双标）
+  - 拍板理由（魈）：(1) 一致性优先（cert/contract 同模式）；(2) ABC 单一职责（仅字节落地，业务规则 push service 层）；(3) factory 复杂度低（一处 `get_storage_backend()`）；(4) 测试可读性高（mock 单层 vs 双层）；(5) WORM / TTL 是业务规则不是 storage 内禀属性
+  - §3.1 代码示例完整重写：`def put_contract()` + `def get_contract_signed_url()` service module 函数，调 `backend.put_if_absent()` / `backend.sign_read_url()`；新增 UTC timezone 强制 + contract_hash 非空 assert + content_type 白名单 + WORM env-driven 开关
+  - AC-1 改述并补反例哨兵：assert `contract_storage` 模块内无 `class.*StorageBackend.*\)` 子类定义
+  - 配套 task: S3-DEV-001-CONTRACT-STORAGE 4 个新 AC 已落 board comment（OSError 分类 / env-driven WORM / UTC timezone / hash 非空）
