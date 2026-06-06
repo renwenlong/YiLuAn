@@ -48,7 +48,20 @@ from app.models.reconciliation import (
     ReconRunStatus,
 )
 from app.models.review import Review
-from app.models.service_package import ServicePackage
+from app.models.service_contract import (
+    IMMUTABLE_FIELDS as SERVICE_CONTRACT_IMMUTABLE_FIELDS,
+)
+from app.models.service_contract import (
+    MUTABLE_FIELDS as SERVICE_CONTRACT_MUTABLE_FIELDS,
+)
+from app.models.service_contract import (
+    ContractStatus,
+    ServiceContract,
+)
+from app.models.service_package import (
+    ServicePackage,
+    ServicePackageCodeImmutableError,
+)
 from app.models.sms_send_log import SmsSendLog
 from app.models.telemetry_event import TelemetryEvent
 from app.models.user import User, UserRole
@@ -117,4 +130,11 @@ __all__ = [
     "DEFAULT_EXPIRES_AFTER_COMPLETION",
     "HARD_CAP_EXPIRES_AFTER_CREATION",
     "ServicePackage",
+    "ServicePackageCodeImmutableError",
+    "ServiceContract",
+    "ContractStatus",
+    "SERVICE_CONTRACT_IMMUTABLE_FIELDS",
+    "SERVICE_CONTRACT_MUTABLE_FIELDS",
+    "IdempotencyKey",
+    "IDEMPOTENCY_KEY_TTL",
 ]
