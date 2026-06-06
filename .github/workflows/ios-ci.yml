@@ -7,15 +7,27 @@
 # Runner cost: macos runners cost 10x on private repos (~200 free min/month
 # at standard tier; a single full run takes ~12-18 min on a warm cache).
 #
-# S2-OPS-008 改造（2026-06-03 帝君拍板硬闸门）：
-#   合 iOS 改动 PR 之前 iOS CI 必须真跑过+实绿。
-#   旧模式：path 过滤 + IOS_CI_ENABLED 变量 → required 锁死 / 流程歧义。
-#   新模式：参考 S2-OPS-004，workflow 永远触发 + path-filter changes job +
-#          build-and-test 用 `if:` 按 changes.ios 决定真跑或 skip。skip 在
-#          required check 里计为 success；真跑则 PR 必须实绿才能合。
+# S2-OPS-008 改造 (2026-06-03 帝君拍板硬闸门):
+#   合 iOS 改动 PR 之前 iOS CI 必须真跑过+实绿.
+#
+# S2-OPS-014 修正 (2026-06-06 魈拍 + 胡桃实施):
+#   旧模式: job 级 `if:` 全局 skip
+#   实测打脸 → `conclusion=skipped` ≠ `success`, GitHub branch
+#   protection 贴 4 required check 为 "still expected", `gh pr merge --admin`
+#   也跳不过. 导致 PR #194 / #202 / #203 docs-only PR 永久 blocked.
+#
+#   新模式: job 永远跑 (无 job 级 `if`), 第一步用 "Skip if X" 兜底
+#   输出友好信息, 其他真测试 steps 全部加 step 级 `if:` 守护.
+#   Job conclusion = success (因为有一个 step 跑了).
+#   docs-only PR → build-and-test job 1s 跑完 echo → 计为 success.
+#   真 iOS PR → 真 xcodebuild steps 在 if 守护下跑.
+#
+#   成本权衡: macos runner 即使全 skip steps 还是会启动 macOS VM
+#   (浪费 ~30s + 0.1 minute macOS cost). docs-only PR 频率低, 总成本
+#   可控. 不拆 sub-job (GitHub Actions 不允许同 workflow 多 job 同 name).
 #
 # 配合 main branch protection 把 "Build & Test (iOS Simulator)" 加入
-# required_status_checks（需 admin 一次性配置，本 PR description 给步骤）。
+# required_status_checks (需 admin 一次性配置, 本 PR description 给步骤).
 # =============================================================================
 
 name: iOS CI
@@ -57,24 +69,33 @@ jobs:
     runs-on: macos-14
     timeout-minutes: 30
     needs: changes
-    # 命中 iOS 路径 → 真跑（PR 必须实绿才能合）。
-    # 非 iOS 改动 → skip（required 计为 success，不锁死纯后端/微信/admin PR）。
-    # 手动 dispatch → 仍可跑（旁路 path 判断，便于排查）。
-    if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.ios == 'true' }}
-
+    # OPS-014: 不能再加 job 级 if. Job 永远跑, 内部 steps 用 if 守.
+    # 命中 iOS 路径 → 真跑 (PR 必须实绿才能合).
+    # 非 iOS 改动 → 第 1 步 echo 后其他 step skip (job conclusion = success).
+    # 手动 dispatch → 仍可跑 (旁路 path 判断, 便于排查).
     steps:
+      - name: Skip if non-iOS changes (docs-only or backend/wechat PR)
+        if: ${{ github.event_name != 'workflow_dispatch' && needs.changes.outputs.ios != 'true' }}
+        run: |
+          echo "✅ No iOS changes detected, skipping all iOS test steps."
+          echo "This required check passes vacuously (path filter not matched)."
+
       - name: Checkout repository
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.ios == 'true' }}
         uses: actions/checkout@v4
 
       - name: Setup Xcode
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.ios == 'true' }}
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: latest-stable
 
       - name: Install XcodeGen
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.ios == 'true' }}
         run: brew install xcodegen
 
       - name: Print toolchain versions
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.ios == 'true' }}
         run: |
           xcodebuild -version
           xcodegen --version
@@ -83,15 +104,18 @@ jobs:
           xcrun simctl list devices available | grep -E 'iPhone' | head -n 30 || true
 
       - name: Generate Xcode project
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.ios == 'true' }}
         working-directory: ios
         run: xcodegen generate
 
       - name: Show build destinations (diagnostic)
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.ios == 'true' }}
         working-directory: ios
         run: |
           xcodebuild -project YiLuAn.xcodeproj -scheme YiLuAn -showdestinations 2>&1 | head -n 80 || true
 
       - name: Cache DerivedData
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.ios == 'true' }}
         uses: actions/cache@v4
         with:
           path: ~/Library/Developer/Xcode/DerivedData
@@ -100,6 +124,7 @@ jobs:
             ${{ runner.os }}-deriveddata-
 
       - name: Cache Swift Package Manager
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.ios == 'true' }}
         uses: actions/cache@v4
         with:
           path: |
@@ -110,6 +135,7 @@ jobs:
             ${{ runner.os }}-spm-
 
       - name: Resolve dependencies
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.ios == 'true' }}
         working-directory: ios
         run: |
           xcodebuild -resolvePackageDependencies \
@@ -117,6 +143,7 @@ jobs:
             -scheme YiLuAn || true
 
       - name: Pick iOS Simulator UDID
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.ios == 'true' }}
         id: sim
         shell: bash
         run: |
@@ -127,6 +154,7 @@ jobs:
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
 
       - name: Pre-boot simulator (warm-up)
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.ios == 'true' }}
         shell: bash
         run: |
           # Pre-booting cuts ~30-60s of wall time off the first xcodebuild test
@@ -137,6 +165,7 @@ jobs:
           exit 0
 
       - name: Run unit tests
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.ios == 'true' }}
         working-directory: ios
         run: |
           set -o pipefail
@@ -151,7 +180,7 @@ jobs:
             | tee xcodebuild.log
 
       - name: Summarise xcresult
-        if: always()
+        if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.ios == 'true') }}
         working-directory: ios
         shell: bash
         run: |
@@ -166,7 +195,7 @@ jobs:
           fi
 
       - name: Upload xcresult artifact
-        if: always()
+        if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.ios == 'true') }}
         uses: actions/upload-artifact@v4
         with:
           name: ios-test-results-${{ github.run_id }}
