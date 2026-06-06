@@ -568,6 +568,25 @@ tier 配置走 app config（不硬编 ADR），便于 ops 按实际访问模式�
 
 反馈是订单**外部观察**，不是订单**内部状态**。
 
+### 10.5 alembic head rebase 约定（胡桃 Q1 amend）
+
+4 个 S3-DEV-002 root task 可并行 implement，但每个都会加 alembic revision：
+
+- `S3-DEV-002-BUDGET-GUARD` → `ai_budget_axis_costs` 表
+- `S3-DEV-002-PROMPT-VERSIONING` → `prompt_versions` + `prompt_version_usages` 表
+- `S3-DEV-002-ABAC-4LAYER` → 仅代码，无 migration
+- `S3-DEV-002-KEYWORD-FILTER` → `ai_keyword_filter_audits` 表
+
+S3-DEV-004-FEEDBACK-DOMAIN 同样加 `user_feedbacks` / `feedback_attachments` migration。
+
+**约定**：PR submit 时描述明示「本 PR 含 alembic migration，reviewer 合并前检查 alembic heads 然后 rebase down_revision」。合并顺序：
+
+1. 最先 merge 的 PR：无需处理
+2. 后续 PR：CI 检测 `alembic heads` 输出多于 1 个 → 主动 rebase，重点 down_revision 指向最新 head
+3. 不允许 merge 多 head（CI gate `pytest backend/tests/test_alembic_heads.py::test_single_head`）
+
+该 lint test 由 S3-TEST-001 顶层 acceptance 在 head merge 哨兵接手。
+
 ---
 
 ## 11. 变更记录
