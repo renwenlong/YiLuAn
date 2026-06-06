@@ -545,7 +545,29 @@ ai_budget:
 | `true` | `> 0` | AI 自动脱敏 + 超 budget fallback 人工（S4 启用） |
 | `true` | `0` | 配置错误，启动时拒绝（避免静默全 fallback） |
 
-**S3 阶段守护**：app 启动检查 `enabled == false`，否则拒绝启动（避免 PM 误开关）。
+**S3 阶段启动守护（刻晴 r2 amend）**：
+
+新增环境开关：
+
+```env
+S3_STARTUP_HEALTHCHECK_STRICT=true
+```
+
+| 环境 | 默认值 | 行为 |
+|---|---|---|
+| production / staging | `true` | 任一检查失败即拒绝启动（exit 1） |
+| dev / test | `false` | 只打 warning，不阻塞本地开发 |
+
+FastAPI startup event 执行 `FeedbackStartupHealthcheck.run(strict=settings.S3_STARTUP_HEALTHCHECK_STRICT)`：
+
+1. 校验 `ai_budget.s4_feedback_summary.enabled == false`；否则 `raise RuntimeError`，进程 exit 1。
+2. 校验 DB schema 已含 4 个反馈相关对象：`user_feedbacks`、`feedback_attachments`、`feedback_status`、`feedback_source`；缺任一视为 alembic 未 upgrade，strict=true 时 exit 1。
+3. 校验 Azure Blob feedback container 可访问（HEAD container / list prefix smoke 均可）。
+4. 校验 SAS 签名能生成且 60s smoke URL 可 HEAD 访问。
+5. 启动失败通过 prometheus Counter `feedback_startup_healthcheck_failed_total{reason}` 暴露，并由 Alertmanager rule 告警；不引入 direct `alertmanager.fire()` facade。
+
+**拒绝启动口径**：实现必须让 uvicorn worker 进程退出非 0；不能只返回 `/healthz` unhealthy 后继续接请求。目的：防灰度漏跑 alembic upgrade 导致 backend healthy 但用户请求 500。
+
 
 ### 10.2 附件存储 tier 选择
 
@@ -619,3 +641,4 @@ S3-DEV-004-FEEDBACK-DOMAIN 同样加 `user_feedbacks` / `feedback_attachments` m
 - 2026-06-06 r3 Amend：刻晴 PR #191 review 2 条全采纳：
   - #6（§4.1）：状态机补 `closed --> in_review: user_append_feedback_within_30d` 边 + 5 状态 append 行为表（closed > 30d 拒 410 Gone）。
   - #7（§6.4）：补 schemathesis positive list 哨兵 `FEEDBACK_RESPONSE_POSITIVE_LIST`，未在列表内的 response 字段名 CI 失败。positive list 加字段必须 PR + reviewer ack。
+- 2026-06-06 r4 Amend：刻晴启动守护强化全采纳：`S3_STARTUP_HEALTHCHECK_STRICT=true` production/staging 默认开启；startup 校验 S4 axis 关闭、DB schema、Azure container、SAS smoke，失败 exit 1 + prometheus/Alertmanager 告警。
