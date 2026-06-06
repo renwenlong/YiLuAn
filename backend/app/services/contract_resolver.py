@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import date, datetime
 from typing import Protocol
 
 from sqlalchemy import select
@@ -41,6 +42,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.order import Order
 from app.models.service_package import ServicePackage
+from app.services.contract_hash import (
+    ContractHashResult,
+    generate_contract_hash_at_commit_time,
+)
+from app.services.contract_state_machine import normalize_patient_name
 
 logger = logging.getLogger(__name__)
 
@@ -104,5 +110,59 @@ async def resolve_service_package_id(order: Order, session: AsyncSession) -> uui
 
 __all__ = [
     "ContractServicePackageNotFoundError",
+    "build_contract_hash_for_order",
     "resolve_service_package_id",
 ]
+
+
+# ---------------------------------------------------------------------------
+# AC#7 乘车入口: enforce NFKC + strip on patient_name before hash
+# ---------------------------------------------------------------------------
+
+
+async def build_contract_hash_for_order(
+    *,
+    order: Order,
+    session: AsyncSession,
+    amount_cny: int,
+    scheduled_at: datetime | date | str,
+    patient_name_raw: str,
+    patient_id_card_last4: str,
+    companion_id: str,
+    template_version: str,
+) -> ContractHashResult:
+    """One-call convenience: resolve service_package_id + NFKC patient_name + hash.
+
+    This is the **enforced entry point** for AC#7 — callers should use
+    this rather than calling :func:`generate_contract_hash_at_commit_time`
+    directly, because this wrapper guarantees the NFKC + .strip()
+    normalization step (AC#7) and the resolver (AC#6) are both applied.
+
+    Args mirror :func:`generate_contract_hash_at_commit_time` *except*:
+        - ``service_package_id`` is **resolved** from ``order.service_type``
+          via :func:`resolve_service_package_id` (AC#6 Option A path).
+        - ``patient_name_raw`` is **normalized** via
+          :func:`normalize_patient_name` (AC#7 — NFKC + strip) before
+          being passed into the hash computation.
+        - ``order_id`` is derived from ``order.id``.
+
+    Raises:
+        ContractServicePackageNotFoundError: AC#6 — ServicePackage row
+            for ``order.service_type`` was real-deleted (not soft-delete).
+        ValueError: AC#7 — ``patient_name_raw`` is None or whitespace-only
+            after NFKC + strip.
+        ContractHashGenerationError: any downstream field-validation
+            failure (caller routes to ``status=generation_failed``).
+    """
+    service_package_id = await resolve_service_package_id(order, session)
+    patient_name_normalized = normalize_patient_name(patient_name_raw)
+    return generate_contract_hash_at_commit_time(
+        order_id=str(order.id),
+        amount_cny=amount_cny,
+        service_package_id=str(service_package_id),
+        scheduled_at=scheduled_at,
+        patient_name=patient_name_normalized,
+        patient_id_card_last4=patient_id_card_last4,
+        companion_id=companion_id,
+        template_version=template_version,
+    )

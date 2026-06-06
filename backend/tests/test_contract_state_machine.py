@@ -74,12 +74,11 @@ class TestImmutableFieldsSentinel:
     4. This sentinel test
     """
 
-    def test_immutable_fields_pinned_9(self):
-        # 9 immutable: id / order_id / template_version / contract_hash /
-        # hash_inputs / storage_blob_path / generated_at / is_immutable / created_at
+    def test_immutable_fields_pinned_8(self):
+        # AC#2 字面 (魈 08:25): 8 immutable 字段。不包含 ``id`` — PK 由 DB
+        # 物理 immutable 兜底，不在应用层 trigger 重复 guard。
         assert IMMUTABLE_FIELDS == frozenset(
             {
-                "id",
                 "order_id",
                 "template_version",
                 "contract_hash",
@@ -90,9 +89,10 @@ class TestImmutableFieldsSentinel:
                 "created_at",
             }
         )
-        assert len(IMMUTABLE_FIELDS) == 9
+        assert len(IMMUTABLE_FIELDS) == 8
 
     def test_mutable_fields_pinned_7(self):
+        # AC#2 字面 "5 mutable" 是数错 — 实际列 6 个 + updated_at = 7 个。
         # 7 mutable: status / retry_count / last_error_trace /
         # invalidation_reason / invalidated_by_admin_id / invalidated_at / updated_at
         assert MUTABLE_FIELDS == frozenset(
@@ -298,9 +298,10 @@ class TestTransitionTablePinning:
 
 class TestManualInvalidationMetadata:
     def test_complete_metadata_passes(self):
+        # invalidated_by_admin_id is BigInteger admin_users.id (not UUID)
         assert_invalidation_metadata(
             invalidation_reason="客服 #12 申诉作废",
-            invalidated_by_admin_id=uuid.uuid4(),
+            invalidated_by_admin_id=42,
         )
 
     @pytest.mark.parametrize("bad_reason", [None, "", "   ", "\t\n"])
@@ -308,7 +309,7 @@ class TestManualInvalidationMetadata:
         with pytest.raises(ContractInvalidationMetadataMissingError):
             assert_invalidation_metadata(
                 invalidation_reason=bad_reason,
-                invalidated_by_admin_id=uuid.uuid4(),
+                invalidated_by_admin_id=42,
             )
 
     def test_missing_admin_id_rejected(self):
@@ -440,42 +441,122 @@ class TestResolverErrorExposed:
 
 
 # ---------------------------------------------------------------------------
-# Smoke (PG-required) tests — for AC#2 + AC#5 + AC#6 DB-coupled paths
+# AC#6 补充 sentinel — ServicePackage.code immutability 哨兵 (魈 08:29 加)
 # ---------------------------------------------------------------------------
 
 
-# These tests require a real PostgreSQL container (PL/pgSQL trigger cannot
-# be simulated in SQLite). They run in the CI ``smoke-pg`` job and locally
-# via ``pytest -m smoke`` against a running PG instance.
+class TestServicePackageCodeImmutabilitySentinel:
+    """AC#6 sentinel: ServicePackage.code is P0 immutable business identifier.
 
+    Codebase 状态 (本 task 已硬化):
+    - DB 层: ``code`` unique=True + nullable=False (这样 resolver 稳定)
+    - ORM 层: ``@validates('code')`` 拒改 (first-set after 拒变)
+    - API 层: ``ServicePackageUpdateBody`` 不含 ``code`` 字段 (admin PATCH 不能改)
+    - 文档层: 字段 comment 标 immutable
 
-@pytest.mark.smoke
-class TestImmutableFieldsTriggerSmoke:
-    """AC#5 (PG required): immutable_fields_guard trigger blocks 8 UPDATEs.
+    三哨兵防雪崩式改动:
 
-    NOTE: These tests need:
-    - PostgreSQL service available at DATABASE_URL
-    - Alembic migration ``d5e6f7a8b9c1`` applied
-    - Fixture (``smoke_db_session``) yields a clean session per test
+    1. **哨兵 #1**: ``code`` 字段存在 + unique 约束 — 如 dev 删此字段/取消
+       unique，fail-fast
+    2. **哨兵 #2**: model 源码含 immutability 关键词 — 如 dev 加
+       PATCH/UPDATE code endpoint，哨兵提醒走 review
+    3. **哨兵 #3**: ``contract_resolver`` 文档明示依赖 ``ServicePackage.code``
+       immutability — 如 dev 不知依赖误改 code，破历史 contract hash
+       recompute。
 
-    The fixture is provided by the smoke-pg job environment in CI; locally
-    devs run via ``pytest -m smoke --db-url=...``.
+    运行期 ORM validator 本身的试业边界测试 (first-set / same-value / change-after-set)
+    放在 ``test_service_contracts_pg_smoke.py::TestServicePackageCodeSentinel`` —
+    需 SQLAlchemy session 潜委启动 validator。
     """
 
-    def test_trigger_placeholder(self):
-        # Placeholder: actual implementation deferred to smoke fixture
-        # being added (S3-TEST-001 AC#13 covers detailed assertions).
-        # This test ensures the marker is wired so CI smoke-pg picks it up.
-        pytest.skip("smoke fixture wired in S3-TEST-001 acceptance suite")
+    def test_service_package_code_field_exists_and_unique(self):
+        # Sentinel #1: ServicePackage.code is still on the model + unique
+        from app.models.service_package import ServicePackage
+
+        code_col = ServicePackage.__table__.columns["code"]
+        assert code_col is not None, "ServicePackage.code field removed"
+        assert code_col.unique is True, (
+            "ServicePackage.code lost unique constraint — contract "
+            "resolver depends on it for 1:1 lookup"
+        )
+        assert code_col.nullable is False, (
+            "ServicePackage.code became nullable — contract resolver "
+            "will start returning None unexpectedly"
+        )
+
+    def test_service_package_code_docstring_marks_immutability(self):
+        # Sentinel #2: model docstring or column comment mentions immutability
+        # so future PR adding a PATCH code endpoint triggers code review
+        from app.models import service_package as svc_pkg_module
+
+        source = open(svc_pkg_module.__file__).read()
+        # Search for any immutability cue near the `code` column definition.
+        # We accept any of: "immutable" / "不可改" / "do not change".
+        cues = ("immutable", "不可改", "do not change")
+        assert any(cue in source for cue in cues), (
+            "ServicePackage 模块未标记 code immutable。"
+            "在 ServicePackage model 加 'immutable' / '不可改' / 'do not change' "
+            "其中一个关键词到字段 comment 或 ORM validator docstring。"
+        )
+
+    def test_service_package_code_change_would_break_contract_hash(self):
+        # Sentinel #3: business invariant — 改 code 会破 contract hash recompute.
+        # 这是 resolver 架构示意, 不跨模块实际调用 (依赖 DB session)。
+        # 在实施文档里说明 contract_resolver 架构依赖 code immutability。
+        from app.services import contract_resolver
+
+        source = open(contract_resolver.__file__).read()
+        # resolver 模块 docstring 必须提及 "immutable" + "code" 示意设计依赖
+        assert "immutable" in source.lower(), (
+            "contract_resolver 模块未说明依赖 ServicePackage.code immutability。"
+            "未来 dev 不知依赖会误改 code, 破历史 contract hash recompute。"
+        )
+        assert "code" in source, "contract_resolver 未提及 ServicePackage.code"
+
+    def test_orm_validator_first_set_allowed(self):
+        # Sentinel #4 (runtime, SQLite-friendly): @validates first-set path
+        from decimal import Decimal
+
+        from app.models.service_package import ServicePackage
+
+        pkg = ServicePackage(
+            code="new", name="x", price=Decimal("1.00"), sort_order=0
+        )
+        assert pkg.code == "new"
+
+    def test_orm_validator_same_value_reassign_allowed(self):
+        # Idempotent reassign: seed re-run / refresh roundtrip must not break
+        from decimal import Decimal
+
+        from app.models.service_package import ServicePackage
+
+        pkg = ServicePackage(
+            code="seed", name="x", price=Decimal("1.00"), sort_order=0
+        )
+        pkg.code = "seed"  # no-op
+        assert pkg.code == "seed"
+
+    def test_orm_validator_change_after_first_set_rejected(self):
+        # Sentinel #5 (runtime, SQLite-friendly): @validates blocks change
+        from decimal import Decimal
+
+        from app.models.service_package import (
+            ServicePackage,
+            ServicePackageCodeImmutableError,
+        )
+
+        pkg = ServicePackage(
+            code="original", name="x", price=Decimal("1.00"), sort_order=0
+        )
+        with pytest.raises(ServicePackageCodeImmutableError) as exc:
+            pkg.code = "renamed"
+        assert "original" in str(exc.value)
+        assert "renamed" in str(exc.value)
 
 
-@pytest.mark.smoke
-class TestResolverSmoke:
-    """AC#6 (PG required): resolver returns ServicePackage.id from Order.service_type.
-
-    Deferred to S3-TEST-001 AC#12 for full assertion surface (we'd need
-    Order + ServicePackage fixtures here, duplicating work).
-    """
-
-    def test_resolver_placeholder(self):
-        pytest.skip("smoke fixture wired in S3-TEST-001 acceptance suite")
+# ---------------------------------------------------------------------------
+# AC#5 + AC#6 DB-coupled paths now live in test_service_contracts_pg_smoke.py
+# (real PG container required for PL/pgSQL trigger semantics).
+# This file owns SQLite-friendly logic tests; PG-only tests live in the
+# parallel pg_smoke module so they only execute under alembic-smoke workflow.
+# ---------------------------------------------------------------------------

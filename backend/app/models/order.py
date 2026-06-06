@@ -3,7 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import DateTime, Enum, Numeric, String, Text, Uuid
+from sqlalchemy import DateTime, Enum, ForeignKey, Numeric, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -163,6 +163,21 @@ class Order(Base):
     )
     expires_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+    # S3-DEV-001-CONTRACT-DOMAIN (ADR-0047 §3.3): nullable FK back-pointer from
+    # order to its generated contract row. Nullable since contract is not
+    # required for order to be considered valid (PRD-003 §AC-5).
+    # 不回填历史 orders 行; 新订单 ContractService 写入。
+    # insurance_id 列由 S3-DEV-001-INSURANCE-DOMAIN 加 (并行 PR #199)。
+    contract_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey(
+            "service_contracts.id",
+            use_alter=True,
+            name="fk_orders_contract_id",
+        ),
+        nullable=True,
+        comment="一单一合同 nullable (PRD-003 §AC-5); use_alter 防循环 FK",
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

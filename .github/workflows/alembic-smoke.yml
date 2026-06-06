@@ -99,4 +99,11 @@ jobs:
           # Force pytest to use real PG instead of the in-memory SQLite default
           DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/yiluan_smoke
           PG_SMOKE: "1"
-        run: python -m pytest tests/test_models_pg_smoke.py -v
+          # AC#7 (S3-DEV-001-CONTRACT-DOMAIN) NFKC pseudonym hash compute needs salt.
+          # Use a deterministic smoke salt; never reused outside CI.
+          CONTRACT_PSEUDONYM_SALT: "smoke_only_salt_do_not_use_in_prod"
+        run: |
+          python -m pytest \
+            tests/test_models_pg_smoke.py \
+            tests/test_service_contracts_pg_smoke.py \
+            -v

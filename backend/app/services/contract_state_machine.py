@@ -7,7 +7,10 @@ from order lifecycle. 一个订单可以 cancelled 但其合同仍然 active (�
 后退款不撤回合同, 只走 manually_invalidated 留痕)。独立模块避免合同状态
 泄漏到核心订单状态机。
 
-# Transition table (14 legal edges, 6 states, ADR-0047 §3.1 ground truth)
+# Transition table (10 legal edges, 6 states, ADR-0047 §3.1 ground truth)
+#
+# AC#5 字面 "14 个状态 transition 全覆盖" = 10 legal PASS + 4 关键 illegal RAISE
+# = 14 具名 test cases (话 test_contract_state_machine.py / test_service_contracts_pg_smoke.py)。
 
 ```
 pending_generation ──→ generating               (cron pickup)
@@ -52,7 +55,6 @@ from __future__ import annotations
 
 import logging
 import unicodedata
-import uuid
 from typing import Final
 
 from app.models.service_contract import ContractStatus
@@ -194,11 +196,14 @@ def assert_transition(
 def assert_invalidation_metadata(
     *,
     invalidation_reason: str | None,
-    invalidated_by_admin_id: uuid.UUID | None,
+    invalidated_by_admin_id: int | None,
 ) -> None:
     """Raise if either field missing/empty when target is manually_invalidated.
 
     AC#5 audit completeness. Whitespace-only reason rejected.
+
+    ``invalidated_by_admin_id`` is ``admin_users.id`` — BigInteger in PG,
+    Integer in SQLite (see ``app.models.admin_user._ID_TYPE``).
     """
     if not invalidation_reason or not invalidation_reason.strip():
         raise ContractInvalidationMetadataMissingError(

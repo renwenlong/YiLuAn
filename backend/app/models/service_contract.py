@@ -51,14 +51,17 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     Integer,
     String,
     Text,
     Uuid,
+    text,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -89,6 +92,10 @@ class ContractStatus(str, enum.Enum):
     必填 invalidation_reason + invalidated_by_admin_id."""
 
 
+# admin_users.id is BigInteger in PG / Integer in SQLite (see app.models.admin_user._ID_TYPE).
+_ADMIN_ID_TYPE = BigInteger().with_variant(Integer(), "sqlite")
+
+
 # PostgreSQL JSONB type with SQLite JSON fallback (for default test fixtures).
 _JsonbType = JSONB().with_variant(JSON(), "sqlite")
 
@@ -104,6 +111,27 @@ class ServiceContract(Base):
     """
 
     __tablename__ = "service_contracts"
+
+    # ----- Composite partial index (compensation cron scan) -----
+    #
+    # Mirrors raw DDL in alembic d5e6f7a8b9c1 migration:
+    #   CREATE INDEX idx_service_contracts_compensation
+    #     ON service_contracts(status, retry_count, updated_at)
+    #     WHERE status IN ('pending_generation', 'generation_failed')
+    #
+    # Declared here so ``alembic check`` does not detect drift. SQLite
+    # fallback (no partial index) handled by migration body branch.
+    __table_args__ = (
+        Index(
+            "idx_service_contracts_compensation",
+            "status",
+            "retry_count",
+            "updated_at",
+            postgresql_where=text(
+                "status IN ('pending_generation', 'generation_failed')"
+            ),
+        ),
+    )
 
     # ----- Immutable fields (DB trigger guards UPDATE) -----
 
@@ -189,11 +217,14 @@ class ServiceContract(Base):
         comment="作废原因; status=manually_invalidated 时**必填**",
     )
 
-    invalidated_by_admin_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid(as_uuid=True),
+    invalidated_by_admin_id: Mapped[int | None] = mapped_column(
+        _ADMIN_ID_TYPE,
         ForeignKey("admin_users.id"),
         nullable=True,
-        comment="作废人 admin_user_id; status=manually_invalidated 时**必填**",
+        comment=(
+            "作废人 admin_user_id (BigInt PG / Int SQLite); "
+            "status=manually_invalidated 时**必填**"
+        ),
     )
 
     invalidated_at: Mapped[datetime | None] = mapped_column(
@@ -222,9 +253,18 @@ class ServiceContract(Base):
 
 # Immutable field names — single source of truth for both the Python-side
 # guard helper (used by ContractStateMachine) and the SQL trigger body.
+#
+# AC#2 字面 (魈 08:25): 8 immutable 字段 — order_id / template_version /
+# contract_hash / hash_inputs / storage_blob_path / created_at /
+# generated_at / is_immutable。 (``id`` 不在列里 — PK 由 DB 物理 immutable
+# 兜底，不在应用层 trigger 重复 guard。)
+#
+# AC#2 字面 "5 mutable" 是数错 — 实际列了 6 个 mutable 加 updated_at = 7 个。
+# 按 list 内容走 (status / retry_count / last_error_trace /
+# invalidation_reason / invalidated_by_admin_id / invalidated_at /
+# updated_at)。
 IMMUTABLE_FIELDS: frozenset[str] = frozenset(
     {
-        "id",
         "order_id",
         "template_version",
         "contract_hash",
