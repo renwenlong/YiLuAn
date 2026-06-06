@@ -5,6 +5,7 @@
   - AzureBlobStorageBackend (Phase A mock): put / sign_read_url / verify_sig / open
   - Factory: STORAGE_BACKEND=local|azure 切换 + singleton + reset
 """
+
 from __future__ import annotations
 
 import time
@@ -43,6 +44,7 @@ class TestLocalStorageBackend:
         assert "expires=" in signed.url and "sig=" in signed.url
         # verify_sig 通过 query 参数还原
         from urllib.parse import parse_qs, urlparse
+
         qs = parse_qs(urlparse(signed.url).query)
         expires = int(qs["expires"][0])
         sig = qs["sig"][0]
@@ -135,18 +137,21 @@ class TestStorageBackendFactory:
 
     def test_factory_default_local(self, monkeypatch):
         from app.config import settings as _s
+
         monkeypatch.setattr(_s, "storage_backend", "local")
         b = get_storage_backend()
         assert isinstance(b, LocalStorageBackend)
 
     def test_factory_azure_picked(self, monkeypatch):
         from app.config import settings as _s
+
         monkeypatch.setattr(_s, "storage_backend", "azure")
         b = get_storage_backend()
         assert isinstance(b, AzureBlobStorageBackend)
 
     def test_factory_is_singleton(self, monkeypatch):
         from app.config import settings as _s
+
         monkeypatch.setattr(_s, "storage_backend", "local")
         b1 = get_storage_backend()
         b2 = get_storage_backend()
@@ -154,6 +159,7 @@ class TestStorageBackendFactory:
 
     def test_reset_drops_singleton(self, monkeypatch):
         from app.config import settings as _s
+
         monkeypatch.setattr(_s, "storage_backend", "local")
         b1 = get_storage_backend()
         reset_storage_backend()
@@ -162,6 +168,7 @@ class TestStorageBackendFactory:
 
     def test_factory_unknown_value_falls_back_to_local(self, monkeypatch):
         from app.config import settings as _s
+
         monkeypatch.setattr(_s, "storage_backend", "garbage")
         b = get_storage_backend()
         assert isinstance(b, LocalStorageBackend)
@@ -178,9 +185,7 @@ class TestPutIfAbsentContract:
 
     def test_local_first_put_returns_already_exists_false(self, tmp_path: Path):
         backend = LocalStorageBackend(root_dir=tmp_path)
-        result = backend.put_if_absent(
-            "new.pdf", b"first-bytes", content_type="application/pdf"
-        )
+        result = backend.put_if_absent("new.pdf", b"first-bytes", content_type="application/pdf")
         assert isinstance(result, StoragePutResult)
         assert result.already_exists is False
         assert result.stored.scheme == "cert-image://"
@@ -189,9 +194,7 @@ class TestPutIfAbsentContract:
 
     def test_local_second_put_returns_already_exists_true(self, tmp_path: Path):
         backend = LocalStorageBackend(root_dir=tmp_path)
-        backend.put_if_absent(
-            "dup.pdf", b"original", content_type="application/pdf"
-        )
+        backend.put_if_absent("dup.pdf", b"original", content_type="application/pdf")
         result = backend.put_if_absent(
             "dup.pdf", b"overwrite-attempt", content_type="application/pdf"
         )
@@ -202,14 +205,10 @@ class TestPutIfAbsentContract:
 
     def test_local_does_not_raise_file_exists_error(self, tmp_path: Path):
         backend = LocalStorageBackend(root_dir=tmp_path)
-        backend.put_if_absent(
-            "x.bin", b"a", content_type="application/octet-stream"
-        )
+        backend.put_if_absent("x.bin", b"a", content_type="application/octet-stream")
         # 调用方不需要 try/except FileExistsError
         try:
-            result = backend.put_if_absent(
-                "x.bin", b"b", content_type="application/octet-stream"
-            )
+            result = backend.put_if_absent("x.bin", b"b", content_type="application/octet-stream")
         except FileExistsError:  # pragma: no cover - regression guard
             pytest.fail("put_if_absent must not raise FileExistsError")
         assert result.already_exists is True
@@ -227,12 +226,8 @@ class TestPutIfAbsentContract:
 
     def test_azure_second_put_returns_already_exists_true(self):
         backend = AzureBlobStorageBackend()
-        backend.put_if_absent(
-            "dup-key", b"first", content_type="application/pdf"
-        )
-        result = backend.put_if_absent(
-            "dup-key", b"second", content_type="application/pdf"
-        )
+        backend.put_if_absent("dup-key", b"first", content_type="application/pdf")
+        result = backend.put_if_absent("dup-key", b"second", content_type="application/pdf")
         assert result.already_exists is True
         # mock 反射真实 Azure If-None-Match: * 行为 — 不覆写
         assert backend.open(result.stored) == b"first"
@@ -270,9 +265,7 @@ class TestPutIfAbsentConcurrency:
             with results_lock:
                 results.append(r)
 
-        threads = [
-            threading.Thread(target=worker, args=(i,)) for i in range(8)
-        ]
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(8)]
         for t in threads:
             t.start()
         for t in threads:
@@ -281,9 +274,7 @@ class TestPutIfAbsentConcurrency:
         assert len(results) == 8
         winners = [r for r in results if not r.already_exists]
         losers = [r for r in results if r.already_exists]
-        assert len(winners) == 1, (
-            f"O_EXCL must serialize: expected 1 winner, got {len(winners)}"
-        )
+        assert len(winners) == 1, f"O_EXCL must serialize: expected 1 winner, got {len(winners)}"
         assert len(losers) == 7
         # 胜出者写入的内容被保留
         winner_bytes = backend.open(winners[0].stored)
@@ -318,8 +309,71 @@ class TestPutBackwardCompatibility:
 
     def test_azure_put_signature_unchanged(self):
         backend = AzureBlobStorageBackend()
-        obj = backend.put(
-            "legacy.bin", b"data", content_type="application/octet-stream"
-        )
+        obj = backend.put("legacy.bin", b"data", content_type="application/octet-stream")
         assert isinstance(obj, StoredObject)
         assert obj.scheme == "azure-blob://"
+
+
+class TestLocalAllowSubdirs:
+    """S3-DEV-001 (ADR-0046 §3.1): LocalStorageBackend opt-in subdirs.
+
+    Default (allow_subdirs=False) preserves cert-image flat namespace.
+    Opt-in (allow_subdirs=True) for contract storage enables
+    ``contracts/{year}/{month}/...`` nested paths with traversal defense.
+    """
+
+    def test_default_rejects_slash_in_key(self, tmp_path: Path):
+        backend = LocalStorageBackend(root_dir=tmp_path)
+        with pytest.raises(BadRequestException):
+            backend.put("a/b.pdf", b"x", content_type="application/pdf")
+
+    def test_subdir_mode_allows_nested_path(self, tmp_path: Path):
+        backend = LocalStorageBackend(root_dir=tmp_path, allow_subdirs=True)
+        obj = backend.put(
+            "contracts/2026/06/abc.pdf",
+            b"data",
+            content_type="application/pdf",
+        )
+        assert obj.key == "contracts/2026/06/abc.pdf"
+        on_disk = tmp_path / "contracts" / "2026" / "06" / "abc.pdf"
+        assert on_disk.exists()
+        assert on_disk.read_bytes() == b"data"
+
+    def test_subdir_mode_put_if_absent_creates_intermediate_dirs(self, tmp_path: Path):
+        backend = LocalStorageBackend(root_dir=tmp_path, allow_subdirs=True)
+        res = backend.put_if_absent(
+            "contracts/2026/06/x.pdf",
+            b"data",
+            content_type="application/pdf",
+        )
+        assert res.already_exists is False
+        # Second call -> already_exists
+        res2 = backend.put_if_absent(
+            "contracts/2026/06/x.pdf",
+            b"other",
+            content_type="application/pdf",
+        )
+        assert res2.already_exists is True
+
+    @pytest.mark.parametrize(
+        "bad_key",
+        [
+            "../etc/passwd",  # parent traversal
+            "contracts/../../etc",  # mid-path traversal
+            "contracts/./x.pdf",  # current-dir segment
+            "/abs/path.pdf",  # absolute
+            "contracts//double.pdf",  # empty segment
+            "contracts/x\x00.pdf",  # NUL
+            "contracts/x\nstuff",  # newline
+            "contracts\\windows.pdf",  # backslash
+        ],
+    )
+    def test_subdir_mode_rejects_traversal_and_control_chars(self, tmp_path: Path, bad_key: str):
+        backend = LocalStorageBackend(root_dir=tmp_path, allow_subdirs=True)
+        with pytest.raises(BadRequestException):
+            backend.put(bad_key, b"x", content_type="application/pdf")
+
+    def test_subdir_mode_still_rejects_empty_key(self, tmp_path: Path):
+        backend = LocalStorageBackend(root_dir=tmp_path, allow_subdirs=True)
+        with pytest.raises(BadRequestException):
+            backend.put("", b"x", content_type="application/pdf")

@@ -173,11 +173,17 @@ class LocalStorageBackend(StorageBackend):
             "/api/v1/admin/companions/certification-images/{key}"
             "?expires={expires}&sig={sig}"
         ),
+        *,
+        allow_subdirs: bool = False,
     ) -> None:
         self.root = root_dir or (
             Path(__file__).parent.parent.parent / "private" / "certification-images"
         )
         self._sign_url_template = sign_url_template
+        # S3-DEV-001 (ADR-0046 §3.1): contract storage needs nested
+        # ``contracts/{year}/{month}/...`` paths. Opt-in only; cert-image flat
+        # namespace stays unchanged.
+        self._allow_subdirs = allow_subdirs
 
     # -- internal helpers -------------------------------------------------
 
@@ -189,12 +195,30 @@ class LocalStorageBackend(StorageBackend):
         return hmac.new(self._secret(), payload, hashlib.sha256).hexdigest()
 
     def _safe_key(self, key: str) -> str:
-        name = Path(key).name
-        if name != key or not name:
+        if not key:
             raise BadRequestException("Invalid storage key")
-        if any(ch in name for ch in ("/", "\\", "..")):
+        # Always reject backslash + .. anywhere, regardless of mode
+        if "\\" in key or ".." in key:
             raise BadRequestException("Invalid storage key")
-        return name
+        if not self._allow_subdirs:
+            # Legacy single-level mode (cert image): no '/' allowed.
+            name = Path(key).name
+            if name != key or not name:
+                raise BadRequestException("Invalid storage key")
+            return name
+        # Subdir mode (contract storage, ADR-0046 §3.1):
+        # Allow '/' separators but defend against traversal / abs path /
+        # control chars / empty segments.
+        if key.startswith("/"):
+            raise BadRequestException("Invalid storage key")
+        segments = key.split("/")
+        for seg in segments:
+            if not seg or seg in {".", ".."}:
+                raise BadRequestException("Invalid storage key")
+            # Reject NUL + control chars
+            if any(ord(ch) < 0x20 for ch in seg):
+                raise BadRequestException("Invalid storage key")
+        return key
 
     # -- StorageBackend interface ----------------------------------------
 
@@ -202,8 +226,9 @@ class LocalStorageBackend(StorageBackend):
         self, key: str, content: bytes, *, content_type: str
     ) -> StoredObject:
         safe = self._safe_key(key)
-        self.root.mkdir(parents=True, exist_ok=True)
-        (self.root / safe).write_bytes(content)
+        path = self.root / safe
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
         return StoredObject(scheme=self.scheme, key=safe)
 
     def put_if_absent(
@@ -220,8 +245,8 @@ class LocalStorageBackend(StorageBackend):
         del metadata
         del content_type
         safe = self._safe_key(key)
-        self.root.mkdir(parents=True, exist_ok=True)
         path = self.root / safe
+        path.parent.mkdir(parents=True, exist_ok=True)
         try:
             # O_CREAT | O_EXCL gives kernel-level atomic create-or-fail.
             # No TOCTOU between exists()-check and write_bytes(): the open

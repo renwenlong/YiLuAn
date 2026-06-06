@@ -39,6 +39,14 @@ ws_idle_timeout_total = Counter(
     ["channel"],  # "notifications" | "chat"
 )
 
+# S3-DEV-001 / ADR-0046 §3.3: Contract storage put errors (non-EEXIST OSError).
+# errno labels: EACCES / EROFS / ENOSPC / OTHER. EEXIST 不计 (是 normal already_exists 路径)。
+contract_storage_put_error_total = Counter(
+    "contract_storage_put_error_total",
+    "ContractStorage put errors (non-EEXIST OSError)",
+    ["errno"],  # "EACCES" | "EROFS" | "ENOSPC" | "OTHER"
+)
+
 # WebSocket auth handshake outcome (PR: WS auth via first frame).
 # Replaces the legacy `?token=***` query-string auth path.
 # `result` values:
