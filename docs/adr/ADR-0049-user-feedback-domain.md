@@ -232,6 +232,7 @@ stateDiagram-v2
     in_review --> rejected: admin_reject_invalid
     resolved --> in_review: user_append_feedback
     rejected --> in_review: user_append_feedback
+    closed --> in_review: user_append_feedback_within_30d
 ```
 
 **状态含义：**
@@ -243,6 +244,16 @@ stateDiagram-v2
 | `resolved` | admin 已处理 | user/admin/companion（如有关联） |
 | `closed` | 用户接受或超时关闭 | user/admin |
 | `rejected` | 无效/重复/恶意反馈 | user/admin |
+
+**append 边说明（刻晴 review #6 amend）：**
+
+| 当前状态 | user_append 行为 |
+|---|---|
+| `pending` | 不允许 append（未入 admin 处理，直接编辑首条即可）|
+| `in_review` | 不允许 append（admin 处理中，避免状态机振荡）|
+| `resolved` | 允许 append → 转 `in_review` |
+| `rejected` | 允许 append → 转 `in_review`（重新申诱）|
+| `closed` | 允许 append 仅限 30 天内 → 转 `in_review`；closed > 30d 拒绝 HTTP 410 Gone。防历史反馈反复点火 |
 
 **禁止：**
 
@@ -429,7 +440,12 @@ async def get_feedback_for_companion(companion_id: UUID, feedback_id: UUID):
 
 - 单元：`CompanionFeedbackSummaryView.model_json_schema()` 不含 `raw_content` / `attachment_urls`
 - 集成：陪诊师 token 请求 summary endpoint，response json 不含 `raw_content` / `attachments` / `user_phone` / `patient_name`
-- Schemathesis：negative list 拒绝 `share_*` / `contract_*` / `insurance_*` / `preparation_*` 字段进入 feedback endpoint
+- Schemathesis negative list：拒绝 `share_*` / `contract_*` / `insurance_*` / `preparation_*` / `companion_real_*` / `*_id_card_*` / `*_phone` 进入 feedback endpoint
+- **Schemathesis positive list 哨兵（刻晴 review #7 amend）**：feedback endpoint response 字段名**必须**全部在 positive list 内：
+  - `FEEDBACK_RESPONSE_POSITIVE_LIST = {"feedback_id", "feedback_parent_id", "feedback_function_module", "category", "severity", "status", "source", "raw_content", "sanitized_summary", "created_at", "updated_at", "attachments", "appeals", "admin_id", "order_id", "companion_id", "user_id"}`
+  - CI lint test 走 `schemathesis.run --positive-pattern feedback_*` 扫描，任何返回字段名不在 positive list 中 → 测试失败
+  - 防御场景：未来加新字段时 dev 忘记 review、意外从 ORM dump 透传 `user_internal_*` 类跨域字段
+  - positive list 加字段必须 PR + reviewer ack，不允许运行时动态扩展
 
 ---
 
@@ -599,3 +615,7 @@ S3-DEV-004-FEEDBACK-DOMAIN 同样加 `user_feedbacks` / `feedback_attachments` m
   - Gap 3（§3.2.1）：补 redis 限频 + 429 + 黑名单 + 告警。
   - #4（§5.2）：`uploaded_by_admin_id` 补 FK references admin_users(id) + chk 互斥约束。
   - #5（§7 / 7.1）：补 user append feedback endpoint `POST /api/v1/users/feedbacks/{parent_id}/append`。
+- 2026-06-06 r2 Amend：§10.5 alembic head rebase 约定 + S3-TEST-001 head merge 哨兵。
+- 2026-06-06 r3 Amend：刻晴 PR #191 review 2 条全采纳：
+  - #6（§4.1）：状态机补 `closed --> in_review: user_append_feedback_within_30d` 边 + 5 状态 append 行为表（closed > 30d 拒 410 Gone）。
+  - #7（§6.4）：补 schemathesis positive list 哨兵 `FEEDBACK_RESPONSE_POSITIVE_LIST`，未在列表内的 response 字段名 CI 失败。positive list 加字段必须 PR + reviewer ack。
