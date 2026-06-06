@@ -165,6 +165,30 @@ CREATE INDEX idx_user_feedbacks_parent ON user_feedbacks(feedback_parent_id) WHE
 
 补充反馈：新建 row，`feedback_parent_id = 首条反馈 id`。补充反馈不 UPDATE 原 row，保留完整历史。
 
+### 3.2.1 限频防刷（胡桃 review Gap 3 amend）
+
+DB 层 unique index 仅防「同一 (user_id, order_id, category) 重复首条」，不防「同一 user 高频 spam 不同订单」。应用层加 redis 限频：
+
+| 场景 | 限额 | 超限响应 |
+|---|---|---|
+| 单 user 首条反馈 | 10/小时 + 50/日 | HTTP 429 + Retry-After |
+| 单 user 补充反馈 | 30/小时 + 100/日（同一 parent）| HTTP 429 + Retry-After |
+| 单 user 附件上传 | 100/小时 | HTTP 429 + Retry-After |
+| Anonymous IP（未登录）| 不接受 | HTTP 401 |
+
+redis key：`ratelimit:feedback:{user_id}:{window}`，实现用 token bucket 或 sliding window log。
+
+**告警阈值**：单 user 1h 内连续周期 429 戩2 次 → alertmanager `UserFeedbackRateLimitTriggered` 告警 + 临时黑名单 30min。
+
+```python
+if feedback.severity == FeedbackSeverity.URGENT:
+    metrics.feedback_submitted_total.labels(
+        severity="urgent",
+        module=feedback.feedback_function_module,
+        source=feedback.source,
+    ).inc()
+```
+
 ```python
 class FeedbackAppendService:
     async def append_feedback(
@@ -226,23 +250,56 @@ stateDiagram-v2
 - 不允许 OrderStateMachine 调用 UserFeedbackStateMachine
 - 可通过 domain event 通知 admin 看板，但不是订单履约状态的一部分
 
-### 4.2 紧急反馈告警
+### 4.2 紧急反馈告警（胡桃 review Gap 2 amend）
 
 当 `severity='urgent'`：
 
 1. 写 `user_feedbacks`
-2. 触发 metric：`feedback_submitted_total{severity="urgent", module="...", source="..."}`
-3. 5min 内 Alertmanager 可见
+2. 触发 prometheus Counter：`feedback_submitted_total{severity="urgent", module="...", source="..."}`
+3. Prometheus alert rule 检测 Counter 增量 → Alertmanager 路由告警到5min 内可见
+
+代码侧（不依赖不存在的 `alertmanager.fire()` facade）：
 
 ```python
+# app/utils/metrics.py 已有 prometheus_client raw Counter/Gauge
+from app.utils.metrics import feedback_submitted_total
+
 if feedback.severity == FeedbackSeverity.URGENT:
-    metrics.feedback_submitted_total.labels(
+    feedback_submitted_total.labels(
         severity="urgent",
-        module=feedback.feedback_function_module,
-        source=feedback.source,
+        module=feedback.feedback_function_module.value,
+        source=feedback.source.value,
     ).inc()
-    alertmanager.fire("urgent_user_feedback", feedback_id=str(feedback.id))
 ```
+
+alert rule（`ops/prometheus/alert.rules.yml`）：
+
+```yaml
+groups:
+  - name: user_feedback
+    interval: 30s
+    rules:
+      - alert: UrgentFeedbackSubmitted
+        expr: increase(feedback_submitted_total{severity="urgent"}[5m]) > 0
+        for: 0m
+        labels:
+          severity: critical
+          team: customer_service
+        annotations:
+          summary: "紧急用户反馈提交 (module={{ $labels.module }})"
+          runbook_url: "https://wiki.yiluan.dev/runbooks/urgent-feedback"
+
+      - alert: UserFeedbackRateLimitTriggered
+        expr: increase(feedback_ratelimit_429_total[1h]) >= 2
+        for: 0m
+        labels:
+          severity: warning
+          team: security
+        annotations:
+          summary: "用户 {{ $labels.user_id }} 1h 内 2 次 429，疑似 spam"
+```
+
+Alertmanager 路由到企微群（复用现有 alertmanager-webhook）。
 
 ---
 
@@ -308,8 +365,12 @@ CREATE TABLE feedback_attachments (
     byte_size INTEGER NOT NULL,
     content_hash CHAR(64) NOT NULL,
     uploaded_by_user_id UUID NULL REFERENCES users(id),
-    uploaded_by_admin_id UUID NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    uploaded_by_admin_id UUID NULL REFERENCES admin_users(id),  -- 胡桃 review #4 amend：补 FK
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT chk_uploaded_by CHECK (
+        (uploaded_by_user_id IS NOT NULL AND uploaded_by_admin_id IS NULL) OR
+        (uploaded_by_user_id IS NULL AND uploaded_by_admin_id IS NOT NULL)
+    )
 );
 
 CREATE INDEX idx_feedback_attachments_feedback_id ON feedback_attachments(feedback_id);
@@ -376,13 +437,24 @@ async def get_feedback_for_companion(companion_id: UUID, feedback_id: UUID):
 
 | Method | Path | 角色 | 说明 |
 |---|---|---|---|
-| POST | `/api/v1/users/feedbacks` | user | 用户/家属提交反馈 |
+| POST | `/api/v1/users/feedbacks` | user | 用户/家属提交首条反馈 |
+| POST | `/api/v1/users/feedbacks/{parent_id}/append` | user | **用户补充补反馈**（胡桃 review #5 amend）|
 | POST | `/api/v1/admin/feedbacks` | admin | 客服代录 |
 | GET | `/api/v1/admin/feedbacks` | admin | 反馈列表/筛选 |
 | GET | `/api/v1/admin/feedbacks/{id}` | admin | 反馈详情 |
 | PATCH | `/api/v1/admin/feedbacks/{id}/status` | admin | 处理状态流转 |
 | POST | `/api/v1/companions/feedbacks/{id}/appeal` | companion | 陪诊师申诉 |
 | GET | `/api/v1/companions/feedbacks/{id}/summary` | companion | 陪诊师摘要视图 |
+
+### 7.1 补充反馈 endpoint 权限
+
+`POST /api/v1/users/feedbacks/{parent_id}/append`：
+
+- 鉴权：`get_current_user`
+- 允许条件：parent.user_id == current_user.id（只能用户本人 append 自己的反馈）
+- 不允许代补充（admin 走 PATCH status 加备注路径）
+- request body：`{ "raw_content": str, "attachments": list[UploadFile] }`
+- response：返回 child UserFeedback。
 
 ---
 
@@ -501,4 +573,10 @@ tier 配置走 app config（不硬编 ADR），便于 ops 按实际访问模式�
 ## 11. 变更记录
 
 - 2026-06-06 Draft：S3-DES-004 首版，覆盖 PRD-004 v0.3 + 魈架构 review 3 结论 + 凝光 4 ack 点。
-- 2026-06-06 Amend：胡桃 review 3 条补充全采纳（§10.1 S4 axis 默认值 + §10.2 Hot tier + §10.3 命名空间隔离 + §10.4 反馈不驱动 Order）。
+- 2026-06-06 Amend：胡桃 review S3-DES-004 3 条补充全采纳（§10.1 S4 axis 默认值 + §10.2 Hot tier + §10.3 命名空间隔离 + §10.4 反馈不驱动 Order）。
+- 2026-06-06 r1 Amend：胡桃 PR #191 review 5 条全采纳：
+  - Gap 1：新建 root task `S3-DEV-000-STORAGE-ABC-PUT-IF-ABSENT` 作为 CONTRACT-STORAGE + FEEDBACK-STORAGE 共同依赖。
+  - Gap 2（§4.2）：alertmanager facade 改为 prometheus Counter + ops/prometheus/alert.rules.yml 规则。
+  - Gap 3（§3.2.1）：补 redis 限频 + 429 + 黑名单 + 告警。
+  - #4（§5.2）：`uploaded_by_admin_id` 补 FK references admin_users(id) + chk 互斥约束。
+  - #5（§7 / 7.1）：补 user append feedback endpoint `POST /api/v1/users/feedbacks/{parent_id}/append`。
