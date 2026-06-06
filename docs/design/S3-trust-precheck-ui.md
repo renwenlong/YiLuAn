@@ -149,13 +149,13 @@ class CompanionCertStatusView(BaseModel):
 | 陪诊师资质 | 核验未通过 | 该陪诊师资质待核验，请选择其他陪诊师 |
 | 陪诊师资质 | 核验过期 | 资质需重新核验，请稍后再试 |
 
-**文案 lint 规则**（admin-v2 文案配置同步）：
+**文案 lint 规则**（admin-v2 文案配置同步 + 刻晴 review gap）：
 
-- 不出现具体 worker 名 / 服务名 / 错误码 / 异常堆栈
-- 不出现"失败"二字（用"系统正在处理 / 客服正在处理"）
-- 时效预期可填 / 可空（不写硬时限承诺）
-
----
+- `DENY_KEYWORDS = ["失败", "错误", "异常堆栈", "exception", "error", "failed"]`：任何文案动态加载后含以上关键词 → lint fail。
+- `DENY_WORKER_NAMES`：动态加载 `app.workers.__all__` 名单；任何文案出现 worker 名 → lint fail。
+- `DENY_HARDCODE_TIME = /\d+\s*(秒|分钟|s|min)/`：硬时限承诺 → lint warn，需 PM ack 后才能发布。
+- CI script：`backend/scripts/lint_precheck_copy.py`，GitHub Actions job `precheck-copy-lint` 必跑。
+- 本地 lint：admin-v2 client-side onChange + server-side onSave 双拦截。
 
 ## 4. 实时推送设计
 
@@ -165,7 +165,7 @@ class CompanionCertStatusView(BaseModel):
 
 | 通道 | 用途 | 时延 SLO |
 |---|---|---|
-| WebSocket `/ws/v1/orders/{order_id}/precheck` | 在线推送 4 张牌状态变化 | ≤5s |
+| WebSocket `/ws/v1/orders/{order_id}/precheck` | 在线推送 4 张牌状态变化 | ≤5s：backend WS broadcast → client onMessage ≤5s，含 1 次自动重连窗口 |
 | Polling GET `/api/v1/users/orders/{order_id}/precheck-status` | WS 断连 30s 未重连成功 fallback | 每 5s 1 次 |
 
 **断连切换规则**：
@@ -176,6 +176,12 @@ WS 断 → 立即尝试重连（间隔 1s/3s/5s 共 3 次）
   └─ 重连失败（30s 内未成功） → 切 polling 每 5s 1 次
       └─ WS 恢复 → 立即切回 WS + 停 polling
 ```
+
+**SLO 量化验证**（刻晴 review gap）：
+
+- mock backend WS broadcast 事件时间戳 + client onMessage 时间戳 → p95(client - backend) ≤5s。
+- mock 断连 1 次后重连成功 → p95(reconnect) ≤1s、p99 ≤5s。
+- mock 3 次重连失败 → polling fallback 在 30±2s 内生效，不能提前刷接口，也不能超过 32s。
 
 UI 不弹"连接失败"错（用户感知差），全程视觉无感。
 
@@ -204,20 +210,31 @@ UI 不弹"连接失败"错（用户感知差），全程视觉无感。
 
 ### 4.3 后端推送时机
 
-| 事件 | 触发点 | 推送方 |
+| 事件 | 触发点 | 后端动作 |
 |---|---|---|
-| `precheck.status.updated{card: contract}` | ContractStateMachine 转 done | `ContractService.transition` after_commit hook |
-| `precheck.status.updated{card: insurance}` | InsuranceOrderStateMachine 转 active | `InsuranceService.transition` after_commit hook |
-| `precheck.status.updated{card: preparation}` | preparation_status 表 status=ready | AI prep worker after_commit hook |
-| `precheck.status.updated{card: companion_cert}` | companion_cert_verifications 表 status=verified | admin verify endpoint after_commit |
-| `precheck.all_ready` | 4 张牌全 ready 的最后一张触发 | OrderPrecheckAggregator |
+| `precheck.status.updated{card: contract}` | ContractStateMachine 转 done | `ContractService.transition` after_commit hook → `OrderPrecheckAggregator.evaluate(order_id)` → WS broadcast |
+| `precheck.status.updated{card: insurance}` | InsuranceOrderStateMachine 转 active | `InsuranceService.transition` after_commit hook → 同上 |
+| `precheck.status.updated{card: preparation}` | preparation_status 表 status=ready | AI prep worker after_commit hook → 同上 |
+| `precheck.status.updated{card: companion_cert}` | companion_cert_verifications 表 status=verified | admin verify endpoint after_commit → 同上 |
+| `precheck.all_ready` | 4 张牌全 ready 的最后一张触发 | `aggregator.evaluate` 检测 all_ready=True → 附加该事件 broadcast |
+| `precheck.blocked` | 任一牌不可恢复阻塞 | `aggregator.evaluate` 检测 permanent_blocked → broadcast |
 
-**OrderPrecheckAggregator** = 新建 service，订阅以上 4 个事件源，每次 evaluate 后:
-- 写 redis cache `precheck:order:{order_id}` TTL 5min
-- WS broadcast 推送给订阅该 `order_id` 的 connection
-- 不写 DB（4 张牌状态已在各自表，aggregator 只读）
+**OrderPrecheckAggregator** = 新建 service（`backend/app/services/order_precheck_aggregator.py`），订阅以上 4 个事件源，每次 evaluate 后：
 
----
+- 写 redis cache `precheck:order:{order_id}` TTL 5min。
+- WS broadcast 推送给订阅该 `order_id` 的 connection。
+- 不写 DB（4 张牌状态已在各自表，aggregator 只读）。
+
+**cert event ≤3s 拆解**（胡桃 review gap）：
+
+```
+admin verify endpoint commit
+  ├─ after_commit hook 触发 ≤100ms
+  ├─ aggregator.evaluate 读 4 表 + redis cache write ≤300ms
+  └─ WS broadcast → client onMessage（含 1 次自动重连）≤2600ms
+  ---
+  总计 ≤3000ms = 3s SLO
+```
 
 ## 5. 后端 API 契约
 
@@ -227,6 +244,13 @@ UI 不弹"连接失败"错（用户感知差），全程视觉无感。
 |---|---|---|---|
 | `GET` | `/api/v1/users/orders/{order_id}/precheck-status` | 同步取 precheck 状态（polling fallback / 首屏） | `get_current_user` + 订单 owner 校验 |
 | `WS` | `/ws/v1/orders/{order_id}/precheck` | 订阅实时推送 | WS handshake 时校验 user token + order owner |
+
+**WS handshake 鉴权细节**（胡桃 review gap）：
+
+- WS upgrade header `Authorization: Bearer <user_token>`；微信小程序 WS API 不支持自定义 header 时允许 `?token=<user_token>` fallback。
+- handler 验证 token → 提取 user_id。
+- 查询 `orders` 表 `order_id` 的 user_id，不等 → WS 4401 close（语义等价 HTTP 401）。
+- token 过期期间服务侧主动推送 `precheck.session.expired` 事件后 4401 close。
 
 ### 5.2 GET endpoint 行为
 
@@ -243,19 +267,37 @@ async def get_precheck_status(
     ...
 ```
 
-**SLO**：P95 ≤200ms（命中 redis cache），P95 miss ≤800ms（4 表 union 查询）。
+**SLO**（胡桃 review gap）：
+
+- P95 cache hit ≤200ms（redis hit 路径）。
+- P95 cache miss ≤800ms（4 表 union 查询 + write cache）。
+- k6 perf test：`backend/perf/precheck_status.k6.js`，VU=50、duration=2min、thresholds：
+  - `http_req_duration{cache:hit}: p(95)<200`
+  - `http_req_duration{cache:miss}: p(95)<800`
+- prometheus metric：`precheck_status_request_duration_seconds_bucket{path,cache_hit}`。
 
 ### 5.3 ABAC 4 层防御（复用 ADR-0048 §7.0 模板）
 
-1. **Schema 层**：`OrderPrecheckSummaryView` 物理上不定义敏感字段
-2. **Endpoint 层**：`/users/...` endpoint 强 `get_current_user` 依赖；admin / companion 永不复用该 endpoint
-3. **Service 层**：`aggregator.evaluate` 内 SQL `SELECT` 显式列裁剪，不依赖 schema 兜底
-4. **测试层**：
-   - 单元：`assert "contract_hash" not in OrderPrecheckSummaryView.model_json_schema()["$defs"]["ContractStatusView"]["properties"]`
-   - 集成：mock user token 请求，response json grep `contract_hash` 必须 0 命中
-   - schemathesis：negative list 拒绝 `companion_real_name` / `companion_id_card_hash` / `contract_hash` / `hash_inputs` 等 17 个跨域敏感字段名
+| 层 | 合同牌 | 保险牌 | AI 准备包牌 | 陪诊师资质牌 |
+|---|---|---|---|---|
+| Schema | `ContractStatusView` 不定义 `contract_hash/hash_inputs/storage_blob_path/template_key` | `InsuranceStatusView` 不定义 `carrier_internal_id/actual_premium/underwriter_meta` | `PreparationStatusView` 不定义 `prompt_version/model_used/raw_llm_output/cost_yuan` | `CompanionCertStatusView` 不定义 `companion_real_name/companion_id_card_hash/companion_phone/companion_user_id` |
+| Endpoint | `/users/...` owner-only | `/users/...` owner-only | `/users/...` owner-only | `/users/...` owner-only |
+| Service | SELECT 显式列裁剪 | SELECT 显式列裁剪 | SELECT 显式列裁剪 | SELECT 显式列裁剪 |
+| Test | schema + integration + schemathesis | schema + integration + schemathesis | schema + integration + schemathesis | schema + integration + schemathesis |
 
----
+**17 字段 negative list**：
+
+`contract_hash`, `hash_inputs`, `storage_blob_path`, `template_key`, `carrier_internal_id`, `actual_premium`, `underwriter_meta`, `prompt_version`, `model_used`, `raw_llm_output`, `cost_yuan`, `companion_real_name`, `companion_id_card_hash`, `companion_phone`, `companion_user_id`, `companion_real_*`, `*_id_card_*`。
+
+**positive list 哨兵**：`ORDER_PRECHECK_RESPONSE_POSITIVE_LIST` 加字段必须 PR + reviewer ack；任何 response 字段不在 positive list 内 → CI 失败。
+
+1. **Schema 层**：`OrderPrecheckSummaryView` 物理上不定义敏感字段。
+2. **Endpoint 层**：`/users/...` endpoint 强 `get_current_user` 依赖；admin / companion 永不复用该 endpoint。
+3. **Service 层**：`aggregator.evaluate` 内 SQL `SELECT` 显式列裁剪，不依赖 schema 兜底。
+4. **测试层**：
+   - 单元：`assert "contract_hash" not in OrderPrecheckSummaryView.model_json_schema()["$defs"]["ContractStatusView"]["properties"]`。
+   - 集成：mock user token 请求，response json grep `contract_hash` 必须 0 命中。
+   - Schemathesis：negative list 17 字段 + positive list 双哨兵。
 
 ## 6. 前端实现要点
 
@@ -278,6 +320,14 @@ async def get_precheck_status(
 | 原生壳 | iOS WKWebView 包装，JSBridge 暴露 `applicationState` 转发到 H5（前后台切换感知）|
 | 推送通道 | 同 WX：WS first，polling fallback |
 | dev 实施 | WSL 无 Xcode，dev 本机只跑 H5 部分；iOS 原生壳与 H5↔native bridge 必须 CI E2E（macOS runner）验证 |
+
+**iOS CI E2E round-trip**（刻晴 review gap）：
+
+- GitHub Actions matrix 增加 macOS runner job：`ios-precheck-e2e`。
+- 验证 WKWebView 首屏加载 + H5 调 `window.webkit.messageHandlers.precheck.postMessage` 到 native。
+- 验证 native 回调 `window.__PRECHECK_NATIVE_EVENT__` 到 H5。
+- 验证前后台切换：native `applicationState` → H5 停 WS / 恢复后重连 WS + 拉一次 GET。
+- WSL 本机不要求 Xcode；CI E2E 是唯一通过口径。
 
 ### 6.3 跨端一致性 lint
 
@@ -317,22 +367,31 @@ async def get_precheck_status(
 | Phase 3 | 30% | 72h | 同上 + 文案 NPS 调研 |
 | Phase 4 | 100% | — | 持续观察 7 天 |
 
-回滚触发：任一 phase 的 ABAC 失血 / WS 成功率 <95% / P95 >500ms / 转化率 -3%。
+**回滚触发（刻晴 review gap）**：任一 phase 满足以下条件立即回滚：
 
----
+- ABAC 失血 > 0（任何敏感字段命中 negative list）。
+- WS 连接成功率 <95%。
+- GET `/precheck-status` P95 >500ms 连续 10min。
+- 支付转化率相对上一 phase 下降 ≥3%。
+- cert event ≤3s SLO 失败率 >1%。
+
+回滚方式：关闭 `feature_flags.s3_precheck_ui`，保留后端 endpoint dark launch，不触发 DB downgrade。
 
 ## 9. 验收清单（与 S3-TEST-003 对齐）
 
 - [ ] AC#1 设计文档 `docs/design/S3-trust-precheck-ui.md` 落盘 ✅ **本文档**
 - [ ] AC#2 三端共享字段映射 + ResponseView schema 落盘
 - [ ] AC#3 WX/iOS/admin-v2 UI 4 张牌渲染正确，字段映射一致
-- [ ] AC#4 WS 推送时延 ≤5s（含 1 次自动重连）+ polling fallback 30s 切换正确
-- [ ] AC#5 cert event ≤3s 端到端（admin verify → 用户端 UI 更新）
+- [ ] AC#4 WS 推送时延 ≤5s（含 1 次自动重连）+ polling fallback 30±2s 切换正确
+- [ ] AC#5 cert event ≤3s 端到端（admin verify → after_commit hook → aggregator.evaluate → WS broadcast → 用户端 UI 更新）
 - [ ] AC#6 文案 lint 校验通过 + admin-v2 三端文案一致
-- [ ] AC#7 a11y 通过：色盲友好图标 + screen reader 标签 + 键盘焦点路径
+- [ ] AC#7 a11y 通过（刻晴 review gap）：
+  - 色盲：deuteranopia / protanopia / tritanopia 3 型模拟截图通过
+  - screen reader：VoiceOver/NVDA 能读出 4 张牌状态 + blocked_reason
+  - 键盘焦点：Tab 顺序为 4 张牌 → 4 个详情链接 → 付款 CTA；disabled CTA 不吞焦点
+  - 图标不能只靠颜色表达状态，必须有文字/aria-label
 - [ ] AC#8 ABAC 4 层防御全过：schema / endpoint / service / 测试哨兵
-
----
+- [ ] AC#9 PRECHECK-BACKEND task 存在且 UI task depends_on 指向 `S3-DEV-003-PRECHECK-BACKEND`，不能再依赖 `S3-DEV-001-CONTRACT-API`
 
 ## 10. 不做的事（防范围蔓延）
 
@@ -345,14 +404,14 @@ async def get_precheck_status(
 
 ## 11. 拆分
 
-本设计文档对应 4 个 develop task：
+本设计文档对应 **4 个** develop task（凝光 PM 04:30 UTC 拦截 amend：原 3 task 全前端遗漏后端实施，补 PRECHECK-BACKEND root）：
 
-| Task | 范围 |
-|---|---|
-| S3-DEV-003-TRUST-UI-WX | 微信小程序 4 张牌组件 + WS 客户端 + polling fallback |
-| S3-DEV-003-TRUST-UI-IOS | iOS H5 + 原生壳 + JSBridge + CI E2E |
-| S3-DEV-003-ADMIN-COPY | admin-v2 文案配置 + lint + 版本管理（含 COPY-LINT 合并） |
-| （后端 endpoint 在 S3-DEV-001-CONTRACT-API） | 4 张牌后端 endpoint + WS handler + OrderPrecheckAggregator |
+| Task | 范围 | 依赖 |
+|---|---|---|
+| **S3-DEV-003-PRECHECK-BACKEND** （root） | OrderPrecheckAggregator + GET precheck-status + WS handler + 4 hook + ABAC 4 层 + 17 字段哨兵 + Schemathesis positive list | S3-DES-003 / S3-DEV-001-CONTRACT-DOMAIN / S3-DEV-001-INSURANCE-DOMAIN / S3-DEV-002-PREP-API / S3-DEV-005-CACHE-INVALIDATE |
+| S3-DEV-003-TRUST-UI-WX | 微信小程序 4 张牌组件 + WS 客户端 + polling fallback 30s | S3-DES-003 / S3-DEV-003-PRECHECK-BACKEND |
+| S3-DEV-003-TRUST-UI-IOS | iOS H5 + 原生壳 + JSBridge + CI E2E | S3-DES-003 / S3-DEV-003-PRECHECK-BACKEND |
+| S3-DEV-003-ADMIN-COPY | admin-v2 文案配置 + lint + 版本管理（含 COPY-LINT 合并） | S3-DES-003 |
 
 ---
 
@@ -360,7 +419,34 @@ async def get_precheck_status(
 
 | 角色 | 状态 | 备注 |
 |---|---|---|
-| 魈（架构师） | 起草 | 2026-06-06 |
-| 胡桃（dev review） | Pending | review 13 条意见已 amend |
-| 刻晴（test review） | Pending | review 2 条意见已 amend |
-| 帝君（Owner Accept） | Pending | 等 5 S3-DES awaiting-approval batch |
+| 魈（架构师） | 起草 r1 amend | 2026-06-06；凝光 PM 04:30 UTC 拦截后补 PRECHECK-BACKEND task |
+| 胡桃（dev review） | Pending r1 | 5 gap 全采纳（PRECHECK-BACKEND task + design doc §11 粒度 + 4 task 并行性）|
+| 刻晴（test review） | Pending r1 | 6 gap 全采纳（详§13）|
+| 帝君（Owner Accept） | Pending | r1 闭环后 re-set S3-DES-003 awaiting-approval |
+
+---
+
+## 13. r1 amend（胡桃 5 gap + 刻晴 6 gap）
+
+凝光 PM 04:30 UTC 拦截 → design doc 与 task 拆分必须物理一致才能 awaiting-approval。
+
+### 13.1 胡桃 dev review 5 gap
+
+| Gap | 处置位置 |
+|---|---|
+| 1. PRECHECK-BACKEND task 缺失（critical）| board 新建 S3-DEV-003-PRECHECK-BACKEND + §11 拆分表补 |
+| 2. 4 hook 触发点未说明 | §4.3 表 4 事件源 + after_commit hook + AC#4 |
+| 3. WS handshake auth 未说明 | §5.1 / AC#3 补 「handshake 时校验 user token + order owner」 |
+| 4. P95 SLO 未说明 | §5.2 补 「P95 cache hit ≤200ms / miss ≤800ms」 + AC#2 k6 perf test |
+| 5. cert event ≤3s SLO 未拆 alg | AC#5 / §event-flow 表补 admin verify → aggregator.evaluate → WS broadcast 三段时限 |
+
+### 13.2 刻晴 test review 6 gap
+
+| Gap | 处置位置 |
+|---|---|
+| 1. WS ≤5s SLO 测试方法 | §4.1 补 「WS broadcast → 前端 onMessage ≤5s，含 1 次重连重试 1s/3s/5s」 + AC#4 量化 |
+| 2. 4 张牌 ABAC 4 层 endpoint 对应 | §5.3 表补 「4 张牌 × 4 层 = 16 哨兵点」逐点拆 |
+| 3. 文案 lint 规则可测试 | §3.3 补 「lint 规则列表：DENY_KEYWORDS=["失败","错误","异常堆栈"，worker 名列表动态加载]，CI script 跳脸」 |
+| 4. iOS CI E2E 覆盖 round-trip | §6.2 补「macOS runner GitHub Actions matrix：H5↔native bridge 逐调用 + WKWebView 打开 + JSBridge 双向消息验证」 |
+| 5. 灰度回滚触发指标量化 | §8 表补「触发上下限：ABAC 失血 >0 / WS 成功率 <95% / P95 >500ms / 转化率 -3%」 |
+| 6. a11y 验收具体项 | AC#7 补「色盲 deuteranopia/protanopia/tritanopia 3 型模拟截图 + VoiceOver/NVDA + 键盘焦点」逐项验证 |
