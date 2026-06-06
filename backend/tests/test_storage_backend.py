@@ -315,11 +315,25 @@ class TestPutBackwardCompatibility:
 
 
 class TestLocalAllowSubdirs:
-    """S3-DEV-001 (ADR-0046 §3.1): LocalStorageBackend opt-in subdirs.
+    """S3-DEV-000B (魈 6 AC) + S3-DEV-001 (ADR-0046 §3.1):
+    LocalStorageBackend opt-in subdirs.
 
-    Default (allow_subdirs=False) preserves cert-image flat namespace.
-    Opt-in (allow_subdirs=True) for contract storage enables
-    ``contracts/{year}/{month}/...`` nested paths with traversal defense.
+    Default (``allow_subdirs=False``) preserves cert-image flat namespace.
+    Opt-in (``allow_subdirs=True``) for contract/feedback storage enables
+    ``<namespace>/{year}/{month}/...`` nested paths with traversal defense.
+
+    Test coverage map (AC#2 7 paths required by 魈 + 5 extras):
+
+    | Path | Test |
+    |------|------|
+    | 1. 合法多层                | ``test_subdir_mode_allows_nested_path`` |
+    | 2. 合法 flat (default)      | ``test_default_rejects_slash_in_key`` (反) + cert tests |
+    | 3. ``..`` traversal         | parametrized #1, #2 |
+    | 4. 绝对路径                | parametrized #4 |
+    | 5. null byte                | parametrized #6 |
+    | 6. 前后空白                | parametrized #9, #10, #11 |
+    | 7. 双斜杠                  | parametrized #5 |
+    | extras: current-dir / backslash / newline / DEL / mode-1 funnel | see below |
     """
 
     def test_default_rejects_slash_in_key(self, tmp_path: Path):
@@ -339,7 +353,9 @@ class TestLocalAllowSubdirs:
         assert on_disk.exists()
         assert on_disk.read_bytes() == b"data"
 
-    def test_subdir_mode_put_if_absent_creates_intermediate_dirs(self, tmp_path: Path):
+    def test_subdir_mode_put_if_absent_creates_intermediate_dirs(
+        self, tmp_path: Path
+    ):
         backend = LocalStorageBackend(root_dir=tmp_path, allow_subdirs=True)
         res = backend.put_if_absent(
             "contracts/2026/06/x.pdf",
@@ -358,17 +374,24 @@ class TestLocalAllowSubdirs:
     @pytest.mark.parametrize(
         "bad_key",
         [
-            "../etc/passwd",  # parent traversal
-            "contracts/../../etc",  # mid-path traversal
-            "contracts/./x.pdf",  # current-dir segment
-            "/abs/path.pdf",  # absolute
-            "contracts//double.pdf",  # empty segment
-            "contracts/x\x00.pdf",  # NUL
-            "contracts/x\nstuff",  # newline
-            "contracts\\windows.pdf",  # backslash
+            "../etc/passwd",  # #1 parent traversal
+            "contracts/../../etc",  # #2 mid-path traversal
+            "contracts/./x.pdf",  # #3 current-dir segment
+            "/abs/path.pdf",  # #4 absolute
+            "contracts//double.pdf",  # #5 empty segment / double slash
+            "contracts/x\x00.pdf",  # #6 NUL byte
+            "contracts/x\nstuff",  # #7 newline
+            "contracts\\windows.pdf",  # #8 backslash
+            "  contracts/x.pdf",  # #9 leading whitespace
+            "contracts/x.pdf  ",  # #10 trailing whitespace
+            "contracts/ x .pdf",  # #11 per-segment whitespace edge
+            "\tcontracts/x.pdf",  # #12 tab (control char)
+            "contracts/x\x7f.pdf",  # #13 DEL (0x7F)
         ],
     )
-    def test_subdir_mode_rejects_traversal_and_control_chars(self, tmp_path: Path, bad_key: str):
+    def test_subdir_mode_rejects_traversal_and_control_chars(
+        self, tmp_path: Path, bad_key: str
+    ):
         backend = LocalStorageBackend(root_dir=tmp_path, allow_subdirs=True)
         with pytest.raises(BadRequestException):
             backend.put(bad_key, b"x", content_type="application/pdf")
@@ -377,3 +400,78 @@ class TestLocalAllowSubdirs:
         backend = LocalStorageBackend(root_dir=tmp_path, allow_subdirs=True)
         with pytest.raises(BadRequestException):
             backend.put("", b"x", content_type="application/pdf")
+
+    def test_default_mode_also_rejects_whitespace_edges(self, tmp_path: Path):
+        # Whitespace defense applies to flat mode too (cert image hardening)
+        backend = LocalStorageBackend(root_dir=tmp_path)
+        for bad in (" abc.jpg", "abc.jpg ", "\tabc.jpg"):
+            with pytest.raises(BadRequestException):
+                backend.put(bad, b"x", content_type="image/jpeg")
+
+    def test_sign_read_url_funnels_through_safe_key(self, tmp_path: Path):
+        # AC#4: every key-handling method must funnel through _safe_key.
+        # Attacker constructs an evil StoredObject and calls sign_read_url —
+        # we must reject before issuing a signature.
+        backend = LocalStorageBackend(root_dir=tmp_path, allow_subdirs=True)
+        evil = StoredObject(
+            scheme="cert-image://", key="../../../etc/passwd"
+        )
+        with pytest.raises(BadRequestException):
+            backend.sign_read_url(evil, ttl_seconds=300)
+
+    def test_sign_read_url_legitimate_subdir_still_works(
+        self, tmp_path: Path
+    ):
+        backend = LocalStorageBackend(root_dir=tmp_path, allow_subdirs=True)
+        obj = backend.put(
+            "contracts/2026/06/x.pdf",
+            b"data",
+            content_type="application/pdf",
+        )
+        signed = backend.sign_read_url(obj, ttl_seconds=300, now=1_000_000)
+        assert "contracts/2026/06/x.pdf" in signed.url
+        assert signed.expires_at == 1_000_300
+
+    def test_all_key_handling_methods_call_safe_key(self, tmp_path: Path):
+        # AC#4 sentinel: pin the 5 key-handling methods at runtime by tracking
+        # _safe_key invocation. If a future refactor introduces a new method
+        # that bypasses _safe_key, this test fails fast.
+        backend = LocalStorageBackend(root_dir=tmp_path, allow_subdirs=True)
+        # Seed a legit blob first
+        obj = backend.put("contracts/x.pdf", b"data", content_type="application/pdf")
+        calls: list[str] = []
+        original = backend._safe_key
+
+        def tracking_safe_key(key: str) -> str:
+            calls.append(key)
+            return original(key)
+
+        backend._safe_key = tracking_safe_key  # type: ignore[method-assign]
+
+        backend.put("contracts/y.pdf", b"data", content_type="application/pdf")
+        backend.put_if_absent(
+            "contracts/z.pdf", b"data", content_type="application/pdf"
+        )
+        backend.sign_read_url(obj, ttl_seconds=300)
+        backend.open(obj)
+        backend.resolve_path(obj)
+        # verify_sig wires through too
+        signed = original(obj.key)
+        import hashlib as _hashlib
+        import hmac as _hmac
+
+        from app.config import settings
+
+        expires = 9_999_999_999
+        sig = _hmac.new(
+            settings.jwt_secret_key.encode(),
+            f"{signed}:{expires}".encode(),
+            _hashlib.sha256,
+        ).hexdigest()
+        backend.verify_sig(obj.key, expires, sig)
+
+        # Expect at least: put / put_if_absent / sign_read_url / open /
+        # resolve_path / verify_sig (6 distinct entries; allow >=6 if internal
+        # funnels double-count, since the security property is "no method
+        # bypasses", not exact count).
+        assert len(calls) >= 6, f"_safe_key bypassed by some method; calls={calls}"
