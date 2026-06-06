@@ -20,6 +20,7 @@ from app.exceptions import (
 from app.services.storage_backend import (
     AzureBlobStorageBackend,
     LocalStorageBackend,
+    StoragePutResult,
     StoredObject,
     get_storage_backend,
     reset_storage_backend,
@@ -164,3 +165,161 @@ class TestStorageBackendFactory:
         monkeypatch.setattr(_s, "storage_backend", "garbage")
         b = get_storage_backend()
         assert isinstance(b, LocalStorageBackend)
+
+
+# ---------- put_if_absent (S3-DEV-000 / ADR-0046 §3.3 + ADR-0049 §5.1) ----------
+
+
+class TestPutIfAbsentContract:
+    """跨 backend 合同验证：put_if_absent 返回 StoragePutResult 不抛错."""
+
+    def setup_method(self, _m):
+        reset_storage_backend()
+
+    def test_local_first_put_returns_already_exists_false(self, tmp_path: Path):
+        backend = LocalStorageBackend(root_dir=tmp_path)
+        result = backend.put_if_absent(
+            "new.pdf", b"first-bytes", content_type="application/pdf"
+        )
+        assert isinstance(result, StoragePutResult)
+        assert result.already_exists is False
+        assert result.stored.scheme == "cert-image://"
+        assert result.stored.key == "new.pdf"
+        assert backend.open(result.stored) == b"first-bytes"
+
+    def test_local_second_put_returns_already_exists_true(self, tmp_path: Path):
+        backend = LocalStorageBackend(root_dir=tmp_path)
+        backend.put_if_absent(
+            "dup.pdf", b"original", content_type="application/pdf"
+        )
+        result = backend.put_if_absent(
+            "dup.pdf", b"overwrite-attempt", content_type="application/pdf"
+        )
+        assert result.already_exists is True
+        assert result.stored.key == "dup.pdf"
+        # 原内容不被覆写 — WORM 保证
+        assert backend.open(result.stored) == b"original"
+
+    def test_local_does_not_raise_file_exists_error(self, tmp_path: Path):
+        backend = LocalStorageBackend(root_dir=tmp_path)
+        backend.put_if_absent(
+            "x.bin", b"a", content_type="application/octet-stream"
+        )
+        # 调用方不需要 try/except FileExistsError
+        try:
+            result = backend.put_if_absent(
+                "x.bin", b"b", content_type="application/octet-stream"
+            )
+        except FileExistsError:  # pragma: no cover - regression guard
+            pytest.fail("put_if_absent must not raise FileExistsError")
+        assert result.already_exists is True
+
+    def test_azure_first_put_returns_already_exists_false(self):
+        backend = AzureBlobStorageBackend()
+        result = backend.put_if_absent(
+            "contract/2026/abc.pdf",
+            b"pdf-bytes",
+            content_type="application/pdf",
+        )
+        assert result.already_exists is False
+        assert result.stored.scheme == "azure-blob://"
+        assert backend.open(result.stored) == b"pdf-bytes"
+
+    def test_azure_second_put_returns_already_exists_true(self):
+        backend = AzureBlobStorageBackend()
+        backend.put_if_absent(
+            "dup-key", b"first", content_type="application/pdf"
+        )
+        result = backend.put_if_absent(
+            "dup-key", b"second", content_type="application/pdf"
+        )
+        assert result.already_exists is True
+        # mock 反射真实 Azure If-None-Match: * 行为 — 不覆写
+        assert backend.open(result.stored) == b"first"
+
+    def test_azure_metadata_accepted_for_api_parity(self):
+        backend = AzureBlobStorageBackend()
+        # metadata 参数 Phase A 不使用但必须接受，保证 Phase B 切 SDK 时可透传
+        result = backend.put_if_absent(
+            "meta.bin",
+            b"x",
+            content_type="application/octet-stream",
+            metadata={"contract_hash": "abc123", "uploader": "system"},
+        )
+        assert result.already_exists is False
+
+
+class TestPutIfAbsentConcurrency:
+    """并发 race 验证：同一 key 多线程 put_if_absent 仅 1 成功."""
+
+    def test_local_concurrent_put_only_one_succeeds(self, tmp_path: Path):
+        import threading
+
+        backend = LocalStorageBackend(root_dir=tmp_path)
+        results: list[StoragePutResult] = []
+        results_lock = threading.Lock()
+        barrier = threading.Barrier(8)
+
+        def worker(idx: int) -> None:
+            barrier.wait()  # 同时起跑冲撞 O_EXCL
+            r = backend.put_if_absent(
+                "race.pdf",
+                f"worker-{idx}".encode(),
+                content_type="application/pdf",
+            )
+            with results_lock:
+                results.append(r)
+
+        threads = [
+            threading.Thread(target=worker, args=(i,)) for i in range(8)
+        ]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        assert len(results) == 8
+        winners = [r for r in results if not r.already_exists]
+        losers = [r for r in results if r.already_exists]
+        assert len(winners) == 1, (
+            f"O_EXCL must serialize: expected 1 winner, got {len(winners)}"
+        )
+        assert len(losers) == 7
+        # 胜出者写入的内容被保留
+        winner_bytes = backend.open(winners[0].stored)
+        assert winner_bytes.startswith(b"worker-")
+
+    def test_azure_concurrent_put_only_one_succeeds(self):
+        # Azure mock 单进程内存 dict，GIL 下顺序化十分明显；本测试保证接口一致性
+        backend = AzureBlobStorageBackend()
+        outcomes = [
+            backend.put_if_absent(
+                "single-key",
+                f"call-{i}".encode(),
+                content_type="application/pdf",
+            )
+            for i in range(5)
+        ]
+        winners = [r for r in outcomes if not r.already_exists]
+        assert len(winners) == 1
+        assert outcomes[0].already_exists is False
+        assert all(r.already_exists for r in outcomes[1:])
+
+
+class TestPutBackwardCompatibility:
+    """AC#6: 现有 put() 签名不变，调用方不感知."""
+
+    def test_local_put_signature_unchanged(self, tmp_path: Path):
+        backend = LocalStorageBackend(root_dir=tmp_path)
+        # 原始 3-positional + 1-keyword 调用方式仍工作
+        obj = backend.put("legacy.jpg", b"data", content_type="image/jpeg")
+        assert isinstance(obj, StoredObject)
+        assert obj.scheme == "cert-image://"
+
+    def test_azure_put_signature_unchanged(self):
+        backend = AzureBlobStorageBackend()
+        obj = backend.put(
+            "legacy.bin", b"data", content_type="application/octet-stream"
+        )
+        assert isinstance(obj, StoredObject)
+        assert obj.scheme == "azure-blob://"

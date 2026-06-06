@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import os
 import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
@@ -63,6 +64,25 @@ class SignedReadURL:
     expires_at: int  # epoch seconds
 
 
+@dataclass(frozen=True)
+class StoragePutResult:
+    """Result of a (conditional) blob put.
+
+    Returned by :meth:`StorageBackend.put_if_absent` to indicate whether the
+    write created a new object or hit an existing one. ``already_exists=True``
+    is **not** an error and must not raise — callers (合同/反馈 WORM 写入路径)
+    rely on this for idempotency without ``try/except FileExistsError`` noise.
+
+    Attributes:
+        stored: Reference to the persisted (or pre-existing) blob.
+        already_exists: ``True`` if the key was already present and the new
+            ``body`` was rejected; ``False`` if the put created the object.
+    """
+
+    stored: StoredObject
+    already_exists: bool = False
+
+
 # ---------------------------------------------------------------------------
 # Backend ABC
 # ---------------------------------------------------------------------------
@@ -77,6 +97,33 @@ class StorageBackend(ABC):
     @abstractmethod
     def put(self, key: str, content: bytes, *, content_type: str) -> StoredObject:
         """Persist ``content`` under ``key`` and return the ``StoredObject`` ref."""
+
+    @abstractmethod
+    def put_if_absent(
+        self,
+        key: str,
+        content: bytes,
+        *,
+        content_type: str,
+        metadata: dict[str, str] | None = None,
+    ) -> StoragePutResult:
+        """Persist ``content`` under ``key`` **only if it does not already exist**.
+
+        Used by WORM blob paths (合同 PDF / 用户反馈附件 hash 命名) to guarantee
+        idempotent writes without overwriting prior content. ADR-0046 §3.3 +
+        ADR-0049 §5.1 require this primitive.
+
+        Returns:
+            :class:`StoragePutResult` with ``already_exists=False`` when the
+            blob was newly created, ``already_exists=True`` when an existing
+            blob matched ``key`` and was **not** overwritten. Callers must not
+            rely on byte-equality of the existing blob — only on the fact that
+            the key is now stable.
+
+        Raises:
+            BadRequestException: ``key`` fails backend validation.
+            Backend-level IO errors should propagate (caller decides retry).
+        """
 
     @abstractmethod
     def sign_read_url(
@@ -158,6 +205,51 @@ class LocalStorageBackend(StorageBackend):
         self.root.mkdir(parents=True, exist_ok=True)
         (self.root / safe).write_bytes(content)
         return StoredObject(scheme=self.scheme, key=safe)
+
+    def put_if_absent(
+        self,
+        key: str,
+        content: bytes,
+        *,
+        content_type: str,
+        metadata: dict[str, str] | None = None,
+    ) -> StoragePutResult:
+        # ``metadata`` is accepted for API parity with Azure; LocalStorage
+        # has no separate metadata channel (filesystem xattr support is
+        # platform-dependent and not required for current call sites).
+        del metadata
+        del content_type
+        safe = self._safe_key(key)
+        self.root.mkdir(parents=True, exist_ok=True)
+        path = self.root / safe
+        try:
+            # O_CREAT | O_EXCL gives kernel-level atomic create-or-fail.
+            # No TOCTOU between exists()-check and write_bytes(): the open
+            # itself fails with FileExistsError on race.
+            fd = os.open(
+                path,
+                os.O_CREAT | os.O_EXCL | os.O_WRONLY,
+                0o600,
+            )
+        except FileExistsError:
+            return StoragePutResult(
+                stored=StoredObject(scheme=self.scheme, key=safe),
+                already_exists=True,
+            )
+        try:
+            with os.fdopen(fd, "wb") as fp:
+                fp.write(content)
+        except Exception:
+            # Partial write: best-effort cleanup so a retry can re-create.
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass
+            raise
+        return StoragePutResult(
+            stored=StoredObject(scheme=self.scheme, key=safe),
+            already_exists=False,
+        )
 
     def sign_read_url(
         self, obj: StoredObject, *, ttl_seconds: int, now: int | None = None
@@ -252,6 +344,32 @@ class AzureBlobStorageBackend(StorageBackend):
         self._blobs[key] = (content, content_type)
         return StoredObject(scheme=self.scheme, key=key)
 
+    def put_if_absent(
+        self,
+        key: str,
+        content: bytes,
+        *,
+        content_type: str,
+        metadata: dict[str, str] | None = None,
+    ) -> StoragePutResult:
+        # Phase A mock: dict-membership emulates ``If-None-Match: *``.
+        # Phase B (ADR-0045 §3.2): pass ``headers={"If-None-Match": "*"}`` to
+        # ``BlobClient.upload_blob`` and translate ``ResourceExistsError`` /
+        # HTTP 409 BlobAlreadyExists into ``already_exists=True`` here.
+        # ``metadata`` will become ``BlobClient.upload_blob(metadata=...)``
+        # in Phase B; stored unused in Phase A but accepted for API parity.
+        del metadata
+        if key in self._blobs:
+            return StoragePutResult(
+                stored=StoredObject(scheme=self.scheme, key=key),
+                already_exists=True,
+            )
+        self._blobs[key] = (content, content_type)
+        return StoragePutResult(
+            stored=StoredObject(scheme=self.scheme, key=key),
+            already_exists=False,
+        )
+
     def sign_read_url(
         self, obj: StoredObject, *, ttl_seconds: int, now: int | None = None
     ) -> SignedReadURL:
@@ -323,6 +441,7 @@ __all__ = [
     "StorageBackend",
     "StoredObject",
     "SignedReadURL",
+    "StoragePutResult",
     "LocalStorageBackend",
     "AzureBlobStorageBackend",
     "get_storage_backend",
