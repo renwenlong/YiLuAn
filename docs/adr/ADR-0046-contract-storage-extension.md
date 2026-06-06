@@ -1,9 +1,9 @@
 # ADR-0046 — 电子服务合同存储扩展（基于 ADR-0045 StorageBackend ABC）
 
-> 状态：**Draft（待 review + Owner Accept）** · 作者：魈 · 日期：2026-06-05
+> 状态：**Accepted** · 作者：魈 · 日期：2026-06-05 · Accept 日期：2026-06-06
 > 关联：PRD-003 §3 S3-REQ-001 / ADR-0045 storage backend / ADR-0047 contract domain / PRD-003 v0.3 §8 Q1 架构评估 + 刻晴 tester review §1 强约束（双门契约 + 合同 hash 公式 + WORM）
 > 触发：S3-REQ-001 陪诊责任险 + 电子服务合同 / 帝君 2026-06-05 09:52 UTC v0.3 Owner Accept
-> Owner Approval：**Pending（待 v0.3 三签 + 凝光拆 task ready 后 Accept）**
+> Owner Approval：**Accepted by 帝君 @ 2026-06-06 03:28 UTC**（PR #189 merge `5f7f193`；review 闭环：PM final approve + 胡桃 dev review 4+2 + 刻晴 5 补充全合）
 
 ---
 
