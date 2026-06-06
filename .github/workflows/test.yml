@@ -7,27 +7,35 @@ on:
     branches: [main, develop]
 
 # ---------------------------------------------------------------------------
-# CI 分流设计（S2-OPS-004）
+# CI 分流设计 (S2-OPS-004 + S2-OPS-014 amend)
 #
-# 背景：三个 job 是 main 分支的 required status checks
-#   (Backend Tests / Docker Build Verification / WeChat Mini Program Tests)。
+# 背景: 三个 job 是 main 分支的 required status checks
+#   (Backend Tests / Docker Build Verification / WeChat Mini Program Tests).
 #
-# ❌ 不能用 workflow 级 `on.pull_request.paths` 过滤：
-#    path 不匹配时整个 workflow 不触发 → required check 变 **missing(永久 pending)**
-#    → 前端 PR 永久 BLOCKED（刻晴预判的锁死陷阱）。
+# ❌ 不能用 workflow 级 `on.pull_request.paths` 过滤:
+#    path 不匹配时整个 workflow 不触发 → required check 变 **missing (永久 pending)**
+#    → 前端 PR 永久 BLOCKED (刻晴预判的锁死陷阱).
 #
-# ✅ 正确做法：workflow 永远触发；用前置 `changes` job(dorny/paths-filter)
-#    输出各端是否改动，重活 job 用 `if:` 按路径条件跑。
-#    被 `if` skip 的 required job → GitHub **计为 success(算过)**，不是 missing。
-#    所以纯前端 PR 的 backend job 几秒 skip 即绿，required 不锁死。
+# ❌ 旧 S2-OPS-004 设计: 用 job 级 `if:` 全局 skip
+#    实测打脸 → `conclusion=skipped` ≠ `success`, GitHub branch protection
+#    把 4 required check 视为 "still expected", `gh pr merge --admin` 也跳不过.
+#    导致 PR #194 / #202 / #203 docs-only PR 永久 blocked.
 #
-# 级联(acceptance #6)：docker-build `needs: backend`，backend skip 时它随之
-#   skip(同样算过)；这是 needs 级联，非 path 过滤本身。
+# ✅ S2-OPS-014 正解 (魈 16:35 UTC 拍 + 胡桃 16:50 UTC 实施):
+#    Job 永远跑 (无 job 级 `if`), 第一步用 "Skip if X" 兜底输出友好信息,
+#    其他真测试 steps 全部加 step 级 `if: ${{ needs.changes.outputs.X == 'true' }}`
+#    守护. Job conclusion = success (因为有一个 step 跑了).
+#    docs-only PR → 4 required job 全 success (兜底 step 1s 跑完 echo).
+#    真 backend/wechat PR → 真测试 steps 在 if 守护下跑.
+#
+# 级联 (acceptance #6): docker-build `needs: backend`. backend job 现在永远
+#   完成 (即使内部 steps 都 if 跳过, job conclusion 仍是 success), 所以
+#   docker-build 也照样进 needs chain, 内部用同款 step 级 if 守护跑真 build.
 # ---------------------------------------------------------------------------
 
 jobs:
-  # 前置：检测本次改动命中哪些端，供下游 job 的 if 条件使用。
-  # 永远会跑(无 paths 过滤)，因此不会让任何 required check 变 missing。
+  # 前置: 检测本次改动命中哪些端, 供下游 job 的 step 级 if 条件使用.
+  # 永远会跑 (无 paths 过滤), 因此不会让任何 required check 变 missing.
   changes:
     name: Detect changed paths
     runs-on: ubuntu-latest
@@ -39,8 +47,8 @@ jobs:
       - uses: dorny/paths-filter@v3
         id: filter
         with:
-          # push 事件无 PR base，显式给 base 指向当前分支以与目标分支比较；
-          # PR 事件下 paths-filter 默认按 PR base 比较(此 base 参数被忽略, 无害)。
+          # push 事件无 PR base, 显式给 base 指向当前分支以与目标分支比较;
+          # PR 事件下 paths-filter 默认按 PR base 比较 (此 base 参数被忽略, 无害).
           base: ${{ github.event.pull_request.base.ref || github.ref_name }}
           filters: |
             backend:
@@ -55,45 +63,59 @@ jobs:
     name: Backend Tests
     runs-on: ubuntu-latest
     needs: changes
-    # 仅当 backend 相关路径改动时跑；否则 skip(required 计为 success)。
-    if: ${{ needs.changes.outputs.backend == 'true' }}
+    # OPS-014: 不能再加 job 级 if. Job 永远跑, 内部 steps 用 if 守.
     steps:
+      - name: Skip if no backend changes (docs-only PR)
+        if: ${{ needs.changes.outputs.backend != 'true' }}
+        run: |
+          echo "✅ No backend changes detected, skipping all backend test steps."
+          echo "This required check passes vacuously (path filter not matched)."
+
       - uses: actions/checkout@v4
+        if: ${{ needs.changes.outputs.backend == 'true' }}
 
       - uses: actions/setup-python@v5
+        if: ${{ needs.changes.outputs.backend == 'true' }}
         with:
           python-version: "3.12"
 
       - name: Install dependencies
+        if: ${{ needs.changes.outputs.backend == 'true' }}
         run: |
           pip install -r backend/requirements.txt
           pip install pytest pytest-asyncio aiosqlite
 
       - name: Run tests
+        if: ${{ needs.changes.outputs.backend == 'true' }}
         run: cd backend && python -m pytest tests/ -v
 
       - name: Run e2e tests
+        if: ${{ needs.changes.outputs.backend == 'true' }}
         run: cd backend && python -m pytest tests/e2e/ -m e2e -v
         timeout-minutes: 5
 
       # ---------------------------------------------------------------
       # Release gates (S2-TEST-001 / S2-TEST-002 / PRD-001 §6.B)
-      # money_safety + share_security 同级闸门，任一失败阻塞 merge。
+      # money_safety + share_security 同级闸门, 任一失败阻塞 merge.
       # ---------------------------------------------------------------
       - name: Release gate — money_safety contract tests
+        if: ${{ needs.changes.outputs.backend == 'true' }}
         run: cd backend && python -m pytest -m money_safety -v --tb=short
         timeout-minutes: 5
 
       - name: Release gate — share_security tests (Top1 family share)
+        if: ${{ needs.changes.outputs.backend == 'true' }}
         run: cd backend && python -m pytest -m share_security -v --tb=short
         timeout-minutes: 5
-        continue-on-error: true  # 过渡期：S2-DEV-002/003 未落地前允许空收集；done 后改为 strict
+        continue-on-error: true  # 过渡期: S2-DEV-002/003 未落地前允许空收集; done 后改为 strict
 
       - name: Release gate — OpenAPI cross-end contract diff (S2-INT-002 权威表 9 字段)
+        if: ${{ needs.changes.outputs.backend == 'true' }}
         run: bash scripts/qa/openapi_contract_diff.sh
         timeout-minutes: 2
 
       - name: Release gate — 微信 openapi-typescript schema check
+        if: ${{ needs.changes.outputs.backend == 'true' }}
         run: bash scripts/qa/wechat_openapi_check.sh
         timeout-minutes: 5
 
@@ -101,42 +123,61 @@ jobs:
     name: Docker Build Verification
     runs-on: ubuntu-latest
     needs: [changes, backend]
-    # backend skip 时此 job 随 needs 级联 skip(required 计为 success)。
-    # 显式 if 限定仅在 backend 相关路径改动时构建。
-    if: ${{ needs.changes.outputs.backend == 'true' }}
+    # OPS-014: 同款 job 永远跑模式, 内部 steps if 守.
+    # needs: backend 链不破 — backend job 永远完成 (success), docker-build
+    # 紧跟其后, 内部 steps 各自决定要不要真跑.
     steps:
+      - name: Skip if no backend changes (docs-only PR)
+        if: ${{ needs.changes.outputs.backend != 'true' }}
+        run: |
+          echo "✅ No backend changes, docker build skipped."
+          echo "This required check passes vacuously (path filter not matched)."
+
       - uses: actions/checkout@v4
+        if: ${{ needs.changes.outputs.backend == 'true' }}
 
       - name: Build Docker image
+        if: ${{ needs.changes.outputs.backend == 'true' }}
         run: docker build -t yiluan-backend:test ./backend
 
   wechat:
     name: WeChat Mini Program Tests
     runs-on: ubuntu-latest
     needs: changes
-    # 仅当 wechat 相关路径改动时跑；否则 skip(required 计为 success)。
-    if: ${{ needs.changes.outputs.wechat == 'true' }}
+    # OPS-014: 同款 job 永远跑模式, 内部 steps if 守.
     steps:
+      - name: Skip if no wechat changes (docs-only PR)
+        if: ${{ needs.changes.outputs.wechat != 'true' }}
+        run: |
+          echo "✅ No wechat changes detected, skipping all wechat test steps."
+          echo "This required check passes vacuously (path filter not matched)."
+
       - uses: actions/checkout@v4
+        if: ${{ needs.changes.outputs.wechat == 'true' }}
 
       - uses: actions/setup-node@v4
+        if: ${{ needs.changes.outputs.wechat == 'true' }}
         with:
           node-version: "20"
 
       - name: Install dependencies
+        if: ${{ needs.changes.outputs.wechat == 'true' }}
         run: cd wechat && npm install
 
       - name: Type-check (JSDoc + checkJs)
+        if: ${{ needs.changes.outputs.wechat == 'true' }}
         run: cd wechat && npm run typecheck
 
       - name: Run tests
+        if: ${{ needs.changes.outputs.wechat == 'true' }}
         run: cd wechat && npm test
 
       - name: Bundle size report
+        if: ${{ needs.changes.outputs.wechat == 'true' }}
         run: cd wechat && npm run bundle-size:ci
 
       - name: Upload bundle size report
-        if: always()
+        if: ${{ always() && needs.changes.outputs.wechat == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: wechat-bundle-size
