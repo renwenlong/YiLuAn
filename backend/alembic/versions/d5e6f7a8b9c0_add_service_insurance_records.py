@@ -22,7 +22,11 @@ from alembic import op
 _ADMIN_ID_TYPE = sa.BigInteger().with_variant(sa.Integer(), "sqlite")
 
 revision = "d5e6f7a8b9c0"
-down_revision = "c4d5e6f7a8b9"
+# Chain after CONTRACT (PR #200 先合 main, hash 89bdaf8);
+# zero schema overlap — orders.insurance_id (本 PR 加) 与 orders.contract_id
+# (CONTRACT PR 加) 是独立列。
+# 不需 merge migration。 None-merge fix 仅改下面一行。
+down_revision = "d5e6f7a8b9c1"
 branch_labels = None
 depends_on = None
 
@@ -150,15 +154,10 @@ def upgrade() -> None:
         ),
     )
 
-    # Indexes — ORM has unique=True on order_id (auto ix_service_insurance_records_order_id)
-    # and index=True on status (ix_service_insurance_records_status). Mirror those names
-    # so ``alembic check`` does not detect drift.
-    op.create_index(
-        op.f("ix_service_insurance_records_order_id"),
-        "service_insurance_records",
-        ["order_id"],
-        unique=True,
-    )
+    # Indexes — column-level ``unique=True`` on ``order_id`` 是代码上岸严紧与 ORM
+    # ``mapped_column(... unique=True, ...)`` 镜像, alembic.autogenerate 则走 unique
+    # constraint path — 不重复创建 unique index。
+    # status 列加 plain index 供表扫。
     op.create_index(
         op.f("ix_service_insurance_records_status"),
         "service_insurance_records",
@@ -209,10 +208,6 @@ def downgrade() -> None:
     )
     op.drop_index(
         op.f("ix_service_insurance_records_status"),
-        table_name="service_insurance_records",
-    )
-    op.drop_index(
-        op.f("ix_service_insurance_records_order_id"),
         table_name="service_insurance_records",
     )
     op.drop_table("service_insurance_records")

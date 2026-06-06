@@ -190,7 +190,6 @@ class Order(Base):
         nullable=True,
         comment="一单一保单, nullable 因保险不影响订单成立 (PRD-003 AC-5)",
     )
-    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

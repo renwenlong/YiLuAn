@@ -120,14 +120,15 @@ class ServiceInsuranceRecord(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    # 一单一保单 — UNIQUE 在 migration 表级别用 unique index 强制 (alembic CREATE INDEX unique=True)
-    # ORM 只设 index=True 不设 unique=True 避免 alembic check 报 UniqueConstraint drift
-    # (UniqueConstraint vs UNIQUE INDEX 在 PG 上业务等价 但 alembic.autogenerate 不以为然)
+    # 一单一保单 — ORM unique=True 镜像 migration 的
+    # ``op.create_index(..., unique=True)``, alembic.autogenerate 则走 unique
+    # index path (与 UniqueConstraint 不同但业务等价)。
+    # 魈 14:35 UTC: 采用 unique=True 镜像法让 alembic check 过。
     order_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey("orders.id"),
         nullable=False,
-        index=True,
+        unique=True,
         comment="一单一保单, 禁重复出单 (ADR-0047 §3.3)",
     )
 
