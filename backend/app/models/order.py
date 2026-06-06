@@ -168,7 +168,6 @@ class Order(Base):
     # order to its generated contract row. Nullable since contract is not
     # required for order to be considered valid (PRD-003 §AC-5).
     # 不回填历史 orders 行; 新订单 ContractService 写入。
-    # insurance_id 列由 S3-DEV-001-INSURANCE-DOMAIN 加 (并行 PR #199)。
     contract_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True),
         ForeignKey(
@@ -178,6 +177,19 @@ class Order(Base):
         ),
         nullable=True,
         comment="一单一合同 nullable (PRD-003 §AC-5); use_alter 防循环 FK",
+    )
+
+    # ADR-0047 §3.3: 一单一保单 nullable FK — 保险不影响订单成立 (PRD-003 §AC-5)
+    # 不回填历史 orders 行; S3 启动后新订单 InsuranceService 写入。
+    insurance_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey(
+            "service_insurance_records.id",
+            use_alter=True,
+        ),
+        nullable=True,
+        comment="一单一保单, nullable 因保险不影响订单成立 (PRD-003 AC-5)",
+    )
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

@@ -43,11 +43,13 @@ from sqlalchemy import (
     DateTime,
     Enum,
     ForeignKey,
+    Index,
     Integer,
     SmallInteger,
     String,
     Text,
     Uuid,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -94,6 +96,27 @@ class ServiceInsuranceRecord(Base):
     """
 
     __tablename__ = "service_insurance_records"
+
+    # ----- Composite partial index (compensation cron scan) -----
+    #
+    # Mirrors raw DDL in alembic d5e6f7a8b9c0 migration:
+    #   CREATE INDEX idx_insurance_records_compensation
+    #     ON service_insurance_records(status, retry_count, updated_at)
+    #     WHERE status IN ('pending_issue', 'issue_failed')
+    #
+    # Declared here so ``alembic check`` does not detect drift. SQLite
+    # fallback (no partial index) handled by migration body branch.
+    __table_args__ = (
+        Index(
+            "idx_insurance_records_compensation",
+            "status",
+            "retry_count",
+            "updated_at",
+            postgresql_where=text(
+                "status IN ('pending_issue', 'issue_failed')"
+            ),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
