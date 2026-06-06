@@ -221,13 +221,13 @@ UI 不弹"连接失败"错（用户感知差），全程视觉无感。
 
 **OrderPrecheckAggregator** = 新建 service（`backend/app/services/order_precheck_aggregator.py`），订阅以上 4 个事件源，每次 after_commit hook 必须执行：
 
-1. `redis DEL precheck:order:{order_id}`：先删旧 cache，避免 polling fallback 读到 5min stale 数据。
-2. `aggregator.evaluate(order_id)`：读 4 表重算 summary。
-3. 写 redis cache `precheck:order:{order_id}` TTL 5min。
+1. `redis DEL precheck:order:{order_id}`：防御性 pre-invalidation，先删旧 cache，避免异常路径继续读 stale 数据。
+2. `aggregator.evaluate(order_id)`：读 4 表重算 summary；**禁止 GET-OR-COMPUTE 复用旧 cache**。
+3. `redis SET precheck:order:{order_id} <new_summary_json> EX 300`：覆盖写最新 summary，TTL 5min；这是主一致性机制。
 4. WS broadcast 推送给订阅该 `order_id` 的 connection。
 5. 记录 `precheck_abac_filtered_total{card,field}` / `precheck_status_updated_total{card}` prometheus metrics。
 
-**一致性口径**：cache invalidation 与 WS broadcast 同属 after_commit hook；如果 WS broadcast 失败，cache 仍已 DEL + 重写，polling 5s 路径可自愈。不写 DB（4 张牌状态已在各自表，aggregator 只读）。
+**一致性口径（胡桃 r3 amend）**：cache 更新采用「DEL 防御 + SET 覆盖写」；实现上必须以 SET overwrite 为准，不允许 hook 内先读旧 cache 再 merge。若 WS broadcast 失败，cache 仍已覆盖最新值，polling 5s 路径可自愈。不写 DB（4 张牌状态已在各自表，aggregator 只读）。
 
 **cert event ≤3s 拆解**（胡桃 review gap）：
 
@@ -420,7 +420,7 @@ async def get_precheck_status(
   - 图标不能只靠颜色表达状态，必须有文字/aria-label
 - [ ] AC#8 ABAC 4 层防御全过：schema / endpoint / service / 测试哨兵 + `precheck_abac_filtered_total` counter 可观测
 - [ ] AC#9 PRECHECK-BACKEND task 存在且 UI task depends_on 指向 `S3-DEV-003-PRECHECK-BACKEND`，不能再依赖 `S3-DEV-001-CONTRACT-API`
-- [ ] AC#10 cache invalidation：4 个 after_commit hook 均执行 `redis DEL precheck:order:{order_id}` 后再 evaluate + WS broadcast；polling 5s 不读 stale 数据
+- [ ] AC#10 cache invalidation：4 个 after_commit hook 均执行 `redis DEL precheck:order:{order_id}` 防御性 pre-invalidation，随后 evaluate 并 `redis SET ... EX 300` 覆盖写最新 summary，再 WS broadcast；禁止 GET-OR-COMPUTE 复用旧 cache，polling 5s 不读 stale 数据
 - [ ] AC#11 signed URL TTL：合同/保险 PDF + 陪诊师资质图 TTL ≤15min，响应含 `signed_url_expires_at`，TTL 超限 CI fail
 - [ ] AC#12 field-mapping CI：OpenAPI schema ↔ WX/iOS/admin-v2 三端字段映射 1:1，无漏字段/额外字段/命名漂移
 - [ ] AC#13 灰度转化率 baseline：灰度前 7 天（不足 n=100 取 14 天）基线落监控面板，下降 ≥3% 触发回滚
@@ -489,7 +489,7 @@ async def get_precheck_status(
 |---|---|
 | 胡桃 C2 cache invalidation | §4.3 补 after_commit hook `redis DEL precheck:order:{order_id}` → evaluate → cache write → WS broadcast |
 | 胡桃 C3 polling 5s vs 30s | §4.1 口径固定：断连 30±2s 后切 polling；polling 间隔 5s |
-| 胡桃 C4 insurance 字段前缀 | §3.2 `policy_no_masked/effective_from` 改为 `insurance_policy_no_masked/insurance_effective_from` |
+| 胡桃 C4 insurance 字段前缀 | §3.2 `policy_no_masked/effective_from` 改为 `insurance_policy_no_masked/insurance_effective_from`；PRECHECK-BACKEND 实现必须使用 `insurance_*`，不另等治理 task |
 | 胡桃 C5 negative list 附录 | §5.3 17 字段表格化 |
 | 刻晴 D signed URL TTL | §5.3 补 TTL ≤15min + `signed_url_expires_at` CI 断言 |
 | 刻晴 D field-mapping CI | §6.3 补 OpenAPI schema ↔ 三端映射 CI |
