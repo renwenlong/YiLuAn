@@ -40,6 +40,14 @@ class Settings(BaseSettings):
     azure_storage_account_name: str = ""
     azure_storage_container_cert: str = "yiluan-cert-dev"
 
+    # S3-DEV-001 / ADR-0046 §3.3: Contract storage WORM policy switch.
+    # prod=true (Azure Blob immutability Locked 7y), staging=false (避免测试数据 7y 占用).
+    # 默认 false 安全 default; 部署时 prod env 必须显式置 true。
+    s3_contract_immutability_enabled: bool = False
+
+    # S3-DEV-001 / ADR-0046 §3.2: Contract patient pseudonym salt (与 cert image salt 独立).
+    contract_pseudonym_salt: str = ""  # 必须在 prod env 显式设置
+
     # Apple Sign-In (W18-A)
     # TODO(PM): supply real values for production. See `placeholders` doc.
     apple_team_id: str = ""  # TODO: 10-char Apple Developer Team ID
