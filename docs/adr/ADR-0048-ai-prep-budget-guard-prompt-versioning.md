@@ -1,9 +1,9 @@
 # ADR-0048 — AI 就诊准备包预算控件 + Prompt 版本化 + 双层关键词过滤
 
-> 状态：**Draft（待 review + Owner Accept）** · 作者：魈 · 日期：2026-06-05
+> 状态：**Accepted** · 作者：魈 · 日期：2026-06-05 · Accept 日期：2026-06-06
 > 关联：PRD-003 §4 S3-REQ-002 / ADR-0040 distributed circuit breaker + alertmanager / PRD-003 v0.3 §8 Q3 架构评估 + 刻晴 tester review §1 AC#8 强约束（独立 config）+ §2 AC-4 可测建议（关键词维护方）
 > 触发：S3-REQ-002 AI 就诊准备包 / 帝君 2026-06-05 09:52 UTC v0.3 Owner Accept
-> Owner Approval：**Pending（待 v0.3 三签 + 凝光拆 task ready 后 Accept）**
+> Owner Approval：**Accepted by 帝君 @ 2026-06-06 03:28 UTC**（PR #189 merge `5f7f193`；review 闭环：PM final approve + 胡桃 dev review 4+2 + 刻晴 5 补充全合）
 
 ---
 

@@ -1,9 +1,9 @@
 # ADR-0047 — 电子合同 + 责任险独立领域模型与状态机
 
-> 状态：**Draft（待 review + Owner Accept）** · 作者：魈 · 日期：2026-06-05
+> 状态：**Accepted** · 作者：魈 · 日期：2026-06-05 · Accept 日期：2026-06-06
 > 关联：PRD-003 §3 S3-REQ-001 / ADR-0041 支付业务状态机解耦 / ADR-0046 contract storage / PRD-003 v0.3 §8 Q2 架构评估 + 刻晴 tester review §1 AC#5 强约束（补偿 cron）+ §3 AC-3 强约束（默认未勾选）+ AC-1 客服入口
 > 触发：S3-REQ-001 陪诊责任险 + 电子服务合同 / 帝君 2026-06-05 09:52 UTC v0.3 Owner Accept
-> Owner Approval：**Pending（待 v0.3 三签 + 凝光拆 task ready 后 Accept）**
+> Owner Approval：**Accepted by 帝君 @ 2026-06-06 03:28 UTC**（PR #189 merge `5f7f193`；review 闭环：PM final approve + 胡桃 dev review 4+2 + 刻晴 5 补充全合）
 
 ---
 
