@@ -110,9 +110,9 @@ class ContractStatusView(BaseModel):
 class InsuranceStatusView(BaseModel):
     ready: bool
     insurance_order_id: str | None
-    policy_no_masked: str | None         # BX2026****1234 中间脱敏
-    policy_pdf_url: str | None
-    effective_from: date | None
+    insurance_policy_no_masked: str | None   # BX2026****1234 中间脱敏；遵守 ADR-0046 §3.5 insurance_* positive list
+    insurance_policy_pdf_url: str | None     # signed URL TTL ≤15min
+    insurance_effective_from: date | None
     # 不返回：carrier_internal_id / actual_premium / underwriter_meta
 
 class PreparationStatusView(BaseModel):
@@ -219,11 +219,15 @@ UI 不弹"连接失败"错（用户感知差），全程视觉无感。
 | `precheck.all_ready` | 4 张牌全 ready 的最后一张触发 | `aggregator.evaluate` 检测 all_ready=True → 附加该事件 broadcast |
 | `precheck.blocked` | 任一牌不可恢复阻塞 | `aggregator.evaluate` 检测 permanent_blocked → broadcast |
 
-**OrderPrecheckAggregator** = 新建 service（`backend/app/services/order_precheck_aggregator.py`），订阅以上 4 个事件源，每次 evaluate 后：
+**OrderPrecheckAggregator** = 新建 service（`backend/app/services/order_precheck_aggregator.py`），订阅以上 4 个事件源，每次 after_commit hook 必须执行：
 
-- 写 redis cache `precheck:order:{order_id}` TTL 5min。
-- WS broadcast 推送给订阅该 `order_id` 的 connection。
-- 不写 DB（4 张牌状态已在各自表，aggregator 只读）。
+1. `redis DEL precheck:order:{order_id}`：先删旧 cache，避免 polling fallback 读到 5min stale 数据。
+2. `aggregator.evaluate(order_id)`：读 4 表重算 summary。
+3. 写 redis cache `precheck:order:{order_id}` TTL 5min。
+4. WS broadcast 推送给订阅该 `order_id` 的 connection。
+5. 记录 `precheck_abac_filtered_total{card,field}` / `precheck_status_updated_total{card}` prometheus metrics。
+
+**一致性口径**：cache invalidation 与 WS broadcast 同属 after_commit hook；如果 WS broadcast 失败，cache 仍已 DEL + 重写，polling 5s 路径可自愈。不写 DB（4 张牌状态已在各自表，aggregator 只读）。
 
 **cert event ≤3s 拆解**（胡桃 review gap）：
 
@@ -285,9 +289,29 @@ async def get_precheck_status(
 | Service | SELECT 显式列裁剪 | SELECT 显式列裁剪 | SELECT 显式列裁剪 | SELECT 显式列裁剪 |
 | Test | schema + integration + schemathesis | schema + integration + schemathesis | schema + integration + schemathesis | schema + integration + schemathesis |
 
-**17 字段 negative list**：
+**17 字段 negative list（附录化，胡桃 r2 amend）**：
 
-`contract_hash`, `hash_inputs`, `storage_blob_path`, `template_key`, `carrier_internal_id`, `actual_premium`, `underwriter_meta`, `prompt_version`, `model_used`, `raw_llm_output`, `cost_yuan`, `companion_real_name`, `companion_id_card_hash`, `companion_phone`, `companion_user_id`, `companion_real_*`, `*_id_card_*`。
+| # | 字段/模式 | 所属牌 | 禁止原因 |
+|---|---|---|---|
+| 1 | `contract_hash` | 合同 | 可反推合同内容 hash 输入 |
+| 2 | `hash_inputs` | 合同 | 合同生成内部输入 |
+| 3 | `storage_blob_path` | 合同 | 存储内部路径 |
+| 4 | `template_key` | 合同 | 模板内部版本键 |
+| 5 | `carrier_internal_id` | 保险 | 保司内部 ID |
+| 6 | `actual_premium` | 保险 | 内部结算金额 |
+| 7 | `underwriter_meta` | 保险 | 核保内部返回 |
+| 8 | `prompt_version` | AI 准备包 | prompt 内部版本 |
+| 9 | `model_used` | AI 准备包 | 模型内部选择 |
+| 10 | `raw_llm_output` | AI 准备包 | 未脱敏模型原文 |
+| 11 | `cost_yuan` | AI 准备包 | 内部成本 |
+| 12 | `companion_real_name` | 陪诊师资质 | 真实姓名 |
+| 13 | `companion_id_card_hash` | 陪诊师资质 | 身份证 hash |
+| 14 | `companion_phone` | 陪诊师资质 | 手机号 |
+| 15 | `companion_user_id` | 陪诊师资质 | 内部 user id |
+| 16 | `companion_real_*` | 陪诊师资质 | 真实身份字段模式 |
+| 17 | `*_id_card_*` | 陪诊师资质 | 证件字段模式 |
+
+**signed URL TTL**：所有用户端返回的 `*_pdf_url` / `*_image_urls` 必须 TTL ≤15min，服务端响应加 `signed_url_expires_at` 供测试断言；TTL >15min 直接 CI fail。
 
 **positive list 哨兵**：`ORDER_PRECHECK_RESPONSE_POSITIVE_LIST` 加字段必须 PR + reviewer ack；任何 response 字段不在 positive list 内 → CI 失败。
 
@@ -331,9 +355,11 @@ async def get_precheck_status(
 
 ### 6.3 跨端一致性 lint
 
-- 共享字段映射：`packages/precheck-card/src/field-mapping.ts` 定义 4 张牌的 ResponseView ↔ UI 字段 1:1 映射
-- 文案 lint：`packages/precheck-card/src/copy-lint.ts` enforce §3.3 文案表 + admin-v2 同步源
-- 单测：`packages/precheck-card/__tests__/abac.test.ts` 三端共享，校验组件永不渲染敏感字段（即使误传也不显示）
+- 共享字段映射：`packages/precheck-card/src/field-mapping.ts` 定义 4 张牌的 ResponseView ↔ UI 字段 1:1 映射。
+- 字段映射 CI：`pnpm test packages/precheck-card/__tests__/field-mapping.test.ts` 读取 OpenAPI schema，对比 WX / iOS H5 / admin-v2 三端字段映射；漏字段、额外字段、命名漂移都 fail。
+- 文案 lint：`packages/precheck-card/src/copy-lint.ts` enforce §3.3 文案表 + admin-v2 同步源。
+- 单测：`packages/precheck-card/__tests__/abac.test.ts` 三端共享，校验组件永不渲染敏感字段（即使误传也不显示）。
+- ABAC counter：测试注入 17 个 negative list 字段后，要求 response 不含字段且 `precheck_abac_filtered_total` counter 增量可观测。
 
 ---
 
@@ -367,6 +393,8 @@ async def get_precheck_status(
 | Phase 3 | 30% | 72h | 同上 + 文案 NPS 调研 |
 | Phase 4 | 100% | — | 持续观察 7 天 |
 
+**转化率基线**（刻晴 r2 amend）：灰度前取过去 7 天同入口订单「进入支付页 → 支付成功」转化率作为 baseline；低样本（n<100）时用过去 14 天补足，仍不足则只看错误率不看转化率。
+
 **回滚触发（刻晴 review gap）**：任一 phase 满足以下条件立即回滚：
 
 - ABAC 失血 > 0（任何敏感字段命中 negative list）。
@@ -390,8 +418,12 @@ async def get_precheck_status(
   - screen reader：VoiceOver/NVDA 能读出 4 张牌状态 + blocked_reason
   - 键盘焦点：Tab 顺序为 4 张牌 → 4 个详情链接 → 付款 CTA；disabled CTA 不吞焦点
   - 图标不能只靠颜色表达状态，必须有文字/aria-label
-- [ ] AC#8 ABAC 4 层防御全过：schema / endpoint / service / 测试哨兵
+- [ ] AC#8 ABAC 4 层防御全过：schema / endpoint / service / 测试哨兵 + `precheck_abac_filtered_total` counter 可观测
 - [ ] AC#9 PRECHECK-BACKEND task 存在且 UI task depends_on 指向 `S3-DEV-003-PRECHECK-BACKEND`，不能再依赖 `S3-DEV-001-CONTRACT-API`
+- [ ] AC#10 cache invalidation：4 个 after_commit hook 均执行 `redis DEL precheck:order:{order_id}` 后再 evaluate + WS broadcast；polling 5s 不读 stale 数据
+- [ ] AC#11 signed URL TTL：合同/保险 PDF + 陪诊师资质图 TTL ≤15min，响应含 `signed_url_expires_at`，TTL 超限 CI fail
+- [ ] AC#12 field-mapping CI：OpenAPI schema ↔ WX/iOS/admin-v2 三端字段映射 1:1，无漏字段/额外字段/命名漂移
+- [ ] AC#13 灰度转化率 baseline：灰度前 7 天（不足 n=100 取 14 天）基线落监控面板，下降 ≥3% 触发回滚
 
 ## 10. 不做的事（防范围蔓延）
 
@@ -450,3 +482,17 @@ async def get_precheck_status(
 | 4. iOS CI E2E 覆盖 round-trip | §6.2 补「macOS runner GitHub Actions matrix：H5↔native bridge 逐调用 + WKWebView 打开 + JSBridge 双向消息验证」 |
 | 5. 灰度回滚触发指标量化 | §8 表补「触发上下限：ABAC 失血 >0 / WS 成功率 <95% / P95 >500ms / 转化率 -3%」 |
 | 6. a11y 验收具体项 | AC#7 补「色盲 deuteranopia/protanopia/tritanopia 3 型模拟截图 + VoiceOver/NVDA + 键盘焦点」逐项验证 |
+
+### 13.3 r2 amend（胡桃/刻晴二轮 gap）
+
+| Gap | 处置位置 |
+|---|---|
+| 胡桃 C2 cache invalidation | §4.3 补 after_commit hook `redis DEL precheck:order:{order_id}` → evaluate → cache write → WS broadcast |
+| 胡桃 C3 polling 5s vs 30s | §4.1 口径固定：断连 30±2s 后切 polling；polling 间隔 5s |
+| 胡桃 C4 insurance 字段前缀 | §3.2 `policy_no_masked/effective_from` 改为 `insurance_policy_no_masked/insurance_effective_from` |
+| 胡桃 C5 negative list 附录 | §5.3 17 字段表格化 |
+| 刻晴 D signed URL TTL | §5.3 补 TTL ≤15min + `signed_url_expires_at` CI 断言 |
+| 刻晴 D field-mapping CI | §6.3 补 OpenAPI schema ↔ 三端映射 CI |
+| 刻晴 D ABAC counter | §4.3 / §6.3 补 `precheck_abac_filtered_total` |
+| 刻晴 D 转化率基线 | §8 补 7/14 天 baseline 口径 |
+
