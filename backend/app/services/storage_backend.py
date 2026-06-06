@@ -16,6 +16,17 @@ Concerns kept out of scope here (delegated to ``certification_image.py``):
 
 凝光 vendor lock-in 关切 + ADR §2.4: ABC factory 抽象隔离 + 单元可测 + 双前缀
 平滑迁移期不再耦合具体 cloud。
+
+S3-DEV-000B amendment (2026-06-06):
+    ``LocalStorageBackend`` gained an opt-in ``allow_subdirs`` flag so
+    downstream stores (contract WORM, feedback attachments) can use nested
+    ``namespace/{year}/{month}/...`` paths while preserving cert-image flat
+    namespace. ``_safe_key`` defends both modes against traversal / absolute
+    paths / control chars / whitespace edges. All key-handling methods
+    (``put`` / ``put_if_absent`` / ``sign_read_url`` / ``verify_sig`` /
+    ``open`` / ``resolve_path``) funnel through ``_safe_key``; see
+    ``TestLocalAllowSubdirs::test_all_key_handling_methods_call_safe_key``
+    sentinel guarding future refactors. Refs: S3-DEV-000B-STORAGE-SUBDIR-SUPPORT.
 """
 from __future__ import annotations
 
@@ -200,6 +211,10 @@ class LocalStorageBackend(StorageBackend):
         # Always reject backslash + .. anywhere, regardless of mode
         if "\\" in key or ".." in key:
             raise BadRequestException("Invalid storage key")
+        # S3-DEV-000B AC#2: leading/trailing whitespace anywhere is suspicious
+        # (often path-injection / spoof). Reject up-front before mode split.
+        if key != key.strip():
+            raise BadRequestException("Invalid storage key")
         if not self._allow_subdirs:
             # Legacy single-level mode (cert image): no '/' allowed.
             name = Path(key).name
@@ -208,15 +223,18 @@ class LocalStorageBackend(StorageBackend):
             return name
         # Subdir mode (contract storage, ADR-0046 §3.1):
         # Allow '/' separators but defend against traversal / abs path /
-        # control chars / empty segments.
+        # control chars / empty segments / per-segment whitespace edges.
         if key.startswith("/"):
             raise BadRequestException("Invalid storage key")
         segments = key.split("/")
         for seg in segments:
             if not seg or seg in {".", ".."}:
                 raise BadRequestException("Invalid storage key")
-            # Reject NUL + control chars
-            if any(ord(ch) < 0x20 for ch in seg):
+            if seg != seg.strip():
+                # leading/trailing whitespace inside a segment
+                raise BadRequestException("Invalid storage key")
+            # Reject NUL + control chars (0x00..0x1F) anywhere in segment
+            if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in seg):
                 raise BadRequestException("Invalid storage key")
         return key
 
@@ -279,10 +297,15 @@ class LocalStorageBackend(StorageBackend):
     def sign_read_url(
         self, obj: StoredObject, *, ttl_seconds: int, now: int | None = None
     ) -> SignedReadURL:
+        # S3-DEV-000B (AC#4): all key-handling methods must funnel through
+        # ``_safe_key`` so traversal/control-char defense is uniform across
+        # the surface area (put / put_if_absent / sign_read_url / verify_sig
+        # / open / resolve_path). Caller-supplied ``obj.key`` is not trusted.
+        safe = self._safe_key(obj.key)
         issued_at = int(time.time() if now is None else now)
         expires = issued_at + ttl_seconds
-        sig = self._signature(obj.key, expires)
-        url = self._sign_url_template.format(key=obj.key, expires=expires, sig=sig)
+        sig = self._signature(safe, expires)
+        url = self._sign_url_template.format(key=safe, expires=expires, sig=sig)
         return SignedReadURL(url=url, expires_at=expires)
 
     def verify_sig(self, key: str, expires: int, sig: str) -> StoredObject:
