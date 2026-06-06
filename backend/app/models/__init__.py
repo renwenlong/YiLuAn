@@ -58,6 +58,10 @@ from app.models.service_contract import (
     ContractStatus,
     ServiceContract,
 )
+from app.models.service_insurance_record import (
+    InsuranceStatus,
+    ServiceInsuranceRecord,
+)
 from app.models.service_package import (
     ServicePackage,
     ServicePackageCodeImmutableError,
@@ -135,6 +139,8 @@ __all__ = [
     "ContractStatus",
     "SERVICE_CONTRACT_IMMUTABLE_FIELDS",
     "SERVICE_CONTRACT_MUTABLE_FIELDS",
+    "ServiceInsuranceRecord",
+    "InsuranceStatus",
     "IdempotencyKey",
     "IDEMPOTENCY_KEY_TTL",
 ]
