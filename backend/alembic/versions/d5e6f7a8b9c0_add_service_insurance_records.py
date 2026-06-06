@@ -18,6 +18,9 @@ from sqlalchemy.dialects import postgresql
 
 from alembic import op
 
+# admin_users.id is BigInteger on PG / Integer on SQLite (see admin_user.py).
+_ADMIN_ID_TYPE = sa.BigInteger().with_variant(sa.Integer(), "sqlite")
+
 revision = "d5e6f7a8b9c0"
 down_revision = "c4d5e6f7a8b9"
 branch_labels = None
@@ -104,10 +107,10 @@ def upgrade() -> None:
         ),
         sa.Column(
             "invalidated_by_admin_id",
-            sa.Uuid(as_uuid=True),
+            _ADMIN_ID_TYPE,
             sa.ForeignKey("admin_users.id"),
             nullable=True,
-            comment="必填 when status=manually_invalidated (AC#5)",
+            comment="manually_invalidated 必填 (AC#5; BigInt PG / Int SQLite admin_users.id)",
         ),
         sa.Column("invalidated_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column(

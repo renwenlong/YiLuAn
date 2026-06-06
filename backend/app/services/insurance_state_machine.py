@@ -42,7 +42,6 @@ manually_invalidated  ─×→
 from __future__ import annotations
 
 import logging
-import uuid
 from typing import Final
 
 from app.models.service_insurance_record import InsuranceStatus
@@ -153,7 +152,7 @@ def assert_transition_legal(from_status: InsuranceStatus, to_status: InsuranceSt
 def assert_invalidation_metadata(
     *,
     invalidation_reason: str | None,
-    invalidated_by_admin_id: uuid.UUID | None,
+    invalidated_by_admin_id: int | None,
 ) -> None:
     """Raise if either field is missing/empty (AC#5 audit completeness).
 

@@ -38,10 +38,23 @@ import enum
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, SmallInteger, String, Text, Uuid
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
+    Uuid,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
+
+# admin_users.id is BigInteger on PG / Integer on SQLite (see admin_user.py).
+_ADMIN_ID_TYPE = BigInteger().with_variant(Integer(), "sqlite")
 
 
 class InsuranceStatus(str, enum.Enum):
@@ -155,11 +168,11 @@ class ServiceInsuranceRecord(Base):
         nullable=True,
         comment="作废原因; status=manually_invalidated 时**必填** (AC#5)",
     )
-    invalidated_by_admin_id: Mapped[uuid.UUID | None] = mapped_column(
-        Uuid(as_uuid=True),
+    invalidated_by_admin_id: Mapped[int | None] = mapped_column(
+        _ADMIN_ID_TYPE,
         ForeignKey("admin_users.id"),
         nullable=True,
-        comment="作废人 admin_user_id; status=manually_invalidated 时**必填** (AC#5)",
+        comment="作废人 admin_user_id (BigInt PG / Int SQLite); manually_invalidated 必填 (AC#5)",
     )
     invalidated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),

@@ -208,21 +208,21 @@ class TestManualInvalidationMetadata:
         # No raise
         assert_invalidation_metadata(
             invalidation_reason="客服 #12 申诉作废",
-            invalidated_by_admin_id=uuid.uuid4(),
+            invalidated_by_admin_id=1,
         )
 
     def test_missing_reason_rejected(self):
         with pytest.raises(InsuranceInvalidationMetadataMissingError):
             assert_invalidation_metadata(
                 invalidation_reason=None,
-                invalidated_by_admin_id=uuid.uuid4(),
+                invalidated_by_admin_id=1,
             )
 
     def test_empty_reason_rejected(self):
         with pytest.raises(InsuranceInvalidationMetadataMissingError):
             assert_invalidation_metadata(
                 invalidation_reason="",
-                invalidated_by_admin_id=uuid.uuid4(),
+                invalidated_by_admin_id=1,
             )
 
     def test_whitespace_only_reason_rejected(self):
@@ -230,7 +230,7 @@ class TestManualInvalidationMetadata:
         with pytest.raises(InsuranceInvalidationMetadataMissingError):
             assert_invalidation_metadata(
                 invalidation_reason="   ",
-                invalidated_by_admin_id=uuid.uuid4(),
+                invalidated_by_admin_id=1,
             )
 
     def test_missing_admin_id_rejected(self):
