@@ -150,9 +150,27 @@
 
   <!-- Action Buttons (AI-9: actionLoading 锁，避免重复点击) -->
   <view class="action-bar">
-    <!-- Created & unpaid: pay + cancel -->
+    <!-- Created & unpaid: pay + cancel
+         ADR-0047 §6.3 + S3-DEV-001-CONTRACT-UI:
+         合同/保障条款 checkbox 默认 unchecked + 支付按钮 disabled until 勾选 -->
     <block wx:if="{{order.status === 'created' && order.payment_status === 'unpaid'}}">
-      <button class="btn-primary" bindtap="onPay" loading="{{actionLoading}}" disabled="{{actionLoading}}">
+      <!-- 合同勾选区 (order.contract_id 存在才显示; PR #207 OrderResponse 新字段) -->
+      <view class="contract-acceptance" wx:if="{{order.contract_id}}">
+        <view class="contract-checkbox-row" bindtap="onToggleContractAccept">
+          <view class="contract-checkbox {{contractAccepted ? 'checked' : ''}}" aria-checked="{{contractAccepted}}" role="checkbox">
+            <text wx:if="{{contractAccepted}}" class="contract-checkbox-tick">✓</text>
+          </view>
+          <view class="contract-checkbox-label">
+            <text>我已阅读并同意</text>
+            <text class="contract-link" catchtap="onViewContract">《医路安陪诊服务合同》</text>
+            <text wx:if="{{order.insurance_id}}">+</text>
+            <text wx:if="{{order.insurance_id}}" class="contract-link" catchtap="onViewInsuranceTerms">《陪诊责任险服务条款》</text>
+          </view>
+        </view>
+        <text wx:if="{{!contractAccepted}}" class="contract-hint">勾选上方同意后可继续支付</text>
+      </view>
+      <!-- 支付按钮: 有合同时必须勾选才解锁; 无合同时 (历史订单) 直接可点 -->
+      <button class="btn-primary" bindtap="onPay" loading="{{actionLoading}}" disabled="{{actionLoading || (order.contract_id && !contractAccepted)}}">
         {{actionLoading ? '处理中...' : '立即支付 ' + order.formattedPrice}}
       </button>
       <button class="btn-danger" bindtap="onCancel" loading="{{actionLoading}}" disabled="{{actionLoading}}">

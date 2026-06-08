@@ -67,6 +67,14 @@ struct APIEndpoint {
         APIEndpoint(path: "orders/\(id)/refund", method: .post, requiresAuth: true)
     }
 
+    // MARK: - Contracts (S3-DEV-001-CONTRACT-API, PR #206 + #207 bridge)
+    static func contractAccept(id: String) -> APIEndpoint {
+        APIEndpoint(path: "contracts/\(id)/accept", method: .post, requiresAuth: true)
+    }
+    static func contractDetail(id: String) -> APIEndpoint {
+        APIEndpoint(path: "contracts/\(id)", method: .get, requiresAuth: true)
+    }
+
     // MARK: - Chat
     static func chatMessages(orderId: String) -> APIEndpoint {
         APIEndpoint(path: "chats/\(orderId)/messages", method: .get, requiresAuth: true)

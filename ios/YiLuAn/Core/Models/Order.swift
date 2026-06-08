@@ -72,6 +72,14 @@ struct Order: Codable, Identifiable {
 
     // [F-05] 代他人下单：嵌套就诊人信息（后端 OrderResponse.family_member）
     let familyMember: FamilyMemberSummary?
+
+    // S3-DEV-001 一单一合同 FK (ADR-0047 §3.3; PR #207 OrderResponse 暴露).
+    // nil = 历史订单或合同尚未生成; 非空 = 调 GET /contracts/{id} 取 PDF +
+    // 调 POST /contracts/{id}/accept 写勾选审计.
+    let contractId: String?
+    // S3-DEV-001 一单一保单 FK (ADR-0047 §3.3).
+    // nil = 历史订单或保险未出单 / 灰度未启用; 非空 = vendor 保单号已激活.
+    let insuranceId: String?
 }
 
 /// [F-05] OrderResponse.family_member 的精简嵌套块

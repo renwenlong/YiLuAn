@@ -1,4 +1,5 @@
 const { getOrderDetail, orderAction, payOrder, requestWechatPayment } = require('../../../services/order')
+const { acceptContract, getContract } = require('../../../services/contract')
 const { getOrderReview } = require('../../../services/review')
 const { createFollowupReminder } = require('../../../services/followupReminder')
 const {
@@ -26,6 +27,9 @@ Page({
     loading: true,
     // AI-9: 操作锁，防止状态切换瞬间用户重复点击
     actionLoading: false,
+    // S3-DEV-001-CONTRACT-UI: 合同/保障 checkbox 默认 unchecked (ADR-0047 §6.3
+    // + PRD-003 §5 AC-3 + PIPL/民法典电子合同合规要求, 不允许 "记住选择")
+    contractAccepted: false,
     statusList: ORDER_STATUS,
     serviceLabel: '',
     paymentStatusLabel: '',
@@ -156,6 +160,98 @@ Page({
     } finally {
       this.setData({ loading: false })
     }
+  },
+
+  /**
+   * S3-DEV-001-CONTRACT-UI: 用户点 checkbox 切换勾选状态.
+   *
+   * 勾选时立即调 POST /accept 写 user_audit_logs.contract_acceptance_clicked
+   * (ADR-0047 §3.5 PIPL/民法典电子合同取证, 服务端记录 UA + IP + template_version).
+   *
+   * 失败不阻断 UI 解锁 — toast 提示但 contractAccepted 仍 true, 让用户能继续
+   * 支付; 服务端有 cron 兜底重试 audit log 写入. 不要因 audit 网络抖动阻死支付
+   * 链路 (PRD-003 §5 业务诉求).
+   *
+   * 取消勾选 (再点一次) 不调 /accept (因为没 "取消勾选" audit event, 重新勾
+   * 则再调一次, 重复 audit 是 ADR-0047 §3.5 取证要求不去重).
+   */
+  async onToggleContractAccept() {
+    var order = this.data.order
+    if (!order || !order.contract_id) return
+    var newChecked = !this.data.contractAccepted
+    this.setData({ contractAccepted: newChecked })
+    if (!newChecked) return  // 取消勾选不发 audit
+    try {
+      await acceptContract(order.contract_id)
+    } catch (err) {
+      // audit 失败不阻断 UI; 但提示用户网络可能不稳
+      wx.showToast({
+        title: '合同确认网络异常,请检查后重试',
+        icon: 'none',
+        duration: 2000
+      })
+      // 不回滚 contractAccepted — UI 解锁状态保持, 服务端 cron 兜底
+    }
+  },
+
+  /**
+   * S3-DEV-001-CONTRACT-UI: 点 "《医路安陪诊服务合同》" 链接 → 取 signed URL → 系统浏览器打开.
+   *
+   * 服务端会同时写 user_audit_logs.contract_viewed (PIPL 取证).
+   */
+  async onViewContract() {
+    var order = this.data.order
+    if (!order || !order.contract_id) return
+    try {
+      var detail = await getContract(order.contract_id)
+      if (detail.signed_url) {
+        // 微信小程序无 iframe; 用 wx.previewImage 不行 (PDF), 用 wx.downloadFile + openDocument 走系统预览
+        wx.downloadFile({
+          url: detail.signed_url,
+          success: function (res) {
+            if (res.statusCode === 200) {
+              wx.openDocument({
+                filePath: res.tempFilePath,
+                fileType: 'pdf',
+                showMenu: true,
+              })
+            } else {
+              wx.showToast({ title: '合同加载失败', icon: 'none' })
+            }
+          },
+          fail: function () {
+            wx.showToast({ title: '合同加载失败', icon: 'none' })
+          }
+        })
+      } else {
+        // status != 'active' — 按 status 显示对应文案
+        var msg = '合同尚未生成,请稍后再查看'
+        if (detail.status === 'generation_failed' || detail.status === 'generation_permanently_failed') {
+          msg = '合同生成失败,客服已介入处理'
+        } else if (detail.status === 'manually_invalidated') {
+          msg = '合同已作废,请联系客服'
+        }
+        wx.showToast({ title: msg, icon: 'none', duration: 2500 })
+      }
+    } catch (err) {
+      wx.showToast({ title: '合同详情加载失败', icon: 'none' })
+    }
+  },
+
+  /**
+   * S3-DEV-001-CONTRACT-UI: 点 "《陪诊责任险服务条款》" 链接 → 静态条款 modal.
+   *
+   * 当前 S3 阶段保险走 PLACEHOLDER vendor (ADR-0047 r3), 条款文案静态;
+   * 真 vendor 接入后会切到 GET /api/v1/insurance-records/{id}/terms 端点
+   * (BACKLOG-INSURANCE-VENDOR-TERMS-ENDPOINT).
+   */
+  onViewInsuranceTerms() {
+    wx.showModal({
+      title: '陪诊责任险服务条款',
+      content: '本服务由医路安平台合作保险公司承保,保障范围包括陪诊期间意外医疗等. S3 灰度阶段保险条款为静态版本,正式版以理赔时实际生效条款为准. 如有问题请联系客服.',
+      showCancel: false,
+      confirmText: '我已了解'
+    })
   },
 
   async onPay() {
