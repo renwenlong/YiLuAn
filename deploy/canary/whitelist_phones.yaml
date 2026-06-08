@@ -1,0 +1,85 @@
+# =============================================================================
+# S2-OPS-A-CANARY-WHITELIST-LAUNCH AC-1
+# 内部白名单 10% mock 灰度上线 — 白名单手机号清单 (帝君 06-08 03:21 UTC 拍 A)
+# =============================================================================
+#
+# 用途:
+#   F2 入口开关按 phone in whitelist 生效 (OrderPrecheckAggregator 前置过滤
+#   + 后端 ABAC 兜底). 白名单内手机号 -> 看到 F2 入口; 白名单外 -> 看不到.
+#
+# 控制爆炸半径:
+#   AC-1 要求 <=20 人. 当前 5 团队成员 + 1 sentinel 占位 + 帝君指派 5-10
+#   公司同事 = 11-16 人.
+#
+# 维护流程:
+#   1. 帝君指派 5-10 个公司同事手机号 -> PM (凝光) 收齐 -> 同步给胡桃
+#   2. 胡桃 sed 替换 colleague_* 占位符 (`sed -i 's/13___PLACEHOLDER_01__/<phone>/'`)
+#      或直接 edit 后 PR
+#   3. backend 启动时由 settings 加载 + redis 缓存 (S2-OPS-A-CANARY-* 后续
+#      F2 开关 implement)
+#   4. 灰度推 real 物料路径时另起独立 yaml (deploy/canary/whitelist_phones.real.yaml)
+#      避免 mock / real 串
+#
+# 编辑约定:
+#   - 真手机号 11 位, 字符串引号包裹 (避免 yaml int)
+#   - role 标注用 (Owner / PM / architect / developer / tester / coordinator /
+#     colleague_NN), 便于日后梳理
+#   - 加注释说明谁加进来 + 加的日期 (audit 留痕)
+#   - 移除某人时 git revert 不要直接删行 (留痕)
+#
+# 相关文档:
+#   - docs/ops/canary-deployment.md §2.3 流量前置 "团队内部测试用户白名单"
+#   - S2-OPS-A-CANARY-WHITELIST-LAUNCH (taskboard)
+# =============================================================================
+
+version: 1
+purpose: f2-whitelist-canary-mock
+flow_type: mock
+max_size: 20  # AC-1 控制爆炸半径硬上限
+
+# 团队 5 人位 (PM 06-08 03:35 UTC 上呈名单后填真号)
+# Owner (帝君) 是否加入由 PM 收齐时拍 (AC-1 "帝君指定手机号" 可能含帝君本人)
+team:
+  - role: pm
+    name: "凝光"
+    phone: "__PENDING_PM__"
+    added_at: "2026-06-08"
+    added_by: "hutao (S2-OPS-A-CANARY init)"
+  - role: architect
+    name: "魈"
+    phone: "__PENDING_ARCHITECT__"
+    added_at: "2026-06-08"
+    added_by: "hutao"
+  - role: developer
+    name: "胡桃"
+    phone: "__PENDING_DEVELOPER__"
+    added_at: "2026-06-08"
+    added_by: "hutao"
+  - role: tester
+    name: "刻晴"
+    phone: "__PENDING_TESTER__"
+    added_at: "2026-06-08"
+    added_by: "hutao"
+  - role: coordinator
+    name: "甘雨"
+    phone: "__PENDING_COORDINATOR__"
+    added_at: "2026-06-08"
+    added_by: "hutao"
+# 帝君指派同事位 (5-10 人), PM 收齐后填
+colleagues:
+  - phone: "__PENDING_COLLEAGUE_01__"
+    note: "帝君指派 #1, 等清单"
+  - phone: "__PENDING_COLLEAGUE_02__"
+    note: "帝君指派 #2, 等清单"
+  - phone: "__PENDING_COLLEAGUE_03__"
+    note: "帝君指派 #3, 等清单"
+  - phone: "__PENDING_COLLEAGUE_04__"
+    note: "帝君指派 #4, 等清单"
+  - phone: "__PENDING_COLLEAGUE_05__"
+    note: "帝君指派 #5, 等清单"
+  # 6-10 位待清单到时按需追加, 不超 max_size
+
+# Sentinel 测试号 (本地 e2e / smoke 用, 永久保留)
+sentinels:
+  - phone: "13800000000"
+    note: "canary smoke / e2e 用; 与 seed_canary.py / staging fixtures 对齐"
