@@ -281,6 +281,23 @@ def fake_redis():
 
 
 @pytest.fixture(autouse=True)
+def _set_contract_pseudonym_salt(monkeypatch):
+    """S3-DEV-001 / ADR-0046 §3.2: contract hash compute requires a salt.
+
+    Production must set ``CONTRACT_PSEUDONYM_SALT`` (high-entropy random).
+    Tests need a deterministic salt so any code path that calls
+    ``compute_patient_pseudonym_hash`` (e.g. via accept_order →
+    ContractService.request_generation) does not raise
+    ``ContractPseudonymSaltMissingError`` and breaks unrelated tests.
+    """
+    test_salt = "test-salt-not-for-production-2cQ8mP4xJ9zR5"
+    monkeypatch.setenv("CONTRACT_PSEUDONYM_SALT", test_salt)
+    from app.config import settings as _settings
+
+    monkeypatch.setattr(_settings, "contract_pseudonym_salt", test_salt)
+
+
+@pytest.fixture(autouse=True)
 def _disable_rate_limiter():
     """W1-S3: route-level @limiter.limit decorators are now in production code
     paths (orders writes, auth refresh/login). The slowapi Limiter is stateful
