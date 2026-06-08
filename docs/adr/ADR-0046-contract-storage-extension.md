@@ -101,7 +101,7 @@ contract_hash = SHA-256(
 |---|---|---|
 | `order_id` | Order.id | UUID |
 | `amount_cny` | Order.price_snapshot | 分单位整数 |
-| `service_package_id` | OrderItem.service_package_id | UUID |
+| `service_package_id` | Order.service_type → ServicePackage.code → .id (resolve path; 不直接载于 Order 模型) | UUID |
 | `scheduled_at` | Order.scheduled_at | ISO-8601 UTC |
 | `patient_pseudonym_hash` | SHA-256(患者姓名+身份证后4 + salt) | **不入合同明文**，只入 hash 计算防篡改 |
 | `companion_id` | Order.companion_id | UUID（接单后 immutable）|
@@ -129,7 +129,7 @@ def generate_contract_hash_at_commit_time(order: Order) -> tuple[str, dict]:
     hash_inputs = {
         "order_id": str(order.id),
         "amount_cny": order.price_snapshot,
-        "service_package_id": str(order.service_package_id),
+        "service_package_id": str(resolve_service_package_id(order)),  # 见 contract_resolver, Order.service_type → ServicePackage.code → .id
         "scheduled_at": order.scheduled_at.isoformat(),
         "patient_pseudonym_hash": hashlib.sha256(
             (order.patient.name + order.patient.id_card_last4 + os.environ["CONTRACT_PSEUDONYM_SALT"]).encode()
@@ -152,6 +152,29 @@ def generate_contract_hash_at_commit_time(order: Order) -> tuple[str, dict]:
 - 作用 1：用户后续改名 / patient 资料修改，hash 验证用 hash_inputs 重算 → 不破历史合同验证
 - 作用 2：审计可查合同生成时到底用了哪些原始输入 + 验证 hash 公式不被篡改
 - WORM 层：`hash_inputs` 加入 ADR-0047 §3.1 immutable 字段白名单（UPDATE trigger 拒修改）
+
+
+#### Design rationale: 为何不建 OrderItem 模型 (S2-OPS-019 amend)
+
+ADR 原版字面 "OrderItem.service_package_id" 是误导. 实际 codebase **无 OrderItem ORM 模型**, 只在 admin API DTO (`backend/app/api/v1/admin/orders.py:127`) 作 Pydantic 入参用. 真实 `service_package_id` resolve path:
+
+```
+Order.service_type (ServiceType Enum, P0 immutable code, e.g. 'full_accompany')
+  → SELECT ServicePackage WHERE code = service_type
+  → ServicePackage.id (UUID)
+  → contract_hash_inputs.service_package_id
+```
+
+resolve 实现见 PR #200 `backend/app/services/contract_resolver.py::resolve_service_package_id(order)`.
+
+**为何不建 OrderItem 模型**:
+
+1. **ADR-0043 决议不建 OrderItem 模型** (订单是单 service 单实例, 不需 line item 抽象). 建模会破坏 1 单 1 service 的 invariant.
+2. **现有 Order.service_type Enum + ServicePackage.code 弱外键 pattern 已稳定**, 多个 service 复用 (insurance / contract / cert). 建 OrderItem 等于 schema 重构, 风险高于回报.
+3. **Order.service_type 是 P0 immutable 业务编码** (ServicePackage.code 同), 即使 PM 改 ServicePackage.name 也不破解析. resolve path 比直接外键稳.
+4. **PR #200 sentinel test** `@validates('code')` + `ServicePackageCodeImmutableError` (first-set allow, mutation reject, same-value no-op allow) 在 ORM 层守住 .code immutability, ABAC 4 层防御复用模板 §1 schema 层兜底.
+
+**ADR-0047 同步审视**: ADR-0047 全文 grep 无 OrderItem 字面引用, NO-OP. 但本 amend 让 ADR-0046 与 PR #200 实际 impl 字面一致, 防后续 dev 误读 ADR 去建表.
 
 ### 3.3 P2：WORM 语义实施（魈 spec + 胡桃 impl，~0.25d）
 
