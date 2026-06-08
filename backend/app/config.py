@@ -67,6 +67,17 @@ class Settings(BaseSettings):
     # Pickup cron 触发间隔 (秒). 默认 60s (与 ai_summary worker 同节奏).
     contract_generate_pickup_interval_seconds: int = 60
 
+    # S3-DEV-001-CONTRACT-WORM-COMPENSATION: WORM repair cron
+    # 默认 True — 只 set policy 是幂等 no-op-on-success, 不会产生空合同副作用.
+    # 生产如需强制暂停 (e.g. Azure 全面 outage 避免重起 retry storm) 才设 False.
+    contract_worm_repair_enabled: bool = True
+
+    # WORM repair cron 单轮批量 (避免锁占用过久).
+    contract_worm_repair_batch_size: int = 50
+
+    # WORM repair cron 触发间隔 (秒). 默认 3600s (每小时) — acceptance criterion #3.
+    contract_worm_repair_interval_seconds: int = 3600
+
     # Apple Sign-In (W18-A)
     # TODO(PM): supply real values for production. See `placeholders` doc.
     apple_team_id: str = ""  # TODO: 10-char Apple Developer Team ID

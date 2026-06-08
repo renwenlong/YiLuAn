@@ -29,6 +29,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
+from app.config import settings
 from app.core.distributed_lock import (
     acquire_scheduler_lock,
 )
@@ -127,6 +128,7 @@ def create_scheduler(app) -> AsyncIOScheduler:
     from app.cron.ai_summary_enqueue import process_pending_digests_job
     from app.cron.cleanup_emergency_pii import cleanup_emergency_pii
     from app.cron.contract_generate_pickup import contract_generate_pickup_job
+    from app.cron.contract_worm_repair import contract_worm_repair_job
     from app.cron.reconcile_money import reconcile_money_job
     from app.cron.reconciliation_cleanup import reconciliation_cleanup_job
     from app.cron.share_token_scanner import scan_share_token_anomalies_job
@@ -258,6 +260,20 @@ def create_scheduler(app) -> AsyncIOScheduler:
         coalesce=True,
         max_instances=1,
         misfire_grace_time=30,
+        replace_existing=True,
+    )
+    # S3-DEV-001-CONTRACT-WORM-COMPENSATION: WORM policy repair cron (默认每小时)
+    scheduler.add_job(
+        contract_worm_repair_job,
+        trigger=IntervalTrigger(
+            seconds=settings.contract_worm_repair_interval_seconds
+        ),
+        kwargs={"app": app},
+        id="contract_worm_repair",
+        name="Contract WORM policy repair (S3-DEV-001 WORM-COMPENSATION)",
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=120,
         replace_existing=True,
     )
     return scheduler

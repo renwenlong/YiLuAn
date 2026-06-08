@@ -92,6 +92,28 @@ class ContractStatus(str, enum.Enum):
     必填 invalidation_reason + invalidated_by_admin_id."""
 
 
+class ContractWormStatus(str, enum.Enum):
+    """WORM 应用状态 (S3-DEV-001-CONTRACT-WORM-COMPENSATION).
+
+    与 ContractStatus 正交 —— Azure Locked policy 仅可能在 ``put_if_absent``
+    成功后出错 (Azure 侧权限 / quota / 网络瞬断)。合同 blob 本身仍可读、
+    合同状态仍是 active，只是 WORM policy 未生效 → compensation cron 重试。
+    """
+
+    applied = "applied"
+    """WORM Locked policy 已生效 (或 Local backend、Azure mock = 默认)."""
+
+    pending_retry = "pending_retry"
+    """put_if_absent 成功但 set_immutability_policy raise; 待 compensation cron 重试."""
+
+    permanently_failed = "permanently_failed"
+    """3 次 cron retry 全失败; 高优 admin alert."""
+
+
+# WORM compensation cron retry 上限 — 超过该值 → worm_status=permanently_failed
+WORM_RETRY_CAP: int = 3
+
+
 # admin_users.id is BigInteger in PG / Integer in SQLite (see app.models.admin_user._ID_TYPE).
 _ADMIN_ID_TYPE = BigInteger().with_variant(Integer(), "sqlite")
 
@@ -130,6 +152,15 @@ class ServiceContract(Base):
             postgresql_where=text(
                 "status IN ('pending_generation', 'generation_failed')"
             ),
+        ),
+        # S3-DEV-001-CONTRACT-WORM-COMPENSATION: 仅索引 pending_retry 行。
+        # SQLite 也支持 partial index; migration body 走 raw DDL 保证 PG + SQLite 等价.
+        Index(
+            "idx_service_contracts_worm_compensation",
+            "worm_status",
+            "worm_retry_count",
+            "worm_last_retry_at",
+            postgresql_where=text("worm_status = 'pending_retry'"),
         ),
     )
 
@@ -233,6 +264,47 @@ class ServiceContract(Base):
         comment="作废时间",
     )
 
+    # ----- WORM compensation fields (S3-DEV-001-CONTRACT-WORM-COMPENSATION) -----
+    #
+    # 独立于 ContractStatus, 跟踪 Azure immutability policy 应用状态.
+    # 默认 applied (含历史 backfill + Local backend + Azure mock).
+    # put_contract 调 set_immutability_policy raise → ContractService 写 pending_retry.
+    # contract_worm_repair cron 每小时扫 pending_retry 行 → 重试 set_immutability_policy.
+
+    worm_status: Mapped[ContractWormStatus] = mapped_column(
+        Enum(
+            ContractWormStatus,
+            name="contract_worm_status",
+            values_callable=lambda enum_cls: [e.value for e in enum_cls],
+        ),
+        nullable=False,
+        default=ContractWormStatus.applied,
+        server_default=ContractWormStatus.applied.value,
+        comment=(
+            "WORM 应用状态: applied (Azure Locked policy 已生效) / "
+            "pending_retry (put_if_absent 成功但 set_immutability_policy raise, "
+            "等 compensation cron) / permanently_failed (3 次 cron retry 全失败, "
+            "触发高优 alert)."
+        ),
+    )
+
+    worm_retry_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+        comment=(
+            "WORM policy compensation cron 累计 retry 次数; >= WORM_RETRY_CAP → "
+            "worm_status=permanently_failed."
+        ),
+    )
+
+    worm_last_retry_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        comment="最近一次 WORM compensation cron 尝试时间; 用于退避策略与告警.",
+    )
+
     # ----- Audit timestamps -----
 
     created_at: Mapped[datetime] = mapped_column(
@@ -285,6 +357,10 @@ MUTABLE_FIELDS: frozenset[str] = frozenset(
         "invalidated_by_admin_id",
         "invalidated_at",
         "updated_at",
+        # S3-DEV-001-CONTRACT-WORM-COMPENSATION mutable
+        "worm_status",
+        "worm_retry_count",
+        "worm_last_retry_at",
     }
 )
 
@@ -292,6 +368,8 @@ MUTABLE_FIELDS: frozenset[str] = frozenset(
 __all__ = [
     "IMMUTABLE_FIELDS",
     "MUTABLE_FIELDS",
+    "WORM_RETRY_CAP",
     "ContractStatus",
+    "ContractWormStatus",
     "ServiceContract",
 ]
