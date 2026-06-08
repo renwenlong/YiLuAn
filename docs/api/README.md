@@ -149,6 +149,7 @@
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
+| `GET` | `/api/v1/admin/ai-blocklist/preview` | 查看 AI 双层关键词过滤 blocklist (read-only) |
 | `GET` | `/api/v1/admin/audit-logs` | 后台：审计日志列表 |
 | `GET` | `/api/v1/admin/companions/` | 后台：待审核陪诊师列表 |
 | `POST` | `/api/v1/admin/companions/certification-images` | 后台：上传陪诊师证件图（Phase A 本地私有存储） |
@@ -217,6 +218,12 @@ K8s / ACA 探针使用：
 | `GET` | `/api/v1/readiness` | 就绪检查（readiness） |
 | `GET` | `/health` | 健康检查（liveness, root） |
 | `GET` | `/readiness` | 就绪检查（readiness, root） |
+
+### [admin-ai-blocklist](./admin-ai-blocklist.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/admin/ai-blocklist/preview` | 查看 AI 双层关键词过滤 blocklist (read-only) |
 
 ### [admin-audit-logs](./admin-audit-logs.md)
 

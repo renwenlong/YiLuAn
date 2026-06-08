@@ -18,6 +18,7 @@
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
+| `GET` | `/api/v1/admin/ai-blocklist/preview` | 查看 AI 双层关键词过滤 blocklist (read-only) |
 | `GET` | `/api/v1/admin/audit-logs` | 后台：审计日志列表 |
 | `GET` | `/api/v1/admin/companions/` | 后台：待审核陪诊师列表 |
 | `POST` | `/api/v1/admin/companions/certification-images` | 后台：上传陪诊师证件图（Phase A 本地私有存储） |
@@ -61,6 +62,39 @@
 | `GET` | `/api/v1/admin/wallet-ledger/{user_id}` | List User Ledger |
 
 ## 端点详情
+
+### `GET /api/v1/admin/ai-blocklist/preview` — 查看 AI 双层关键词过滤 blocklist (read-only)
+
+ADR-0048 §4.1 admin-v2 关键词查看页:
+- read-only — 不允许 admin 后台直改, 修改走 PR + 医疗顾问 review
+- 任何 admin 调用写 admin_audit_logs action=ai_blocklist_viewed
+- 同时 incr metric ai_blocklist_viewed_total{admin_id=...}
+- query category 可过滤单个分类, 不带返全部 6 大分类
+
+**参数：**
+
+- `category` (query, —, required=—) — 可选: 指定分类只返该分类 (e.g. diagnosis); 不指定返全部
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `401` | 未鉴权或令牌无效 |
+| `403` | 无权限 |
+| `422` | Validation Error |
+| `500` | 服务器内部错误 |
+
+**curl 示例：**
+
+```bash
+curl -X GET 'https://api.yiluan.example.com/api/v1/admin/ai-blocklist/preview' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
 
 ### `GET /api/v1/admin/audit-logs` — 后台：审计日志列表
 
