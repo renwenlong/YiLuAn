@@ -5,19 +5,16 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.exceptions import BadRequestException, ForbiddenException, NotFoundException
 from app.models.companion_profile import CompanionProfile, VerificationStatus
 from app.models.hospital import Hospital
-from app.models.order import Order, OrderStatus, ServiceType, ORDER_TRANSITIONS
+from app.models.order import Order, OrderStatus, ServiceType
 from app.models.payment import Payment
 from app.models.user import User, UserRole
 from app.schemas.order import CreateOrderRequest
 from app.services.order import OrderService, generate_order_number
-
 from tests.conftest import test_session_factory
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -29,7 +26,7 @@ async def _make_user(
     display_name: str | None = None,
 ) -> User:
     async with test_session_factory() as s:
-        u = User(phone=phone, role=role, roles=role.value, display_name=display_name, is_active=True)
+        u = User(phone=phone, role=role, roles=role.value, display_name=display_name, is_active=True)  # noqa: E501
         s.add(u)
         await s.commit()
         await s.refresh(u)
@@ -51,7 +48,7 @@ async def _make_companion_profile(
     verification_status: VerificationStatus = VerificationStatus.verified,
 ) -> CompanionProfile:
     async with test_session_factory() as s:
-        p = CompanionProfile(user_id=user_id, real_name=real_name, verification_status=verification_status)
+        p = CompanionProfile(user_id=user_id, real_name=real_name, verification_status=verification_status)  # noqa: E501
         s.add(p)
         await s.commit()
         await s.refresh(p)
@@ -65,6 +62,7 @@ async def _make_order(
     companion_id: uuid.UUID | None = None,
     status: OrderStatus = OrderStatus.created,
     price: float = 299.0,
+    patient_name: str = "测试患者",
 ) -> Order:
     async with test_session_factory() as s:
         o = Order(
@@ -78,6 +76,7 @@ async def _make_order(
             appointment_time="09:00",
             price=price,
             hospital_name="测试医院",
+            patient_name=patient_name,
             expires_at=datetime.now(timezone.utc) + timedelta(hours=4),
         )
         s.add(o)
@@ -184,7 +183,7 @@ class TestCreateOrder:
         async with test_session_factory() as s:
             svc = OrderService(s)
             profile = await s.execute(
-                __import__("sqlalchemy").select(CompanionProfile).where(CompanionProfile.user_id == companion.id)
+                __import__("sqlalchemy").select(CompanionProfile).where(CompanionProfile.user_id == companion.id)  # noqa: E501
             )
             cp = profile.scalar_one()
             with pytest.raises(BadRequestException, match="not found or not verified"):
@@ -246,7 +245,7 @@ class TestAcceptOrder:
         companion = await _make_user(phone="10000000024", role=UserRole.companion)
         await _make_companion_profile(companion.id)
         hospital = await _make_hospital("医院A3")
-        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted)
+        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted)  # noqa: E501
         async with test_session_factory() as s:
             svc = OrderService(s)
             with pytest.raises(BadRequestException, match="Cannot transition"):
@@ -262,7 +261,7 @@ class TestStartOrder:
         patient = await _make_user(phone="10000000030")
         companion = await _make_user(phone="10000000031", role=UserRole.companion)
         hospital = await _make_hospital("医院S")
-        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted)
+        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted)  # noqa: E501
         await _make_payment(order.id, patient.id)
         async with test_session_factory() as s:
             svc = OrderService(s)
@@ -275,7 +274,7 @@ class TestStartOrder:
         companion = await _make_user(phone="10000000033", role=UserRole.companion)
         other = await _make_user(phone="10000000034", role=UserRole.companion)
         hospital = await _make_hospital("医院S2")
-        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted)
+        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted)  # noqa: E501
         async with test_session_factory() as s:
             svc = OrderService(s)
             with pytest.raises(ForbiddenException, match="Not your order"):
@@ -285,7 +284,7 @@ class TestStartOrder:
         patient = await _make_user(phone="10000000035")
         companion = await _make_user(phone="10000000036", role=UserRole.companion)
         hospital = await _make_hospital("医院S3")
-        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.cancelled_by_patient)
+        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.cancelled_by_patient)  # noqa: E501
         await _make_payment(order.id, patient.id)
         async with test_session_factory() as s:
             svc = OrderService(s)
@@ -302,7 +301,7 @@ class TestCompleteOrder:
         patient = await _make_user(phone="10000000040")
         companion = await _make_user(phone="10000000041", role=UserRole.companion)
         hospital = await _make_hospital("医院C")
-        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.in_progress)
+        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.in_progress)  # noqa: E501
         async with test_session_factory() as s:
             svc = OrderService(s)
             result = await svc.complete_order(order.id, companion)
@@ -313,7 +312,7 @@ class TestCompleteOrder:
         patient = await _make_user(phone="10000000042")
         companion = await _make_user(phone="10000000043", role=UserRole.companion)
         hospital = await _make_hospital("医院C2")
-        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.completed)
+        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.completed)  # noqa: E501
         async with test_session_factory() as s:
             svc = OrderService(s)
             with pytest.raises(BadRequestException, match="Cannot transition"):
@@ -339,7 +338,7 @@ class TestCancelOrder:
         patient = await _make_user(phone="10000000051")
         companion = await _make_user(phone="10000000052", role=UserRole.companion)
         hospital = await _make_hospital("医院X2")
-        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted)
+        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted)  # noqa: E501
         async with test_session_factory() as s:
             svc = OrderService(s)
             result = await svc.cancel_order(order.id, companion)
@@ -350,7 +349,7 @@ class TestCancelOrder:
         patient = await _make_user(phone="10000000053")
         companion = await _make_user(phone="10000000054", role=UserRole.companion)
         hospital = await _make_hospital("医院X3")
-        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.completed)
+        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.completed)  # noqa: E501
         async with test_session_factory() as s:
             svc = OrderService(s)
             with pytest.raises(BadRequestException, match="Cannot transition"):
@@ -361,7 +360,7 @@ class TestCancelOrder:
         patient = await _make_user(phone="10000000055")
         companion = await _make_user(phone="10000000056", role=UserRole.companion)
         hospital = await _make_hospital("医院X4")
-        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted)
+        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted)  # noqa: E501
         await _make_payment(order.id, patient.id, amount=299.0)
         async with test_session_factory() as s:
             svc = OrderService(s)
@@ -372,7 +371,7 @@ class TestCancelOrder:
         async with test_session_factory() as s:
             from sqlalchemy import select
             refund = (await s.execute(
-                select(Payment).where(Payment.order_id == order.id, Payment.payment_type == "refund")
+                select(Payment).where(Payment.order_id == order.id, Payment.payment_type == "refund")  # noqa: E501
             )).scalar_one_or_none()
             assert refund is not None
             assert refund.amount == 299.0
@@ -382,7 +381,7 @@ class TestCancelOrder:
         patient = await _make_user(phone="10000000057")
         companion = await _make_user(phone="10000000058", role=UserRole.companion)
         hospital = await _make_hospital("医院X5")
-        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.in_progress)
+        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.in_progress)  # noqa: E501
         await _make_payment(order.id, patient.id, amount=299.0)
         async with test_session_factory() as s:
             svc = OrderService(s)
@@ -392,7 +391,7 @@ class TestCancelOrder:
         async with test_session_factory() as s:
             from sqlalchemy import select
             refund = (await s.execute(
-                select(Payment).where(Payment.order_id == order.id, Payment.payment_type == "refund")
+                select(Payment).where(Payment.order_id == order.id, Payment.payment_type == "refund")  # noqa: E501
             )).scalar_one_or_none()
             assert refund is not None
             assert refund.amount == 149.5  # 50% of 299
@@ -519,7 +518,7 @@ class TestRejectOrder:
         patient = await _make_user(phone="10000000095")
         companion = await _make_user(phone="10000000096", role=UserRole.companion)
         hospital = await _make_hospital("医院J4")
-        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted)
+        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted)  # noqa: E501
         async with test_session_factory() as s:
             svc = OrderService(s)
             with pytest.raises(BadRequestException, match="Can only reject"):
@@ -539,7 +538,7 @@ class TestRejectOrder:
         async with test_session_factory() as s:
             from sqlalchemy import select
             refund = (await s.execute(
-                select(Payment).where(Payment.order_id == order.id, Payment.payment_type == "refund")
+                select(Payment).where(Payment.order_id == order.id, Payment.payment_type == "refund")  # noqa: E501
             )).scalar_one_or_none()
             assert refund is not None
 
@@ -636,7 +635,7 @@ class TestStartServiceFlow:
         patient = await _make_user(phone="10000000110")
         companion = await _make_user(phone="10000000111", role=UserRole.companion)
         hospital = await _make_hospital("医院F")
-        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted)
+        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted)  # noqa: E501
         async with test_session_factory() as s:
             svc = OrderService(s)
             result = await svc.request_start_service(order.id, companion)
@@ -647,7 +646,7 @@ class TestStartServiceFlow:
         patient = await _make_user(phone="10000000112")
         companion = await _make_user(phone="10000000113", role=UserRole.companion)
         hospital = await _make_hospital("医院F2")
-        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.in_progress)
+        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.in_progress)  # noqa: E501
         async with test_session_factory() as s:
             svc = OrderService(s)
             with pytest.raises(BadRequestException, match="订单状态不允许"):
@@ -657,7 +656,7 @@ class TestStartServiceFlow:
         patient = await _make_user(phone="10000000114")
         companion = await _make_user(phone="10000000115", role=UserRole.companion)
         hospital = await _make_hospital("医院F3")
-        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted)
+        order = await _make_order(patient.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted)  # noqa: E501
         await _make_payment(order.id, patient.id)
         async with test_session_factory() as s:
             svc = OrderService(s)
@@ -670,7 +669,7 @@ class TestStartServiceFlow:
         patient2 = await _make_user(phone="10000000117")
         companion = await _make_user(phone="10000000118", role=UserRole.companion)
         hospital = await _make_hospital("医院F4")
-        order = await _make_order(patient1.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted)
+        order = await _make_order(patient1.id, hospital.id, companion_id=companion.id, status=OrderStatus.accepted)  # noqa: E501
         async with test_session_factory() as s:
             svc = OrderService(s)
             with pytest.raises(ForbiddenException, match="Not your order"):

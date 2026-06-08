@@ -527,6 +527,7 @@ def seed_order():
                 appointment_date=kwargs.pop("appointment_date", "2026-04-15"),
                 appointment_time=kwargs.pop("appointment_time", "09:00"),
                 price=kwargs.pop("price", 299.0),
+                patient_name=kwargs.pop("patient_name", "测试患者"),
                 **kwargs,
             )
             session.add(order)
