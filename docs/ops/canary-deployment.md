@@ -37,6 +37,23 @@
 - [ ] 公网域名 + HTTPS 证书（nginx）
 - [ ] 阿里云短信 AccessKey + SignName + TemplateCode
 - [ ] 企业微信群机器人 webhook URL（运营 + PM 两条独立群）
+- [ ] **`CONTRACT_PSEUDONYM_SALT` 首次 prod 曝光前一次性定下高熵随机串**（详见 §2.4）
+
+### 2.4 contract pseudonym salt rotate (S3-DEV-001 / ADR-0046 §3.2)
+
+`service_contracts.patient_pseudonym = SHA-256(name||last4||CONTRACT_PSEUDONYM_SALT)` 是
+**长期存储 + WORM 7y** 不可 retroactive rotate 的 PII derivative。Salt 一旦在 prod 曝光后换，
+旧 hash 全部失效（同一患者同一 last4 的下一份合同算出的 hash 与老合同不一致，
+无法识别同一人）。所以：
+
+1. **首次 prod 曝光前必须**：在 `env.production` 用
+   `python -c "import secrets; print(secrets.token_urlsafe(64))"` 生成高熵 random。
+   - 不可与 `PII_HASH_SALT` / `JWT_SECRET_KEY` / `pii_envelope_key` 雷同。
+   - 生成后入 secrets vault（商户部署环境同步），**不要 commit 进 git**。
+2. **后续 rotate**（如不得不发生部分曝光）：需走“双写 + retroactive 背填”路径 ——
+   该能力未实现，临时需 freeze contract.generate 后手动重生 patient_pseudonym。
+   未走该路径前不要随便换 salt。
+3. **发现 salt 泄露**：立即走 INCIDENT_PLAYBOOK §6。
 
 ### 2.3 流量前置
 
