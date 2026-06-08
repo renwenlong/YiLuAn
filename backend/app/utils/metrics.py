@@ -104,6 +104,25 @@ ai_blocklist_viewed_total = Counter(
     ["admin_id"],
 )
 
+# S3-DEV-002-HOT-RELOAD (ADR-0048 §4.1 + 刻晴 review #5): admin trigger hot reload
+ai_blocklist_reload_triggered_total = Counter(
+    "ai_blocklist_reload_triggered_total",
+    "admin trigger AI blocklist hot reload 计数 (POST /admin/ai-blocklist/reload 入口)",
+    ["admin_id"],
+)
+
+ai_blocklist_reload_success_total = Counter(
+    "ai_blocklist_reload_success_total",
+    "backend 副本收到 reload 事件 + load_blocklist() 成功计数",
+    ["instance"],
+)
+
+ai_blocklist_reload_failed_total = Counter(
+    "ai_blocklist_reload_failed_total",
+    "backend 副本 reload 失败计数 (yml parse 错 / file 不在 / IO 错); alertmanager warning 触发",
+    ["instance", "reason"],
+)
+
 # WebSocket auth handshake outcome (PR: WS auth via first frame).
 # Replaces the legacy `?token=***` query-string auth path.
 # `result` values:

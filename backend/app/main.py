@@ -4,14 +4,13 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client import make_asgi_app as _make_metrics_app
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from prometheus_client import make_asgi_app as _make_metrics_app
-
-from app.api.v1.router import api_v1_router
 from app.api.v1.health import prime_alembic_head_cache
-from app.api.v1.openapi_meta import TAGS_METADATA, API_DESCRIPTION
+from app.api.v1.openapi_meta import API_DESCRIPTION, TAGS_METADATA
+from app.api.v1.router import api_v1_router
 from app.config import settings
 from app.core.logging import setup_logging
 from app.core.rate_limit import limiter
@@ -41,6 +40,17 @@ async def lifespan(app: FastAPI):
     except Exception as exc:  # pragma: no cover - never block boot on this
         logger.warning("prime_alembic_head_cache failed: %s", exc)
     app.state.redis = init_redis()
+    # S3-DEV-002-HOT-RELOAD: 启动 AI blocklist Redis pub/sub subscriber.
+    # Subscribe topic ai_blocklist_reload, 收事件调 load_blocklist() 重 init.
+    # Redis 不可用 / disabled → subscriber 不启, 仅 rolling deploy 才 reload (cold fallback).
+    try:
+        from app.services.ai_blocklist_pubsub import (
+            start_ai_blocklist_reload_subscriber,
+        )
+
+        await start_ai_blocklist_reload_subscriber(app)
+    except Exception as exc:  # pragma: no cover - never block boot on subscriber
+        logger.warning("ai_blocklist_reload subscriber start failed: %s", exc)
     # S2-DEV-012 (ADR-0040 Phase 1) 注入分布式 CB 的 redis client
     # 使用 sync redis client（CB.allow_request 是 sync 接口，不能 await）
     # 与业务侧 async redis 同连一个 Redis 实例，不引入新依赖
@@ -195,15 +205,28 @@ def create_app() -> FastAPI:
     app.include_router(api_v1_router, prefix="/api/v1")
 
     # Health check (liveness) — 进程活着即 200，不查依赖
-    @app.get("/health", summary="健康检查（liveness, root）", description="根路径 liveness 探针，仅返回进程存活状态。", tags=["health"])
+    @app.get(
+        "/health",
+        summary="健康检查（liveness, root）",
+        description="根路径 liveness 探针，仅返回进程存活状态。",
+        tags=["health"],
+    )
     async def health_check():
         return {"status": "healthy", "version": settings.app_version}
 
     # Readiness probe (root path, 对齐 ACA/K8s 默认探针惯例)
     # 复用 app.api.v1.health 中的检查逻辑，避免逻辑分叉
-    from app.api.v1.health import _run_readiness_checks, _readiness_response
+    from app.api.v1.health import _readiness_response, _run_readiness_checks
 
-    @app.get("/readiness", summary="就绪检查（readiness, root）", description="根路径就绪探针，等价于 /api/v1/readiness：检查 DB + Redis。任一失败 → 503。", tags=["health"])
+    @app.get(
+        "/readiness",
+        summary="就绪检查（readiness, root）",
+        description=(
+            "根路径就绪探针，等价于 /api/v1/readiness："
+            "检查 DB + Redis。任一失败 → 503。"
+        ),
+        tags=["health"],
+    )
     async def readiness_root(request: Request):
         all_ok, checks = await _run_readiness_checks(request)
         return _readiness_response(all_ok, checks)

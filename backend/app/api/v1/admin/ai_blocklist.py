@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from pydantic import BaseModel, Field
 
 from app.api.v1.openapi_meta import err
@@ -32,6 +32,7 @@ from app.core.admin_jwt import require_admin
 from app.dependencies import DBSession
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.admin_user import AdminUser
+from app.services.ai_blocklist_pubsub import AI_BLOCKLIST_RELOAD_CHANNEL
 from app.services.ai_prep_filter import (
     get_blocklist_snapshot,
     get_blocklist_version,
@@ -140,4 +141,120 @@ async def preview_blocklist(
         version=version,
         categories=categories,
         total_patterns=total,
+    )
+
+
+class BlocklistReloadResponse(BaseModel):
+    accepted: bool = Field(True, description="固定 True; 实际 reload 是异步")
+    channel: str = Field(..., description="Redis pub/sub channel name (供 debug)")
+    triggered_by_admin_id: str = Field(..., description="触发者 admin id")
+    note: str = Field(
+        default=(
+            "该接口仅发出 reload 事件; 各副本实际在后台 subscriber 处理, "
+            "需 5s 内留意。用 /admin/ai-blocklist/debug-version 验证各副本生效。"
+        ),
+    )
+
+
+@router.post(
+    "/reload",
+    response_model=BlocklistReloadResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="触发 AI 关键词黑名单 hot reload (异步, 多副本 ≤5s)",
+    description=(
+        "S3-DEV-002-HOT-RELOAD (ADR-0048 §4.1 + 刻晴 review #5).\n"
+        "admin 修改 docs/medical-content/prohibited-keywords.yml (走 PR + 医疗顾问"
+        " review approve + merge main) 后, 调此接口 publish reload 事件 → "
+        "所有 backend 副本 subscriber 收事件 → load_blocklist() 重 init cache.\n"
+        "“不会” 等待传播: 返 202 Accepted, 各副本 ≤5s 内生效 (PRD-003 v0.3 §7).\n"
+        "审计: admin_audit_logs action=ai_blocklist_reload + admin_id; "
+        "metric ai_blocklist_reload_triggered_total{admin_id} incr."
+    ),
+    responses={**err(401, 403, 500)},
+)
+async def trigger_blocklist_reload(
+    request: Request,
+    session: DBSession,
+    principal=Depends(require_admin),
+) -> BlocklistReloadResponse:
+    admin_user = _require_jwt_admin(principal)
+
+    # 写 admin_audit_logs
+    audit = AdminAuditLog(
+        target_type="ai_blocklist",
+        target_id=None,
+        action="ai_blocklist_reload",
+        operator=str(admin_user.id),
+        reason=f"trigger reload via redis pub/sub channel={AI_BLOCKLIST_RELOAD_CHANNEL}",
+    )
+    session.add(audit)
+    await session.flush()
+    await session.commit()
+
+    # Metric
+    try:
+        from app.utils.metrics import ai_blocklist_reload_triggered_total
+
+        ai_blocklist_reload_triggered_total.labels(admin_id=str(admin_user.id)).inc()
+    except Exception:  # pragma: no cover
+        pass
+
+    # Publish to redis (best-effort; 失败 不 aborts 响应, 但等于 cold fallback)
+    from datetime import datetime, timezone
+
+    payload = {
+        "version": get_blocklist_version() or "unknown",
+        "triggered_by_admin_id": str(admin_user.id),
+        "triggered_at": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        rds = getattr(request.app.state, "redis", None)
+        if rds is not None:
+            import json as _json
+
+            await rds.publish(AI_BLOCKLIST_RELOAD_CHANNEL, _json.dumps(payload))
+    except Exception as exc:  # pragma: no cover - 不阻响应, log
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "ai-blocklist reload publish failed (cold fallback): %s", exc
+        )
+
+    return BlocklistReloadResponse(
+        accepted=True,
+        channel=AI_BLOCKLIST_RELOAD_CHANNEL,
+        triggered_by_admin_id=str(admin_user.id),
+    )
+
+
+class BlocklistDebugVersionResponse(BaseModel):
+    instance: str = Field(..., description="backend 副本标识 (HOSTNAME 或 socket.gethostname)")
+    version: str = Field(..., description="当前副本读到的 yml version")
+    categories: int = Field(0, description="当前副本读到的分类数")
+    total_patterns: int = Field(0, description="当前副本读到的 pattern 总数")
+
+
+@router.get(
+    "/debug-version",
+    response_model=BlocklistDebugVersionResponse,
+    summary="返本副本当前读到的 blocklist version (验 reload 传播)",
+    description=(
+        "S3-DEV-002-HOT-RELOAD 验证端点. PRD-003 v0.3 §7 灰度监控: "
+        "两副本 admin trigger reload 后 5s 内, 各调此接口均返新 version.\n"
+        "不会写 audit_log (仅技术 debug 入口, 低成本调 OK)."
+    ),
+    responses={**err(401, 403)},
+)
+async def debug_blocklist_version(
+    principal=Depends(require_admin),
+) -> BlocklistDebugVersionResponse:
+    _require_jwt_admin(principal)
+    from app.services.ai_blocklist_pubsub import get_instance_id
+
+    snap = get_blocklist_snapshot()
+    return BlocklistDebugVersionResponse(
+        instance=get_instance_id(),
+        version=get_blocklist_version(),
+        categories=len(snap),
+        total_patterns=sum(len(e.patterns) for e in snap),
     )

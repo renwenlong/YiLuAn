@@ -149,7 +149,9 @@
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
+| `GET` | `/api/v1/admin/ai-blocklist/debug-version` | 返本副本当前读到的 blocklist version (验 reload 传播) |
 | `GET` | `/api/v1/admin/ai-blocklist/preview` | 查看 AI 双层关键词过滤 blocklist (read-only) |
+| `POST` | `/api/v1/admin/ai-blocklist/reload` | 触发 AI 关键词黑名单 hot reload (异步, 多副本 ≤5s) |
 | `GET` | `/api/v1/admin/audit-logs` | 后台：审计日志列表 |
 | `GET` | `/api/v1/admin/companions/` | 后台：待审核陪诊师列表 |
 | `POST` | `/api/v1/admin/companions/certification-images` | 后台：上传陪诊师证件图（Phase A 本地私有存储） |
@@ -223,7 +225,9 @@ K8s / ACA 探针使用：
 
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
+| `GET` | `/api/v1/admin/ai-blocklist/debug-version` | 返本副本当前读到的 blocklist version (验 reload 传播) |
 | `GET` | `/api/v1/admin/ai-blocklist/preview` | 查看 AI 双层关键词过滤 blocklist (read-only) |
+| `POST` | `/api/v1/admin/ai-blocklist/reload` | 触发 AI 关键词黑名单 hot reload (异步, 多副本 ≤5s) |
 
 ### [admin-audit-logs](./admin-audit-logs.md)
 
