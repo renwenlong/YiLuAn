@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct OrderDetailView: View {
     let orderId: String
@@ -19,6 +20,16 @@ struct OrderDetailView: View {
     @State private var showEmergencySheet = false
     /// [F-07] 复诊提醒创建面板
     @State private var showFollowupSheet = false
+
+    /// S3-DEV-001-CONTRACT-UI (ADR-0047 §6.3): 合同/保障 checkbox 默认 unchecked.
+    /// PIPL/民法典电子合同合规要求,不允许 "记住选择" 跳过下次确认.
+    @State private var contractAccepted = false
+    /// S3-DEV-001-CONTRACT-UI: 合同非 active 状态时弹 alert (生成中 / 失败 / 作废).
+    @State private var contractStatusAlertMessage: String?
+    /// S3-DEV-001-CONTRACT-UI: 保障条款静态 alert (S3 vendor PLACEHOLDER 阶段).
+    @State private var showInsuranceTermsAlert = false
+    /// S3-DEV-001-CONTRACT-UI: 合同 service (复用 APIClient.shared).
+    private let contractService = ContractService()
 
     /// AI-9: 命中区 ≥ 44pt（HIG 推荐最小可点尺寸），按钮 frame 用这个常量。
     private let minTapSide: CGFloat = 44
@@ -256,6 +267,13 @@ struct OrderDetailView: View {
             }
 
             if order.status == .created {
+                // S3-DEV-001-CONTRACT-UI (ADR-0047 §6.3): 合同 checkbox 默认 unchecked +
+                // 支付按钮 disabled until 勾选. order.contractId == nil (历史订单) 时
+                // 不显示 checkbox, 支付按钮直接可用.
+                if let contractId = order.contractId {
+                    contractAcceptanceRow(contractId: contractId, hasInsurance: order.insuranceId != nil)
+                }
+
                 Button {
                     Task {
                         actionInProgress = true
@@ -272,7 +290,8 @@ struct OrderDetailView: View {
                     actionLabel(actionInProgress ? "处理中..." : "立即支付", showProgress: actionInProgress)
                 }
                 .buttonStyle(.borderedProminent)
-                .disabled(actionInProgress)
+                // disabled = actionInProgress OR (合同存在 && 未勾选)
+                .disabled(actionInProgress || (order.contractId != nil && !contractAccepted))
             }
 
             // [F-03] 紧急呼叫：服务进行中/已接单状态可用，与 wechat 一致
@@ -356,6 +375,97 @@ struct OrderDetailView: View {
             .buttonStyle(.borderedProminent)
             .tint(.orange)
             .disabled(actionInProgress)
+        }
+    }
+
+    // MARK: - Contract acceptance (S3-DEV-001-CONTRACT-UI)
+
+    /// 合同/保障 checkbox 行 — order.status == .created && order.contractId != nil 时展示.
+    @ViewBuilder
+    private func contractAcceptanceRow(contractId: String, hasInsurance: Bool) -> some View {
+        VStack(alignment: .leading, spacing: Spacing.xs) {
+            HStack(alignment: .top, spacing: Spacing.sm) {
+                Button {
+                    Task { await toggleContractAccept(contractId: contractId) }
+                } label: {
+                    Image(systemName: contractAccepted ? "checkmark.square.fill" : "square")
+                        .font(.title3)
+                        .foregroundColor(contractAccepted ? .green : .secondary)
+                        .accessibilityLabel(contractAccepted ? "已勾选合同同意" : "未勾选合同同意")
+                }
+                .buttonStyle(.plain)
+
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) {
+                        Text("我已阅读并同意")
+                            .font(.subheadline)
+                        Button("《医路安陪诊服务合同》") {
+                            Task { await viewContract(contractId: contractId) }
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(.green)
+                    }
+                    if hasInsurance {
+                        Button("《陪诊责任险服务条款》") {
+                            showInsuranceTermsAlert = true
+                        }
+                        .font(.subheadline)
+                        .foregroundColor(.green)
+                    }
+                }
+                Spacer()
+            }
+            if !contractAccepted {
+                Text("勾选上方同意后可继续支付")
+                    .font(.caption)
+                    .foregroundColor(.orange)
+                    .padding(.leading, 32)
+            }
+        }
+        .padding(Spacing.md)
+        .background(Color(.systemGray6))
+        .cornerRadius(8)
+        .alert("合同状态", isPresented: .init(
+            get: { contractStatusAlertMessage != nil },
+            set: { if !$0 { contractStatusAlertMessage = nil } }
+        )) {
+            Button("知道了", role: .cancel) { }
+        } message: {
+            Text(contractStatusAlertMessage ?? "")
+        }
+        .alert("陪诊责任险服务条款", isPresented: $showInsuranceTermsAlert) {
+            Button("我已了解", role: .cancel) { }
+        } message: {
+            Text("本服务由医路安平台合作保险公司承保,保障范围包括陪诊期间意外医疗等. S3 灰度阶段保险条款为静态版本,正式版以理赔时实际生效条款为准. 如有问题请联系客服.")
+        }
+    }
+
+    /// 切换勾选状态. 勾选时立即调 POST /accept 写 audit log
+    /// (ADR-0047 §3.5 PIPL 取证). 失败不回滚 UI — 服务端 cron 兜底.
+    private func toggleContractAccept(contractId: String) async {
+        let newChecked = !contractAccepted
+        contractAccepted = newChecked
+        guard newChecked else { return }  // 取消勾选不发 audit
+        do {
+            _ = try await contractService.acceptContract(contractId: contractId)
+        } catch {
+            // 失败 toast 但不回滚 contractAccepted — 服务端 cron 兜底
+            contractStatusAlertMessage = "合同确认网络异常,请检查后重试"
+        }
+    }
+
+    /// 查看合同 PDF — 取 signed URL (15min TTL) → Safari 打开.
+    /// 服务端会同时写 user_audit_logs.contract_viewed.
+    private func viewContract(contractId: String) async {
+        do {
+            let detail = try await contractService.getContract(contractId: contractId)
+            if let signedUrl = detail.signedUrl, let url = URL(string: signedUrl) {
+                await UIApplication.shared.open(url)
+            } else {
+                contractStatusAlertMessage = detail.status.userFacingMessage
+            }
+        } catch {
+            contractStatusAlertMessage = "合同详情加载失败,请稍后重试"
         }
     }
 
