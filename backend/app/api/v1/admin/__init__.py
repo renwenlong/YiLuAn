@@ -13,6 +13,7 @@ as the v2 follow-up (see ``docs/admin-mvp-scope.md``).
 
 from fastapi import APIRouter
 
+from app.api.v1.admin.ai_blocklist import router as admin_ai_blocklist_router
 from app.api.v1.admin.audit_logs import router as audit_logs_router
 from app.api.v1.admin.auth import router as auth_router
 from app.api.v1.admin.companions import (
@@ -45,6 +46,7 @@ router.include_router(audit_logs_router)
 router.include_router(public_certification_images_router)
 router.include_router(companions_router)
 router.include_router(admin_contracts_router)
+router.include_router(admin_ai_blocklist_router)
 router.include_router(orders_router)
 router.include_router(admin_order_timeline_router)
 router.include_router(admin_notes_router)

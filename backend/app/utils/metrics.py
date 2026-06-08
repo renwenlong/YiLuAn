@@ -84,6 +84,26 @@ contract_worm_repair_total = Counter(
     ["outcome"],  # "applied" | "retry_again" | "permanently_failed" | "skipped" | "error"
 )
 
+# S3-DEV-002-KEYWORD-FILTER (ADR-0048 §4.2 / §4.4): 双层关键词过滤拦截计数
+ai_prep_filter_l1_blocked_total = Counter(
+    "ai_prep_filter_l1_blocked_total",
+    "AI 准备包 L1 input 层关键词拦截计数 (用户主诉入 prompt 前 hit)",
+    ["category"],  # diagnosis / dosage / prescription / treatment_plan / lab_results / billing
+)
+
+ai_prep_filter_l2_blocked_total = Counter(
+    "ai_prep_filter_l2_blocked_total",
+    "AI 准备包 L2 output 层关键词拦截计数 (LLM 返回后 hit, 不用不是 LLM 越界信号)",
+    ["category"],
+)
+
+# S3-DEV-002-KEYWORD-FILTER (ADR-0048 §4.1): admin 查看关键词记 audit_log
+ai_blocklist_viewed_total = Counter(
+    "ai_blocklist_viewed_total",
+    "admin 查看 AI 关键词黑名单计数 (audit_log action=ai_blocklist_viewed 同步)",
+    ["admin_id"],
+)
+
 # WebSocket auth handshake outcome (PR: WS auth via first frame).
 # Replaces the legacy `?token=***` query-string auth path.
 # `result` values:

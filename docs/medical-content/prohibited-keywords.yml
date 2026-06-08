@@ -1,0 +1,127 @@
+# prohibited-keywords.yml
+# S3-DEV-002-KEYWORD-FILTER / ADR-0048 §4.1
+#
+# AI 准备包双层禁区关键词列表 (input + output 过滤)
+#
+# 维护方式:
+# - 任何更新必须通过 PR + 医疗顾问 review approve
+# - admin-v2 关键词页 read-only (不允许后台直改)
+# - backend 启动时加载 + 后续可触发 reload (hot reload 在后续 task 实施)
+#
+# 6 大分类 (PRD-003 v0.3 §4.4 AC-4):
+# - diagnosis        : 诊断/确诊/疾病判断类
+# - dosage           : 用药剂量类
+# - prescription     : 处方/开药类
+# - treatment_plan   : 治疗方案/手术类
+# - lab_results      : 检验结果解读类
+# - billing          : 费用/医保类 (避免给出非专业财务建议)
+#
+# 命中处理 (ADR-0048 §4.3):
+# - L1 input (用户主诉) hit  -> 直接 fallback 通用模板, 不发 LLM, 写 metric ai_prep_filter_l1_blocked_{category}
+# - L2 output (AI 返回) hit  -> fallback 通用模板, 写 metric ai_prep_filter_l2_blocked_{category}
+#
+# Pattern 说明:
+# - 当前 v1.0 用纯子串匹配 (str.contains), 不走 regex
+# - 后续 v2 如需 regex 在 yml 加 type: regex 字段
+# - 大小写不敏感 (运行时 .lower() 对比)
+
+version: "1.0.0"
+created_at: "2026-06-08"
+maintainer: "凝光 (PM) + 医疗顾问 review"
+
+categories:
+  diagnosis:
+    description: "诊断/确诊类 — AI 不得给出诊断建议"
+    patterns:
+      - "诊断为"
+      - "确诊"
+      - "怀疑得了"
+      - "是否得了"
+      - "你患的是"
+      - "你这是"
+      - "应该是"
+      - "可能是某某病"
+      - "得了什么病"
+      - "是不是癌症"
+      - "肿瘤性质"
+      - "良性还是恶性"
+
+  dosage:
+    description: "用药剂量类 — AI 不得给出剂量建议"
+    patterns:
+      - "几片"
+      - "几粒"
+      - "每天吃几次"
+      - "服用剂量"
+      - "饭前服用"
+      - "饭后服用"
+      - "推荐剂量"
+      - "增加剂量"
+      - "减少剂量"
+      - "停药"
+      - "改变剂量"
+      - "服用方法"
+
+  prescription:
+    description: "处方/开药类 — AI 不得开处方"
+    patterns:
+      - "处方"
+      - "开药"
+      - "建议服用"
+      - "应该吃"
+      - "推荐药物"
+      - "换药"
+      - "替代药"
+      - "请用以下药物"
+      - "可以试试"
+      - "用药建议"
+      - "首选药物"
+      - "二线药物"
+
+  treatment_plan:
+    description: "治疗方案/手术类 — AI 不得给出治疗方案建议"
+    patterns:
+      - "治疗方案"
+      - "手术建议"
+      - "需要手术"
+      - "是否需要化疗"
+      - "放疗几次"
+      - "推荐治疗"
+      - "建议治疗"
+      - "保守治疗"
+      - "激进治疗"
+      - "中医治疗"
+      - "西医治疗"
+      - "替代疗法"
+
+  lab_results:
+    description: "检验结果解读类 — AI 不得解读检验报告"
+    patterns:
+      - "化验单"
+      - "检验报告"
+      - "指标偏高"
+      - "指标偏低"
+      - "正常范围"
+      - "异常值"
+      - "肿瘤标志物"
+      - "CT 显示"
+      - "B 超显示"
+      - "心电图异常"
+      - "血常规"
+      - "尿常规"
+
+  billing:
+    description: "费用/医保类 — AI 不得给出非专业财务/医保建议"
+    patterns:
+      - "医保报销"
+      - "可以走医保"
+      - "自费"
+      - "报销比例"
+      - "异地结算"
+      - "新农合"
+      - "商业保险"
+      - "理赔"
+      - "退费"
+      - "起付线"
+      - "封顶线"
+      - "免赔额"
