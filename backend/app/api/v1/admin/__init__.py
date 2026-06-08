@@ -21,6 +21,7 @@ from app.api.v1.admin.companions import (
 from app.api.v1.admin.companions import (
     router as companions_router,
 )
+from app.api.v1.admin.contracts import router as admin_contracts_router
 from app.api.v1.admin.dashboard import router as dashboard_router
 from app.api.v1.admin.dead_letters import router as dead_letters_router
 from app.api.v1.admin.notes import (
@@ -43,6 +44,7 @@ router.include_router(dashboard_router)
 router.include_router(audit_logs_router)
 router.include_router(public_certification_images_router)
 router.include_router(companions_router)
+router.include_router(admin_contracts_router)
 router.include_router(orders_router)
 router.include_router(admin_order_timeline_router)
 router.include_router(admin_notes_router)

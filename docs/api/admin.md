@@ -27,6 +27,7 @@
 | `POST` | `/api/v1/admin/companions/{companion_id}/approve` | 后台：批准陪诊师入驻 |
 | `POST` | `/api/v1/admin/companions/{companion_id}/certify` | 管理员：设置陪诊师资质认证（F-01） |
 | `POST` | `/api/v1/admin/companions/{companion_id}/reject` | 后台：驳回陪诊师申请 |
+| `POST` | `/api/v1/admin/contracts/{contract_id}/invalidate` | admin 客服作废合同 (AC#3) |
 | `GET` | `/api/v1/admin/dashboard/summary` | 后台首页：KPI + 7 日趋势 |
 | `GET` | `/api/v1/admin/dead-letters` | 后台：死信队列表 |
 | `GET` | `/api/v1/admin/dead-letters/{dl_id}` | 后台：死信详情 |
@@ -316,6 +317,51 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/admin/companions/{companion_
 
 ```bash
 curl -X POST 'https://api.yiluan.example.com/api/v1/admin/companions/{companion_id}/reject' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `POST /api/v1/admin/contracts/{contract_id}/invalidate` — admin 客服作废合同 (AC#3)
+
+客服在用户申请作废合同 / 灰度回滚 / 误生成时使用。
+
+**必须** JWT admin 登录, 拒绝 legacy X-Admin-Token (需 admin_user.id).
+
+副作用:
+- service_contracts.status → manually_invalidated
+- service_contracts.invalidation_reason / invalidated_by_admin_id / invalidated_at 填
+- 写 admin_audit_logs (target_type=service_contract, action=invalidate)
+- **不删 blob** (WORM 不可删, ADR-0046 §3.3 第 3 层)
+- **不退款** (走 PaymentService 独立流程)
+
+**参数：**
+
+- `contract_id` (path, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**请求体（JSON）：**
+
+```json
+""
+```
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `401` | 未鉴权或令牌无效 |
+| `403` | 无权限 |
+| `404` | 资源不存在 |
+| `422` | 校验失败（FastAPI 标准） |
+| `500` | 服务器内部错误 |
+
+**curl 示例：**
+
+```bash
+curl -X POST 'https://api.yiluan.example.com/api/v1/admin/contracts/{contract_id}/invalidate' \
   -H 'Authorization: Bearer <access_token>'
 ```
 

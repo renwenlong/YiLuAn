@@ -5,6 +5,7 @@ from app.api.v1.auth import router as auth_router
 from app.api.v1.auth_apple import router as auth_apple_router
 from app.api.v1.chats import router as chats_router
 from app.api.v1.companions import router as companions_router
+from app.api.v1.contracts import router as contracts_router
 from app.api.v1.emergency import router as emergency_router
 from app.api.v1.family_members import router as family_members_router
 from app.api.v1.followup_reminders import router as followup_reminders_router
@@ -46,6 +47,7 @@ api_v1_router.include_router(hospitals_router)
 api_v1_router.include_router(orders_router)
 api_v1_router.include_router(reviews_router)
 api_v1_router.include_router(chats_router)
+api_v1_router.include_router(contracts_router)
 api_v1_router.include_router(emergency_router)
 api_v1_router.include_router(notifications_router)
 api_v1_router.include_router(wallet_router)

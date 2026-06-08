@@ -35,6 +35,71 @@
         "title": "AdjustmentResponse",
         "type": "object"
       },
+      "AdminContractInvalidateRequest": {
+        "description": "POST /api/v1/admin/contracts/{contract_id}/invalidate body.\n\nAC#3: 必填 reason + invalidated_by_admin_id 通过 admin auth Depends 注入。",
+        "properties": {
+          "reason": {
+            "description": "作废原因 (必填, 进 admin_audit_logs.reason + service_contracts.invalidation_reason)",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "AdminContractInvalidateRequest",
+        "type": "object"
+      },
+      "AdminContractInvalidateResponse": {
+        "description": "POST /api/v1/admin/contracts/{contract_id}/invalidate return.",
+        "properties": {
+          "admin_audit_log_id": {
+            "format": "uuid",
+            "title": "Admin Audit Log Id",
+            "type": "string"
+          },
+          "contract_id": {
+            "format": "uuid",
+            "title": "Contract Id",
+            "type": "string"
+          },
+          "invalidated_at": {
+            "format": "date-time",
+            "title": "Invalidated At",
+            "type": "string"
+          },
+          "invalidated_by_admin_id": {
+            "title": "Invalidated By Admin Id",
+            "type": "integer"
+          },
+          "invalidation_reason": {
+            "title": "Invalidation Reason",
+            "type": "string"
+          },
+          "order_id": {
+            "format": "uuid",
+            "title": "Order Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ContractStatus",
+            "description": "操作后 status (永远是 'manually_invalidated')"
+          }
+        },
+        "required": [
+          "contract_id",
+          "order_id",
+          "status",
+          "invalidated_at",
+          "invalidated_by_admin_id",
+          "invalidation_reason",
+          "admin_audit_log_id"
+        ],
+        "title": "AdminContractInvalidateResponse",
+        "type": "object"
+      },
       "AdminLoginRequest": {
         "properties": {
           "password": {
@@ -1306,6 +1371,131 @@
         },
         "title": "CompanionStatsResponse",
         "type": "object"
+      },
+      "ContractAcceptanceRequest": {
+        "description": "POST /api/v1/contracts/{contract_id}/accept body.\n\nAC#1 (ADR-0047 §6.3): 用户勾选合同同意 (默认 unchecked).\n\nNo-op body — order_id 与 user 信息从 path + auth 提取。本 schema 保留\n作为未来扩展位 (e.g. acceptance 时回填用户问卷).",
+        "properties": {},
+        "title": "ContractAcceptanceRequest",
+        "type": "object"
+      },
+      "ContractAcceptanceResponse": {
+        "description": "POST /api/v1/contracts/{contract_id}/accept return.\n\n确认 audit log 写入 + 返回最新合同状态供前端校验。",
+        "properties": {
+          "accepted_at": {
+            "description": "user_audit_logs.created_at 时间 (UTC)",
+            "format": "date-time",
+            "title": "Accepted At",
+            "type": "string"
+          },
+          "audit_log_id": {
+            "description": "user_audit_logs 行 ID, 取证溯源用",
+            "format": "uuid",
+            "title": "Audit Log Id",
+            "type": "string"
+          },
+          "contract_id": {
+            "format": "uuid",
+            "title": "Contract Id",
+            "type": "string"
+          },
+          "order_id": {
+            "format": "uuid",
+            "title": "Order Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contract_id",
+          "order_id",
+          "accepted_at",
+          "audit_log_id"
+        ],
+        "title": "ContractAcceptanceResponse",
+        "type": "object"
+      },
+      "ContractDetailResponse": {
+        "description": "GET /api/v1/contracts/{contract_id} user-facing return.\n\nAC#2 (ADR-0047 §6.2): 返签名 URL (15min TTL) + 基础元信息。\n**不暴露** invalidation_reason / invalidated_by_admin_id / hash_inputs\n等 admin-only 字段 (ABAC §1 schema 层兜底)。",
+        "properties": {
+          "contract_id": {
+            "format": "uuid",
+            "title": "Contract Id",
+            "type": "string"
+          },
+          "generated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "WORM 写入 time; status != 'active' 时为 None",
+            "title": "Generated At"
+          },
+          "order_id": {
+            "format": "uuid",
+            "title": "Order Id",
+            "type": "string"
+          },
+          "signed_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "ContractStorage 签名 URL (TTL=15min, ViewerRole.USER). status != 'active' 时为 None (PDF 还没生成).",
+            "title": "Signed Url"
+          },
+          "signed_url_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "signed URL 失效时间; status != 'active' 时为 None",
+            "title": "Signed Url Expires At"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ContractStatus"
+          },
+          "template_version": {
+            "title": "Template Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "contract_id",
+          "order_id",
+          "template_version",
+          "status",
+          "signed_url",
+          "signed_url_expires_at",
+          "generated_at"
+        ],
+        "title": "ContractDetailResponse",
+        "type": "object"
+      },
+      "ContractStatus": {
+        "description": "Contract lifecycle states (ADR-0047 §3.1, 6 states ground truth).",
+        "enum": [
+          "pending_generation",
+          "generating",
+          "active",
+          "generation_failed",
+          "generation_permanently_failed",
+          "manually_invalidated"
+        ],
+        "title": "ContractStatus",
+        "type": "string"
       },
       "CreateFamilyMemberRequest": {
         "properties": {
@@ -6777,6 +6967,142 @@
         ]
       }
     },
+    "/api/v1/admin/contracts/{contract_id}/invalidate": {
+      "post": {
+        "description": "客服在用户申请作废合同 / 灰度回滚 / 误生成时使用。\n\n**必须** JWT admin 登录, 拒绝 legacy X-Admin-Token (需 admin_user.id).\n\n副作用:\n- service_contracts.status → manually_invalidated\n- service_contracts.invalidation_reason / invalidated_by_admin_id / invalidated_at 填\n- 写 admin_audit_logs (target_type=service_contract, action=invalidate)\n- **不删 blob** (WORM 不可删, ADR-0046 §3.3 第 3 层)\n- **不退款** (走 PaymentService 独立流程)",
+        "operationId": "invalidate_contract_api_v1_admin_contracts__contract_id__invalidate_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contract_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Contract Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminContractInvalidateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminContractInvalidateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "summary": "admin 客服作废合同 (AC#3)",
+        "tags": [
+          "admin",
+          "admin-contracts"
+        ]
+      }
+    },
     "/api/v1/admin/dashboard/summary": {
       "get": {
         "description": "返回今日订单数 / GMV / 待审陆的陪诊师 / 未关闭差异等 KPI 以及过去 7 日的趋势点位。",
@@ -11234,6 +11560,212 @@
         "summary": "陪诊师收到的评价列表",
         "tags": [
           "reviews"
+        ]
+      }
+    },
+    "/api/v1/contracts/{contract_id}": {
+      "get": {
+        "description": "返合同元信息 + ContractStorage 签名 URL (TTL=15min, ViewerRole.USER, ADR-0046 §3.1).\n\n`status != 'active'` (生成中 / 失败 / 作废) 时 signed_url 为 null, 前端按 status 显示对应文案.\n\n写 `user_audit_logs.contract_viewed` 留痕 (PIPL 取证).",
+        "operationId": "get_contract_api_v1_contracts__contract_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contract_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Contract Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Rate limit exceeded: 5 per 1 minute"
+                }
+              }
+            },
+            "description": "触发限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "用户查看合同详情 + 签名 URL (AC#2)",
+        "tags": [
+          "contracts"
+        ]
+      }
+    },
+    "/api/v1/contracts/{contract_id}/accept": {
+      "post": {
+        "description": "用户在支付前勾选 '我已阅读并同意' checkbox 时调用。\n\n写 `user_audit_logs.contract_acceptance_clicked` 留痕 (含 user_agent + client_ip, PIPL/民法典电子合同取证). **幂等**: 同一用户重复 accept 同一 contract 会写多条 audit log (取证需要看到所有勾选时点), 但 contract 状态不变.",
+        "operationId": "accept_contract_api_v1_contracts__contract_id__accept_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "contract_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Contract Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContractAcceptanceRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContractAcceptanceResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Rate limit exceeded: 5 per 1 minute"
+                }
+              }
+            },
+            "description": "触发限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "用户勾选合同同意 (AC#1)",
+        "tags": [
+          "contracts"
         ]
       }
     },
