@@ -1,0 +1,203 @@
+name: CI Failure Notify
+
+# ---------------------------------------------------------------------------
+# S2-OPS-020 (帝君 2026-06-08 07:39 UTC 拍 A3f 立项,胡桃 implement)
+#
+# 背景: PR #204 CI fail 黑盒 34h, PR #199 黑盒 5h, 趋势恶化, 团队无及时感知
+# 造成流程死链. 本 workflow 在 PR CI 任一 required job 转 failure 时, ≤2min
+# 内自动 PR comment 标失败 job + log link + 触发璃月群 webhook.
+#
+# ## 工作原理
+# 用 GitHub workflow_run event 监听其他 workflow 完成. conclusion in
+# (failure, cancelled, timed_out) 时执行 notify job. PR comment 用
+# GITHUB_TOKEN 自动 auth. 群 webhook 走 secrets.LIYUE_GROUP_WEBHOOK_URL
+# (未配置则 fallback dry-run, 只 log 不发).
+#
+# ## 监听的 workflows
+# 必须显式枚举要监听的 workflow (workflow_run 不能 wildcard). 当前 required
+# checks 是 backend / docker-build / wechat (由 Tests workflow 提供), 加
+# admin-v2 CI. alembic-smoke 虽非 required, 但本 sprint 多次 fail 故也加入.
+#
+# ## 去重 (AC2)
+# 用 workflow_run.id 作 marker, 写到 PR comment 顶部隐藏 marker
+# <!-- ci-failure-notify-marker:run_id={run_id} -->
+# 先 list PR comments 检查同 run_id 是否已 comment 过, 已有则跳过.
+# ---------------------------------------------------------------------------
+
+on:
+  workflow_run:
+    workflows:
+      - Tests
+      - Alembic Smoke (PG-only)
+      - admin-v2 CI
+    types:
+      - completed
+
+jobs:
+  notify:
+    name: Notify on CI failure
+    runs-on: ubuntu-latest
+    # 只在失败 (含 cancelled / timed_out) 时跑. success / skipped 跳过.
+    if: >
+      github.event.workflow_run.conclusion == 'failure' ||
+      github.event.workflow_run.conclusion == 'cancelled' ||
+      github.event.workflow_run.conclusion == 'timed_out'
+    permissions:
+      # 写 PR comment 需要 issues:write (PR comment 走 issues API)
+      issues: write
+      pull-requests: write
+      contents: read
+      actions: read
+    steps:
+      - name: Post PR comment + collect summary
+        id: comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const run = context.payload.workflow_run;
+            const repo = context.repo;
+            const runId = run.id;
+            const runUrl = run.html_url;
+            const workflowName = run.name;
+            const conclusion = run.conclusion;
+            const author = run.actor && run.actor.login ? run.actor.login : 'unknown';
+            const headSha = run.head_sha;
+
+            // 1. 解析 PR number: 优先 workflow_run.pull_requests[0], 兜底 head_sha 反查
+            let prNumber = null;
+            if (run.pull_requests && run.pull_requests.length > 0) {
+              prNumber = run.pull_requests[0].number;
+            }
+            if (!prNumber) {
+              try {
+                const { data } = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+                  owner: repo.owner,
+                  repo: repo.repo,
+                  commit_sha: headSha,
+                });
+                if (data && data.length > 0) {
+                  prNumber = data[0].number;
+                }
+              } catch (e) {
+                core.warning(`Failed to resolve PR from head_sha=${headSha}: ${e.message}`);
+              }
+            }
+
+            // 2. 采集失败 job 摘要
+            const jobsResp = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+              owner: repo.owner,
+              repo: repo.repo,
+              run_id: runId,
+            });
+            const failingJobs = jobsResp.filter(j =>
+              j.conclusion === 'failure' ||
+              j.conclusion === 'cancelled' ||
+              j.conclusion === 'timed_out'
+            );
+            let summaryMd;
+            if (failingJobs.length === 0) {
+              summaryMd = '- (workflow 整体失败但无单 job conclusion=failure, 见 workflow log)';
+            } else {
+              summaryMd = failingJobs
+                .map(j => `- **${j.name}** (${j.conclusion}) → [log](${j.html_url})`)
+                .join('\n');
+            }
+
+            // 3. 输出给下游 step (送群 webhook 用)
+            core.setOutput('pr_number', prNumber ? String(prNumber) : '');
+            core.setOutput('summary', summaryMd);
+            core.setOutput('workflow_name', workflowName);
+            core.setOutput('conclusion', conclusion);
+            core.setOutput('run_url', runUrl);
+            core.setOutput('run_id', String(runId));
+            core.setOutput('author', author);
+
+            // 4. 无 PR (push 到 main / fork 跨 owner 失败) → 跳过 PR comment
+            if (!prNumber) {
+              core.notice(`No PR associated with workflow_run (head_sha=${headSha}); skipping PR comment (group webhook 仍会跑)`);
+              return;
+            }
+
+            // 5. 去重: 检查同 run_id marker 是否已 comment 过
+            const marker = `<!-- ci-failure-notify-marker:run_id=${runId} -->`;
+            const existing = await github.paginate(github.rest.issues.listComments, {
+              owner: repo.owner,
+              repo: repo.repo,
+              issue_number: prNumber,
+              per_page: 100,
+            });
+            const dup = existing.find(c => c.body && c.body.includes(marker));
+            if (dup) {
+              core.notice(`Dedupe hit (run_id=${runId} already commented as #${dup.id}); skipping`);
+              return;
+            }
+
+            // 6. 写 PR comment
+            const body = [
+              marker,
+              `🚨 **CI 失败通报** (S2-OPS-020 自动)`,
+              ``,
+              `- workflow: **${workflowName}** (conclusion=\`${conclusion}\`)`,
+              `- run: [#${runId}](${runUrl})`,
+              `- 触发: @${author}`,
+              ``,
+              `**失败 job:**`,
+              summaryMd,
+              ``,
+              `请 author / reviewer 查看 log 后修复或重跑.`,
+            ].join('\n');
+
+            await github.rest.issues.createComment({
+              owner: repo.owner,
+              repo: repo.repo,
+              issue_number: prNumber,
+              body,
+            });
+            core.notice(`PR comment posted on #${prNumber}`);
+
+      - name: Send group webhook
+        env:
+          WEBHOOK_URL: ${{ secrets.LIYUE_GROUP_WEBHOOK_URL }}
+          PR_NUMBER: ${{ steps.comment.outputs.pr_number }}
+          SUMMARY: ${{ steps.comment.outputs.summary }}
+          WORKFLOW_NAME: ${{ steps.comment.outputs.workflow_name }}
+          CONCLUSION: ${{ steps.comment.outputs.conclusion }}
+          RUN_URL: ${{ steps.comment.outputs.run_url }}
+          AUTHOR: ${{ steps.comment.outputs.author }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${WEBHOOK_URL:-}" ]; then
+            echo "::notice::LIYUE_GROUP_WEBHOOK_URL secret not configured; dry-run (log only, no group send)"
+            echo "--- Would have sent ---"
+            echo "workflow: $WORKFLOW_NAME ($CONCLUSION)"
+            echo "run: $RUN_URL"
+            echo "author: $AUTHOR"
+            echo "PR: ${PR_NUMBER:-N/A}"
+            echo "summary:"
+            echo "$SUMMARY"
+            exit 0
+          fi
+
+          pr_line=""
+          if [ -n "${PR_NUMBER:-}" ]; then
+            pr_line="PR #${PR_NUMBER} · "
+          fi
+
+          # 飞书自定义机器人 text 消息 (1-2 行可读, AC3).
+          # 用 jq -n 安全构造 JSON, 避免 summary 含 " / \ / 换行时破 payload.
+          text="🚨 CI 失败 · ${pr_line}${WORKFLOW_NAME} (${CONCLUSION}) · @${AUTHOR}
+          run: ${RUN_URL}
+          ${SUMMARY}"
+
+          payload=$(jq -n --arg text "$text" '{
+            msg_type: "text",
+            content: { text: $text }
+          }')
+
+          # 发送; 用 -f 让 curl 在 HTTP >=400 时退出非 0
+          response=$(curl -sS -f -X POST \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            "$WEBHOOK_URL")
+          echo "webhook response: $response"
