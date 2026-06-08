@@ -78,6 +78,11 @@ class Settings(BaseSettings):
     # WORM repair cron 触发间隔 (秒). 默认 3600s (每小时) — acceptance criterion #3.
     contract_worm_repair_interval_seconds: int = 3600
 
+    # S3-DEV-002-HOT-RELOAD: AI blocklist Redis pub/sub hot reload
+    # 默认 True (与 KEYWORD-FILTER 一起灰度, prod 多副本需要秒级生效);
+    # 设 False 仅在开发/CI 环境 (单进程 cold reload 足够).
+    ai_blocklist_pubsub_enabled: bool = True
+
     # Apple Sign-In (W18-A)
     # TODO(PM): supply real values for production. See `placeholders` doc.
     apple_team_id: str = ""  # TODO: 10-char Apple Developer Team ID

@@ -449,6 +449,38 @@
         "title": "BlocklistCategoryItem",
         "type": "object"
       },
+      "BlocklistDebugVersionResponse": {
+        "properties": {
+          "categories": {
+            "default": 0,
+            "description": "当前副本读到的分类数",
+            "title": "Categories",
+            "type": "integer"
+          },
+          "instance": {
+            "description": "backend 副本标识 (HOSTNAME 或 socket.gethostname)",
+            "title": "Instance",
+            "type": "string"
+          },
+          "total_patterns": {
+            "default": 0,
+            "description": "当前副本读到的 pattern 总数",
+            "title": "Total Patterns",
+            "type": "integer"
+          },
+          "version": {
+            "description": "当前副本读到的 yml version",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instance",
+          "version"
+        ],
+        "title": "BlocklistDebugVersionResponse",
+        "type": "object"
+      },
       "BlocklistPreviewResponse": {
         "properties": {
           "categories": {
@@ -479,6 +511,37 @@
           "version"
         ],
         "title": "BlocklistPreviewResponse",
+        "type": "object"
+      },
+      "BlocklistReloadResponse": {
+        "properties": {
+          "accepted": {
+            "default": true,
+            "description": "固定 True; 实际 reload 是异步",
+            "title": "Accepted",
+            "type": "boolean"
+          },
+          "channel": {
+            "description": "Redis pub/sub channel name (供 debug)",
+            "title": "Channel",
+            "type": "string"
+          },
+          "note": {
+            "default": "该接口仅发出 reload 事件; 各副本实际在后台 subscriber 处理, 需 5s 内留意。用 /admin/ai-blocklist/debug-version 验证各副本生效。",
+            "title": "Note",
+            "type": "string"
+          },
+          "triggered_by_admin_id": {
+            "description": "触发者 admin id",
+            "title": "Triggered By Admin Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "channel",
+          "triggered_by_admin_id"
+        ],
+        "title": "BlocklistReloadResponse",
         "type": "object"
       },
       "Body_upload_avatar_api_v1_users_me_avatar_post": {
@@ -6162,6 +6225,93 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/ai-blocklist/debug-version": {
+      "get": {
+        "description": "S3-DEV-002-HOT-RELOAD 验证端点. PRD-003 v0.3 §7 灰度监控: 两副本 admin trigger reload 后 5s 内, 各调此接口均返新 version.\n不会写 audit_log (仅技术 debug 入口, 低成本调 OK).",
+        "operationId": "debug_blocklist_version_api_v1_admin_ai_blocklist_debug_version_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlocklistDebugVersionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "返本副本当前读到的 blocklist version (验 reload 传播)",
+        "tags": [
+          "admin",
+          "admin-ai-blocklist"
+        ]
+      }
+    },
     "/api/v1/admin/ai-blocklist/preview": {
       "get": {
         "description": "ADR-0048 §4.1 admin-v2 关键词查看页:\n- read-only — 不允许 admin 后台直改, 修改走 PR + 医疗顾问 review\n- 任何 admin 调用写 admin_audit_logs action=ai_blocklist_viewed\n- 同时 incr metric ai_blocklist_viewed_total{admin_id=...}\n- query category 可过滤单个分类, 不带返全部 6 大分类",
@@ -6271,6 +6421,103 @@
           }
         },
         "summary": "查看 AI 双层关键词过滤 blocklist (read-only)",
+        "tags": [
+          "admin",
+          "admin-ai-blocklist"
+        ]
+      }
+    },
+    "/api/v1/admin/ai-blocklist/reload": {
+      "post": {
+        "description": "S3-DEV-002-HOT-RELOAD (ADR-0048 §4.1 + 刻晴 review #5).\nadmin 修改 docs/medical-content/prohibited-keywords.yml (走 PR + 医疗顾问 review approve + merge main) 后, 调此接口 publish reload 事件 → 所有 backend 副本 subscriber 收事件 → load_blocklist() 重 init cache.\n“不会” 等待传播: 返 202 Accepted, 各副本 ≤5s 内生效 (PRD-003 v0.3 §7).\n审计: admin_audit_logs action=ai_blocklist_reload + admin_id; metric ai_blocklist_reload_triggered_total{admin_id} incr.",
+        "operationId": "trigger_blocklist_reload_api_v1_admin_ai_blocklist_reload_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlocklistReloadResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "summary": "触发 AI 关键词黑名单 hot reload (异步, 多副本 ≤5s)",
         "tags": [
           "admin",
           "admin-ai-blocklist"
