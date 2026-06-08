@@ -30,8 +30,6 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from app.core.distributed_lock import (
-    PostgresAdvisoryLock,
-    RedisNXLock,
     acquire_scheduler_lock,
 )
 from app.database import async_session
@@ -126,16 +124,17 @@ async def _try_acquire_lock(redis_client, key: str, ttl: int) -> bool:
 
 def create_scheduler(app) -> AsyncIOScheduler:
     """创建并配置调度器（不 start）。调用方负责 start()/shutdown()。"""
+    from app.cron.ai_summary_enqueue import process_pending_digests_job
+    from app.cron.cleanup_emergency_pii import cleanup_emergency_pii
+    from app.cron.contract_generate_pickup import contract_generate_pickup_job
+    from app.cron.reconcile_money import reconcile_money_job
+    from app.cron.reconciliation_cleanup import reconciliation_cleanup_job
+    from app.cron.share_token_scanner import scan_share_token_anomalies_job
+    from app.services.reconciliation.incremental import reconcile_incremental_sweep_job
     from app.tasks.log_retention import (
         cleanup_payment_callback_log,
         cleanup_sms_send_log,
     )
-    from app.cron.cleanup_emergency_pii import cleanup_emergency_pii
-    from app.cron.reconcile_money import reconcile_money_job
-    from app.cron.reconciliation_cleanup import reconciliation_cleanup_job
-    from app.services.reconciliation.incremental import reconcile_incremental_sweep_job
-    from app.cron.share_token_scanner import scan_share_token_anomalies_job
-    from app.cron.ai_summary_enqueue import process_pending_digests_job
 
     scheduler = AsyncIOScheduler(timezone="UTC")
     scheduler.add_job(
@@ -241,6 +240,21 @@ def create_scheduler(app) -> AsyncIOScheduler:
         kwargs={"app": app},
         id="process_pending_ai_digests",
         name="AI digest pending worker (S2-DEV-006)",
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=30,
+        replace_existing=True,
+    )
+    # S3-DEV-001-CONTRACT-PICKUP-CRON / ADR-0046 r5 §3: 拉起
+    # pending_generation 合同行 → ContractService.generate_now 生成 PDF +
+    # WORM-写 blob. 每 1min tick; 实际 batch 上限由
+    # settings.contract_generate_pickup_batch_size 控制。
+    scheduler.add_job(
+        contract_generate_pickup_job,
+        trigger=IntervalTrigger(minutes=1),
+        kwargs={"app": app},
+        id="contract_generate_pickup",
+        name="Contract generation pickup (S3-DEV-001 PICKUP-CRON)",
         coalesce=True,
         max_instances=1,
         misfire_grace_time=30,

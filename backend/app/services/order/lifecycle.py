@@ -146,6 +146,34 @@ class _OrderLifecycleMixin(_OrderServiceBase):
         await self._record_history(
             order.id, OrderStatus.created, OrderStatus.accepted, user.id
         )
+        # S3-DEV-001-CONTRACT-EVENT-WIRING (魈拍板, comment 83e3007a):
+        # accept_order 成功 → 同事务内调 ContractService.request_generation 写 pending_generation
+        # 行。该行后续由 contract_generate_pickup cron 处理 → active。UNIQUE(order_id)
+        # 兼容重复 accept (业务上不应发生, 但 IntegrityError catch 是 deep defense).
+        from sqlalchemy.exc import IntegrityError
+
+        from app.services.contract_service import (
+            ContractRequestGenerationError,
+            ContractService,
+        )
+
+        try:
+            contract_service = ContractService(session=self.session)
+            await contract_service.request_generation(order.id)
+        except IntegrityError:
+            # UNIQUE order_id collision; idempotent skip (多次 accept 不太可能, deep defense)
+            import logging
+
+            logging.getLogger(__name__).info(
+                "contract.request_generation.already_exists",
+                extra={"order_id": str(order.id)},
+            )
+        except ContractRequestGenerationError:
+            # hash compute / resolver 失败 → 让 accept_order 事务回滚,
+            # 上层看到 BadRequestException-类错误。contract 是 accept 的组成部分,
+            # 不能在无 contract 的情况下认 accept 成功.
+            raise
+
         # Notify patient that order was accepted
         await self.notification_svc.notify_order_status_changed(
             order, OrderStatus.accepted.value, order.patient_id

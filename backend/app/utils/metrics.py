@@ -47,6 +47,24 @@ contract_storage_put_error_total = Counter(
     ["errno"],  # "EACCES" | "EROFS" | "ENOSPC" | "OTHER"
 )
 
+# S3-DEV-001-CONTRACT-SERVICE-CORE / ADR-0046 r5 §3 amend:
+# ContractService method outcome counters.
+contract_service_request_generation_total = Counter(
+    "contract_service_request_generation_total",
+    "ContractService.request_generation outcomes",
+    ["outcome"],  # "created" | "already_exists" | "error"
+)
+contract_service_generate_now_total = Counter(
+    "contract_service_generate_now_total",
+    "ContractService.generate_now outcomes",
+    ["outcome"],  # "success" | "failed" | "already_active" | "invalid_state"
+)
+contract_service_retry_failed_total = Counter(
+    "contract_service_retry_failed_total",
+    "ContractService.retry_failed outcomes (WORM-COMPENSATION cron)",
+    ["outcome"],  # "requeued" | "permanently_failed" | "skipped" | "success"
+)
+
 # WebSocket auth handshake outcome (PR: WS auth via first frame).
 # Replaces the legacy `?token=***` query-string auth path.
 # `result` values:
