@@ -401,6 +401,32 @@ class ContractService:
         contract.generated_at = datetime.now(_tz.utc)
         contract.status = ContractStatus.active
         contract.last_error_trace = None
+
+        # S3-DEV-001-CONTRACT-WORM-COMPENSATION: blob 已写 → status=active,
+        # 但 WORM policy 可能未应用 (Azure SDK raise 被 put_contract 接住).
+        # worm_policy_failed=True → 写 worm_status=pending_retry + 触发 metric;
+        # 默认 worm_policy_failed=False (Local backend / Azure mock OK) = 保持 applied.
+        if storage_ref.worm_policy_failed:
+            from app.models.service_contract import ContractWormStatus
+
+            contract.worm_status = ContractWormStatus.pending_retry
+            contract.worm_retry_count = 0
+            contract.worm_last_retry_at = datetime.now(_tz.utc)
+            try:
+                from app.utils.metrics import contract_worm_policy_failed_total
+
+                contract_worm_policy_failed_total.labels(stage="initial").inc()
+            except Exception:  # pragma: no cover - metric infra glitch
+                logger.exception("contract_worm_policy_failed_total.labels.failed")
+            logger.warning(
+                "contract.generate_now.worm_policy_pending_retry",
+                extra={
+                    "contract_id": str(contract.id),
+                    "blob_path": storage_ref.blob_path,
+                    "worm_policy_error": storage_ref.worm_policy_error,
+                },
+            )
+
         await self.session.flush()
         contract_service_generate_now_total.labels(outcome="success").inc()
         logger.info(
@@ -410,6 +436,7 @@ class ContractService:
                 "blob_path": storage_ref.blob_path,
                 "already_existed_in_storage": storage_ref.already_exists,
                 "immutability_applied": storage_ref.immutability_applied,
+                "worm_policy_failed": storage_ref.worm_policy_failed,
             },
         )
         return contract

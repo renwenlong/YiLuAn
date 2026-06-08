@@ -91,10 +91,12 @@ class TestImmutableFieldsSentinel:
         )
         assert len(IMMUTABLE_FIELDS) == 8
 
-    def test_mutable_fields_pinned_7(self):
-        # AC#2 字面 "5 mutable" 是数错 — 实际列 6 个 + updated_at = 7 个。
-        # 7 mutable: status / retry_count / last_error_trace /
-        # invalidation_reason / invalidated_by_admin_id / invalidated_at / updated_at
+    def test_mutable_fields_pinned_10(self):
+        # AC#2 字面 "5 mutable" 是数错 — 原始 7 mutable:
+        # status / retry_count / last_error_trace / invalidation_reason /
+        # invalidated_by_admin_id / invalidated_at / updated_at.
+        # S3-DEV-001-CONTRACT-WORM-COMPENSATION 加 3 字段 (worm_status /
+        # worm_retry_count / worm_last_retry_at) → 10 mutable.
         assert MUTABLE_FIELDS == frozenset(
             {
                 "status",
@@ -104,9 +106,12 @@ class TestImmutableFieldsSentinel:
                 "invalidated_by_admin_id",
                 "invalidated_at",
                 "updated_at",
+                "worm_status",
+                "worm_retry_count",
+                "worm_last_retry_at",
             }
         )
-        assert len(MUTABLE_FIELDS) == 7
+        assert len(MUTABLE_FIELDS) == 10
 
     def test_no_overlap_immutable_mutable(self):
         assert IMMUTABLE_FIELDS.isdisjoint(MUTABLE_FIELDS)

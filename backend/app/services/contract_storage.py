@@ -120,6 +120,29 @@ class ContractStorageRef:
     contract_hash: str  # SHA-256 hex
     already_exists: bool  # True → put_if_absent matched existing (idempotent)
     immutability_applied: bool  # True → Azure Locked policy actually set
+    # S3-DEV-001-CONTRACT-WORM-COMPENSATION: WORM policy 未生效 + blob 已写
+    # → caller 需写 worm_status=pending_retry + 触发 alert metric
+    worm_policy_failed: bool = False
+    # 失败原因 trace, worm_policy_failed=True 时设
+    worm_policy_error: str | None = None
+
+
+class ContractWormPolicyError(RuntimeError):
+    """Raised internally by ``_set_worm_policy_if_azure`` on Azure SDK error.
+
+    ``put_contract`` catches this and converts to ``ContractStorageRef
+    .worm_policy_failed=True`` (does NOT bubble) —— 此时 blob 已成功写入,
+    合同在业务上生效; WORM 应用是 orthogonal 失败, 交给
+    contract_worm_repair cron 开补偿, 不应阻塞 ``status=active``。
+
+    Caller (``ContractService.generate_now`` / ``_render_and_store``):
+    检查 ``ContractStorageRef.worm_policy_failed`` → 写 worm_status=pending_retry
+    + 触发 contract_worm_policy_failed{stage=initial} metric.
+    """
+
+    def __init__(self, message: str, *, original: Exception | None = None) -> None:
+        super().__init__(message)
+        self.original = original
 
 
 class ContractStoragePutError(RuntimeError):
@@ -215,6 +238,11 @@ def _set_worm_policy_if_azure(backend: StorageBackend, blob_path: str) -> bool:
         True if policy was applied; False if skipped (Local backend or
         immutability disabled by env).
 
+    Raises:
+        ContractWormPolicyError: Azure SDK 调用失败 (权限/quota/网络).
+        仅在 backend = AzureBlobStorageBackend + immutability_enabled = True +
+        实现层报错时招. Local backend / mock 路径 不 raise.
+
     Phase A (current): mock — records intent in ``backend._immutability``
     so tests can verify call-shape without a real Azure account.
     Phase B (post 21Vianet):
@@ -235,6 +263,21 @@ def _set_worm_policy_if_azure(backend: StorageBackend, blob_path: str) -> bool:
         )
         return False
     # Phase A mock: stash policy on the backend instance so tests can assert.
+    # Phase B: 这里会变成真 Azure SDK 调用, 可能 raise.
+    # 为了 fault-inject + Phase B forward-compat, 允许 backend instance 携特殊
+    # attribute ``_worm_policy_fault`` (None / Exception) 被试验环境设。
+    # 业务 prod 路径 (未设 attribute) = 不 raise.
+    fault = getattr(backend, "_worm_policy_fault", None)
+    if fault is not None:
+        # 该 attribute 仅 unit/integration test fixture 会设; prod 都是 None.
+        logger.warning(
+            "contract_storage.worm_policy_fault_injected",
+            extra={"blob_path": blob_path, "fault": str(fault)},
+        )
+        raise ContractWormPolicyError(
+            f"set_immutability_policy fault-injected: {fault}",
+            original=fault if isinstance(fault, BaseException) else None,
+        )
     policy_log = getattr(backend, "_immutability_log", None)
     if policy_log is None:
         policy_log = []
@@ -359,13 +402,37 @@ def put_contract(
             errno_label=label,
         ) from err
 
-    immutability_applied = _set_worm_policy_if_azure(backend, blob_path)
+    try:
+        immutability_applied = _set_worm_policy_if_azure(backend, blob_path)
+        worm_policy_failed = False
+        worm_policy_error_str: str | None = None
+    except ContractWormPolicyError as worm_exc:
+        # S3-DEV-001-CONTRACT-WORM-COMPENSATION:
+        # blob 已成功写, 合同在业务上生效; WORM policy 未应用 = orthogonal
+        # 失败, 交给 contract_worm_repair cron 开补偿, 不应阻塞 status=active.
+        # ContractService.generate_now 看 worm_policy_failed=True → 写
+        # worm_status=pending_retry + 触发 metric.
+        immutability_applied = False
+        worm_policy_failed = True
+        worm_policy_error_str = str(worm_exc)
+        logger.warning(
+            "contract_storage.worm_policy_failed",
+            extra={
+                "blob_path": blob_path,
+                "order_id": order_id,
+                "error": worm_policy_error_str,
+            },
+            exc_info=worm_exc,
+        )
+
     return ContractStorageRef(
         stored=result.stored,
         blob_path=blob_path,
         contract_hash=contract_hash,
         already_exists=result.already_exists,
         immutability_applied=immutability_applied,
+        worm_policy_failed=worm_policy_failed,
+        worm_policy_error=worm_policy_error_str,
     )
 
 
@@ -402,8 +469,10 @@ __all__ = [
     "ContractHashInputError",
     "ContractStoragePutError",
     "ContractStorageRef",
+    "ContractWormPolicyError",
     "SHA256_HEX_LEN",
     "ViewerRole",
+    "_set_worm_policy_if_azure",  # S3-DEV-001-CONTRACT-WORM-COMPENSATION: cron 重用
     "get_contract_signed_url",
     "put_contract",
 ]

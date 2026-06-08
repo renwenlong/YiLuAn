@@ -65,6 +65,25 @@ contract_service_retry_failed_total = Counter(
     ["outcome"],  # "requeued" | "permanently_failed" | "skipped" | "success"
 )
 
+# S3-DEV-001-CONTRACT-WORM-COMPENSATION: WORM policy 应用失败事件
+# stage:
+#   - initial         : ContractService.generate_now 首次调 put_contract 后
+#                       发现 storage_ref.worm_policy_failed=True
+#   - repair_retry    : contract_worm_repair cron 重试 _set_worm_policy_if_azure 失败
+#   - permanent_fail  : retry 超 WORM_RETRY_CAP → worm_status=permanently_failed,
+#                       高优 admin alert
+contract_worm_policy_failed_total = Counter(
+    "contract_worm_policy_failed_total",
+    "Contract WORM (Azure immutability) policy failures",
+    ["stage"],  # "initial" | "repair_retry" | "permanent_fail"
+)
+
+contract_worm_repair_total = Counter(
+    "contract_worm_repair_total",
+    "Contract WORM repair cron outcomes",
+    ["outcome"],  # "applied" | "retry_again" | "permanently_failed" | "skipped" | "error"
+)
+
 # WebSocket auth handshake outcome (PR: WS auth via first frame).
 # Replaces the legacy `?token=***` query-string auth path.
 # `result` values:
