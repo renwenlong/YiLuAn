@@ -1,3 +1,5 @@
+import logging
+import os
 import random
 import string
 import uuid
@@ -8,17 +10,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.security import create_access_token, create_refresh_token, decode_token
-from app.exceptions import BadRequestException, ConflictException, TooManyRequestsException, UnauthorizedException
+from app.exceptions import (
+    BadRequestException,
+    ConflictException,
+    TooManyRequestsException,
+    UnauthorizedException,
+)
 from app.models.user import User
 from app.repositories.user import UserRepository
 from app.schemas.auth import RefreshTokenResponse, TokenResponse, UserResponse
-from app.services.refresh_tokens import RefreshTokenStore
-from app.services.wechat import WeChatAPIClient
 from app.services.providers.sms import (
     SMSRateLimiter,
     get_sms_provider,
     mask_phone_sms,
 )
+from app.services.refresh_tokens import RefreshTokenStore
+from app.services.wechat import WeChatAPIClient
+
+logger = logging.getLogger("app.services.auth")
 
 
 OTP_TTL = 300
@@ -71,7 +80,8 @@ class AuthService:
                 # Keep the legacy substring "60 seconds" so existing API
                 # consumers / tests that match on it continue to work.
                 raise BadRequestException(
-                    f"Please wait 60 seconds before requesting a new code (retry in {decision.retry_after_seconds}s, {masked})"
+                    f"Please wait 60 seconds before requesting a new code "
+                    f"(retry in {decision.retry_after_seconds}s, {masked})"
                 )
             raise BadRequestException(
                 f"该号码 1 小时内验证码请求已达上限，请稍后再试 ({masked})"
@@ -100,7 +110,7 @@ class AuthService:
         if fail_count is not None and int(fail_count) >= OTP_FAIL_MAX:
             ttl = await self.redis.ttl(fail_key)
             raise TooManyRequestsException(
-                detail=f"Too many failed attempts, please try again in 15 minutes",
+                detail="Too many failed attempts, please try again in 15 minutes",
                 retry_after=max(ttl, 0),
             )
 
@@ -232,9 +242,29 @@ class AuthService:
         DEV_WX_OPENID = "dev_openid_000"
 
         is_dev = settings.environment == "development"
+        # Dev mock 路径 1: 显式 “dev_test_code” — 供脚本 / postman 手动 trigger
         if is_dev and code == DEV_WX_CODE:
             openid = DEV_WX_OPENID
             unionid = None
+        # Dev mock 路径 2 (新): dev env + wechat_app_id/secret 未配 (空) → 不调真 WeChat,
+        # 对任意 code 产生确定性 openid (sha256(code) 前 24 位). 供微信小程序开发者
+        # 工具 wx.login() 拿真 code 但本地 staging 环境联调 (帝君 2026-06-08 dev 环境 unblock).
+        # 跳过 pytest 环境 —— test 靠 patch WeChatAPIClient.code2session 走原逻辑验证
+        # 错误路径 (禁用 user / 400 / etc), 不走本 dev mock 短路.
+        elif (
+            is_dev
+            and not settings.wechat_app_id
+            and not os.environ.get("PYTEST_CURRENT_TEST")
+        ):
+            import hashlib
+
+            openid = "dev_openid_" + hashlib.sha256(code.encode("utf-8")).hexdigest()[:16]
+            unionid = None
+            logger.warning(
+                "wechat_login: dev mock (wechat_app_id 未配), code=%s... → openid=%s",
+                code[:8],
+                openid,
+            )
         else:
             result = await WeChatAPIClient.code2session(code)
             openid = result["openid"]
