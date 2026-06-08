@@ -1,5 +1,3 @@
-import logging
-import os
 import random
 import string
 import uuid
@@ -26,9 +24,6 @@ from app.services.providers.sms import (
 )
 from app.services.refresh_tokens import RefreshTokenStore
 from app.services.wechat import WeChatAPIClient
-
-logger = logging.getLogger("app.services.auth")
-
 
 OTP_TTL = 300
 OTP_RATE_LIMIT = 60  # legacy 60s key, kept for backward-compat
@@ -242,29 +237,9 @@ class AuthService:
         DEV_WX_OPENID = "dev_openid_000"
 
         is_dev = settings.environment == "development"
-        # Dev mock 路径 1: 显式 “dev_test_code” — 供脚本 / postman 手动 trigger
         if is_dev and code == DEV_WX_CODE:
             openid = DEV_WX_OPENID
             unionid = None
-        # Dev mock 路径 2 (新): dev env + wechat_app_id/secret 未配 (空) → 不调真 WeChat,
-        # 对任意 code 产生确定性 openid (sha256(code) 前 24 位). 供微信小程序开发者
-        # 工具 wx.login() 拿真 code 但本地 staging 环境联调 (帝君 2026-06-08 dev 环境 unblock).
-        # 跳过 pytest 环境 —— test 靠 patch WeChatAPIClient.code2session 走原逻辑验证
-        # 错误路径 (禁用 user / 400 / etc), 不走本 dev mock 短路.
-        elif (
-            is_dev
-            and not settings.wechat_app_id
-            and not os.environ.get("PYTEST_CURRENT_TEST")
-        ):
-            import hashlib
-
-            openid = "dev_openid_" + hashlib.sha256(code.encode("utf-8")).hexdigest()[:16]
-            unionid = None
-            logger.warning(
-                "wechat_login: dev mock (wechat_app_id 未配), code=%s... → openid=%s",
-                code[:8],
-                openid,
-            )
         else:
             result = await WeChatAPIClient.code2session(code)
             openid = result["openid"]
