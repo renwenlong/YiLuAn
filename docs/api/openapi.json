@@ -3679,6 +3679,19 @@
             ],
             "title": "Companion Name"
           },
+          "contract_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "S3-DEV-001 一单一合同 FK (ADR-0047 §3.3). null = 历史订单或合同尚未生成; 非空 = 调 GET /api/v1/contracts/{id} 取 PDF + 调 POST /api/v1/contracts/{id}/accept 写勾选审计",
+            "title": "Contract Id"
+          },
           "created_at": {
             "description": "创建时间",
             "format": "date-time",
@@ -3747,6 +3760,19 @@
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "insurance_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "S3-DEV-001 一单一保单 FK (ADR-0047 §3.3). null = 历史订单或保险未出单 / 灰度未启用; 非空 = vendor 保单号已激活 (S3 阶段 PLACEHOLDER vendor)",
+            "title": "Insurance Id"
           },
           "order_number": {
             "description": "订单号（业务可见）",

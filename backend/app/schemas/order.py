@@ -74,6 +74,23 @@ class OrderResponse(BaseModel):
         description="订单资金副状态 - 退款 (none/refunding/refunded/failed/manual_review)",
         examples=["none"],
     )
+    contract_id: UUID | None = Field(
+        None,
+        description=(
+            "S3-DEV-001 一单一合同 FK (ADR-0047 §3.3). "
+            "null = 历史订单或合同尚未生成; 非空 = 调 "
+            "GET /api/v1/contracts/{id} 取 PDF + 调 "
+            "POST /api/v1/contracts/{id}/accept 写勾选审计"
+        ),
+    )
+    insurance_id: UUID | None = Field(
+        None,
+        description=(
+            "S3-DEV-001 一单一保单 FK (ADR-0047 §3.3). "
+            "null = 历史订单或保险未出单 / 灰度未启用; "
+            "非空 = vendor 保单号已激活 (S3 阶段 PLACEHOLDER vendor)"
+        ),
+    )
     expires_at: datetime | None = Field(None, description="待支付订单的过期时间")
     timeline: list[TimelineItem] | None = Field(None, description="订单时间轴")
     timeline_index: int | None = Field(None, description="当前时间轴索引")
