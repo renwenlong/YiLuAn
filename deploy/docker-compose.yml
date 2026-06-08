@@ -131,6 +131,11 @@ services:
       # ContractService.request_generation 哨兵读空报 ContractPseudonymSaltMissingError。
       # 任何 profile (staging/canary/production) 都走同一套 backend image，故三者都需要 passthrough.
       CONTRACT_PSEUDONYM_SALT: ${CONTRACT_PSEUDONYM_SALT:-}
+      # S3-OPS-DEPLOY-PII-SECRETS-AUDIT (ADR-0029 §3): emergency PII envelope 加密 + phone hash salt。
+      # 不 passthrough = backend 走 config.py dev default = 与 dev 雷同 → PIPL 反查暴露。
+      # config.py validate_secrets_for_environment 在 prod env 会 fail-fast 拒默认值。
+      PII_HASH_SALT: ${PII_HASH_SALT:-}
+      PII_ENVELOPE_KEY: ${PII_ENVELOPE_KEY:-}
     depends_on:
       pg:
         condition: service_healthy
@@ -171,6 +176,9 @@ services:
       WS_PUBSUB_ENABLED: ${WS_PUBSUB_ENABLED:-true}
       # S3-DEV-001 / ADR-0046 §3.2: contract pseudonym salt。dev profile 跳同一 backend image。
       CONTRACT_PSEUDONYM_SALT: ${CONTRACT_PSEUDONYM_SALT:-}
+      # S3-OPS-DEPLOY-PII-SECRETS-AUDIT (ADR-0029 §3): dev profile 跳同一 backend image。
+      PII_HASH_SALT: ${PII_HASH_SALT:-}
+      PII_ENVELOPE_KEY: ${PII_ENVELOPE_KEY:-}
     # 热挂载源码，保留被删 dev 栈的开发体验（改代码即生效）
     volumes:
       - ../backend/app:/app/app

@@ -38,6 +38,8 @@
 - [ ] 阿里云短信 AccessKey + SignName + TemplateCode
 - [ ] 企业微信群机器人 webhook URL（运营 + PM 两条独立群）
 - [ ] **`CONTRACT_PSEUDONYM_SALT` 首次 prod 曝光前一次性定下高熵随机串**（详见 §2.4）
+- [ ] **`PII_HASH_SALT` + `PII_ENVELOPE_KEY` 首次 prod 曝光前入 secrets vault 不入 git**（详见 §2.5）
+- [ ] **S3 prod 上线 gate**: 三 secrets 全部与 dev default 不同且互不雷同 — 可用 `docker exec backend python -c "from app.config import settings; print(settings.contract_pseudonym_salt[:8], settings.pii_hash_salt[:8], settings.pii_envelope_key[:8])"` 验
 
 ### 2.4 contract pseudonym salt rotate (S3-DEV-001 / ADR-0046 §3.2)
 
@@ -54,6 +56,42 @@
    该能力未实现，临时需 freeze contract.generate 后手动重生 patient_pseudonym。
    未走该路径前不要随便换 salt。
 3. **发现 salt 泄露**：立即走 INCIDENT_PLAYBOOK §6。
+
+### 2.5 PII_HASH_SALT / PII_ENVELOPE_KEY rotate (S3-OPS-DEPLOY-PII-SECRETS-AUDIT / ADR-0029 §3)
+
+与 CONTRACT_PSEUDONYM_SALT 同款 PII derivative,但 WORM 语义不同:
+
+| Secret | 用途 | rotate 语义 |
+|---|---|---|
+| `PII_HASH_SALT` | phone hash (HMAC-SHA256) of `users.phone_hash`, `companion_profiles.phone_hash`, `sms_send_log.recipient_hash` | **WORM-like** — hash 是反查键, 换 salt = 所有档案失联, 需手动背填 (可重算因为明文手机号在 emergency_pii_envelope 加密纪录里) |
+| `PII_ENVELOPE_KEY` | base64-32-byte AES-256 envelope key for emergency PII / strong-PII 密文落库 (ADR-0029) | **可 rotate** — `EnvelopeKey.rotate()` 接口占位已在, W19+ 接 KMS data-key 则双写 + 背填 已为推荐路径 |
+
+#### 首次 prod 曝光前必须设置
+
+```bash
+# PII_HASH_SALT (phone hash salt)
+python -c "import secrets; print(secrets.token_urlsafe(64))"
+# 不可与 CONTRACT_PSEUDONYM_SALT / JWT_SECRET_KEY 雷同
+
+# PII_ENVELOPE_KEY (base64-32-byte AES-256 key)
+python -c "import base64,secrets; print(base64.b64encode(secrets.token_bytes(32)).decode())"
+# 不可使用 dev default "b64('x'*32) = eHh4eHh4..."
+```
+
+两者都入 secrets vault 不入 git。生产 backend 启动时 `config.py validate_secrets_for_environment` 会 fail-fast 拒 dev default。
+
+#### PII_HASH_SALT 发现泄露
+
+1. 立即走 INCIDENT_PLAYBOOK §6 同 CONTRACT_PSEUDONYM_SALT 泄露 — 都是 PIPL 反查暴露面
+2. 续 batch 背填: 取 `emergency_pii_envelope` 中加密的明文 phone 重计新 salt 下的 phone_hash, UPDATE 所有 users/companion_profiles/sms_send_log
+3. backfill 期间 read path 双查 (新/旧 salt phone_hash union) 避在路需求中断; backfill 100% 后拆双查
+
+#### PII_ENVELOPE_KEY rotate (W19+ 接 KMS 后自动化)
+
+1. 入 new key 到 secrets vault, 启动 backend 同时读 new + old (双 key window)
+2. 跳后台 batch `EnvelopeKey.rotate(new_key, old_ciphertexts)` 重加密所有 ciphertext
+3. batch 完后退 old key, 仅留 new key
+4. W19 KMS 接入后: 该流程由 KMS data-key 机制自动化 (每 data-key 加密单个 payload, root key rotate 只需换 wrapped-key)
 
 ### 2.3 流量前置
 
