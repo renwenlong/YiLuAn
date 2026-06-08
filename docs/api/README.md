@@ -158,6 +158,7 @@
 | `POST` | `/api/v1/admin/companions/{companion_id}/approve` | 后台：批准陪诊师入驻 |
 | `POST` | `/api/v1/admin/companions/{companion_id}/certify` | 管理员：设置陪诊师资质认证（F-01） |
 | `POST` | `/api/v1/admin/companions/{companion_id}/reject` | 后台：驳回陪诊师申请 |
+| `POST` | `/api/v1/admin/contracts/{contract_id}/invalidate` | admin 客服作废合同 (AC#3) |
 | `GET` | `/api/v1/admin/dashboard/summary` | 后台首页：KPI + 7 日趋势 |
 | `GET` | `/api/v1/admin/dead-letters` | 后台：死信队列表 |
 | `GET` | `/api/v1/admin/dead-letters/{dl_id}` | 后台：死信详情 |
@@ -222,6 +223,12 @@ K8s / ACA 探针使用：
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `GET` | `/api/v1/admin/audit-logs` | 后台：审计日志列表 |
+
+### [admin-contracts](./admin-contracts.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `POST` | `/api/v1/admin/contracts/{contract_id}/invalidate` | admin 客服作废合同 (AC#3) |
 
 ### [admin-dashboard](./admin-dashboard.md)
 
@@ -308,6 +315,13 @@ K8s / ACA 探针使用：
 | --- | --- | --- |
 | `POST` | `/api/v1/admin/wallet-ledger/adjustments` | Create Manual Adjustment |
 | `GET` | `/api/v1/admin/wallet-ledger/{user_id}` | List User Ledger |
+
+### [contracts](./contracts.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/contracts/{contract_id}` | 用户查看合同详情 + 签名 URL (AC#2) |
+| `POST` | `/api/v1/contracts/{contract_id}/accept` | 用户勾选合同同意 (AC#1) |
 
 ### [emergency](./emergency.md)
 
