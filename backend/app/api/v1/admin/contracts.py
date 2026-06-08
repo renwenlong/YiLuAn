@@ -133,6 +133,21 @@ async def invalidate_contract(
             detail=str(exc),
         ) from exc
 
+    # S3-DEV-001-CONTRACT-WORM-COMPENSATION (ADR-0047 §5.2 降级语义):
+    # WORM permanently_failed = 审计层不可信 (3 次 cron retry 全挂 + 高优 alert
+    # 已外发) → 拒 admin invalidate, 要求 ops 先处理 WORM policy 问题后才能
+    # 走 invalidate 流程. pending_retry 仍允许 (可能还会修复成功).
+    from app.models.service_contract import ContractWormStatus
+
+    if contract.worm_status == ContractWormStatus.permanently_failed:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                "contract WORM policy permanently_failed; "
+                "先联系 ops 处理 Azure immutability policy 后再 invalidate"
+            ),
+        )
+
     # Mutate contract row (DB trigger 拒改 immutable 字段, status/invalidation_*
     # 在 mutable list, 写入 OK)
     now = datetime.now(timezone.utc)
