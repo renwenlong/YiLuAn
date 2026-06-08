@@ -1,9 +1,35 @@
 # ADR-0047 — 电子合同 + 责任险独立领域模型与状态机
 
-> 状态：**Accepted** · 作者：魈 · 日期：2026-06-05 · Accept 日期：2026-06-06
+> 状态：**Accepted (r1 amend)** · 作者：魈 · 日期：2026-06-05 · Accept 日期：2026-06-06
+> r1 amend：2026-06-08 · 胡桃 (S3-DOC-001-ADR-0047-CONTRACT-TRIGGER-CONSISTENCY) · 魈 review
 > 关联：PRD-003 §3 S3-REQ-001 / ADR-0041 支付业务状态机解耦 / ADR-0046 contract storage / PRD-003 v0.3 §8 Q2 架构评估 + 刻晴 tester review §1 AC#5 强约束（补偿 cron）+ §3 AC-3 强约束（默认未勾选）+ AC-1 客服入口
 > 触发：S3-REQ-001 陪诊责任险 + 电子服务合同 / 帝君 2026-06-05 09:52 UTC v0.3 Owner Accept
 > Owner Approval：**Accepted by 帝君 @ 2026-06-06 03:28 UTC**（PR #189 merge `5f7f193`；review 闭环：PM final approve + 胡桃 dev review 4+2 + 刻晴 5 补充全合）
+>
+> ## r1 amend (2026-06-08 胡桃, S3-DOC-001) — 合同触发事件与实现对齐
+>
+> **背景**：S3-DEV-001-CONTRACT-EVENT-WIRING 拼拍阶段 (2026-06-08 08:11–08:44 UTC) 魈三次横跳后拍板最终 = **单 `accept_order` hook 触发合同生成** (不是 `payment.succeeded`)。拍板依据：
+>
+> 1. ADR-0046 §3.2 `hash_inputs` 强制含 `companion_id` (immutable)
+> 2. `contract_hash.generate_contract_hash_at_commit_time()` 强制 `companion_id` required
+> 3. accept_order = 双方合意时点 (商业合同建立语义)，payment 是履约对价支付
+>
+> 实现证据：PR #212 (`5d57e1f`/`48d616d` commit `backend/app/services/order/lifecycle.py:149-174` `accept_order` 里调 `ContractService.request_generation`)。
+>
+> **本次 amend 范围**：
+>
+> - §2.1 候选 A 描述修正：`payment.succeeded` → `accept_order` (限 contract 部分，insurance 仍 payment 触发)
+> - §4.1 ContractStateMachine 流程图顶部触发事件修正
+> - §5.1 触发链拆分 contract 分支 → `accept_order`；insurance 分支保留 `payment.succeeded`
+> - §4.2 / §5.x InsuranceStateMachine 与保险触发链 **未动** (insurance 仍仅 payment.succeeded 触发)
+>
+> **本次 amend 不动**：
+>
+> - §3 数据模型 / §6 PIPL / §7 备择、AC 表、陈本阳后续事项与责任分配 — 与触发事件无关
+> - ADR-0046 §3.2 hash_inputs schema 不动
+> - contract_storage 接口 / state machine 6-state enum 不动
+>
+> **锁版 condition**：实现已 on main (PR #212 merge)；ADR 文字 r1 amend 合入后与代码合规。
 
 ---
 
@@ -21,7 +47,7 @@ PRD-003 S3-REQ-001 引入两个新业务领域：电子服务合同 + 陪诊责�
 
 | 候选 | 描述 | 评估 |
 |---|---|---|
-| **A. 独立领域模型 + 独立状态机 + 事件流** | 合同/保险各自独立表 + 独立 state enum + payment.succeeded 事件触发异步生成 | ✅ 推荐 |
+| **A. 独立领域模型 + 独立状态机 + 事件流** | 合同：`accept_order` 事件触发异步生成；保险：`payment.succeeded` 事件触发异步生成（r1 amend）。各自独立表 + 独立 state enum | ✅ 推荐 |
 | B. 嵌入 OrderStateMachine（订单 state 加 contract_generated / insurance_active）| 单状态机扩展 | ❌ 违反 ADR-0041 单一职责，订单 state 爆炸 |
 | C. 合同/保险共用一个 state 字段 | 简化模型 | ❌ 合同/保险业务流不同（合同立即生成，保险可能延迟出单）|
 | D. 不做状态机，直接用 boolean 字段（is_contract_generated）| 简化到极致 | ❌ 失去状态转移审计 + 失败状态无表达 |
@@ -191,7 +217,7 @@ CREATE INDEX idx_user_audit_logs_order_action ON user_audit_logs(order_id, actio
 ### 4.1 ContractStateMachine
 
 ```
-                  payment.succeeded
+                  accept_order  (r1 amend: 不是 payment.succeeded)
                           |
                           v
                 pending_generation
@@ -254,15 +280,23 @@ CREATE INDEX idx_user_audit_logs_order_action ON user_audit_logs(order_id, actio
 ### 5.1 触发链
 
 ```
-[payment.succeeded] (PaymentService 发出)
-       ├──→ contract.generate.requested (异步 apscheduler cron job)
-       │         └──→ ContractStorageBackend.put_contract()
-       │              └──→ service_contracts.status: pending_generation → active / generation_failed
-       │
+[accept_order] (OrderService 发出, r1 amend)
+       └──→ contract.generate.requested (同事务内 INSERT pending_generation 行
+             + apscheduler cron pickup 异步渲染 PDF)
+                 └──→ ContractStorageBackend.put_contract()
+                      └──→ service_contracts.status: pending_generation → active / generation_failed
+
+[payment.succeeded] (PaymentService 发出, 保险仍仅此触发)
        └──→ insurance.issue.requested (异步 apscheduler cron job)
                  └──→ S3 阶段直接 PLACEHOLDER_VENDOR 写入
                       └──→ service_insurance_records.status: pending_issue → active
 ```
+
+> r1 amend (2026-06-08): 合同触发从 `payment.succeeded` 修正为 `accept_order`。
+> 原因：`contract_hash` 公式强制 `companion_id` (ADR-0046 §3.2)，
+> payment.succeeded 时广播订单 `companion_id IS NULL` 会导致 hash
+> 计算报错。保险仍仅 payment.succeeded 触发 (保险 hash 不含
+> `companion_id`)。实现参 PR #212 commit `48d616d` §`backend/app/services/order/lifecycle.py:149-174`。
 
 ### 5.2 补偿 cron（ADR-0046 §3.4 + 刻晴 review §1 强约束 #2）
 
