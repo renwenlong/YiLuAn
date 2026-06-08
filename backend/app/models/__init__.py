@@ -1,4 +1,5 @@
 from app.models.admin_audit_log import AdminAuditLog
+from app.models.user_audit_log import UserAuditAction, UserAuditLog
 from app.models.admin_note import AdminNote
 from app.models.admin_user import AdminRole, AdminUser
 from app.models.ai_digest import AIDigest, AIDigestStatus
@@ -77,6 +78,8 @@ from app.models.wallet_ledger import (
 
 __all__ = [
     "AdminAuditLog",
+    "UserAuditLog",
+    "UserAuditAction",
     "AdminNote",
     "AdminUser",
     "AdminRole",
