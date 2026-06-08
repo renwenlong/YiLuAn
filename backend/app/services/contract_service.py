@@ -32,8 +32,9 @@ ContractService **是 contract 写路径的唯一入口** (ADR-0046 §3.x). 三�
   companion_id 必然非 None — 业务约束). 留痕 comment ``83e3007a``.
 - ``request_generation`` 触发点 → **单 accept_order hook** (非 payment hook
   + accept hook 双触发). 留痕 comment ``83e3007a``.
-- ``_render_pdf`` → stub 返合法最小 PDF (14 字节); 真实 reportlab/weasyprint
-  拆 PDF-RENDER task. task uuid ``33ac1174``.
+- ``_render_pdf`` → 委托 :mod:`app.services.contract_pdf.render_contract_pdf`
+  (S3-DEV-001-CONTRACT-PDF-RENDER uuid ``33ac1174``); reportlab + STSong-Light
+  CID font, ``Canvas(invariant=1)`` 保证字节级 idempotent.
 - ``id_card_last4`` → ``getattr(patient, 'id_card_last4', None) or '0000'``
   (MVP 占位). ADR-0046 r5 amend.
 - ``template_version`` → ``settings.contract_template_version`` (MVP 写死
@@ -112,9 +113,11 @@ logger = logging.getLogger(__name__)
 #: recompute_hash, 防篡改强度即恢复. grep anchor: 改名时一处改动即可.
 MVP_ID_CARD_PLACEHOLDER = "0000"
 
-#: 合法最小 PDF (14 字节). ``_render_pdf`` stub 返此 bytes,
-#: ``put_contract`` content-type 校验通过 (application/pdf magic byte 兼容).
-#: PDF-RENDER task (uuid `33ac1174`) 后续替换为 reportlab/weasyprint 渲染.
+#: 合法最小 PDF (14 字节). 历史上 ``_render_pdf`` 返此 bytes,
+#: 现实现已在 PDF-RENDER task (uuid `33ac1174`) 中替换为 reportlab + STSong-Light
+#: 渲染 (见 :mod:`app.services.contract_pdf`). 保留此常量作为 fallback /
+#: regression sentinel — 若未来底层渲染出问题需心紧回滚, 可手动切回这
+#: 个 bytes 佼部署.
 _MIN_VALID_PDF_BYTES = b"%PDF-1.4\n%%EOF\n"
 
 
@@ -354,7 +357,13 @@ class ContractService:
         await self.session.flush()
 
         try:
-            pdf_bytes = self._render_pdf(contract.hash_inputs)
+            order = await self.session.get(Order, contract.order_id)
+            if order is None:
+                raise ContractGenerateNowError(
+                    f"contract {contract_id} references missing order "
+                    f"{contract.order_id}"
+                )
+            pdf_bytes = self._render_pdf(contract, order)
             storage_ref = put_contract(
                 order_id=str(contract.order_id),
                 contract_hash=contract.contract_hash,
@@ -451,7 +460,13 @@ class ContractService:
         await self.session.flush()
 
         try:
-            pdf_bytes = self._render_pdf(contract.hash_inputs)
+            order = await self.session.get(Order, contract.order_id)
+            if order is None:
+                raise ContractGenerateNowError(
+                    f"contract {contract_id} references missing order "
+                    f"{contract.order_id}"
+                )
+            pdf_bytes = self._render_pdf(contract, order)
             storage_ref = put_contract(
                 order_id=str(contract.order_id),
                 contract_hash=contract.contract_hash,
@@ -501,30 +516,45 @@ class ContractService:
 
     # -- internals ----------------------------------------------------------
 
-    def _render_pdf(self, hash_inputs_snapshot: dict) -> bytes:
-        """Render the contract PDF bytes from the hash inputs snapshot.
+    def _render_pdf(self, contract: ServiceContract, order: Order) -> bytes:
+        """Render the contract PDF bytes (魈 PDF-RENDER design gap 拍 (a)).
 
-        **STUB**: returns a minimal valid PDF (14 bytes, ``%PDF-1.4\\n%%EOF\\n``).
-        This stub satisfies ``put_contract`` content-type validation
-        (application/pdf magic byte) but produces a blank document.
+        Delegates to :func:`app.services.contract_pdf.render_contract_pdf`,
+        which is a pure module-level function (easier to unit test;
+        renderer swap doesn't touch lifecycle code).
 
-        TODO(S3-DEV-001-CONTRACT-PDF-RENDER uuid 33ac1174): replace stub
-        with reportlab / weasyprint render that reads:
-          - hash_inputs_snapshot['order_id'] → order detail
-          - hash_inputs_snapshot['amount_cny'] / scheduled_at / service_package_id
-          - hash_inputs_snapshot['template_version'] → which template to use
-          - Pull patient_name / companion info from ``hash_inputs_snapshot``
-            (no DB re-read; snapshot is the immutable source of truth)
-          - PIPL clauses, service scope, refund terms (await 凝光 文案)
+        Args:
+            contract: the :class:`ServiceContract` row carrying the
+                immutable ``hash_inputs`` snapshot + ``contract_hash``.
+            order: the eager-loaded :class:`Order` row carrying snapshot
+                fields (``patient_name`` / ``companion_name`` /
+                ``hospital_name`` / ``service_name_snapshot`` /
+                ``service_price_snapshot`` / ``appointment_date`` /
+                ``appointment_time`` / ``family_member_name`` /
+                ``family_member_relation`` / ``order_number``).
 
-        Why stub for CORE PR: lets EVENT-WIRING + PICKUP-CRON link through
-        the full lifecycle end-to-end without blocking on PDF template +
-        legal copy + render lib choice. Unit tests mock this method.
+        Why pass ``order`` instead of re-querying inside the renderer:
+        ``ContractService.generate_now`` (and ``retry_failed``) already
+        load the Order to validate state; passing it through avoids a
+        second round-trip and keeps the pure-function shape of
+        :func:`render_contract_pdf`.
+
+        Why no ``selectinload(Order.companion, Order.patient)`` (魈 design
+        draft suggested this): ``Order`` carries all PDF-visible fields
+        as snapshot columns (``companion_name``, ``patient_name``,
+        ``hospital_name``, ``service_name_snapshot``,
+        ``service_price_snapshot``) frozen at create_order time. The
+        contract is an audit trail of "what the parties agreed to at
+        booking", so we deliberately do not consult live profile state.
         """
-        # hash_inputs_snapshot intentionally not consumed in stub — real
-        # render will read every field. Suppress flake8 unused-arg warn.
-        _ = hash_inputs_snapshot
-        return _MIN_VALID_PDF_BYTES
+        from app.services.contract_pdf import render_contract_pdf
+
+        return render_contract_pdf(
+            order=order,
+            hash_inputs=contract.hash_inputs,
+            contract_hash=contract.contract_hash,
+            template_version=contract.template_version,
+        )
 
     async def _load_order_for_contract(self, order_id: uuid.UUID) -> Order:
         order = await self.session.get(Order, order_id)

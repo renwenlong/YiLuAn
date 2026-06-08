@@ -51,6 +51,11 @@ pytest-asyncio==0.25.0
 hypothesis==6.122.3  # property-based fuzz for money_safety / share_security release gate (S2-TEST-001)
 aiosqlite==0.20.0
 
+# S3-DEV-001-CONTRACT-PDF-RENDER (uuid 33ac1174): contract PDF rendering.
+# Pure Python wheel (no libpango/libcairo system deps), works on python:3.11-slim base.
+# Built-in STSong-Light CID font handles Chinese characters without external font files.
+reportlab==4.2.5
+
 # Dev
 black==24.10.0
 ruff==0.8.6
