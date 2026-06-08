@@ -48,6 +48,25 @@ class Settings(BaseSettings):
     # S3-DEV-001 / ADR-0046 §3.2: Contract patient pseudonym salt (与 cert image salt 独立).
     contract_pseudonym_salt: str = ""  # 必须在 prod env 显式设置
 
+    # S3-DEV-001-CONTRACT-SERVICE-CORE / ADR-0046 r5 §3 amend (gap 3):
+    # Contract template version, MVP 阶段写死 v1.0.0 (ContractTemplate 表
+    # 不立, 后续 admin 多模板需求出现时立独立 ADR + 表). hash 公式 +
+    # _render_pdf 读同一个 settings, single source of truth.
+    contract_template_version: str = "v1.0.0"
+
+    # S3-DEV-001-CONTRACT-PICKUP-CRON / 魈 EVENT-WIRING 拍板:
+    # Contract generate pickup cron 启用开关。默认 False — CORE PR 合并后
+    # cron 仍 disabled (因 _render_pdf 目前只产出最小合法 PDF stub,
+    # 不应写入真实合同 storage). PDF-RENDER task (uuid 33ac1174)
+    # 实装 PDF 渲染后, 通过 env 改 True 开启.
+    contract_generate_pickup_enabled: bool = False
+
+    # Pickup cron 单轮处理批量 (避免锁占用过久).
+    contract_generate_pickup_batch_size: int = 20
+
+    # Pickup cron 触发间隔 (秒). 默认 60s (与 ai_summary worker 同节奏).
+    contract_generate_pickup_interval_seconds: int = 60
+
     # Apple Sign-In (W18-A)
     # TODO(PM): supply real values for production. See `placeholders` doc.
     apple_team_id: str = ""  # TODO: 10-char Apple Developer Team ID

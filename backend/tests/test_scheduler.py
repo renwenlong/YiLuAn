@@ -8,7 +8,6 @@ D-018: 验证定时任务可正确扫描过期订单、无过期订单场景、�
 """
 from __future__ import annotations
 
-import uuid
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -178,8 +177,9 @@ def test_create_scheduler_registers_expired_order_job():
     scheduler = create_scheduler(app)
     try:
         jobs = scheduler.get_jobs()
-        # Base W19 jobs (7) + S2-DEV-006 family-share hardening jobs (2).
-        assert len(jobs) == 9
+        # Base W19 jobs (7) + S2-DEV-006 family-share hardening jobs (2) +
+        # S3-DEV-001-CONTRACT-PICKUP-CRON (1).
+        assert len(jobs) == 10
         job_ids = {j.id for j in jobs}
         assert job_ids == {
             "scan_expired_orders",
@@ -191,6 +191,7 @@ def test_create_scheduler_registers_expired_order_job():
             "reconciliation_cleanup",
             "scan_share_token_anomalies",
             "process_pending_ai_digests",
+            "contract_generate_pickup",
         }
         for job in jobs:
             assert job.max_instances == 1
@@ -415,12 +416,12 @@ async def test_scan_expired_orders_uses_pg_advisory_when_postgres(
         expires_at=past,
     )
 
-    from app.tasks import scheduler as scheduler_mod
     from app.core import distributed_lock as lock_mod
+    from app.tasks import scheduler as scheduler_mod
     from tests.conftest import test_session_factory
 
     # 让 dialect 被识别为 postgresql
-    orig_dialect = lock_mod._session_dialect
+    orig_dialect = lock_mod._session_dialect  # noqa: F841
 
     def fake_dialect(session):
         return "postgresql"
@@ -463,8 +464,8 @@ async def test_scan_expired_orders_skipped_when_pg_lock_held(
     seed_user, seed_hospital, seed_order
 ):
     """PG 方言 + pg_try_advisory_lock 返回 False → 应跳过本轮。"""
-    from app.tasks import scheduler as scheduler_mod
     from app.core import distributed_lock as lock_mod
+    from app.tasks import scheduler as scheduler_mod
     from tests.conftest import test_session_factory
 
     def fake_dialect(session):
