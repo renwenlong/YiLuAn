@@ -1,7 +1,8 @@
 # ADR-0047 — 电子合同 + 责任险独立领域模型与状态机
 
-> 状态：**Accepted (r1 amend)** · 作者：魈 · 日期：2026-06-05 · Accept 日期：2026-06-06
+> 状态：**Accepted (r1 + r2 amend)** · 作者：魈 · 日期：2026-06-05 · Accept 日期：2026-06-06
 > r1 amend：2026-06-08 · 胡桃 (S3-DOC-001-ADR-0047-CONTRACT-TRIGGER-CONSISTENCY) · 魈 review
+> r2 amend：2026-06-08 · 魈 (S3-OPS-ADR-0047-R2-AMEND-WORM-COMPENSATION) — WORM compensation 专章对齐 PR #218 实现
 > 关联：PRD-003 §3 S3-REQ-001 / ADR-0041 支付业务状态机解耦 / ADR-0046 contract storage / PRD-003 v0.3 §8 Q2 架构评估 + 刻晴 tester review §1 AC#5 强约束（补偿 cron）+ §3 AC-3 强约束（默认未勾选）+ AC-1 客服入口
 > 触发：S3-REQ-001 陪诊责任险 + 电子服务合同 / 帝君 2026-06-05 09:52 UTC v0.3 Owner Accept
 > Owner Approval：**Accepted by 帝君 @ 2026-06-06 03:28 UTC**（PR #189 merge `5f7f193`；review 闭环：PM final approve + 胡桃 dev review 4+2 + 刻晴 5 补充全合）
@@ -30,6 +31,24 @@
 > - contract_storage 接口 / state machine 6-state enum 不动
 >
 > **锁版 condition**：实现已 on main (PR #212 merge)；ADR 文字 r1 amend 合入后与代码合规。
+>
+> ## r2 amend (2026-06-08 魈, S3-OPS-ADR-0047-R2-AMEND-WORM-COMPENSATION) — WORM compensation 专章
+>
+> **背景**：S3-DEV-001-CONTRACT-WORM-COMPENSATION (PR #218 merge `de5d20e` 2026-06-08 13:42:35 UTC) 给 contract 加了 WORM 补偿状态机 + 修复 cron + 服务降级 + 3 档 alert。该功能与 §5.2 generation 补偿同型号镜像，但 ADR 文字仅写 generation 补偿，未显式写 WORM 补偿。本 amend 加 §5.3 WORM compensation 专章，使 ADR 文字 ↔ 代码字面一致。
+>
+> **本次 amend 范围**：
+>
+> - §3.1 `service_contracts` 表增字段说明（worm_status / worm_retry_count / worm_last_retry_at）— 在原表定义后追加 “(r2 amend)” 注脚（非 schema 改）
+> - §5 新增 §5.3 WORM compensation 专章（独立小节，不动 §5.1 / §5.2）
+> - §12 加 r2 变更记录
+>
+> **本次 amend 不动**：
+>
+> - §5.1 触发链 / §5.2 generation 补偿 cron 字面 — 与 WORM 补偿正交
+> - §4.1 ContractStateMachine — WORM 状态机独立于 lifecycle 状态机 (worm_status 是补充字段，非主状态)
+> - ADR-0046 §3.3 WORM 三层防御不动 (本 ADR 只补 §5 事件流层的补偿语义)
+>
+> **锁版 condition**：实现已 on main (PR #218 merge `de5d20e`)；ADR r2 amend 合入后字面对齐代码 (worm_status enum / cron 3-tier / alert metric)。
 
 ---
 
@@ -352,6 +371,176 @@ def retry_failed_contracts():
 
 ---
 
+### 5.3 WORM compensation 专章 (r2 amend, S3-DEV-001-CONTRACT-WORM-COMPENSATION / PR #218)
+
+**背景**：put_contract 写入路径含两个 Azure API 调用：
+
+1. `put_if_absent(blob_path, pdf_bytes)` — blob 内容上传 (主要数据写入)
+2. `set_immutability_policy(blob_path, period_days=2555)` — WORM 不可变性应用 (法律义务)
+
+**race window**：第 1 步成功后，第 2 步可能 raise (Azure 权限/quota/网络瞬断/API 短期不可用)。此时 blob 内容已落 + 用户可读 PDF，但 WORM 保护尚未生效。ADR-0046 §3.3 已写 WORM 三层防御 (immutability policy + version log + admin alert)，但 §5 事件流层之前未明示补偿协议。本节补上。
+
+**核心原则 (与 §5.2 generation 补偿同型号镜像)**：
+
+| 维度 | §5.2 generation 补偿 | §5.3 WORM 补偿 (本节) |
+|---|---|---|
+| 触发 | `contracts.status='generation_failed'` | `contracts.worm_status='pending_retry'` |
+| 修复 cron 周期 | 每 5min | 每 1h |
+| 退避策略 | 指数 5/30/120 min | 固定 1h 间隔 (3 次) |
+| 终态 fail enum | `generation_permanently_failed` | `worm_status='permanently_failed'` |
+| 服务降级 | failed → 用户看不到合同 | `worm_status != applied` → 用户**仍可读** (blob 存在)，仅 admin invalidate 拒 |
+| Alert metric | `contract_generation_permanently_failed_total` | `contract_worm_policy_failed{stage=initial|permanent_fail}` |
+
+#### 5.3.1 数据模型增量 (r2 amend, §3.1 配套)
+
+`service_contracts` 表加 3 字段 (alembic migration `579fc0fbccaa`)：
+
+```sql
+worm_status ENUM('applied', 'pending_retry', 'permanently_failed') NOT NULL DEFAULT 'applied'
+worm_retry_count INT NOT NULL DEFAULT 0
+worm_last_retry_at TIMESTAMPTZ NULL
+```
+
+**MUTABLE_FIELDS 白名单加 3 项** (此前 7 项 → 10 项)：`worm_status` / `worm_retry_count` / `worm_last_retry_at`。**IMMUTABLE_FIELDS 不动** (8 项守 hash_inputs / contract_hash / storage_blob_path / template_version / etc)。
+
+#### 5.3.2 初始失败路径 (synchronous put_contract)
+
+```python
+# backend/app/services/contract/storage.py (简化伪码，字面以 PR #218 实现为准)
+
+def put_contract(contract_id, pdf_bytes, blob_path):
+    storage_backend.put_if_absent(blob_path, pdf_bytes)  # 成功后 blob 已存在
+    try:
+        storage_backend.set_immutability_policy(blob_path, period_days=2555)
+        contract.worm_status = 'applied'
+    except Exception as e:
+        contract.worm_status = 'pending_retry'
+        contract.worm_retry_count = 0
+        contract.worm_last_retry_at = now()
+        contract.last_error_trace = traceback.format_exc()
+        metrics.contract_worm_policy_failed.labels(stage='initial').inc()
+    db.commit()
+```
+
+**关键约束**：
+
+- 初始失败**不 rollback blob** (put_if_absent 已成功，rollback 会损坏 idempotency)
+- 服务降级语义：`worm_status='pending_retry'` 时 `get_contract_signed_url()` **仍返回 URL** (用户合同可见)
+- 仅 `invalidate_contract()` (admin 路径) 在 `worm_status='permanently_failed'` 时拒 (HTTP 409, 因 admin 操作要求 WORM 已生效)
+
+#### 5.3.3 修复 cron (apscheduler `contract_worm_repair`)
+
+```python
+# backend/app/cron/contract_worm_repair.py (路径以实现为准)
+
+CONTRACT_WORM_REPAIR_LOCK_KEY = "yiluan:scheduler:contract-worm-repair:lock"
+CONTRACT_WORM_REPAIR_LOCK_TTL_SECONDS = 55
+WORM_RETRY_CAP = 3
+
+async def contract_worm_repair_job(app) -> dict:
+    """每 1h 跑一次: 拣 worm_status=pending_retry 合同, 重试 set_immutability_policy.
+
+    默认 enabled (与 generate_pickup 不同, 因 _set_worm_policy_if_azure 是
+    idempotent no-op-on-success, 不会产出“空合同副作用”).
+    返 {"status": "ok|skipped|disabled|error", "applied": int, "retry_again": int,
+    "permanently_failed": int, "errors": int}.
+    """
+    if not settings.contract_worm_repair_enabled:
+        return {"status": "disabled", ...}
+
+    async with async_session() as session:
+        lock = acquire_scheduler_lock(  # ADR-0035 §3 P1-A red line
+            session=session, redis_client=app.state.redis,
+            key=CONTRACT_WORM_REPAIR_LOCK_KEY,
+            ttl=CONTRACT_WORM_REPAIR_LOCK_TTL_SECONDS,
+        )
+        async with lock:
+            if not lock.acquired:
+                return {"status": "skipped", ...}  # 多副本其他实例持锁
+
+            stmt = (select(ServiceContract)
+                .where(ServiceContract.worm_status == ContractWormStatus.pending_retry)
+                .order_by(ServiceContract.worm_last_retry_at.asc().nulls_first())
+                .limit(settings.contract_worm_repair_batch_size))
+            rows = (await session.execute(stmt)).scalars().all()
+
+            backend = _resolve_backend()
+            for contract in rows:
+                try:
+                    _set_worm_policy_if_azure(backend, contract.storage_blob_path)
+                    contract.worm_status = ContractWormStatus.applied
+                except ContractWormPolicyError:
+                    contract.worm_retry_count += 1
+                    contract.worm_last_retry_at = utcnow()
+                    if contract.worm_retry_count >= WORM_RETRY_CAP:
+                        contract.worm_status = ContractWormStatus.permanently_failed
+                        contract_worm_policy_failed_total.labels(stage="permanent_fail").inc()
+                    else:
+                        contract_worm_policy_failed_total.labels(stage="repair_retry").inc()
+                await session.commit()  # 每行独立 commit, 一行失败不阻批次
+```
+
+**实现细节** (PR #218 字面, `backend/app/cron/contract_worm_repair.py` 路径)：
+
+- `acquire_scheduler_lock` (ADR-0035 §3 P1-A red line): 多副本只一个实例拿锁跑，其他 skip。锁 backend = Redis (生产) 或 PG advisory lock (fallback)，TTL 55s 小于 cron 间隔 1h。
+- `_set_worm_policy_if_azure` 是**幂等 no-op-on-success** (Azure SDK 识别同 policy 不重复写)。重试安全, 因此 cron 默认 enabled。
+- Local backend / Azure mock 路径返 False (不 raise), cron 直接 mark applied (业务上无 WORM 概念).
+- 每行独立 commit (nested transaction / savepoint 隔离), 避免一行失败拖累批次。
+- `select(...)` SQLAlchemy 2.0 async style + `ORDER BY worm_last_retry_at ASC NULLS FIRST` (从未 retry 优先重试).
+- batch size 默认 50 (`settings.contract_worm_repair_batch_size`).
+- fault inject prod 路径 0 影响: 单测路径 mock _set_worm_policy_if_azure raise, prod 路径不动.
+
+#### 5.3.4 alertmanager alert 定义
+
+```yaml
+- alert: ContractWORMPolicyInitialFailed
+  expr: increase(contract_worm_policy_failed_total{stage="initial"}[5m]) > 0
+  for: 0s
+  labels:
+    severity: warning
+  annotations:
+    summary: "contract WORM policy 初次写入失败 (order_id={{ $labels.order_id }})，将由 cron 重试"
+    description: "非阻塞 alert: cron 1h/3 次重试，3 次全失败升级 high"
+    runbook: "https://docs.yiluan.internal/runbook/contract-worm-policy-failure"
+
+- alert: ContractWORMPolicyPermanentlyFailed
+  expr: increase(contract_worm_policy_failed_total{stage="permanent_fail"}[5m]) > 0
+  for: 0s
+  labels:
+    severity: high
+  annotations:
+    summary: "contract WORM policy 3 次重试全失败 (order_id={{ $labels.order_id }})"
+    description: "WORM 不可变性未生效，admin 必须介入: 检查 Azure quota/权限/手动调用 set_immutability_policy"
+    runbook: "https://docs.yiluan.internal/runbook/contract-worm-permanent-failure"
+```
+
+**5min admin 可见性约束**: `for: 0s` (立即触发) + alertmanager group_wait 默认 30s → 5min 内 admin 必收到。
+
+#### 5.3.5 staging 集成测 (S3-TEST-004 灰度回归)
+
+- 1% blob 抽样调 `get_immutability_policy()` → 验证返回 `state=Locked` + `period_days=2555`
+- 失败抽样写入 `contract_worm_audit_log` 供回归排查
+- 灰度 checklist 加此项 (S3-TEST-004 测试员侧 own)
+
+#### 5.3.6 Phase B forward-compat (multi-region)
+
+Phase B 多 region 部署时，每个 region 独立运行修复 cron。**核心约束**：
+
+- region-affinity: contract 必须在原 region 修复 (Azure immutability policy 是 region-local)
+- cron 实例数 = region 数 × 1 (避免跨 region race，由 scheduler-lock 守)
+- alert metric 加 `region` label 区分
+
+#### 5.3.7 与 §5.2 generation 补偿语义区别
+
+| 失败 | 用户影响 | admin 影响 | 紧迫度 |
+|---|---|---|---|
+| §5.2 generation 失败 | **用户看不到合同** (PDF 不存在) | 必须人工或 cron 重试生成 | high (订单流阻塞) |
+| §5.3 WORM 失败 | **用户可看合同** (PDF 已存在，仅 WORM 未生效) | cron 1h/3 次重试 + admin alert 排查 Azure | warning → high (WORM 是法律义务，但不阻塞业务) |
+
+关键: WORM 失败属**法律合规风险**而非**业务功能风险**，因此服务降级允许用户读 + 仅 admin invalidate 路径拒。
+
+---
+
 ## 6. 状态查询 + 用户体验（PRD-003 §3.2/§3.3 + 刻晴 review）
 
 ### 6.1 三端状态展示一致性（PRD AC-6 强约束）
@@ -465,6 +654,8 @@ PRD-003 §3.3 AC-1 "理赔/纠纷处理入口"明示为：
   - §3.1 `service_contracts` 表加 `invalidation_reason TEXT` 必填（当状态 = manually_invalidated）+ `invalidated_by_admin_id` 外键 + `invalidated_at` 时间戳 — 作废动作留迹完整
   - §6.2 客服入口加凝光 PM 同意简化备注（PRD 三种入口 → ADR 简化为微信 + 电话，v1.0 灰度后评估是否补表单系统）
 - **r3（2026-06-05）**：吸收刻晴补充 #2/#3 + 胡桃 dev review #4
+- **r1 amend（2026-06-08，胡桃，S3-DOC-001-ADR-0047-CONTRACT-TRIGGER-CONSISTENCY，PR #216）**：合同触发事件 `payment.succeeded` → `accept_order` 修正，对齐 PR #212 实现
+- **r2 amend（2026-06-08，魈，S3-OPS-ADR-0047-R2-AMEND-WORM-COMPENSATION）**：新增 §5.3 WORM compensation 专章，字面对齐 PR #218 (S3-DEV-001-CONTRACT-WORM-COMPENSATION `de5d20e`) — worm_status enum (applied/pending_retry/permanently_failed) + cron `contract_worm_repair` (1h × 3 retry) + 服务降级语义 (worm_status != applied 仍允许 get URL，仅 invalidate 拒) + 双 alert (initial/permanent_fail) + Phase B 多 region 约束。同步 §3.1 `service_contracts` 字段增量注脚。
   - §3.1 `service_contracts` 加 `hash_inputs JSONB NOT NULL`，并列明 immutable_fields 白名单：`status` 可变；`contract_hash` / `template_version` / `storage_blob_path` / `hash_inputs` 不可变
   - §3.5 新增 `user_audit_logs` 表；§6.3 勾选合同事件写 `user_audit_logs` 而非 `admin_audit_logs`，并强制记录 `user_agent` + `client_ip` 作为 PIPL/民法典电子合同取证材料
   - 全文 `Celery` 统一改为 `apscheduler cron job`，对齐 backend 实跑依赖
