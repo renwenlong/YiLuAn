@@ -22,9 +22,9 @@ from uuid import UUID
 from fastapi import APIRouter
 
 from app.api.v1.openapi_meta import err
-from app.dependencies import CurrentUser
-from app.exceptions import NotFoundException
+from app.dependencies import CurrentPatient, DBSession
 from app.schemas.prep_package import UserPrepPackageView
+from app.services.prep_package_service import PrepPackageService
 
 router = APIRouter(prefix="/users/orders", tags=["users-prep-package"])
 
@@ -37,11 +37,11 @@ router = APIRouter(prefix="/users/orders", tags=["users-prep-package"])
         "返回完整内容: 携带物品 / 就诊前提示 / 建议询问医生的问题。"
         "仅订单归属本用户时返回; 跨订单查询返回 404 (不区分 403, 避免枚举)。"
     ),
-    responses={**err(401, 404, 500)},
+    responses={**err(401, 403, 404, 500)},
 )
 async def get_user_prep_package(
     order_id: UUID,
-    current_user: CurrentUser,
+    current_user: CurrentPatient,
+    session: DBSession,
 ) -> UserPrepPackageView:
-    _ = current_user
-    raise NotFoundException("Prep package service lands in S3-DEV-002-ABAC-4LAYER-PART2")
+    return await PrepPackageService(session).get_prep_for_user(order_id, current_user.id)

@@ -30,9 +30,9 @@ from uuid import UUID
 from fastapi import APIRouter
 
 from app.api.v1.openapi_meta import err
-from app.dependencies import CurrentCompanion
-from app.exceptions import NotFoundException
+from app.dependencies import CurrentCompanion, DBSession
 from app.schemas.prep_package import CompanionPrepPackageView
+from app.services.prep_package_service import PrepPackageService
 
 router = APIRouter(prefix="/companions/orders", tags=["companions-prep-package"])
 
@@ -51,6 +51,8 @@ router = APIRouter(prefix="/companions/orders", tags=["companions-prep-package"]
 async def get_companion_prep_package(
     order_id: UUID,
     current_companion: CurrentCompanion,
+    session: DBSession,
 ) -> CompanionPrepPackageView:
-    _ = current_companion
-    raise NotFoundException("Prep package service lands in S3-DEV-002-ABAC-4LAYER-PART2")
+    return await PrepPackageService(session).get_prep_for_companion(
+        order_id, current_companion.id
+    )
