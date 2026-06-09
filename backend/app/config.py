@@ -173,6 +173,16 @@ class Settings(BaseSettings):
     ai_per_order_budget_yuan: float = 0.05
     # 全平台日预算上限（¥）——超限后直接降级模板文案。
     ai_daily_budget_yuan: float = 50.0
+
+    # ─────────── [S3-DEV-002] AI 就诊准备包 budget (ADR-0048 §3) ───────────
+    # 单订单成本上限（¥）——内容更长，单价 2x S2 摘要。
+    s3_prep_cost_per_order_yuan: float = 0.10
+    # 全平台日预算上限（¥）——独立 2x S2 摘要日预算。
+    s3_prep_daily_budget_yuan: float = 100.0
+    # 是否启用 S3 准备包 AI 调用（false → 全走 template fallback）。
+    s3_prep_enabled: bool = True
+    # 软门限百分比（90 = 日预算用到 90% 时 fire warn alert，仍允许调用）。
+    s3_prep_fallback_threshold_pct: int = 90
     # DeepSeek 调用的 outbound timeout / retry / circuit breaker 参数。
     deepseek_timeout_seconds: float = 15.0
     deepseek_max_retries: int = 2
