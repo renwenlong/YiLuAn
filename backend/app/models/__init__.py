@@ -1,5 +1,4 @@
 from app.models.admin_audit_log import AdminAuditLog
-from app.models.user_audit_log import UserAuditAction, UserAuditLog
 from app.models.admin_note import AdminNote
 from app.models.admin_user import AdminRole, AdminUser
 from app.models.ai_digest import AIDigest, AIDigestStatus
@@ -38,6 +37,8 @@ from app.models.order_status_history import OrderStatusHistory
 from app.models.patient_profile import PatientProfile
 from app.models.payment import Payment
 from app.models.payment_callback_log import PaymentCallbackLog
+from app.models.preparation_package import PreparationPackage, PrepStatus
+from app.models.prompt_version import PromptVersion
 from app.models.reconciliation import (
     ReconActionKind,
     ReconciliationAction,
@@ -70,6 +71,7 @@ from app.models.service_package import (
 from app.models.sms_send_log import SmsSendLog
 from app.models.telemetry_event import TelemetryEvent
 from app.models.user import User, UserRole
+from app.models.user_audit_log import UserAuditAction, UserAuditLog
 from app.models.wallet_ledger import (
     WalletLedger,
     WalletLedgerDirection,
@@ -96,6 +98,9 @@ __all__ = [
     "OrderStatusHistory",
     "Payment",
     "PaymentCallbackLog",
+    "PreparationPackage",
+    "PrepStatus",
+    "PromptVersion",
     "Review",
     "SmsSendLog",
     "TelemetryEvent",
