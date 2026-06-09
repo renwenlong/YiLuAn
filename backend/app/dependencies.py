@@ -1,7 +1,7 @@
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends
+from fastapi import Depends, Header
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -79,6 +79,20 @@ CurrentUser = Annotated[User, Depends(get_current_user)]
 # so the ABAC test suite can hit them directly.
 
 
+async def get_current_patient(
+    current_user: CurrentUser,
+) -> User:
+    """Require that the JWT-authenticated user has the ``patient`` role."""
+    if current_user.role == UserRole.patient:
+        return current_user
+    if current_user.has_role(UserRole.patient):
+        return current_user
+    raise ForbiddenException("patient role required")
+
+
+CurrentPatient = Annotated[User, Depends(get_current_patient)]
+
+
 async def get_current_companion(
     current_user: CurrentUser,
 ) -> User:
@@ -108,24 +122,23 @@ CurrentCompanion = Annotated[User, Depends(get_current_companion)]
 
 
 async def get_current_admin(
-    admin: Annotated[AdminUser, Depends(require_admin_jwt)],
+    session: DBSession,
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
 ) -> AdminUser:
     """Require a valid admin JWT (not a user token, not the legacy sentinel).
 
-    Thin wrapper over ``require_admin_jwt`` that:
-
-    - **excludes** the legacy ``X-Admin-Token`` dual-track path used by
-      ``require_admin`` (which can return a sentinel string instead of
-      an :class:`AdminUser`). The ABAC endpoints need a real
-      :class:`AdminUser` row for audit trails.
-    - is the canonical dep for ABAC admin endpoints so reviewers can
-      grep ``get_current_admin`` to enumerate them.
-
-    The underlying ``require_admin_jwt`` already raises
-    :class:`UnauthorizedException` on invalid / missing JWTs, so we just
-    pass through its return value.
+    A syntactically valid user-side access token is authenticated-but-not-
+    authorized for admin prep-package routes, so it returns 403. Missing,
+    malformed, expired, or otherwise invalid tokens remain 401.
     """
-    return admin
+    try:
+        return await require_admin_jwt(authorization=authorization, session=session)
+    except UnauthorizedException as exc:
+        if authorization and authorization.lower().startswith("bearer "):
+            payload = decode_token(authorization.split(" ", 1)[1].strip())
+            if payload and payload.get("type") == "access":
+                raise ForbiddenException("admin role required") from exc
+        raise
 
 
 CurrentAdmin = Annotated[AdminUser, Depends(get_current_admin)]

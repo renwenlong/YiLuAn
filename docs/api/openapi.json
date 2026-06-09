@@ -17327,6 +17327,16 @@
             },
             "description": "未鉴权或令牌无效"
           },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
           "404": {
             "content": {
               "application/json": {

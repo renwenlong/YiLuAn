@@ -25,9 +25,9 @@ from uuid import UUID
 from fastapi import APIRouter
 
 from app.api.v1.openapi_meta import err
-from app.dependencies import CurrentAdmin
-from app.exceptions import NotFoundException
+from app.dependencies import CurrentAdmin, DBSession
 from app.schemas.prep_package import AdminPrepPackageView
+from app.services.prep_package_service import PrepPackageService
 
 router = APIRouter(prefix="/prep-packages", tags=["admin-prep-package"])
 
@@ -46,6 +46,7 @@ router = APIRouter(prefix="/prep-packages", tags=["admin-prep-package"])
 async def get_admin_prep_package(
     order_id: UUID,
     current_admin: CurrentAdmin,
+    session: DBSession,
 ) -> AdminPrepPackageView:
     _ = current_admin
-    raise NotFoundException("Prep package service lands in S3-DEV-002-ABAC-4LAYER-PART2")
+    return await PrepPackageService(session).get_prep_for_admin(order_id)
