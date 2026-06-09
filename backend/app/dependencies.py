@@ -5,7 +5,7 @@ from fastapi import Depends, Header
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.admin_jwt import require_admin_jwt
+from app.core.admin_jwt import ADMIN_TOKEN_TYPE, require_admin_jwt
 from app.core.security import decode_token
 from app.database import get_db
 from app.exceptions import ForbiddenException, UnauthorizedException
@@ -27,7 +27,15 @@ async def get_current_user(
     if payload is None:
         raise UnauthorizedException("Invalid or expired token")
 
-    if payload.get("type") != "access":
+    token_type = payload.get("type")
+    if token_type == ADMIN_TOKEN_TYPE:
+        # Valid admin-issued JWT but used against a user-role endpoint.
+        # Mirror the symmetry established by ``get_current_admin``:
+        # auth OK, role-domain wrong -> 403, not 401. See PR #233
+        # follow-up ("user/companion endpoint should 403 on admin token")
+        # and ADR-0048 §7.0 strict-role design.
+        raise ForbiddenException("user role required")
+    if token_type != "access":
         raise UnauthorizedException("Invalid token type")
 
     user_id_str = payload.get("sub")
