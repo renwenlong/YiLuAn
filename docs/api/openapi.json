@@ -155,6 +155,157 @@
         "title": "AdminLoginResponse",
         "type": "object"
       },
+      "AdminPrepPackageView": {
+        "description": "Admin-facing prep package view — full content + ops metadata.",
+        "properties": {
+          "actual_cost_yuan": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "实际消耗预算 (¥, 4 位小数)",
+            "title": "Actual Cost Yuan"
+          },
+          "carry_items": {
+            "description": "完整携带物品列表 (admin 可见全字段)",
+            "items": {
+              "type": "string"
+            },
+            "title": "Carry Items",
+            "type": "array"
+          },
+          "companion_focus_points": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Companion Focus Points",
+            "type": "array"
+          },
+          "estimated_cost_yuan": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "生成时预扣预算 (¥, 4 位小数)",
+            "title": "Estimated Cost Yuan"
+          },
+          "fallback_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "fallback 原因",
+            "title": "Fallback Reason"
+          },
+          "generation_time_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "生成耗时 (毫秒)",
+            "title": "Generation Time Ms"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "AI provider model name (e.g. deepseek-chat)",
+            "title": "Model"
+          },
+          "order_id": {
+            "format": "uuid",
+            "title": "Order Id",
+            "type": "string"
+          },
+          "possible_questions": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Possible Questions",
+            "type": "array"
+          },
+          "pre_visit_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "就诊前注意事项 (完整版)",
+            "title": "Pre Visit Notes"
+          },
+          "prompt_version_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "生成本包用的 prompt version (git_blame + db)",
+            "title": "Prompt Version Id"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PrepStatus"
+          },
+          "trace_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "AI 调用 trace id (跟 logs / OTel 关联)",
+            "title": "Trace Id"
+          },
+          "user_checked_items": {
+            "items": {
+              "type": "string"
+            },
+            "title": "User Checked Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "order_id",
+          "status"
+        ],
+        "title": "AdminPrepPackageView",
+        "type": "object"
+      },
       "AppleLoginRequest": {
         "properties": {
           "authorization_code": {
@@ -1378,6 +1529,58 @@
           "real_name"
         ],
         "title": "CompanionListResponse",
+        "type": "object"
+      },
+      "CompanionPrepPackageView": {
+        "description": "Companion-facing prep package view — **ABAC RED LINE**.\n\nExplicitly **absent**:\n- ``pre_visit_notes`` (病史相关原文)\n- ``possible_questions`` (主诉相关原文)\n- ``carry_items`` (替代为 ``carry_items_summary``)\n- ``trace_id`` / ``prompt_version_id`` / ops metadata",
+        "properties": {
+          "carry_items_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "携带物品摘要 (短句, 不暴露病情细节). 替代 ``carry_items`` 给陪诊师.",
+            "title": "Carry Items Summary"
+          },
+          "companion_focus_points": {
+            "description": "陪诊师协助焦点 (服务性 tips, 不含病史)",
+            "items": {
+              "type": "string"
+            },
+            "title": "Companion Focus Points",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "order_id": {
+            "format": "uuid",
+            "title": "Order Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PrepStatus"
+          },
+          "user_checked_items": {
+            "items": {
+              "type": "string"
+            },
+            "title": "User Checked Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "order_id",
+          "status"
+        ],
+        "title": "CompanionPrepPackageView",
         "type": "object"
       },
       "CompanionPublicView": {
@@ -4433,6 +4636,17 @@
         "title": "PhoneBindRequest",
         "type": "object"
       },
+      "PrepStatus": {
+        "enum": [
+          "pending",
+          "generating",
+          "active",
+          "active_fallback_template",
+          "generation_failed"
+        ],
+        "title": "PrepStatus",
+        "type": "string"
+      },
       "PublicServicePackage": {
         "properties": {
           "code": {
@@ -5989,6 +6203,74 @@
           "created_at"
         ],
         "title": "UserItem",
+        "type": "object"
+      },
+      "UserPrepPackageView": {
+        "description": "Patient-facing prep package view (full content, no ops metadata).",
+        "properties": {
+          "carry_items": {
+            "description": "建议携带物品清单 (完整列表)",
+            "items": {
+              "type": "string"
+            },
+            "title": "Carry Items",
+            "type": "array"
+          },
+          "companion_focus_points": {
+            "description": "陪诊师协助焦点 (患者也可见)",
+            "items": {
+              "type": "string"
+            },
+            "title": "Companion Focus Points",
+            "type": "array"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "order_id": {
+            "format": "uuid",
+            "title": "Order Id",
+            "type": "string"
+          },
+          "possible_questions": {
+            "description": "建议向医生询问的问题",
+            "items": {
+              "type": "string"
+            },
+            "title": "Possible Questions",
+            "type": "array"
+          },
+          "pre_visit_notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "就诊前注意事项 (患者完整版,含病史相关提示)",
+            "title": "Pre Visit Notes"
+          },
+          "status": {
+            "$ref": "#/components/schemas/PrepStatus"
+          },
+          "user_checked_items": {
+            "items": {
+              "type": "string"
+            },
+            "title": "User Checked Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "order_id",
+          "status"
+        ],
+        "title": "UserPrepPackageView",
         "type": "object"
       },
       "UserResponse": {
@@ -8815,6 +9097,107 @@
         "tags": [
           "admin",
           "admin-order-timeline"
+        ]
+      }
+    },
+    "/api/v1/admin/prep-packages/{order_id}": {
+      "get": {
+        "description": "返回完整内容 + ops metadata (trace_id / prompt_version_id / model / estimated/actual cost / generation_time_ms / fallback_reason)。仅 admin JWT principal 可访问 (legacy X-Admin-Token sentinel 拒绝)。",
+        "operationId": "get_admin_prep_package_api_v1_admin_prep_packages__order_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminPrepPackageView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "summary": "admin 查看订单的 AI 准备包 (含 ops metadata)",
+        "tags": [
+          "admin",
+          "admin-prep-package"
         ]
       }
     },
@@ -11833,6 +12216,95 @@
         "summary": "获取陪诊师统计概览",
         "tags": [
           "companions"
+        ]
+      }
+    },
+    "/api/v1/companions/orders/{order_id}/prep-package": {
+      "get": {
+        "description": "**红线**: 不含 pre_visit_notes / possible_questions / trace_*; carry_items 已压缩为 carry_items_summary 短摘要。仅陪诊师为本订单的指派服务者时返回; 否则返回 404。",
+        "operationId": "get_companion_prep_package_api_v1_companions_orders__order_id__prep_package_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanionPrepPackageView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "陪诊师获取本订单的 AI 准备包 (脱敏视图, 不含病史原文)",
+        "tags": [
+          "companions-prep-package"
         ]
       }
     },
@@ -16815,6 +17287,85 @@
         "summary": "切换活跃角色",
         "tags": [
           "users"
+        ]
+      }
+    },
+    "/api/v1/users/orders/{order_id}/prep-package": {
+      "get": {
+        "description": "返回完整内容: 携带物品 / 就诊前提示 / 建议询问医生的问题。仅订单归属本用户时返回; 跨订单查询返回 404 (不区分 403, 避免枚举)。",
+        "operationId": "get_user_prep_package_api_v1_users_orders__order_id__prep_package_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserPrepPackageView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "患者获取自己订单的 AI 准备包",
+        "tags": [
+          "users-prep-package"
         ]
       }
     },

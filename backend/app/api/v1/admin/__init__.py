@@ -32,6 +32,7 @@ from app.api.v1.admin.notes import (
     timeline_router as admin_order_timeline_router,
 )
 from app.api.v1.admin.orders import router as orders_router
+from app.api.v1.admin.prep_packages import router as admin_prep_packages_router
 from app.api.v1.admin.reconciliation import router as reconciliation_router
 from app.api.v1.admin.service_packages import router as service_packages_router
 from app.api.v1.admin.telemetry import router as telemetry_router
@@ -50,6 +51,7 @@ router.include_router(admin_ai_blocklist_router)
 router.include_router(orders_router)
 router.include_router(admin_order_timeline_router)
 router.include_router(admin_notes_router)
+router.include_router(admin_prep_packages_router)
 router.include_router(reconciliation_router)
 router.include_router(service_packages_router)
 router.include_router(telemetry_router)
