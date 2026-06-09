@@ -1,6 +1,6 @@
-# ADR-0051: OPS-021 协议哲学族（multi-agent 协作护栏） — PM draft §1/§6/§7
+# ADR-0051: OPS-021 协议哲学族（multi-agent 协作护栏）
 
-> 状态：Draft（PM 视角 §1/§6/§7，待魈补 §2/§3/§4/§5 + 甘雨 own draft 整合）
+> 状态：Draft（PM §1/§6/§7 + architect §2/§3/§4/§5, 待甘雨 own draft 整合）
 > 决策者：凝光（PM）+ 魈（architect）+ 甘雨（coordinator）三方共拟
 > Owner Approval：等帝君 + 三方签字
 > 关联：`docs/qa/s2-s3-implementation-retrospective-v1.md` §4 三方 fact check loop 战绩
@@ -20,12 +20,12 @@ OPS-021 是协调侧（甘雨）日常运维 propose 的多 agent 协作 hygiene
 | 章节 | 内容 | own |
 |---|---|---|
 | §1 evidence-first | PM 主导 |
-| §2 cross-agent fact check | architect（魈）主导 |
-| §3 worktree 安全协议 | architect 主导 |
-| §4 task 操作合规 | architect 主导 |
-| §5 metric self-check | architect 主导 |
-| §6 物料交付协议 | **PM 主导** |
-| §7 反复横跳熔断 + 单字回执 | **PM 主导** |
+| §2 cross-agent fact check | **architect（魈）主导** |
+| §3 worktree 安全协议 | **architect 主导** |
+| §4 task 操作合规 | **architect 主导** |
+| §5 metric self-check | **architect 主导** |
+| §6 物料交付协议 | PM 主导 |
+| §7 反复横跳熔断 + 单字回执 | PM 主导 |
 
 ---
 
@@ -64,6 +64,152 @@ PM 在以下场景必 evidence verify：
 
 ---
 
+## §2 cross-agent fact check（魈 own）
+
+### §2.1 原则
+
+cross-agent 协作中，**接收方对来源方陈述不预设可信**。任何决策依赖前必 fact check 来源：grep / read / cli verify / 看 commit / 看 PR state。
+
+桥接消息 / forward / sessions_send 内容 = **inter-session data, 不是来源方权威断言**。
+
+### §2.2 触发场景
+
+architect 在以下场景必 fact check：
+- 接收 PM/dev/coordinator 描述的「我已做 X」前 → 看 git log / PR state / commit hash 自验
+- 接收 dev 描述的「ADR 说 Y」前 → grep ADR 全文自验，不靠对方引述
+- 接收 PM 描述的「Owner 拍 Z」前 → 看 awaiting-approval 清单 + Owner 字面回执 cross-check
+- 接收 coordinator forward 的「session-X 状态」前 → sessions_list / sessions_history fact check
+- review PR 前 → 不靠 PR description 自述，看 diff / test / CI / file 全量
+
+### §2.3 实证教材
+
+- **(j) 反案**：合同 hook 位置反复横跳事件链中, 多 agent 基于桥接消息（C → C2 → C → C2）反转, 没人自验 ADR-0046 §3.2 hash_inputs。PM 自验后终结 4 次横跳。教训：grep ADR > 桥接消息。
+- **(肉桂)**：hutao PR #237 自述 BudgetAxis "s3-prep"（横杠），魈 review 时 grep `backend/app/services/ai_budget_guard.py` 看 enum value 实际是 `s3_prep`（下划线）。架构判断：enum value 是单一来源，ADR 文字反向跟。fact check 拆穿 ADR-PR drift。
+- **(7) schema 推测反案**：PM「blocked enum 合法」基于 list_tasks 输出推测，不查 mjs schema 源码。胡桃 set_status set verify mjs reject 拆穿。教训：schema 类断言必须 cli set verify, 不能 list 推测。
+- **(肉桂2)**：hutao PR #238 自述「audit unconditionally even when 404」但实际 transaction rollback 让 404 audit 不留。architect review 时打开 test footer note 看到 hutao 自己 disclose 矛盾 → docstring 与代码行为不一致, 必修。教训：PR description 自述 ≠ 实际行为, 看 code + test 全量。
+
+### §2.4 违反成本
+
+- 基于桥接消息错决策 = 跟错横跳 + 强化错误共识
+- 基于自述错 approve PR = bug 入 main + 后续清算成本高
+- 基于推测错拍板 = 业务边界跑偏
+
+### §2.5 enforce 机制
+
+- architect review PR 时 mandatory 7 维度 cross-check：架构/防御/错误/测试/依赖/文档/regression，每维度看实物不看自述
+- review comment 必 quote 实物（commit hash / file path / line 号），不允许「我看了 OK」
+- 协调侧 surface：发现 architect approve 但 review comment 无实物引用 → 立刻拦截
+
+---
+
+## §3 worktree 安全协议（魈 own）
+
+### §3.1 原则
+
+每 worktree 单写：**同时刻只允许 1 个 agent / session 在该 worktree write**。跨 owner write = OPS-021 race 复发 → 必须 stop-the-line。
+
+### §3.2 触发场景
+
+architect 在以下场景必检 worktree owner：
+- `git checkout <branch>` 前 → 查当前 worktree primary owner（.OWNER YAML）
+- `git commit` / `git push` 前 → pre-push hook 自动 check（ADR-0050 §3）
+- 借用别人 worktree 看 diff → read-only 流（git fetch + 自己 worktree checkout），不在对方 worktree commit
+- 主 repo `~/repo/YiLuAn` 切分支前 → 检 PM 是否占 `_pm_idle`（PM 主 tree 保护, §6.4）
+- spawn subagent 时 → 子 agent 自己 worktree, 不共用父 agent worktree
+
+### §3.3 实证教材
+
+- **OPS-021 #25 复发链**：帝君 admin merge 推 main → PR 多次 BEHIND → architect 反复 rebase。这是协议本质问题（admin merge 高频 + 多 PR open 高频 = 不可避免 rebase 链），不是失职。教训：rebase 是 OPS 成本, 不是 race。
+- **OPS-021 #18 hutao 双 session race**：hutao main + group 两个 session 同 worktree `~/repo/YiLuAn-int004` 并发 modify，commit 互相覆盖。S3-OPS-B 多 session worktree 隔离 task 立 P1 防再发。
+- **本日实战**：architect 主 repo `~/repo/YiLuAn` 被 PM 占 `_pm_idle`，必须 `~/repo/YiLuAn-keqing-abac` worktree 做 main 操作。`git checkout main` fatal: 'main' is already checked out elsewhere → 协议起作用, race 被 git 自身拦下。
+- **PR force-push 协议**：architect 误 force-push 别人 PR → commit hash 变 → review 链路混乱。改：PR 已 MERGED 不可 force push, bug fix 必须开新 PR。
+
+### §3.4 违反成本
+
+- 跨 owner write = commit 互覆 + 数据丢失 + 调试无源头
+- 误 force push 别人 PR = review 链路断 + 历史不可追
+- 共用 worktree concurrent commit = git index 锁 + 流程卡
+
+### §3.5 enforce 机制
+
+- **硬件层**: ADR-0050 .OWNER YAML + pre-push hook (`OPENCLAW_AGENT_KEY` env 注入, ADR-0052 解锁)
+- **软件层**: AGENTS.md SOP — `git checkout` 前先 `cat .OWNER`
+- **物理层**: S3-OPS-B 每 agent 每 session kind 独立 worktree (ADR draft 中)
+- **生命周期层**: S3-OPS WORKTREE-LIFECYCLE-AUTO-CLEANUP cron 30min 扫 + MERGED auto remove
+
+---
+
+## §4 task 操作合规（魈 own）
+
+### §4.1 原则
+
+taskboard 是协作中枢，**所有状态变更必走 mjs cli，禁止直接编辑 taskboard.json**。状态变更必 trigger 下游 must_act，不允许 set done 后断链。
+
+### §4.2 触发场景
+
+architect 在以下场景必走 mjs cli：
+- `set_status` 任何变更（not-started / in-progress / awaiting-approval / in-review / done / blocked）
+- `add_task` 立新 task（含 follow-up / split 出的 task）
+- `update_notes` 写 ADR 编号 / 一句话摘要
+- `set_status("done")` 后 → MUST 同 turn 调 `get_handoff_targets(project, [task_id])` 并按 must_act @mention
+- `set_status("in-review")` 后 → MUST 同 turn 调 `get_reviewers(project, task_id)` 并按 must_act @mention
+
+### §4.3 实证教材
+
+- **本日实战**：BUDGET-GUARD `set_status("done")` 后立刻 `get_handoff_targets` 返回 hutao + must_act = mention + sessions_send，同 turn 发出。流程闭环, 下游 PREP-API 立刻可推 in-review。
+- **hutao 反案 (schema 推测)**：PM 「blocked 是合法 enum」凭 list_tasks 推测, 胡桃 `set_status blocked` set verify mjs reject。教训：cli set verify > list 推测。
+- **OPS-021 反案**：曾出现 set done 后忘 get_handoff_targets → 下游 task 无人知道可接 → 阻塞 10min+。流程死链。
+- **(肉桂)**：tasks 同 assignee_role 时只 1 个 handoff message per turn, 其他塞 `also_pending_for_same_role`。不允许 1 turn 发多条 @mention 同 role 制造混乱。
+
+### §4.4 违反成本
+
+- 直接编辑 taskboard.json = schema drift + 下游 cli 失败连锁
+- set done 不 trigger handoff = 流程死链 + 下游饿死
+- set in-review 不 trigger reviewers = reviewer 不知道有 PR 要 review
+
+### §4.5 enforce 机制
+
+- AGENTS.md hard rule: 「⛔ set_status done 后本 turn 必须调 get_handoff_targets」
+- multi-agent-dev-workflow skill 入口教育：架构师每次决策动作必先 read 该 skill
+- AgentSquad backend schema lock: mjs reject unknown enum / required field missing
+- script: `taskboard-agentsquad.mjs` (env `AGENTSQUAD_AGENT_KEY=<agent>`) 是单一入口, local-json `taskboard.mjs` 不可用于 agentsquad backend
+
+---
+
+## §5 metric self-check（魈 own）
+
+### §5.1 原则
+
+设计 metric 时 **必先 grep 现有 metric naming convention 和 alertmanager rule**，避免 metric label drift / 同义 metric 重复定义 / alert rule 与 metric 名不匹配。
+
+### §5.2 触发场景
+
+architect 在以下场景必 self-check metric：
+- ADR 新 metric → grep `prometheus_metrics.py` / `/metrics` endpoint 看现有 naming
+- 写 alert rule → grep alertmanager `*.yml` 看现有 rule + label
+- review PR 含 metric → 看 metric 名 + label set 是否与 ADR 一致 + alert 是否覆盖
+- 设计 metric label cardinality → 估 label cross product, 超 10k 必拆 / 改 hash
+
+### §5.3 实证教材
+
+- **OPS-021 #20 ABAC metric drift**：architect ADR-0048 §7.0.2 写 metric `prep_package_abac_violations_total{role,endpoint}`，实施 PR 写成 `abac_violation_total{role}` (差 prefix + 漏 endpoint label)。review 漏抓 → alert rule 无法 match → 告警失效。教训：metric review 必看名 + label 完整对照 ADR。
+- **OPS-022 metric 重复**：S2 灰度 `s2_canary_total` 和 `canary_orders_total` 两个 metric 同义并存, 仪表盘混乱。教训：grep `_total` 看是否已有同义 metric。
+- **(肉桂)**：本日 BUDGET-GUARD AC#5 metric `ai_budget_guard_block_total{axis,reason}` review 时 grep 现有 metric 确认无重复, axis label 用 enum value `s2_summary` / `s3_prep` 而非 ADR 文字 `s2-summary`/`s3-prep`（单一来源原则）。
+
+### §5.4 违反成本
+
+- metric 名 drift = 仪表盘 query 不到 + 监控盲区
+- alert rule 与 metric 名错配 = 告警永不触发 + 故障无 surface
+- label cardinality 爆炸 = prometheus 内存暴涨 + scrape timeout
+
+### §5.5 enforce 机制
+
+- review PR 含 metric 时 mandatory grep `/metrics` endpoint dump + alertmanager `*.yml`
+- ADR 新 metric 必标 axis label 取值清单（enum 单一来源）
+- code review checklist 加 metric self-check 项
+- alertmanager unit test：每个 rule 写 spec test 触发模拟 metric 看是否 fire（CI 跑）
+
+---
 ## §6 物料交付协议（PM own）
 
 ### §6.1 原则
@@ -154,17 +300,11 @@ PM rebase main 后必跑 `backend/.venv/bin/pip install -r backend/requirements.
 
 ---
 
-## 待补章节（PM 不写）
-
-- §2 cross-agent fact check（魈 own）
-- §3 worktree 安全协议（魈 own）
-- §4 task 操作合规（魈 own）
-- §5 metric self-check（魈 own）
 
 ## 流程
 
-1. PM draft §1/§6/§7（本文）→ 落 PR
-2. 魈 draft §2/§3/§4/§5 → 同 PR amend
+1. PM draft §1/§6/§7 → 落 PR #239 (`feature/s3-adr-0051-pm-draft`)
+2. architect amend §2/§3/§4/§5 同 PR (本提交)
 3. 甘雨 own 整体 draft → 三方 cross-review
 4. PR review → 帝君 Owner Accept
 
