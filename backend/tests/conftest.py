@@ -298,6 +298,23 @@ def _set_contract_pseudonym_salt(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _disable_prompt_versions_validator(monkeypatch):
+    """S3-DEV-002-PROMPT-VERSIONING AC#3 test isolation.
+
+    The production lifespan runs ``validate_prompt_versions_on_startup``
+    (DB ↔ git source-of-truth check).  Most tests use ``Base.metadata.create_all``
+    on an in-memory SQLite and seed no ``prompt_versions`` rows, which would
+    trivially pass.  But tests that seed rows for unrelated assertions
+    (e.g. PreparationPackage FK fixture) would trip the validator the
+    moment they boot via ``TestClient`` (lifespan runs).  Default-off in
+    tests, opt-in via dedicated fixture in startup-validator suites.
+    """
+    from app.config import settings as _settings
+
+    monkeypatch.setattr(_settings, "prompt_versions_validate_on_startup", False)
+
+
+@pytest.fixture(autouse=True)
 def _disable_rate_limiter():
     """W1-S3: route-level @limiter.limit decorators are now in production code
     paths (orders writes, auth refresh/login). The slowapi Limiter is stateful
