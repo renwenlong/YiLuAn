@@ -45,6 +45,7 @@
 | `POST` | `/api/v1/admin/orders/{order_id}/force-status` | 后台：强制修改订单状态 |
 | `POST` | `/api/v1/admin/orders/{order_id}/refund` | 后台：管理员退款 |
 | `GET` | `/api/v1/admin/orders/{order_id}/timeline` | 后台：订单状态变迁时间轴 |
+| `GET` | `/api/v1/admin/prep-packages/{order_id}` | admin 查看订单的 AI 准备包 (含 ops metadata) |
 | `GET` | `/api/v1/admin/reconciliation/diffs` | List Diffs |
 | `GET` | `/api/v1/admin/reconciliation/diffs/{diff_id}` | 后台：差异详情 |
 | `POST` | `/api/v1/admin/reconciliation/diffs/{diff_id}/close-confirms` | Confirm Close |
@@ -861,6 +862,35 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/admin/orders/{order_id}/refu
 
 ```bash
 curl -X GET 'https://api.yiluan.example.com/api/v1/admin/orders/{order_id}/timeline' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `GET /api/v1/admin/prep-packages/{order_id}` — admin 查看订单的 AI 准备包 (含 ops metadata)
+
+返回完整内容 + ops metadata (trace_id / prompt_version_id / model / estimated/actual cost / generation_time_ms / fallback_reason)。仅 admin JWT principal 可访问 (legacy X-Admin-Token sentinel 拒绝)。
+
+**参数：**
+
+- `order_id` (path, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `401` | 未鉴权或令牌无效 |
+| `403` | 无权限 |
+| `404` | 资源不存在 |
+| `422` | Validation Error |
+| `500` | 服务器内部错误 |
+
+**curl 示例：**
+
+```bash
+curl -X GET 'https://api.yiluan.example.com/api/v1/admin/prep-packages/{order_id}' \
   -H 'Authorization: Bearer <access_token>'
 ```
 

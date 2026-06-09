@@ -176,6 +176,7 @@
 | `POST` | `/api/v1/admin/orders/{order_id}/force-status` | 后台：强制修改订单状态 |
 | `POST` | `/api/v1/admin/orders/{order_id}/refund` | 后台：管理员退款 |
 | `GET` | `/api/v1/admin/orders/{order_id}/timeline` | 后台：订单状态变迁时间轴 |
+| `GET` | `/api/v1/admin/prep-packages/{order_id}` | admin 查看订单的 AI 准备包 (含 ops metadata) |
 | `GET` | `/api/v1/admin/reconciliation/diffs` | List Diffs |
 | `GET` | `/api/v1/admin/reconciliation/diffs/{diff_id}` | 后台：差异详情 |
 | `POST` | `/api/v1/admin/reconciliation/diffs/{diff_id}/close-confirms` | Confirm Close |
@@ -285,6 +286,12 @@ K8s / ACA 探针使用：
 | --- | --- | --- |
 | `GET` | `/api/v1/admin/orders/{order_id}/timeline` | 后台：订单状态变迁时间轴 |
 
+### [admin-prep-package](./admin-prep-package.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/admin/prep-packages/{order_id}` | admin 查看订单的 AI 准备包 (含 ops metadata) |
+
 ### [admin-reconciliation](./admin-reconciliation.md)
 
 | 方法 | 路径 | 说明 |
@@ -326,6 +333,12 @@ K8s / ACA 探针使用：
 | --- | --- | --- |
 | `POST` | `/api/v1/admin/wallet-ledger/adjustments` | Create Manual Adjustment |
 | `GET` | `/api/v1/admin/wallet-ledger/{user_id}` | List User Ledger |
+
+### [companions-prep-package](./companions-prep-package.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/companions/orders/{order_id}/prep-package` | 陪诊师获取本订单的 AI 准备包 (脱敏视图, 不含病史原文) |
 
 ### [contracts](./contracts.md)
 
@@ -385,3 +398,9 @@ K8s / ACA 探针使用：
 | `POST` | `/api/v1/users/me/family-members` | 新增一位家人 (F-05) |
 | `DELETE` | `/api/v1/users/me/family-members/{member_id}` | 软删除一位家人 (F-05) |
 | `PATCH` | `/api/v1/users/me/family-members/{member_id}` | 更新一位家人 (F-05) |
+
+### [users-prep-package](./users-prep-package.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/users/orders/{order_id}/prep-package` | 患者获取自己订单的 AI 准备包 |

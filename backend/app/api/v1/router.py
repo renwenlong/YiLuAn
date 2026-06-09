@@ -15,6 +15,8 @@ from app.api.v1.notifications import router as notifications_router
 from app.api.v1.orders import router as orders_router
 from app.api.v1.patients import router as patients_router
 from app.api.v1.payment_callback import router as payment_callback_router
+from app.api.v1.prep_packages_companions import router as prep_packages_companions_router
+from app.api.v1.prep_packages_users import router as prep_packages_users_router
 from app.api.v1.public_service_packages import router as public_service_packages_router
 from app.api.v1.reviews import router as reviews_router
 from app.api.v1.share import router as share_router
@@ -53,6 +55,8 @@ api_v1_router.include_router(notifications_router)
 api_v1_router.include_router(wallet_router)
 api_v1_router.include_router(payment_callback_router)
 api_v1_router.include_router(public_service_packages_router)
+api_v1_router.include_router(prep_packages_users_router)
+api_v1_router.include_router(prep_packages_companions_router)
 api_v1_router.include_router(share_router)
 api_v1_router.include_router(telemetry_router)
 api_v1_router.include_router(admin_router)
