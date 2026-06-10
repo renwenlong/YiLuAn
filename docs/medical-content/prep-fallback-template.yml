@@ -1,0 +1,68 @@
+# Preparation Package Fallback Template
+#
+# 用途: 当 AI 生成失败时(预算耗尽/L1 输入拦截/L2 输出拦截/LLM 错误),
+# 系统降级使用本通用模板内容填充 preparation_packages, 标记
+# status=active_fallback_template + fallback_reason=<原因>.
+#
+# Reference:
+# - ADR-0048-ai-prep-budget-guard-prompt-versioning §8 P3
+# - PRD-001 v1.4 §F8
+# - S3-DEV-002-PREP-GENERATE-WITH-BUDGETGUARD acceptance criterion 3
+#
+# !! 维护约束 !!
+# - 4 块字段(carry_items / pre_visit_notes / possible_questions /
+#   companion_focus_points)必须 1:1 对齐 PreparationPackage model
+# - 内容**不可包含医疗建议字样**(诊断 / 治疗 / 用药)
+# - 内容**通用**(不绑定具体科室/疾病)
+#
+# TODO P3 凝光 + 医疗顾问 review: 本文件是 S3-DEV-002-PREP-GENERATE-WITH-BUDGETGUARD
+# 实现期间的 minimal v0.1.0-mvp 占位, 凝光 follow-up task
+# `S3-DEV-002-PREP-FALLBACK-TEMPLATE-V1` 替换为 v1.0.0 终版.
+
+template_version: "v0.1.0-mvp"
+created_by: "hutao"
+created_at: "2026-06-10"
+needs_medical_review: true
+
+# 患者随身携带物品清单
+carry_items:
+  - "身份证"
+  - "医保卡或社保卡"
+  - "既往病历资料(纸质或电子)"
+  - "近期检查报告(化验单 / 影像片)"
+  - "目前正在服用的药品清单(可拍照)"
+  - "现金或可用支付方式(部分诊室仅支持现金)"
+  - "纸笔(便于记录医嘱)"
+  - "口罩 / 暖水杯 / 充电宝(候诊较长时备用)"
+
+# 就诊前注意事项
+pre_visit_notes: |
+  以下是通用就诊准备建议:
+
+  1. 提前 30 分钟到达医院, 预留挂号 / 缴费 / 找诊室时间
+  2. 整理本次就诊主要关切问题(可写在纸上避免遗忘)
+  3. 准备好回答常规询问: 起病时间 / 持续多久 / 加重或缓解因素
+  4. 如有过敏史或慢性病史, 主动告知医生
+  5. 候诊期间避免食用影响检查的食物或饮料(如有事先要求)
+  6. 如需做影像或抽血检查, 请按医院指引空腹或饮水
+
+  *本内容为通用提示, 不构成医疗建议. 具体准备请遵医嘱.*
+
+# 就诊时可能被问到的问题
+possible_questions:
+  - "目前主要不适是什么时候开始的?"
+  - "症状是持续还是间歇性出现?"
+  - "之前是否就诊过? 用过哪些药?"
+  - "家族中是否有类似情况?"
+  - "近期生活作息、饮食、工作是否有变化?"
+  - "是否有过敏史? 对哪些药物或食物过敏?"
+  - "有没有正在服用的其他药物或保健品?"
+
+# 陪诊师重点关注事项
+companion_focus_points:
+  - "协助患者按时到达医院、找到诊室"
+  - "记录医生当次诊断要点、检查项目、用药指导"
+  - "提醒患者向医生反馈所有关切问题, 避免遗漏"
+  - "陪同完成检查、缴费、取药全流程"
+  - "如医生开出后续复查或检查单, 协助预约登记"
+  - "为患者整理本次就诊记录, 便于后续追踪"
