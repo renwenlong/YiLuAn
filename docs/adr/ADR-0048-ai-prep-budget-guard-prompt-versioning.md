@@ -283,7 +283,7 @@ class AIPrepKeywordFilter:
 
 ```
 docs/ai-prompts/
-  ├── s3-prep/
+  ├── s3_prep/
   │   ├── v1.0.0/
   │   │   ├── system_prompt.md
   │   │   ├── user_prompt_template.md
@@ -293,7 +293,9 @@ docs/ai-prompts/
   │       └── ...
 ```
 
-**git tag**: `prompt-s3-prep-v1.0.0` 标定版本，PR 必须含 tag 才能 merge。
+**git tag**: `prompt-s3_prep-v1.0.0` 标定版本，PR 必须含 tag 才能 merge。
+
+> r3 (2026-06-09)：路径从 `s3-prep` （带横杠）改为 `s3_prep` （下划线）对齐 ``BudgetAxis.S3_PREP.value``，避免 run-time 的 dash/underscore 转换逻辑。同 axis 枚举为源于一。
 
 ### 5.2 DB 端
 
