@@ -129,6 +129,7 @@ def create_scheduler(app) -> AsyncIOScheduler:
     from app.cron.cleanup_emergency_pii import cleanup_emergency_pii
     from app.cron.contract_generate_pickup import contract_generate_pickup_job
     from app.cron.contract_worm_repair import contract_worm_repair_job
+    from app.cron.prep_generate import prep_generate_job
     from app.cron.reconcile_money import reconcile_money_job
     from app.cron.reconciliation_cleanup import reconciliation_cleanup_job
     from app.cron.share_token_scanner import scan_share_token_anomalies_job
@@ -274,6 +275,20 @@ def create_scheduler(app) -> AsyncIOScheduler:
         coalesce=True,
         max_instances=1,
         misfire_grace_time=120,
+        replace_existing=True,
+    )
+    # S3-DEV-002-PREP-GENERATE-WITH-BUDGETGUARD / ADR-0048 §8 P4: prep 准备包生成 worker
+    # — 每 1min tick, batch 拉 pending PreparationPackage → LLM 调用 + AIBudgetGuard 集成
+    # + fallback 模板降级. 默认开启(settings.prep_generate_enabled=True).
+    scheduler.add_job(
+        prep_generate_job,
+        trigger=IntervalTrigger(minutes=1),
+        kwargs={"app": app},
+        id="prep_generate",
+        name="Preparation package generate (S3-DEV-002 ADR-0048 §8 P4)",
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=30,
         replace_existing=True,
     )
     return scheduler

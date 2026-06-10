@@ -83,6 +83,15 @@ class Settings(BaseSettings):
     # 设 False 仅在开发/CI 环境 (单进程 cold reload 足够).
     ai_blocklist_pubsub_enabled: bool = True
 
+    # S3-DEV-002-PREP-GENERATE-WITH-BUDGETGUARD / ADR-0048 §8 P4:
+    # Preparation package generate cron (每 1min tick).
+    # 默认 True — 生产用需; 测试/CI 可设 False 避免 AsyncIOScheduler 启动后
+    # 后台跳 LLM 调用.
+    prep_generate_enabled: bool = True
+
+    # Prep generate cron 单轮处理批量 (避免锁占用过久).
+    prep_generate_batch_size: int = 10
+
     # Apple Sign-In (W18-A)
     # TODO(PM): supply real values for production. See `placeholders` doc.
     apple_team_id: str = ""  # TODO: 10-char Apple Developer Team ID
