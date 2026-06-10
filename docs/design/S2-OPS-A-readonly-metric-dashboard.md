@@ -167,9 +167,9 @@ Note: r1 amend (§12.1) 删 source label, 同 USER_TOKEN_REVOKE_TOTAL.
 
 | Metric | Prometheus Hook | **Audit Log Hook (新增, 必须同 transaction)** |
 |---|---|---|
-| `user_token_revoke_total{reason}` | `backend/app/services/auth.py:227` `revoke_all_sessions` 末尾 `+1`, 仅在 `ENVIRONMENT=production` 计 (mock 不上 prometheus, mock 走 audit SQL) | 同 method 同 transaction 插 `admin_audit_logs`: `action='user_token_revoke'`, `target_type='user'`, `target_id=user.id`, `operator=current_admin`, `reason=text(reason_enum)`, **`metadata={"source":"mock"\|"real","trigger":"manual\|auto_scanner"}`** (需 metadata JSONB 字段 alembic migration, 见 §3.5) |
-| `user_relogin_success_total{trigger}` | `backend/app/services/auth.py` `login_user` 成功 path, 仅 real 计 | 同 method 同 transaction 插 `user_audit_logs`: `action='user_login_success'`, `user_id=user.id`, `metadata={"source":"mock"\|"real","trigger":"post_revoke"\|"passive"}` (需 user_audit_logs action enum 扩 + metadata JSONB migration, 见 §3.5) |
-| `user_session_dropped_total{cause}` | `backend/app/services/auth.py` `get_current_user` reject path + `RefreshTokenStore` 失效 path, 仅 real 计 | 同 method 同 transaction 插 `user_audit_logs`: `action='user_session_dropped'`, `metadata={"source":...,"cause":...}` |
+| `user_token_revoke_total{reason}` | `backend/app/services/auth.py:227` `revoke_all_sessions` 末尾 `+1`, 仅在 `ENVIRONMENT=production` 计 (mock 不上 prometheus, mock 走 audit SQL) | 同 method 同 transaction 插 `admin_audit_logs`: `action='user_token_revoke'`, `target_type='user'`, `target_id=user.id`, `operator=current_admin`, `reason=text(reason_enum)`, **`audit_metadata={"source":"mock"\|"real","trigger":"manual\|auto_scanner"}`** (需 `audit_metadata` JSONB 字段 alembic migration, **字段名 `audit_metadata` 复用 user_audit_logs 现有 convention 避 SQLAlchemy reserved 'metadata' 撞名**, 见 §3.5) |
+| `user_relogin_success_total{trigger}` | `backend/app/services/auth.py` `login_user` 成功 path, 仅 real 计 | 同 method 同 transaction 写已存在的 `user_audit_logs.audit_metadata` 字段: `action='user_login_success'`, `user_id=user.id`, `audit_metadata={"source":"mock"\|"real","trigger":"post_revoke"\|"passive"}` (action enum 扩, **audit_metadata 字段已存在不需新增**, 见 §3.5) |
+| `user_session_dropped_total{cause}` | `backend/app/services/auth.py` `get_current_user` reject path + `RefreshTokenStore` 失效 path, 仅 real 计 | 同 method 同 transaction 写已存在的 `user_audit_logs.audit_metadata` 字段: `action='user_session_dropped'`, `audit_metadata={"source":...,"cause":...}` |
 
 ⚠️ **本 design 不指定具体实施代码** (那是 develop task 范围), 仅 hint 实装位置 + 强约束 (同 transaction).
 
@@ -178,7 +178,8 @@ Note: r1 amend (§12.1) 删 source label, 同 USER_TOKEN_REVOKE_TOTAL.
 **当前实测 (2026-06-10) 现状**:
 - `admin_audit_logs.reason: Text` 单字段 (no JSON)
 - `user_audit_logs` action enum: 只 3 contract action (无 login_success/session_dropped/token_revoke)
-- 2 表都**无 metadata JSONB 字段**
+- **实测 evidence-first** (反案 #16 修正): `user_audit_logs.audit_metadata: JSONB` **已存在** (backend/app/models/user_audit_log.py:86, 语义 `扩展元数据 (template_version / missing_ip / 其他取证信息)`, 复用即可); `admin_audit_logs` **无任何 JSONB 字段** (确认 backend/app/models/admin_audit_log.py 仅 `reason: Text nullable`)
+- 字段名 **统一用 `audit_metadata`** (不能用 `metadata` — SQLAlchemy Declarative API 保留字, ORM 加载时直接 `InvalidRequestError`)
 - `revoke_all_sessions` 当前**无 audit hook**
 
 **新增 alembic migration** (`S2-OPS-A-READ-ONLY-FLAG-ADMIN-API` 实施时同 PR 出):
@@ -193,47 +194,47 @@ revision = 'XXXX'
 down_revision = 'YYYY'  # 当前 head
 
 def upgrade() -> None:
-    # AC#1 admin_audit_logs metadata JSONB (read-only flag source/trigger 扩展)
+    # AC#1 admin_audit_logs audit_metadata JSONB (read-only flag source/trigger 扩展)
+    # 字段名 audit_metadata 跟 user_audit_logs.audit_metadata convention 1:1 一致
+    # 避 SQLAlchemy reserved 'metadata' Declarative API 撞名 (实测 InvalidRequestError)
     op.add_column(
         'admin_audit_logs',
-        sa.Column('metadata', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column('audit_metadata', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
     )
     op.create_index(
-        'ix_admin_audit_logs_metadata_source',
+        'ix_admin_audit_logs_audit_metadata_source',
         'admin_audit_logs',
-        [sa.text("(metadata->>'source')")],
+        [sa.text("(audit_metadata->>'source')")],
         postgresql_where=sa.text("action = 'user_token_revoke'"),
     )
 
-    # AC#2 user_audit_logs metadata JSONB + 扩 action enum (login_success/session_dropped)
-    op.add_column(
-        'user_audit_logs',
-        sa.Column('metadata', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
-    )
+    # AC#2 user_audit_logs.audit_metadata **字段已存在 — 不需新增**
+    # (backend/app/models/user_audit_log.py:86 `audit_metadata: Mapped[dict] = mapped_column(JSONB)`)
+    # 本 migration 只加 source index (action enum 扩 在 ORM 侧 + service 侧 实现)
     op.create_index(
-        'ix_user_audit_logs_metadata_source',
+        'ix_user_audit_logs_audit_metadata_source',
         'user_audit_logs',
-        [sa.text("(metadata->>'source')")],
+        [sa.text("(audit_metadata->>'source')")],
         postgresql_where=sa.text("action IN ('user_login_success', 'user_session_dropped')"),
     )
 
 def downgrade() -> None:
-    op.drop_index('ix_user_audit_logs_metadata_source', table_name='user_audit_logs')
-    op.drop_column('user_audit_logs', 'metadata')
-    op.drop_index('ix_admin_audit_logs_metadata_source', table_name='admin_audit_logs')
-    op.drop_column('admin_audit_logs', 'metadata')
+    op.drop_index('ix_user_audit_logs_audit_metadata_source', table_name='user_audit_logs')
+    # user_audit_logs.audit_metadata 字段不是本 migration 加的, 不删
+    op.drop_index('ix_admin_audit_logs_audit_metadata_source', table_name='admin_audit_logs')
+    op.drop_column('admin_audit_logs', 'audit_metadata')
 ```
 
 **ORM model 同步更新**:
 
 ```python
 # backend/app/models/admin_audit_log.py 追加
-metadata: Mapped[dict | None] = mapped_column(
+audit_metadata: Mapped[dict | None] = mapped_column(
     JSONB, nullable=True,
-    comment="扩展字段 (read-only flag source/trigger 等, ADR-0053 §7)"
+    comment="扩展字段 (read-only flag source/trigger 等, ADR-0053 §7). 避 SQLAlchemy 'metadata' 保留字"
 )
 
-# backend/app/models/user_audit_log.py 追加 (同 + 扩 action enum)
+# backend/app/models/user_audit_log.py **不动** (audit_metadata 已存在), 仅在 enum/CHECK constraint 侧扩 action 取值
 ```
 
 ⚠️ 这是 `S2-OPS-A-READ-ONLY-FLAG-ADMIN-API` task **同 PR 必出** (单 PR 包含 metric + audit_log + migration + revoke_all hook), 不可拆 — 因为 baseline 取数依赖 audit_log, mock 灰度第 1 天就得能查.
@@ -346,15 +347,16 @@ metadata: Mapped[dict | None] = mapped_column(
 
 mock 灰度上线后用 **`admin_audit_logs` + `user_audit_logs`** 查 baseline (实测 schema, 红线 #1 修正):
 
-**前提**: §3.5 alembic migration 已上 (metadata JSONB + 扩 action enum) + revoke_all/login 同 transaction 写 audit. 否则 SQL 取不到数据 (mock baseline 直接 fail = §8 哨兵 #1 红).
+**前提**: §3.5 alembic migration 已上 (`admin_audit_logs.audit_metadata` JSONB 加 + 扩 action enum + 复用 `user_audit_logs.audit_metadata` 现有字段) + revoke_all/login 同 transaction 写 audit. 否则 SQL 取不到数据 (mock baseline 直接 fail = §8 哨兵 #1 红).
 
 ```sql
 -- Mock 灰度 baseline (7 天滑动)
 -- Source: admin_audit_logs.action='user_token_revoke' + user_audit_logs.action='user_login_success'
 -- 字段实测 (2026-06-10):
 --   admin_audit_logs.reason: Text 单字段 (枚举 credential_leak/compliance_report/...)
---   admin_audit_logs.metadata: JSONB (r1 §3.5 新增, 含 source=mock/real, trigger=...)
---   user_audit_logs.metadata: JSONB (同上)
+--   admin_audit_logs.audit_metadata: JSONB (r2 §3.5 新增, 含 source=mock/real, trigger=...)
+--   user_audit_logs.audit_metadata: JSONB (字段**已存在**, 复用)
+--   字段名统一 audit_metadata (避 SQLAlchemy reserved 'metadata' 撞名 + 项目 convention)
 WITH revoke_events AS (
     SELECT 
         target_id AS user_id,  -- admin_audit_logs.target_id = users.id
@@ -363,7 +365,7 @@ WITH revoke_events AS (
     FROM admin_audit_logs
     WHERE action = 'user_token_revoke'
       AND target_type = 'user'
-      AND metadata->>'source' = 'mock'  -- r1 §3.5 新增 JSONB 字段
+      AND audit_metadata->>'source' = 'mock'  -- r2 §3.5 复用 audit_metadata 字段名
       AND created_at >= NOW() - INTERVAL '7 days'
       AND reason NOT IN ('credential_leak', 'compliance_report')
 ),
@@ -373,8 +375,8 @@ relogin_events AS (
         created_at AS reloggin_at
     FROM user_audit_logs
     WHERE action = 'user_login_success'  -- r1 §3.5 扩 action enum
-      AND metadata->>'source' = 'mock'
-      AND metadata->>'trigger' = 'post_revoke'
+      AND audit_metadata->>'source' = 'mock'
+      AND audit_metadata->>'trigger' = 'post_revoke'
       AND created_at >= NOW() - INTERVAL '7 days'
 )
 SELECT
@@ -401,19 +403,19 @@ LEFT JOIN relogin_events l ON l.user_id = r.user_id;
 ```sql
 -- Mock 灰度 session drop rate (7 天滑动)
 WITH drop_events AS (
-    SELECT user_id, created_at, metadata->>'cause' AS cause
+    SELECT user_id, created_at, audit_metadata->>'cause' AS cause
     FROM user_audit_logs
     WHERE action = 'user_session_dropped'  -- r1 §3.5 扩 action enum
-      AND metadata->>'source' = 'mock'
-      AND metadata->>'cause' != 'client_close'  -- 排除主动 close
+      AND audit_metadata->>'source' = 'mock'
+      AND audit_metadata->>'cause' != 'client_close'  -- 排除主动 close
       AND created_at >= NOW() - INTERVAL '7 days'
 ),
 active_estimate AS (
     -- 总活跃 session = revoke 数 + 自然重登数 (近似)
     SELECT (
-        (SELECT COUNT(*) FROM admin_audit_logs WHERE action = 'user_token_revoke' AND metadata->>'source' = 'mock' AND created_at >= NOW() - INTERVAL '7 days')
+        (SELECT COUNT(*) FROM admin_audit_logs WHERE action = 'user_token_revoke' AND audit_metadata->>'source' = 'mock' AND created_at >= NOW() - INTERVAL '7 days')
         +
-        (SELECT COUNT(*) FROM user_audit_logs WHERE action = 'user_login_success' AND metadata->>'source' = 'mock' AND metadata->>'trigger' = 'passive' AND created_at >= NOW() - INTERVAL '7 days')
+        (SELECT COUNT(*) FROM user_audit_logs WHERE action = 'user_login_success' AND audit_metadata->>'source' = 'mock' AND audit_metadata->>'trigger' = 'passive' AND created_at >= NOW() - INTERVAL '7 days')
     ) AS total
 )
 SELECT
@@ -562,7 +564,7 @@ r0 设计 prometheus counter 带 `source=mock|real` label 区分. r1 amend 删 s
 
 r0 仅 hint metric hook 位置. r1 amend 加 audit_log hook **强约束**:
 - 同 transaction 写 `admin_audit_logs` / `user_audit_logs` (与 metric counter 同 method)
-- 需 §3.5 alembic migration (metadata JSONB + 扩 action enum) 前置
+- 需 §3.5 alembic migration (admin_audit_logs.audit_metadata JSONB 加 + 扩 action enum + 复用 user_audit_logs.audit_metadata 现有字段) 前置
 - 这是 baseline 取数 (§5.1) 的物理依赖, 不可省
 
 ---
@@ -597,8 +599,13 @@ r0 仅 hint metric hook 位置. r1 amend 加 audit_log hook **强约束**:
 
 **🔴 红线 #1 (方案 A)**: §5.1 baseline SQL 字段全错 (实测 `audit_logs` 表不存在, 应为 `admin_audit_logs` + `user_audit_logs` 分离表, 字段非 JSON detail 而是 reason: Text 单字段, 无 source label, revoke_all 无 audit hook). r1 修正:
 - §3.4 加 audit_log hook (双埋点 prometheus + audit, 同 transaction)
-- §3.5 新增 alembic migration spec (metadata JSONB + 扩 action enum)
-- §5.1 SQL 全改, `FROM admin_audit_logs` + `metadata->>'source'`, mock baseline lower bound 90%→95% (凝光 PM review)
+- §3.5 新增 alembic migration spec (admin_audit_logs.audit_metadata JSONB + 扩 action enum + 复用 user_audit_logs.audit_metadata 现有字段)
+- §5.1 SQL 全改, `FROM admin_audit_logs` + `audit_metadata->>'source'`, mock baseline lower bound 90%→95% (凝光 PM review)
+- **r2 (2026-06-10 ~13:35Z) — keqing PR #248 re-review 4467903580 修 §3.5 红线**:
+  - 字段名 `metadata` → `audit_metadata` (避 SQLAlchemy `metadata` Declarative API 保留字 + 复用 user_audit_logs convention)
+  - 删 §3.5 user_audit_logs 加 column 段 (实测字段已存在, alembic 跑会 column already exists), 改 "仅加 source index, action enum 在 ORM/service 侧扩"
+  - §5.1 全 SQL 字段名跟改
+  - §3.4 hook table audit_metadata={...} 跟改
 - §8 哨兵集成步骤 (2) 补 audit_log hook + migration 同 PR 必出
 
 **🟡 黄线 #1**: source label 删, prometheus 只看 real, mock 走 audit SQL. r1 修正:
@@ -615,4 +622,9 @@ r0 仅 hint metric hook 位置. r1 amend 加 audit_log hook **强约束**:
 
 **Q4 拆 follow-up**: `S2-OPS-A-READONLY-REAL-GATE-CRON` (P1, develop, hutao, deps=[ADMIN-API, METRIC-DASHBOARD]). r1 §6 + §7 + §8 + §9.2 + §11 全部明示. (凝光 PM + 刻晴 双推, 不阻本 design)
 
-**S2-TEST-016 受影响**: red-line #1 方案 A → `admin_audit_logs.metadata` JSONB → keqing E#6 audit log 全字段测试范围扩 (verify metadata 字段). 只是扩, 不阻测试.
+**S2-TEST-016 受影响 (r2 update)**:
+- red-line #1 方案 A → `admin_audit_logs.audit_metadata` JSONB → keqing E#6 audit log 全字段测试范围扩
+- verify `admin_audit_logs.audit_metadata` 含 source/trigger
+- verify `user_audit_logs.audit_metadata` 含 source/trigger (复用现有字段)
+- verify 同 transaction (revoke 失败时 audit_log 也 rollback)
+- 只是扩, 不阻测试.
