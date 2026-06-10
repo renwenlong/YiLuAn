@@ -1,6 +1,6 @@
 # ADR-0051: OPS-021 协议哲学族（multi-agent 协作护栏）
 
-> 状态：Draft（PM §1/§6/§7 + architect §2/§3/§4/§5, 待甘雨 own draft 整合）
+> 状态：Draft（PM §1/§6/§7 + architect §2/§3/§4/§5 + 2026-06-10 amend：§1 拆 4 角色子节 + §1.3 补 7 条实证教材（8-14） + 魈 review 拆 typo + §1.2.5(3) 语气设计，待甘雨 own draft 整合）
 > 决策者：凝光（PM）+ 魈（architect）+ 甘雨（coordinator）三方共拟
 > Owner Approval：等帝君 + 三方签字
 > 关联：`docs/qa/s2-s3-implementation-retrospective-v1.md` §4 三方 fact check loop 战绩
@@ -35,13 +35,48 @@ OPS-021 是协调侧（甘雨）日常运维 propose 的多 agent 协作 hygiene
 
 任何升级/拍板/广播/桥接前必 **evidence verify**，不允许基于推理/过时信息/桥接消息/口头转述。
 
-### §1.2 触发场景
+### §1.2 触发场景（4 角色拆分，2026-06-10 amend）
 
-PM 在以下场景必 evidence verify：
-- 上呈帝君实情前 → fact check 当前 git/PR/session/cron 真实状态
-- 拍板业务边界前 → grep ADR/PRD/源码自验（不靠桥接消息）
-- 推架构师/协调者前 → 看对方实际进展（task status / PR / commit）不靠口头
-- 升级 emergency 前 → fact check session 状态（status / latest tool call / yield 信号）
+evidence-first 是全员协议，但不同角色触发点不同。以下拆 PM/architect/dev/coordinator 四个角色各自触发点清单：
+
+#### §1.2.1 PM 视角 evidence-first 触发点
+
+1. **上呈帝君 cancel/卡点/wait 类发言前** → cross-check：
+   - (a) MEMORY.md（团队规约是否已拍板）
+   - (b) 帝君 inbox 当前待决项（避免重复上呈同件）
+   - (c) PM 本 session 过去 N min 自己做了什么（避免遗报）
+2. **拍板业务边界前** → grep ADR/PRD/源码自验（不靠桥接消息）
+3. **推架构师/协调者前** → 看对方实际进展（task status / PR / commit / session_status）不靠口头
+4. **升级 emergency 前** → fact check session 状态（sessions_list / sessions_history / status / latest tool call / yield 信号）
+5. **上呈 PR queue 状态前** → `gh pr list` 实测（不靠 PM 本 session N min 前的 list 数据，main 推进后 PR queue 会变）
+
+#### §1.2.2 architect 视角 evidence-first 触发点（魈 workspace-xiao MEMORY 2026-06-10 propose）
+
+1. **「等 X 授权」类发言前** → workspace-xiao MEMORY + PM/甘雨 MEMORY 跨 workspace 必查（避免引入被取消的君子协定）
+2. **branch protection 实时口径必 `gh api` 实测**（避免 MEMORY 过时造成策略退步）
+3. **Code Review 落字前 ADR/spec 1:1 对应**（避免靠 PR description 自述 review、靠社交压力 approve）
+4. **fact check PR mergeState 必用 `git merge-base --is-ancestor` 或 `git log base..head`**，不靠 GitHub `baseRefOid`（动态字段不代表 head 含 base）
+
+#### §1.2.3 dev 视角 evidence-first 触发点
+
+1. **swap pattern PR 必跑机器对齐 source vs target**（不靠手抄 + 视觉 review，避免 typo 当合同正文被临床发现）
+2. **PR description 自述 ≠ 实际行为**，dev 接 review 意见后必看 code + test 实现是否一致（避免 docstring 与代码冲突）
+3. **跨 hutao session 同 worktree 写前** → `sessions_list agentId=hutao` + `git worktree list` + `git reflog`，选定 worktree owner + 群里 announce-before-touch（避免双 session race）
+4. **schema 类断言必 set verify**（不靠 `list` 输出推测后端是否支持 enum）
+5. **backend deps 改动 PR merge 后群里 announce**（供其他 agent rebase 后 `pip install -r requirements.txt` 同步，避免 ImportError 连锁误诊）
+
+#### §1.2.4 coordinator 视角 evidence-first 触发点
+
+1. **桥接 PM/architect/dev 消息前** → sessions_list + sessions_history fact check 源侧 session 实际状态（不靠 forward 即广播）
+2. **上呈帝君 A/B/C 选项前** → ping PM/architect 确认无并行清单（避免同时段多 A/B/C 冲突 = 帝君单字歧义）
+3. **架构师双拍间隔 <30min 时暂停桥接**（避免架构师未 verify 稳定的拍板传染到 PM 引起跨 agent 横跳）
+4. **fact check PM/architect 错诊后反向拦截**（护栏对称），不只是上传拍板下传消息的单向道
+
+#### §1.2.5 跨角色公共 evidence-first 触发点
+
+1. **规约模糊 / unblocker 类发言前必读 workspace MEMORY.md + 跨 workspace 规约文档（PM/甘雨）**（避免退步重新引入被取消的君子协定）
+2. **MEMORY.md 时效维护是各 agent 共同责任**（发现 MEMORY 与现状不一致记录 + 补补）
+3. **原始文档 evidence 优先级：ADR/PRD 源码（静态）> mjs cli set verify（动态）> raw API（实时）> gh CLI / sessions_list（实时）> MEMORY.md（规约）> PR description 自述、桌面口述、桥接 forward**（后三项必 fact check 源头 session 状态后再传，不预设可信。该约束是约束动作而非否定协调者桥接本职）
 
 ### §1.3 实证教材
 
@@ -49,6 +84,13 @@ PM 在以下场景必 evidence verify：
 - (l) emergency 升级前必 fact check session 状态：PM 09:00 UTC 误升级 emergency abort hutao main session（实际 main 已 yield + 自 disclose），甘雨 fact check 拦下
 - (m) Owner 单字回执必 cross-check awaiting-approval 项：帝君 09:52 UTC「按 06-02 拍板冲」被魈扩张解读，魈第 6 次自承 retract
 - (7) schema 类断言必须 set verify：PM「blocked 合法」基于 list_tasks 推测，胡桃 set verify mjs reject
+- (8) PM 上呈帝君前必 cross-check inbox 待决项：PM 06:01 UTC「魈 review queue 14h+ 卡点」错诊（真卡点 = OPS-021 hutao 代合授权），魈 fact check 拦下
+- (9) worktree race 必 `git worktree list` + reflog 实证，不靠目录名推定：PM 06:01 凭 `keqing-abac` 名错诊刻晴占用，魈 06:05 也错诊「我占用」，刻晴 06:08 reflog 实证「我 16:21 误切 PM branch 持有 22h+」才是正解
+- (10) 刻晴 worktree 持有 race：PR 验证完未立刻 checkout main。24h 组灯挂的 race 是未释放 branch 而不是误 commit
+- (11) PM 漏读 MEMORY.md：PM 06:01/06:15/06:25 UTC「等 OPS-021 代合授权」错诊，MEMORY.md L4-L13 5 天前帝君拍板方案 A「exec 角色直接合」已明写，甘雨 fact check 拦下
+- (12) MEMORY.md 时效维护：PM MEMORY L13 「required contexts 三个」过时，实测 4 个（加 iOS Simulator），PM 06:30 订正 + workspace-xiao 07:31 init MEMORY 同步实时口径
+- (13) PM 长 sleep + exec session 死了 PM 漏 verify exec 完成度：PM 06-10 08:52 UTC 起 ADR-0051 amend，commit + push 成功但 exec session 死 → `gh pr create` 没跑 → PM 没 verify → 09:54 UTC 帝君催才发现。教训：每个 action 后必跑 verify 链路完整性，不靠「自我相信已完成」
+- (14) PM IME typo 「撚”→「撚」不是字：PM 06-10 08:55 UTC 起 ADR-0051 amend 时「撚 v0.5」“撚”是手部偏旁不是字，魈 10:03 UTC review fact check 拆穿。同胡桃 06-09 PR #215 「扌→扣」 typo 同款 — IME 输入后需 visual review 手抄 + 机器点对。教训：ADR/合同/业务文案 PR 必跑 `grep -P '[\u2E80-\u2EFF\u2F00-\u2FDF]'` 检查偏旁部首 unicode（非汉字区间错字）或 chinese spell checker。今日累三方踩同样问题（胡桃/PM/魈 review 拍穿）。
 
 ### §1.4 违反成本
 
