@@ -723,6 +723,69 @@
         "title": "Body_upload_certification_image_api_v1_admin_companions_certification_images_post",
         "type": "object"
       },
+      "CacheInvalidateRequest": {
+        "additionalProperties": false,
+        "description": "Body for ``POST /api/v1/admin/cache/invalidate``.\n\nFields:\n\n* ``order_id`` — required UUID of the order whose precheck summary\n  cache should be invalidated.\n* ``cards`` — optional list of card names limited to\n  :data:`CardName` (Literal-enforced 422 on typo). Defaults to all\n  4 cards when omitted. Stored verbatim in the audit row so per-card\n  remediation drives can be reconstructed; aggregator still packs\n  every card into the single ``precheck:order:{order_id}`` key.",
+        "properties": {
+          "cards": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    "companion_cert",
+                    "insurance",
+                    "prep_package",
+                    "contract"
+                  ],
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "可选, 待失效的卡列表 (companion_cert / insurance / prep_package / contract)。omit 视为 all 4。仅落 AdminAuditLog, 不改 cache key 形状。Pydantic Literal 校验, 拼错任一 card → 422。",
+            "title": "Cards"
+          },
+          "order_id": {
+            "description": "订单 UUID。aggregator 用此组装 cache key precheck:order:{order_id}。",
+            "format": "uuid",
+            "title": "Order Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_id"
+        ],
+        "title": "CacheInvalidateRequest",
+        "type": "object"
+      },
+      "CacheInvalidateResponse": {
+        "additionalProperties": false,
+        "description": "Response body for the endpoint.\n\nReturns 200 once :class:`OrderPrecheckAggregator` is fully implemented\nby PRECHECK-BACKEND. Until then, the endpoint raises 501 from the\nstub layer (this schema is unused on the stub path but ships in the\nOpenAPI for forward compatibility).",
+        "properties": {
+          "broadcast": {
+            "description": "WS broadcast 是否完成 (companion_cert_status_changed 推 user + companion)。",
+            "title": "Broadcast",
+            "type": "boolean"
+          },
+          "invalidated_keys": {
+            "description": "aggregator 执行 redis DEL 的 key 列表 (通常单元素 precheck:order:{order_id})。",
+            "items": {
+              "type": "string"
+            },
+            "title": "Invalidated Keys",
+            "type": "array"
+          }
+        },
+        "required": [
+          "invalidated_keys",
+          "broadcast"
+        ],
+        "title": "CacheInvalidateResponse",
+        "type": "object"
+      },
       "CertificationImageUploadResponse": {
         "properties": {
           "certification_image_signed_url": {
@@ -7004,6 +7067,129 @@
         "tags": [
           "admin",
           "admin-audit-logs"
+        ]
+      }
+    },
+    "/api/v1/admin/cache/invalidate": {
+      "post": {
+        "description": "admin (仅 super) 手动触发某订单 precheck:order:{order_id} 缓存失效 + OrderPrecheckAggregator 重算 + WS broadcast。\n\n**stub 阶段返 501** (本 PR S3-DEV-005-CACHE-INVALIDATE 范围)。\naggregator.evaluate 在 S3-DEV-003-PRECHECK-BACKEND 实装后, 本 endpoint 不动, 自动返 200 (invalidated_keys + broadcast=true)。\n\n保证 (即使 501 回应)：\n* defensive Redis DEL precheck:order:{order_id} 已执行;\n* AdminAuditLog 已写 (admin_id / order_id / cards / timestamp)。\n\nrate limit: 5/min per admin (按 Authorization token 分桶)。",
+        "operationId": "invalidate_cache_api_v1_admin_cache_invalidate_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CacheInvalidateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CacheInvalidateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Rate limit exceeded: 5 per 1 minute"
+                }
+              }
+            },
+            "description": "触发限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          },
+          "501": {
+            "description": "OrderPrecheckAggregator stub 未实装 evaluate / SET / broadcast (S3-DEV-005-CACHE-INVALIDATE 范围)。PRECHECK-BACKEND 接管后翻 200。"
+          }
+        },
+        "summary": "admin 手动失效订单 precheck 缓存并触发重算 (super_admin only)",
+        "tags": [
+          "admin",
+          "admin-cache"
         ]
       }
     },

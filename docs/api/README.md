@@ -153,6 +153,7 @@
 | `GET` | `/api/v1/admin/ai-blocklist/preview` | 查看 AI 双层关键词过滤 blocklist (read-only) |
 | `POST` | `/api/v1/admin/ai-blocklist/reload` | 触发 AI 关键词黑名单 hot reload (异步, 多副本 ≤5s) |
 | `GET` | `/api/v1/admin/audit-logs` | 后台：审计日志列表 |
+| `POST` | `/api/v1/admin/cache/invalidate` | admin 手动失效订单 precheck 缓存并触发重算 (super_admin only) |
 | `GET` | `/api/v1/admin/companions/` | 后台：待审核陪诊师列表 |
 | `POST` | `/api/v1/admin/companions/certification-images` | 后台：上传陪诊师证件图（Phase A 本地私有存储） |
 | `GET` | `/api/v1/admin/companions/certification-images/{filename}` | 后台：读取证件图 signed URL（双闸：admin token + HMAC） |
@@ -235,6 +236,12 @@ K8s / ACA 探针使用：
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `GET` | `/api/v1/admin/audit-logs` | 后台：审计日志列表 |
+
+### [admin-cache](./admin-cache.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `POST` | `/api/v1/admin/cache/invalidate` | admin 手动失效订单 precheck 缓存并触发重算 (super_admin only) |
 
 ### [admin-contracts](./admin-contracts.md)
 
