@@ -1,6 +1,6 @@
 # ADR-0051: OPS-021 协议哲学族（multi-agent 协作护栏）
 
-> 状态：Draft（PM §1/§6/§7 + architect §2/§3/§4/§5 + 2026-06-10 amend：§1 拆 4 角色子节 + §1.3 补 7 条实证教材（8-14） + 魈 review 拆 typo + §1.2.5(3) 语气设计，待甘雨 own draft 整合）
+> 状态：Draft（PM §1/§6/§7 + architect §2/§3/§4/§5 + 2026-06-10 amend：§1 拆 4 角色子节 + §1.3 补 7 条实证教材（8-14） + 魈 review 拆 typo + §1.2.5(3) 语气设计 + §6 amend：§6.3 加错位重启检查点 + §6.4 跨 worktree 冲突处理 + §6.7 补反案 #13-15 + §6.8 加 typo check + list_tasks 自验，待甘雨 own draft 整合）
 > 决策者：凝光（PM）+ 魈（architect）+ 甘雨（coordinator）三方共拟
 > Owner Approval：等帝君 + 三方签字
 > 关联：`docs/qa/s2-s3-implementation-retrospective-v1.md` §4 三方 fact check loop 战绩
@@ -278,13 +278,27 @@ PM 出以下物料必走 §6.1 流程：
 6. git add {file} && git commit -m "{type}({scope}): {summary}"
 7. git push -u origin feature/{...}
 8. gh pr create --base main --head feature/{...} --title ... --body-file ...
-9. git checkout _pm_idle (回 idle 占位 branch, 不污染主 tree)
-10. sessions_send 主动 surface PR URL 给全员
+9. **verify exec session 返回 PR URL**（避免 exec session 死中途反案 #13）
+10. git checkout _pm_idle (回 idle 占位 branch, 不污染主 tree)
+11. sessions_send 主动 surface PR URL 给全员。
+
+**错位重启检查点**（反案 #13 加固）：
+- 每个关键 step 后必 verify其实际状态：
+  - step 7 push 后必 `git ls-remote origin {branch}` verify origin 有 head
+  - step 8 gh pr create 后必看返回是 PR URL
+  - exec session 超时/死中途 → 手动 verify
+  - 避免「以为已完成」
 ```
 
 ### §6.4 PM 主 tree 保护
 
 PM 主 tree `~/repo/YiLuAn` PM 独占，不允许 hutao session 写入（OPS-021 worktree 单写协议）。PM 物料 PR 后立刻 `git checkout _pm_idle` 回 idle 占位。
+
+**跨 worktree checkout 冲突处理**（反案 #9-10 实战）：
+- 若遇 fatal 'already checked out at /path/to/worktree' 错误，必跑 `git worktree list` + `git reflog` 实证占用 branch和 owner
+- 不凭 worktree 目录名（如 `keqing-abac`）推定 owner—可能是别的 agent 占用
+- 如 worktree 占住是其他 agent，ping 对应 agent 释放，不强制 force checkout
+- 避免凭推定错诊别的 agent 占用（反案 #9 PM 在 keqing-abac 凭名推 keqing，魈也推「我」，刻晴 reflog 才实证「别人」）
 
 ### §6.5 venv 同步前置
 
@@ -303,12 +317,21 @@ PM rebase main 后必跑 `backend/.venv/bin/pip install -r backend/requirements.
 - (n2) PM rebase main 后必 pip install -r requirements.txt：PR #214 rebase 后 pre-push gate fail 误报"全员停"
 - (o) backend deps 改动 PR merge 后 push 者群里 announce：双向 gate 设计
 - (p) swap pattern PR 必跑机器对齐 source vs target：胡桃 swap typo「扌→扣」三方独立 fact check 拆穿
+- **(13) exec session 死中途 PM 漏 verify exec 完成度**：PM 06-10 08:52 UTC 起 ADR-0051 amend，commit + push 成功但 brisk-meadow session 死 → `gh pr create` 没跑 → PM 没 verify → 09:54 UTC 帝君催才发现。教训：§6.3 step 8 后必看返回 PR URL，exec session 超时/死→手动 verify。
+- **(14) PM IME typo 「撚”→「撚」 不是字**：PM 06-10 08:55 UTC 起 ADR-0051 amend 时「撚 v0.5」“撚”是手部偏旁不是字，魈 10:03 UTC review fact check 拆穿。同胡桃 06-09 PR #215「扌→扣」typo同款—IME 输入后需 visual review + 机器点对。ADR/合同/业务文案 PR 必跑 `grep -P '[\u2E80-\u2EFF\u2F00-\u2FDF]'` 检查偏旁部首 unicode（非汉字区间错字）或 chinese spell checker。
+- **(15) PM task 操作前必 list_tasks 自验**：PM 06-10 10:10 UTC 想新建 S3-DEV-002-PREP-FALLBACK-TEMPLATE-V1，没先 list_tasks 检查重复，直接 add_task 撞 "already exists"（魈 10:08 已建）。同反案 #7 "schema 类断言必 set verify" 同源—task 操作前必 list_tasks 自验。
 
 ### §6.8 enforce 机制
 
 - PR description 强制写 "OPS-021 (n) 协议执行: ✅ 写文件 + commit + push + 开 PR 完整链路"
 - 协调侧 fact check：协调者看 PM 主 tree git status 是否有 untracked 物料超 1h
 - PR push 后 PM 必 sessions_send 主动同步 PR URL，不让接收方等 forward 看到延迟
+- **PR 文案 PR 必加 chinese typo check**（反案 #14 加固）：
+  - `grep -P '[\u2E80-\u2EFF\u2F00-\u2FDF]' file.md` 检查偏旁部首 unicode（非汉字区间错字）
+  - chinese spell checker tool（可后续套件）
+- **PM task 操作前必 list_tasks 自验**（反案 #15 加固）：
+  - add_task / update_assignee / set_status 前先 list_tasks 检查重复/存在状态
+  - 避免撞 "already exists" 或重复操作
 
 ---
 
