@@ -120,6 +120,11 @@ async def test_approve_happy_path(client):
     async with test_session_factory() as session:
         updated = await session.get(CompanionProfile, profile.id)
         assert updated.verification_status == VerificationStatus.verified
+        # S3-DEV-003-PRECHECK-BACKEND c1 — approve must stamp
+        # verification_completed_at as part of the same transaction.
+        # OrderPrecheckSummaryView.companion_cert_status surfaces this
+        # as `companion_cert_verified_at` (positive-list field).
+        assert updated.verification_completed_at is not None
 
     # Verify audit log created
     async with test_session_factory() as session:
@@ -129,6 +134,87 @@ async def test_approve_happy_path(client):
         logs = result.scalars().all()
         assert len(logs) == 1
         assert logs[0].action == "approve"
+
+
+@pytest.mark.asyncio
+async def test_approve_sets_verification_completed_at_to_recent_utc(client):
+    """Explicit sentinel for the verification_completed_at stamp.
+
+    S3-DEV-003-PRECHECK-BACKEND c1 — verifies the field semantic:
+
+    * NULL before approve
+    * NOT NULL after approve, set to ``datetime.now(timezone.utc)``
+      at the moment ``verification_status`` flips to ``verified``
+    * timestamp must be tz-aware (DateTime(timezone=True)) and within
+      a small window of "now" (sanity check the stamp is fresh, not
+      a stale leftover from elsewhere)
+
+    Distinct from ``certified_at`` (cert issuance) — do NOT replace
+    this with a ``certified_at`` check.
+    """
+    from datetime import datetime, timedelta, timezone
+
+    profile = await _create_profile()
+    # Sanity: fresh pending profile has no verify timestamp yet.
+    async with test_session_factory() as session:
+        pre = await session.get(CompanionProfile, profile.id)
+        assert pre.verification_completed_at is None
+
+    before = datetime.now(timezone.utc)
+    resp = await client.post(f"{BASE}/{profile.id}/approve", headers=_headers())
+    assert resp.status_code == 200
+    after = datetime.now(timezone.utc)
+
+    async with test_session_factory() as session:
+        updated = await session.get(CompanionProfile, profile.id)
+        stamp = updated.verification_completed_at
+        assert stamp is not None, "approve_companion must set verification_completed_at"
+        # Note: tz-awareness varies by backend (PG preserves with
+        # DateTime(timezone=True); SQLite in-memory tests drop tz).
+        # The Smoke Tests CI job runs against real Postgres and proves
+        # tz preservation end-to-end; here we just check freshness.
+        # Normalize both to naive UTC for freshness compare so the test
+        # passes on either backend.
+        before_naive = before.replace(tzinfo=None)
+        after_naive = after.replace(tzinfo=None)
+        stamp_naive = stamp.replace(tzinfo=None) if stamp.tzinfo else stamp
+        assert (
+            before_naive - timedelta(seconds=5) <= stamp_naive <= after_naive + timedelta(seconds=5)
+        ), (
+            f"verification_completed_at {stamp} not within approve call window "
+            f"[{before}, {after}]"
+        )
+        # Reject case sanity: this happens to be approve, but make sure
+        # we didn't accidentally write a non-verified timestamp by also
+        # checking the status is verified.
+        assert updated.verification_status == VerificationStatus.verified
+
+
+@pytest.mark.asyncio
+async def test_reject_does_not_set_verification_completed_at(client):
+    """Reject path MUST NOT touch verification_completed_at.
+
+    S3-DEV-003-PRECHECK-BACKEND c1 — the field semantic is
+    "the moment verification completed successfully". A rejected
+    profile never completed verification, so the field stays NULL.
+    Catches accidental code reuse ("both approve and reject stamp
+    the timestamp") which would silently leak to OrderPrecheckSummaryView.
+    """
+    profile = await _create_profile()
+    resp = await client.post(
+        f"{BASE}/{profile.id}/reject",
+        headers=_headers(),
+        json={"reason": "test reject reason"},
+    )
+    assert resp.status_code == 200
+
+    async with test_session_factory() as session:
+        updated = await session.get(CompanionProfile, profile.id)
+        assert updated.verification_status == VerificationStatus.rejected
+        assert updated.verification_completed_at is None, (
+            "reject must NOT set verification_completed_at — "
+            "field semantic is 'verify completed', not 'admin decided'"
+        )
 
 
 @pytest.mark.asyncio
