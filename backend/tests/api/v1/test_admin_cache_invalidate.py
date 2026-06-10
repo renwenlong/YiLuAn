@@ -1,7 +1,8 @@
 """S3-DEV-005-CACHE-INVALIDATE — admin cache invalidate endpoint tests.
 
-Covers 魈 task comment ``79ce3e34`` 4 hard requirements + the stub
-501 contract:
+Covers 魈 task comment ``79ce3e34`` 4 hard requirements + c2 evaluate
+contract (S3-DEV-003-PRECHECK-BACKEND c2 replaced the stub 501 path
+with real evaluate + cache SET):
 
 * AC#1: ``AdminAuditLog`` row is written (target_type / action /
   operator / cards in ``reason``).
@@ -11,25 +12,16 @@ Covers 魈 task comment ``79ce3e34`` 4 hard requirements + the stub
   the audit row's ``reason`` column (sorted, comma-joined).
 * AC#4: cache key shape — defensive ``redis DEL`` targets the single
   ``precheck:order:{order_id}`` key (no per-card variants).
-* Stub: endpoint returns 501 because
-  :meth:`OrderPrecheckAggregator.evaluate` raises
-  :class:`NotImplementedError` until S3-DEV-003-PRECHECK-BACKEND
-  fills it in. The defensive DEL still happens before the 501
-  (real cache state changes), and the audit row is persisted via a
-  **dedicated** ``AuditSession`` (second ``get_db`` dep) + explicit
-  ``audit_session.commit()`` *before* the aggregator runs; 501
-  rollback only affects the request session, so the audit row
-  survives. See ``test_audit_row_persists_per_card_tag`` for the
-  positive happy-path assertion and
-  ``test_audit_row_persists_even_when_redis_del_raises`` for the
-  redis-failure path that proves the dedicated session pattern
-  isolates audit durability from any downstream aggregator failure.
+* c2 evaluate: endpoint returns 200 + ``invalidated_keys`` +
+  ``broadcast=False``. ``broadcast`` flips to True when c4 WS infra
+  lands (which will trigger a similar canary update in this file).
 * Auth: ``super_`` role passes; ``ops`` / ``finance`` get 403;
   missing token = 401.
 """
 
 from __future__ import annotations
 
+import json
 from collections.abc import AsyncGenerator
 from typing import Any
 from uuid import uuid4
@@ -114,24 +106,30 @@ async def _list_cache_audits(order_id: str) -> list[AdminAuditLog]:
 
 
 # ---------------------------------------------------------------------------
-# Stub contract: endpoint returns 501 because aggregator.evaluate raises
+# c2 contract: endpoint returns 200 with real evaluate + cache SET
+# (broadcast=False until c4 WS infra lands)
 # ---------------------------------------------------------------------------
 
 
-async def test_super_admin_gets_501_from_stub_aggregator(
+async def test_super_admin_gets_200_with_invalidated_keys(
     client: AsyncClient, super_token: str
 ) -> None:
-    """CANARY: stub edition — even a valid super admin sees 501 today.
+    """S3-DEV-003 c2: aggregator.evaluate landed — endpoint returns 200.
 
-    Once S3-DEV-003-PRECHECK-BACKEND lands ``evaluate``, this test
-    **will fail** on the ``status_code == 501`` assertion. That is the
-    intended canary signal that the stub window has closed. The
-    correct response is to **update this test** (assert ``status_code
-    == 200`` + ``invalidated_keys`` + ``broadcast=true``) and add
-    coverage for the recompute / broadcast path — **not** to revert
-    the endpoint or remove this file. The 501 → 200 flip happens
-    purely inside ``OrderPrecheckAggregator.evaluate``; the endpoint
-    itself is unchanged across the PRECHECK-BACKEND transition.
+    Previous canary (``test_super_admin_gets_501_from_stub_aggregator``)
+    asserted 501 because ``OrderPrecheckAggregator.evaluate`` raised
+    :class:`NotImplementedError`. c2 implements evaluate + _redis_set,
+    so the stub window has closed and this test now asserts:
+
+    * ``status_code == 200``
+    * ``invalidated_keys`` contains the canonical ``precheck:order:{id}`` key
+    * ``broadcast == False`` (c4 WS infra still pending; that flip
+      lands in c4 and this test must be updated to ``broadcast=True``
+      at that point — same canary mechanics, one layer deeper)
+
+    The order need not exist; aggregator returns a 4-card view with
+    all ``ready=False`` when rows are missing, which is still a valid
+    summary payload and a legitimate cache write.
     """
     order_id = str(uuid4())
     response = await client.post(
@@ -139,20 +137,24 @@ async def test_super_admin_gets_501_from_stub_aggregator(
         json={"order_id": order_id},
         headers={"Authorization": f"Bearer {super_token}"},
     )
-    assert response.status_code == 501, response.text
+    assert response.status_code == 200, response.text
     body = response.json()
-    assert "PRECHECK-BACKEND" in body["detail"]
+    assert body["invalidated_keys"] == [f"precheck:order:{order_id}"]
+    assert body["broadcast"] is False, (
+        "c2 stub _ws_broadcast returns False; flip to True is c4 work "
+        "and should re-update this test at that point."
+    )
 
 
-async def test_stub_runs_defensive_redis_del_before_501(
+async def test_endpoint_runs_defensive_redis_del_then_set(
     client: AsyncClient, fake_redis: Any, super_token: str
 ) -> None:
-    """The defensive ``redis DEL precheck:order:{order_id}`` runs even
-    on the stub path.
+    """Endpoint runs DEL → evaluate → SET in that order.
 
-    Seeds a fake cache entry, invokes the endpoint, asserts the entry
-    is gone (501 notwithstanding). This is the "cache cleared even if
-    recompute fails" property design line 226 step 1 calls out.
+    Seeds a stale cache entry, invokes the endpoint, asserts the
+    final cache value is the fresh aggregator-computed summary (NOT
+    the stale value). DEL+SET ordering is the design's main
+    consistency guarantee — design line 224 + 胡桃 r3 amend.
     """
     order_id = uuid4()
     key = _build_cache_key(order_id)
@@ -164,10 +166,19 @@ async def test_stub_runs_defensive_redis_del_before_501(
         json={"order_id": str(order_id)},
         headers={"Authorization": f"Bearer {super_token}"},
     )
-    assert response.status_code == 501, response.text
-    assert await fake_redis.get(key) is None, (
-        "defensive DEL must run before the stub aggregator raises"
-    )
+    assert response.status_code == 200, response.text
+
+    fresh = await fake_redis.get(key)
+    assert fresh is not None, "cache must be re-SET by aggregator after evaluate"
+    assert b'"stale"' not in (
+        fresh if isinstance(fresh, bytes) else fresh.encode()
+    ), "stale payload must have been overwritten"
+    parsed = json.loads(fresh)
+    assert parsed["order_id"] == str(order_id)
+    assert "contract_status" in parsed
+    assert "insurance_status" in parsed
+    assert "preparation_status" in parsed
+    assert "companion_cert_status" in parsed
 
 
 # ---------------------------------------------------------------------------
@@ -175,21 +186,22 @@ async def test_stub_runs_defensive_redis_del_before_501(
 # ---------------------------------------------------------------------------
 
 
-async def test_audit_row_persists_per_card_tag(
-    client: AsyncClient, super_token: str
-) -> None:
+async def test_audit_row_persists_per_card_tag(client: AsyncClient, super_token: str) -> None:
     """AC#1 + #3: audit row persists via a dedicated session.
 
     The endpoint opens its own :class:`AsyncSession`, commits the
-    audit row, *then* runs the aggregator. When the stub raises
-    :class:`NotImplementedError` and the endpoint surfaces 501, the
-    request transaction rolls back — but the audit row has already
-    been committed in its own session, so it survives.
+    audit row, *then* runs the aggregator. Even though c2 evaluate
+    landed (200 path), the dedicated-session pattern remains because:
+
+    * c4 / c5 may add WS broadcast / hook flows that can raise;
+    * future failure modes (redis outage, signed-URL gen error)
+      still need the audit row durable independent of the request
+      transaction.
 
     This is the explicit fix for the ``view_prep_package`` known
     limitation (which kept audit in the request tx, so 404 / 500
     paths dropped the row). 魈 hard requirement #1 ("AdminAuditLog
-    必写") permits no exceptions, including the 501 stub window.
+    必写") permits no exceptions.
     """
     order_id = str(uuid4())
     before = await _list_cache_audits(order_id)
@@ -201,11 +213,11 @@ async def test_audit_row_persists_per_card_tag(
         },
         headers={"Authorization": f"Bearer {super_token}"},
     )
-    assert response.status_code == 501, response.text
+    assert response.status_code == 200, response.text
 
     after = await _list_cache_audits(order_id)
     assert len(after) == len(before) + 1, (
-        f"expected exactly one new audit row after 501 (audit commits "
+        f"expected exactly one new audit row (audit commits "
         f"independently of request tx); got {len(after) - len(before)}"
     )
 
@@ -233,7 +245,7 @@ async def test_audit_row_omitted_cards_records_all_sentinel(
         json={"order_id": order_id},
         headers={"Authorization": f"Bearer {super_token}"},
     )
-    assert response.status_code == 501, response.text
+    assert response.status_code == 200, response.text
     rows = await _list_cache_audits(order_id)
     assert len(rows) == 1
     assert rows[0].reason == "cards=*all"
@@ -285,9 +297,7 @@ def test_cache_key_is_single_packed_key() -> None:
 # ---------------------------------------------------------------------------
 
 
-async def test_ops_admin_rejected_with_403(
-    client: AsyncClient, ops_token: str
-) -> None:
+async def test_ops_admin_rejected_with_403(client: AsyncClient, ops_token: str) -> None:
     response = await client.post(
         INVALIDATE_URL,
         json={"order_id": str(uuid4())},
@@ -297,9 +307,7 @@ async def test_ops_admin_rejected_with_403(
     assert "super_admin" in response.json()["detail"]
 
 
-async def test_finance_admin_rejected_with_403(
-    client: AsyncClient, finance_token: str
-) -> None:
+async def test_finance_admin_rejected_with_403(client: AsyncClient, finance_token: str) -> None:
     response = await client.post(
         INVALIDATE_URL,
         json={"order_id": str(uuid4())},
@@ -338,7 +346,7 @@ async def test_unknown_card_returns_422(
 
     刻晃 PR #250 r1 红线: schema 原本 ``cards: list[str] | None`` 裸
     ``list[str]``, admin 拼错 (e.g. trailing s / case mismatch / typo)
-    会静默接受 + audit 写错值 + 501 走完, PRECHECK-BACKEND 接手
+    会静默接受 + audit 写错值 + 走完, PRECHECK-BACKEND 接手
     后 evaluate lookup card 会 KeyError / silent skip. 改 ``list[CardName]``
     后 Pydantic 自动 422.
     """
@@ -354,11 +362,7 @@ async def test_unknown_card_returns_422(
     # 错误信息包含 cards 路径 + literal_error type
     detail_str = repr(body["detail"]).lower()
     assert "cards" in detail_str
-    assert (
-        "literal" in detail_str
-        or "input should be" in detail_str
-        or "value error" in detail_str
-    )
+    assert "literal" in detail_str or "input should be" in detail_str or "value error" in detail_str
 
 
 async def test_mixed_valid_and_unknown_card_returns_422(
@@ -376,10 +380,8 @@ async def test_mixed_valid_and_unknown_card_returns_422(
     assert response.status_code == 422, response.text
 
 
-async def test_all_known_cards_accepted(
-    client: AsyncClient, super_token: str
-) -> None:
-    """4 个合法 card 名同时传 = 进 stub 返 501 (不是 422)."""
+async def test_all_known_cards_accepted(client: AsyncClient, super_token: str) -> None:
+    """4 个合法 card 名同时传 = c2 evaluate 走通 返 200 (不是 422)."""
     response = await client.post(
         INVALIDATE_URL,
         json={
@@ -388,8 +390,8 @@ async def test_all_known_cards_accepted(
         },
         headers={"Authorization": f"Bearer {super_token}"},
     )
-    # stub aggregator 拒 → 501; 重点是不 422
-    assert response.status_code == 501, response.text
+    # c2 evaluate landed → 200; 重点是 不 422
+    assert response.status_code == 200, response.text
 
 
 # ---------------------------------------------------------------------------
@@ -435,9 +437,9 @@ async def test_audit_row_persists_even_when_redis_del_raises(
         )
 
     after = await _list_cache_audits(order_id)
-    assert len(after) == len(before) + 1, (
-        "audit row must persist even when defensive Redis DEL raises"
-    )
+    assert (
+        len(after) == len(before) + 1
+    ), "audit row must persist even when defensive Redis DEL raises"
     audit_row = after[-1]
     assert audit_row.target_type == "precheck_cache"
     assert audit_row.action == "invalidate"
@@ -469,18 +471,16 @@ async def test_rate_limit_blocks_sixth_request_per_admin(
             json={"order_id": str(uuid4())},
             headers=headers,
         )
-        assert r.status_code == 501, (
-            f"call #{i + 1}: expected stub 501, got {r.status_code} — {r.text}"
-        )
+        assert (
+            r.status_code == 200
+        ), f"call #{i + 1}: expected c2 evaluate 200, got {r.status_code} — {r.text}"
     # 6th call within the same minute → 429.
     r = await client.post(
         INVALIDATE_URL,
         json={"order_id": str(uuid4())},
         headers=headers,
     )
-    assert r.status_code == 429, (
-        f"6th call should be rate-limited; got {r.status_code}: {r.text}"
-    )
+    assert r.status_code == 429, f"6th call should be rate-limited; got {r.status_code}: {r.text}"
 
 
 def test_rate_limit_key_partitions_per_token() -> None:
