@@ -103,6 +103,11 @@ evidence-first 是全员协议，但不同角色触发点不同。以下拆 PM/a
 - PM session 培训：每次 fact check 失败后写反案教材入 `s2-s3-implementation-retrospective-v1.md` §4
 - 主动可推动作：PM 上呈帝君前 5min 内必跑实情 check（git log / PR list / session state）
 - 协调侧 surface：协调者发现 PM 基于过时数据 → 立刻拦截
+- **PM 给 dev 派活前必 verify task depends_on 全绿**（反案 #15 加固，2026-06-10 r2 amend）：
+  - `list_tasks` 查目标 task `depends_on` 字段
+  - 逐个 verify dep task status = `done`（不能默认 task list 上能见就能接）
+  - dep 未全绿 = 不推，转 PM 上报架构师/魈 dep 处理路径
+  - 实证：06-10 12:38 UTC PM 错推 hutao P0 PRECHECK-BACKEND, 魈 evidence-first 拉回发现 `S3-DEV-005-CACHE-INVALIDATE` not-started
 
 ---
 
@@ -345,6 +350,12 @@ PM rebase main 后必跑 `backend/.venv/bin/pip install -r backend/requirements.
 - **PM task 操作前必 list_tasks 自验**（反案 #15 加固）：
   - add_task / update_assignee / set_status 前先 list_tasks 检查重复/存在状态
   - 避免撞 "already exists" 或重复操作
+- **BMP 区汉字 typo 黑名单 grep**（反案 #14 r2 加固，2026-06-10 r2 amend）：
+  - unicode region grep `[\u2E80-\u2EFF\u2F00-\u2FDF]` 仅报部首/CJK strokes 区，**BMP 区汉字 typo 抓不到**（如「刻晕→刻晴」「哬兵→哨兵」「重兵→哨兵」「甜雨→甘雨」「揚→撚」「扌→扣」）
+  - 必补 typo 黑名单 grep：`grep -nE '刻晕|哬兵|重兵|甜雨|撚 [a-zA-Z0-9]|扣 [a-zA-Z0-9]' file.md`
+  - 黑名单源：团队同名 typo 同事人名（刻晕/哬兵/重兵/甜雨）+ 历史反案 typo 词（PR #215 扌→扣 / PR #241 amend 撚 v0.5 / PR #246 amend r1 4 typo）
+  - 实证：06-10 12:50 UTC 魈 ADR-0053 amend r1 自踩 4 typo, unicode region 未抓; 需 typo 黑名单 + chinese spell check tool 双防
+  - **后续（可选）**：把 commit hook 接入 chinese spell check API（如百度翻译 typo correction / 钉钉企业 typo check），作为 CI step 公共 lint
 
 ---
 
