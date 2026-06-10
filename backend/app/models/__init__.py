@@ -17,6 +17,14 @@ from app.models.followup_reminder import (
 )
 from app.models.hospital import Hospital
 from app.models.idempotency_key import IDEMPOTENCY_KEY_TTL, IdempotencyKey
+from app.models.user_feedback import (
+    CLOSED_APPEND_WINDOW_DAYS,
+    FeedbackFunctionModule,
+    FeedbackSeverity,
+    FeedbackSource,
+    FeedbackStatus,
+    UserFeedback,
+)
 from app.models.notification import (
     Notification,
     NotificationTargetType,
@@ -151,4 +159,10 @@ __all__ = [
     "InsuranceStatus",
     "IdempotencyKey",
     "IDEMPOTENCY_KEY_TTL",
+    "UserFeedback",
+    "FeedbackStatus",
+    "FeedbackSeverity",
+    "FeedbackSource",
+    "FeedbackFunctionModule",
+    "CLOSED_APPEND_WINDOW_DAYS",
 ]
