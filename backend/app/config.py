@@ -183,6 +183,11 @@ class Settings(BaseSettings):
     s3_prep_enabled: bool = True
     # 软门限百分比（90 = 日预算用到 90% 时 fire warn alert，仍允许调用）。
     s3_prep_fallback_threshold_pct: int = 90
+    # S3-DEV-002-PROMPT-VERSIONING AC#3: 启动时校验 DB-active prompt 与 git 端
+    # 文件存在 + commit hash 匹配。production 必开，dev/test 可关。
+    prompt_versions_validate_on_startup: bool = True
+    # 启动校验的 git 仓库根（绝对路径或 None → 自动从 backend/ 向上找 .git）。
+    prompt_versions_repo_root: str | None = None
     # DeepSeek 调用的 outbound timeout / retry / circuit breaker 参数。
     deepseek_timeout_seconds: float = 15.0
     deepseek_max_retries: int = 2
