@@ -49,6 +49,7 @@ APScheduler>=3.10,<4.0
 pytest==8.3.4
 pytest-asyncio==0.25.0
 hypothesis==6.122.3  # property-based fuzz for money_safety / share_security release gate (S2-TEST-001)
+schemathesis==4.10.0  # OpenAPI schema contract lock for prep-package endpoints (S3-DEV-002-PREP-API AC#5)
 aiosqlite==0.20.0
 
 # S3-DEV-001-CONTRACT-PDF-RENDER (uuid 33ac1174): contract PDF rendering.
