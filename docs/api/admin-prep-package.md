@@ -24,7 +24,7 @@
 
 ### `GET /api/v1/admin/prep-packages/{order_id}` — admin 查看订单的 AI 准备包 (含 ops metadata)
 
-返回完整内容 + ops metadata (trace_id / prompt_version_id / model / estimated/actual cost / generation_time_ms / fallback_reason)。仅 admin JWT principal 可访问 (legacy X-Admin-Token sentinel 拒绝)。
+返回完整内容 + ops metadata (trace_id / prompt_version_id / model / estimated/actual cost / generation_time_ms / fallback_reason)。仅 admin JWT principal 可访问 (legacy X-Admin-Token sentinel 拒绝)。成功返回时写入 AdminAuditLog (target_type=prep_package, action=view); 404/500 因事务回滚不留 audit (probe 审计是后续 ADR 范围)。
 
 **参数：**
 
