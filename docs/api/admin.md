@@ -75,7 +75,6 @@ S3-DEV-002-HOT-RELOAD 验证端点. PRD-003 v0.3 §7 灰度监控: 两副本 adm
 **参数：**
 
 - `Authorization` (header, —, required=—) — 
-- `X-Admin-Token` (header, —, required=—) — 
 
 **响应：**
 
@@ -107,7 +106,6 @@ ADR-0048 §4.1 admin-v2 关键词查看页:
 
 - `category` (query, —, required=—) — 可选: 指定分类只返该分类 (e.g. diagnosis); 不指定返全部
 - `Authorization` (header, —, required=—) — 
-- `X-Admin-Token` (header, —, required=—) — 
 
 **响应：**
 
@@ -138,7 +136,6 @@ admin 修改 docs/medical-content/prohibited-keywords.yml (走 PR + 医疗顾问
 **参数：**
 
 - `Authorization` (header, —, required=—) — 
-- `X-Admin-Token` (header, —, required=—) — 
 
 **响应：**
 
