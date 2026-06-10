@@ -330,8 +330,13 @@ async def _seed_contract(
     retry_count: int = 0,
 ) -> uuid.UUID:
     contract_id = uuid.uuid4()
-    chash = contract_hash or ("a" * 64).replace("a", uuid.uuid4().hex[0])[:64]
-    # Pad to 64 chars deterministically
+    # S3-OPS-FLAKY-CONTRACT-HASH-SEED: 原版 `("a" * 64).replace("a", uuid.uuid4().hex[0])[:64]`
+    # 仅取 hex 第 1 字符 (16 选 1) 填整 64 字符, 17 test 撞概率 ~95%, 撞了 INSERT 走
+    # unique_contract_hash 索引 ROLLBACK 后续 UPDATE 落错 row → trigger 不报 → DID NOT RAISE.
+    # 用 full uuid.hex (32 char) + 第二 uuid.hex (32 char) = 64 char 全 random hex,
+    # 碰撞概率 1/16^64. 显式 contract_hash kwarg 保留 (test_contract_hash_update_rejected 需 deterministic).
+    chash = contract_hash or (uuid.uuid4().hex + uuid.uuid4().hex)[:64]
+    # Pad to 64 chars deterministically (only kicks in if caller passes shorter explicit chash)
     chash = (chash + "0" * 64)[:64]
     await session.execute(
         text(
