@@ -122,6 +122,9 @@ architect 在以下场景必 fact check：
 - 接收 PM 描述的「Owner 拍 Z」前 → 看 awaiting-approval 清单 + Owner 字面回执 cross-check
 - 接收 coordinator forward 的「session-X 状态」前 → sessions_list / sessions_history fact check
 - review PR 前 → 不靠 PR description 自述，看 diff / test / CI / file 全量
+- **file 操作 (write/edit/create) 前** → `ls docs/adr/ADR-00*.md` + `git status` + `git log --oneline -1 -- <target>` 自检自己 untracked 产出, 防撞已有 draft (反案 #15)
+- **含中文人名/section 标题/角色名的 ADR/PR comment commit 前** → 跑 chinese spell check 黑名单 grep + 人工肉眼 read (反案 #16, unicode self-check 只防偏旁部首 BMP 外, 不防 BMP 内汉字 typo)
+- **大 PR 拆多 commit 时** → 画 commit DAG, 每 commit 必独立可 `git checkout + pytest` 全套 PASS, 反 pattern = 前 commit 调后 commit 实装的 stub (反案 #19)
 
 ### §2.3 实证教材
 
@@ -129,6 +132,11 @@ architect 在以下场景必 fact check：
 - **(肉桂)**：hutao PR #237 自述 BudgetAxis "s3-prep"（横杠），魈 review 时 grep `backend/app/services/ai_budget_guard.py` 看 enum value 实际是 `s3_prep`（下划线）。架构判断：enum value 是单一来源，ADR 文字反向跟。fact check 拆穿 ADR-PR drift。
 - **(7) schema 推测反案**：PM「blocked enum 合法」基于 list_tasks 输出推测，不查 mjs schema 源码。胡桃 set_status set verify mjs reject 拆穿。教训：schema 类断言必须 cli set verify, 不能 list 推测。
 - **(肉桂2)**：hutao PR #238 自述「audit unconditionally even when 404」但实际 transaction rollback 让 404 audit 不留。architect review 时打开 test footer note 看到 hutao 自己 disclose 矛盾 → docstring 与代码行为不一致, 必修。教训：PR description 自述 ≠ 实际行为, 看 code + test 全量。
+- **(反案 #15) architect file 操作撞自己 untracked 产出**：2026-06-10 12:36Z 我准备起 ADR-0053 draft, evidence-first 验最大 ADR 编号 → 发现 `docs/adr/ADR-0053-token-readonly-flag.md` **已存在 (11595 bytes, 259 行, 06-10 10:01 UTC mtime)** — 是我之前某 turn 写的 untracked draft 没 commit, MEMORY 没记. 不重写选择补完原 draft + ADR-0053 PR #246 13:04Z merge main. 教训：evidence-first 不只验团队历史/MEMORY/branch protection, 也验自己之前 turn 的 file system 产出。
+- **(反案 #16) BMP 区中文 typo unicode self-check 漏**：2026-06-10 12:51Z ADR-0053 r1 amend 我自踩 4 处 typo (刻晕→刻晴×4 哬兵/重兵→哨兵×6 甜雨→甘雨×1). unicode kangxi/cjk-supp grep self-check PASS 但实际错 — unicode self-check 只抓偏旁部首 BMP 外 typo (之前反案 #14 「捺」类), 不抓 BMP 区汉字打错字. 修正 SOP：带中文 commit 前跑黑名单 grep `刻晕|哬兵|重兵|甜雨` 双层 + 人工肉眼 read. 教训：unicode 偏旁部首 self-check 是 BMP 外防线, **不是 chinese typo 防线**, 两者不可替代。
+- **(反案 #19) PR 多 commit intermediate 不可独立运行**：2026-06-10 14:06Z hutao S3-DEV-003 PR 原计划 c4 (hook + Schemathesis) 在前, c5 (WS handler) 在后 → hook 触发需 broadcast 需 WS 实装, c4 落时 broadcast 还是 stub NotImplementedError → intermediate commit `git checkout c4 + pytest` 会 fail → git bisect 友好性死. architect review 拍板 c4↔c5 重排 (c4 = WS infra 先, c5 = hook 后). 教训：大 PR 拆 commit 必画 DAG, 拓扑序排, 反 pattern = 前 commit 调后 commit stub.
+- **(反案 #20) schema migration 与 business logic commit 混**：同 PR hutao c2 (aggregator evaluate) 原计划能含 alembic migration (verification_completed_at 加列). architect review 拍 schema 必独立 c1, business 必独立 c2/c3 — layer 严格隔离按 schema/business/api/test 拆独立 commit. 教训：alembic migration = schema layer, 不混入 business commit, 违 reject.
+- **(反案 #21) DDD ubiquitous language vs bounded context 不一致是设计意图**：2026-06-10 14:07Z hutao 发现 design doc 抽象命名 (`InsuranceOrderStateMachine`/`companion_cert_verifications` 表) vs codebase 实际 model (`ServiceInsuranceRecord`/`CompanionProfile.verification_status` 字段) 4 处不一致, 担心是 bug. architect 14:08Z 拍板：DDD design doc 描述领域概念 (ubiquitous), bounded context 实现按 codebase model (actual), 故意分层, **不打回 design doc**, PR commit msg 标 "design abstract / impl actual" 即可; 仅 typo (如 model 已 rename) 才 amend. 教训：不要强求 ubiquitous 与 actual 一致, 二者是两个抽象层次.
 
 ### §2.4 违反成本
 
