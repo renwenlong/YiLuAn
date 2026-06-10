@@ -1,6 +1,6 @@
 # ADR-0051: OPS-021 协议哲学族（multi-agent 协作护栏）
 
-> 状态：Draft（PM §1/§6/§7 + architect §2/§3/§4/§5 + 2026-06-10 amend：§1 拆 4 角色子节 + §1.3 补 5 条实证教材（8-12），待甘雨 own draft 整合）
+> 状态：Draft（PM §1/§6/§7 + architect §2/§3/§4/§5 + 2026-06-10 amend：§1 拆 4 角色子节 + §1.3 补 7 条实证教材（8-14） + 魈 review 拆 typo + §1.2.5(3) 语气设计，待甘雨 own draft 整合）
 > 决策者：凝光（PM）+ 魈（architect）+ 甘雨（coordinator）三方共拟
 > Owner Approval：等帝君 + 三方签字
 > 关联：`docs/qa/s2-s3-implementation-retrospective-v1.md` §4 三方 fact check loop 战绩
@@ -76,11 +76,11 @@ evidence-first 是全员协议，但不同角色触发点不同。以下拆 PM/a
 
 1. **规约模糊 / unblocker 类发言前必读 workspace MEMORY.md + 跨 workspace 规约文档（PM/甘雨）**（避免退步重新引入被取消的君子协定）
 2. **MEMORY.md 时效维护是各 agent 共同责任**（发现 MEMORY 与现状不一致记录 + 补补）
-3. **原始文档 evidence 优先级：ADR/PRD 源码（静态）> mjs cli set verify（动态）> raw API（实时）> gh CLI / sessions_list（实时）> MEMORY.md（规约）> PR description 自述、桌面口述、桥接 forward**（后三项一律不预设可信）
+3. **原始文档 evidence 优先级：ADR/PRD 源码（静态）> mjs cli set verify（动态）> raw API（实时）> gh CLI / sessions_list（实时）> MEMORY.md（规约）> PR description 自述、桌面口述、桥接 forward**（后三项必 fact check 源头 session 状态后再传，不预设可信。该约束是约束动作而非否定协调者桥接本职）
 
 ### §1.3 实证教材
 
-- (j) PM 桥接前必 grep ADR 自验：甘雨桥接魈拍 C → PM 撚 v0.5 → 魈再拍 C2 → PM 自验 ADR-0046 §3.2 hash_inputs 才接（避免被动跟横跳）
+- (j) PM 桥接前必 grep ADR 自验：甘雨桥接魈拍 C → PM 撤 v0.5 → 魈再拍 C2 → PM 自验 ADR-0046 §3.2 hash_inputs 才接（避免被动跟横跳）
 - (l) emergency 升级前必 fact check session 状态：PM 09:00 UTC 误升级 emergency abort hutao main session（实际 main 已 yield + 自 disclose），甘雨 fact check 拦下
 - (m) Owner 单字回执必 cross-check awaiting-approval 项：帝君 09:52 UTC「按 06-02 拍板冲」被魈扩张解读，魈第 6 次自承 retract
 - (7) schema 类断言必须 set verify：PM「blocked 合法」基于 list_tasks 推测，胡桃 set verify mjs reject
@@ -89,6 +89,8 @@ evidence-first 是全员协议，但不同角色触发点不同。以下拆 PM/a
 - (10) 刻晴 worktree 持有 race：PR 验证完未立刻 checkout main。24h 组灯挂的 race 是未释放 branch 而不是误 commit
 - (11) PM 漏读 MEMORY.md：PM 06:01/06:15/06:25 UTC「等 OPS-021 代合授权」错诊，MEMORY.md L4-L13 5 天前帝君拍板方案 A「exec 角色直接合」已明写，甘雨 fact check 拦下
 - (12) MEMORY.md 时效维护：PM MEMORY L13 「required contexts 三个」过时，实测 4 个（加 iOS Simulator），PM 06:30 订正 + workspace-xiao 07:31 init MEMORY 同步实时口径
+- (13) PM 长 sleep + exec session 死了 PM 漏 verify exec 完成度：PM 06-10 08:52 UTC 起 ADR-0051 amend，commit + push 成功但 exec session 死 → `gh pr create` 没跑 → PM 没 verify → 09:54 UTC 帝君催才发现。教训：每个 action 后必跑 verify 链路完整性，不靠「自我相信已完成」
+- (14) PM IME typo 「撚”→「撚」不是字：PM 06-10 08:55 UTC 起 ADR-0051 amend 时「撚 v0.5」“撚”是手部偏旁不是字，魈 10:03 UTC review fact check 拆穿。同胡桃 06-09 PR #215 「扌→扣」 typo 同款 — IME 输入后需 visual review 手抄 + 机器点对。教训：ADR/合同/业务文案 PR 必跑 `grep -P '[\u2E80-\u2EFF\u2F00-\u2FDF]'` 检查偏旁部首 unicode（非汉字区间错字）或 chinese spell checker。今日累三方踩同样问题（胡桃/PM/魈 review 拍穿）。
 
 ### §1.4 违反成本
 
