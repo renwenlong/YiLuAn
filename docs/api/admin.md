@@ -193,11 +193,11 @@ curl -X GET 'https://api.yiluan.example.com/api/v1/admin/audit-logs' \
 
 admin (仅 super) 手动触发某订单 precheck:order:{order_id} 缓存失效 + OrderPrecheckAggregator 重算 + WS broadcast。
 
-**stub 阶段返 501** (本 PR S3-DEV-005-CACHE-INVALIDATE 范围)。
-aggregator.evaluate 在 S3-DEV-003-PRECHECK-BACKEND 实装后, 本 endpoint 不动, 自动返 200 (invalidated_keys + broadcast=true)。
+**S3-DEV-003 c2 evaluate 已落**: 本 endpoint 返 200 + invalidated_keys + broadcast (broadcast=False 直到 c4 WS infra 落)。
 
-保证 (即使 501 回应)：
+保证 (200 响应)：
 * defensive Redis DEL precheck:order:{order_id} 已执行;
+* OrderPrecheckAggregator.evaluate 重算 4 卡 + redis SET (TTL 5min);
 * AdminAuditLog 已写 (admin_id / order_id / cards / timestamp)。
 
 rate limit: 5/min per admin (按 Authorization token 分桶)。
@@ -223,7 +223,6 @@ rate limit: 5/min per admin (按 Authorization token 分桶)。
 | `422` | 校验失败（FastAPI 标准） |
 | `429` | 触发限流 |
 | `500` | 服务器内部错误 |
-| `501` | OrderPrecheckAggregator stub 未实装 evaluate / SET / broadcast (S3-DEV-005-CACHE-INVALIDATE 范围)。PRECHECK-BACKEND 接管后翻 200。 |
 
 **curl 示例：**
 
