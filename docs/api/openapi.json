@@ -1008,6 +1008,88 @@
         "title": "CloseRequest",
         "type": "object"
       },
+      "CompanionCertStatusView": {
+        "additionalProperties": false,
+        "description": "Companion certification card — only positive-list fields.\n\nMaps to :class:`app.models.companion_profile.CompanionProfile`\n(design doc abstract name ``companion_cert_verifications 表``).\n``ready`` is ``True`` iff ``verification_status`` is ``verified``.\n\nField names use ``companion_cert_*`` prefix per ADR-0046 §3.5\npositive-list lint (区分 user-side display 与 operator-side admin\nfield 防止 ABAC layer 3 service SELECT 漂移).\n\nNegative-list (NEVER add here): ``companion_real_name`` /\n``companion_id_card_hash`` / ``companion_phone`` /\n``companion_user_id`` (+ patterns ``companion_real_*`` /\n``*_id_card_*``).",
+        "properties": {
+          "companion_cert_proof_image_urls": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "资质证明图 signed URL, TTL ≤15min.",
+            "title": "Companion Cert Proof Image Urls"
+          },
+          "companion_cert_pseudonym_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "化名: e.g. '陈师傅', 不出真名 (ABAC defense)",
+            "title": "Companion Cert Pseudonym Name"
+          },
+          "companion_cert_qualifications": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "资质列表: ['康复治疗师', '健康管理师']",
+            "title": "Companion Cert Qualifications"
+          },
+          "companion_cert_verified_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "admin verify 通过那一刻的 timestamp; 映射到 CompanionProfile.verification_completed_at (S3-DEV-003 c1 加列)",
+            "title": "Companion Cert Verified At"
+          },
+          "companion_cert_work_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "工号: e.g. 'PC0042'",
+            "title": "Companion Cert Work Id"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ready"
+        ],
+        "title": "CompanionCertStatusView",
+        "type": "object"
+      },
       "CompanionDetail": {
         "description": "S2-DEV-013 PR-E1 (ADR-0044 §3.2)：admin 审核 drawer 用详情。\n\n与 list `CompanionItem` 重叠 5 字段（保证 frontend 不需两套 type）+ 新增 9 字段\n覆盖 admin 真审核场景。\n\nPR-E2 Phase A：`certification_image_signed_url` 对 `cert-image://` 本地私有证件图\n返回 15min HMAC signed URL；历史外部 URL 继续隐藏，留 Phase B storage 迁移。",
         "properties": {
@@ -1891,6 +1973,67 @@
         ],
         "title": "ContractStatus",
         "type": "string"
+      },
+      "ContractStatusView": {
+        "additionalProperties": false,
+        "description": "Contract card — only positive-list fields.\n\nMaps to :class:`app.models.service_contract.ContractStatus`;\n``ready`` is ``True`` iff status is ``active`` (real WORM stored,\nsigned URL available). ``generation_failed`` /\n``generation_permanently_failed`` / ``manually_invalidated`` are\nsurfaced as ``ready=False`` with a ``blocked_reason`` at the\n:class:`OrderPrecheckSummaryView` level.\n\nNegative-list (NEVER add here): ``contract_hash`` / ``hash_inputs`` /\n``storage_blob_path`` / ``template_key``.",
+        "properties": {
+          "contract_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Id"
+          },
+          "contract_pdf_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Signed URL, TTL ≤15min. See `signed_url_expires_at` on parent summary.",
+            "title": "Contract Pdf Url"
+          },
+          "contract_template_version": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Contract Template Version"
+          },
+          "generated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ready"
+        ],
+        "title": "ContractStatusView",
+        "type": "object"
       },
       "CreateFamilyMemberRequest": {
         "properties": {
@@ -3384,6 +3527,68 @@
         "title": "HospitalResponse",
         "type": "object"
       },
+      "InsuranceStatusView": {
+        "additionalProperties": false,
+        "description": "Insurance card — only positive-list fields.\n\nMaps to :class:`app.models.service_insurance_record.ServiceInsuranceRecord`\n(design doc abstract name ``InsuranceOrderStateMachine``). ``ready``\nis ``True`` iff status is ``active``. ``expired`` / ``cancelled`` /\n``issue_failed`` / ``manually_invalidated`` surface as\n``ready=False`` with a ``blocked_reason`` on the parent summary.\n\nField names use ``insurance_*`` prefix per ADR-0046 §3.5 + 胡桃\nr2 amend (避免与 admin-side ``policy_*`` 字段 collide).\n\nNegative-list (NEVER add here): ``carrier_internal_id`` /\n``actual_premium`` / ``underwriter_meta``.",
+        "properties": {
+          "insurance_effective_from": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Insurance Effective From"
+          },
+          "insurance_order_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Insurance Order Id"
+          },
+          "insurance_policy_no_masked": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "保单号脱敏: 头 4 + ****  + 尾 4 (例 BX2026****1234)",
+            "title": "Insurance Policy No Masked"
+          },
+          "insurance_policy_pdf_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Signed URL, TTL ≤15min.",
+            "title": "Insurance Policy Pdf Url"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "ready"
+        ],
+        "title": "InsuranceStatusView",
+        "type": "object"
+      },
       "LedgerListResponse": {
         "properties": {
           "items": {
@@ -4026,6 +4231,71 @@
           "total"
         ],
         "title": "OrderListResponse",
+        "type": "object"
+      },
+      "OrderPrecheckSummaryView": {
+        "additionalProperties": false,
+        "description": "Aggregated 4-card precheck summary for an order.\n\nReturned by GET /api/v1/users/orders/{order_id}/precheck-status and\npushed via WS /ws/v1/orders/{order_id}/precheck. Order owner only;\nadmin / companion roles MUST NOT receive this view (ABAC Layer 2\nenforced at the endpoint).\n\n``payment_enabled`` decouples from ``all_ready`` to allow PM-side\npayment-pause overrides (e.g. PM kills payment for an order even\nwhen 4 cards are ready). ``blocked_reason`` is filled when at least\none card is ``ready=False``; format is a short human-readable\nstring from the precheck文案 lint set (design §3.3) — front-end\nrenders directly.",
+        "properties": {
+          "all_ready": {
+            "title": "All Ready",
+            "type": "boolean"
+          },
+          "blocked_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Blocked Reason"
+          },
+          "companion_cert_status": {
+            "$ref": "#/components/schemas/CompanionCertStatusView"
+          },
+          "contract_status": {
+            "$ref": "#/components/schemas/ContractStatusView"
+          },
+          "insurance_status": {
+            "$ref": "#/components/schemas/InsuranceStatusView"
+          },
+          "order_id": {
+            "title": "Order Id",
+            "type": "string"
+          },
+          "payment_enabled": {
+            "title": "Payment Enabled",
+            "type": "boolean"
+          },
+          "preparation_status": {
+            "$ref": "#/components/schemas/PreparationStatusView"
+          },
+          "signed_url_expires_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "所有 signed URL 中最早过期时间 (max-min). 前端用来判 polling 时是否需要 refresh URL. TTL >15min 的 URL CI fail.",
+            "title": "Signed Url Expires At"
+          }
+        },
+        "required": [
+          "order_id",
+          "contract_status",
+          "insurance_status",
+          "preparation_status",
+          "companion_cert_status",
+          "all_ready",
+          "payment_enabled"
+        ],
+        "title": "OrderPrecheckSummaryView",
         "type": "object"
       },
       "OrderResponse": {
@@ -4709,6 +4979,67 @@
         ],
         "title": "PrepStatus",
         "type": "string"
+      },
+      "PreparationStatusView": {
+        "additionalProperties": false,
+        "description": "AI preparation package card — only positive-list fields.\n\nMaps to :class:`app.models.preparation_package.PreparationPackage`\n(design doc abstract name ``preparation_status 表``). ``ready`` is\n``True`` iff status is ``active`` or ``active_fallback_template``.\n\nNegative-list (NEVER add here): ``prompt_version`` / ``model_used`` /\n``raw_llm_output`` / ``cost_yuan``.",
+        "properties": {
+          "generated_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generated At"
+          },
+          "prep_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "已过 ABAC + 关键词过滤的摘要文本",
+            "title": "Prep Summary"
+          },
+          "preparation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Preparation Id"
+          },
+          "ready": {
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "sections_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sections Count"
+          }
+        },
+        "required": [
+          "ready"
+        ],
+        "title": "PreparationStatusView",
+        "type": "object"
       },
       "PublicServicePackage": {
         "properties": {
@@ -17422,6 +17753,95 @@
         "summary": "切换活跃角色",
         "tags": [
           "users"
+        ]
+      }
+    },
+    "/api/v1/users/orders/{order_id}/precheck-status": {
+      "get": {
+        "description": "首屏 + polling fallback 端点 (5s 间隔). WebSocket 实时推送走 ``GET /ws/v1/orders/{order_id}/precheck`` (c4). Cache hit P95 ≤200ms / miss ≤800ms. ABAC: patient role only; admin/companion 401/403; 跨订单 404. 脱敏: policy_no 头4+****+尾4; signed URL TTL ≤15min.",
+        "operationId": "get_precheck_status_api_v1_users_orders__order_id__precheck_status_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "order_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Order Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderPrecheckSummaryView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "患者获取订单 4 信任卡 precheck 状态 (合同 / 保险 / AI 准备包 / 陪诊师资质)",
+        "tags": [
+          "users-precheck"
         ]
       }
     },
