@@ -27,14 +27,16 @@ from httpx import AsyncClient
 from sqlalchemy import select
 
 from app.models.admin_audit_log import AdminAuditLog
-from tests.conftest import test_session_factory
+from tests.conftest import test_session_factory as _session_factory
+
+pytest_plugins = ["tests.api.v1.prep_package_abac_fixtures"]
 
 ADMIN_URL_TEMPLATE = "/api/v1/admin/prep-packages/{order_id}"
 
 
 async def _list_prep_view_audits(order_id: str) -> list[AdminAuditLog]:
     """Fetch all audit rows for this prep_package target_id."""
-    async with test_session_factory() as session:
+    async with _session_factory() as session:
         result = await session.execute(
             select(AdminAuditLog)
             .where(
@@ -88,10 +90,16 @@ async def test_admin_view_audit_records_admin_username(
     audits = await _list_prep_view_audits(order_id)
     assert audits, "no audit row written"
     # The fixture seeds admin with username='prep_ops' (default in
-    # seed_admin_token).  Don't hard-code the literal here — couple to the
-    # fixture invariant: the operator string is non-empty and looks like a
-    # username (no spaces).
+    # seed_admin_token).  Don't hard-code the full literal here — couple to
+    # the fixture invariant: the operator string starts with the fixture's
+    # ``prep_`` prefix (so a fixture rename to 'prep_admin' / 'prep_qa' still
+    # passes, but a regression to a stub literal like 'system' / 'admin' /
+    # '<unknown>' fails loudly).
     assert audits[-1].operator
+    assert audits[-1].operator.startswith("prep_"), (
+        f"operator should start with fixture-seeded 'prep_' prefix, "
+        f"got {audits[-1].operator!r} — stub literal regression?"
+    )
     assert " " not in audits[-1].operator
 
 
