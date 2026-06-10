@@ -5,7 +5,7 @@
 > **前置于**: `S2-DEV-016-READ-ONLY-FLAG-DB` (依赖本 design 完成 + metric 实装上线 + 7 天数据全绿)  
 > **author**: 魈 (architect)  
 > **created**: 2026-06-10  
-> **status**: draft r0
+> **status**: draft r1 (r0 → r1: 刻晴 PR #248 review red-line amend, 见 §12 changelog)
 
 ---
 
@@ -64,7 +64,7 @@
 
 参考现有 `share_metrics.py` / `reconciliation_metrics.py` 命名 convention.
 
-### 3.2 3 个 Metric 定义
+### 3.2 3 个 Metric 定义 (r1 amend: 删 source label, 见 §12.1)
 
 ```python
 """
@@ -98,8 +98,8 @@ def _get_or_create_counter(name: str, doc: str, labelnames: Iterable[str]) -> Co
 # AC#1: user-level token revoke (区别于 share_token_auto_revoked_total)
 USER_TOKEN_REVOKE_TOTAL: Counter = _get_or_create_counter(
     "user_token_revoke",  # 自动 + _total 后缀
-    "User-level access token revocation events (bumps users.token_version).",
-    ["reason", "source"],
+    "User-level access token revocation events (bumps users.token_version, real only).",
+    ["reason"],
 )
 """
 labels:
@@ -109,34 +109,32 @@ labels:
     - "user_request"      - 用户主动登出
     - "admin_kick"        - 管理员手动 kick
     - "auto_scanner"      - 自动扫描器 (与 share_token_auto_revoked_total 区分用户范围)
-  source:
-    - "mock"   - mock 灰度 (S2-OPS-A 套件 wrapper)
-    - "real"   - real 灰度 / 生产
+
+Note: r1 amend (§12.1) 删 source label, mock 走 admin_audit_logs SQL (§5.1), real 走 prometheus (§5.2), 职责物理分离.
 """
 
 
 # AC#2: 用户重登成功 (revoke 后 baseline 99% 验证)
 USER_RELOGIN_SUCCESS_TOTAL: Counter = _get_or_create_counter(
     "user_relogin_success",
-    "User successful re-login after token revocation (used to validate 99% relogin SLA).",
-    ["source", "trigger"],
+    "User successful re-login after token revocation (used to validate 99% relogin SLA, real only).",
+    ["trigger"],
 )
 """
 labels:
-  source:
-    - "mock"   - mock 灰度
-    - "real"   - real 灰度 / 生产
   trigger:
     - "post_revoke"     - revoke 后 30min 内重登 (核心 SLA 指标, 反映用户体验)
     - "passive"         - 自然重登 (token 自然过期, 非 revoke 触发, 不计入 SLA)
+
+Note: r1 amend (§12.1) 删 source label, 同 USER_TOKEN_REVOKE_TOTAL.
 """
 
 
 # AC#3: session 中断 (drop rate < 0.5% baseline 验证)
 USER_SESSION_DROPPED_TOTAL: Counter = _get_or_create_counter(
     "user_session_dropped",
-    "User session terminated unexpectedly (revoke / keepalive timeout / server kick).",
-    ["cause", "source"],
+    "User session terminated unexpectedly (revoke / keepalive timeout / server kick, real only).",
+    ["cause"],
 )
 """
 labels:
@@ -145,34 +143,100 @@ labels:
     - "keepalive_timeout" - session keepalive 超时 (refresh token TTL 到)
     - "server_kick"       - 服务端主动 disconnect (维护 / 异常)
     - "client_close"      - 客户端主动关闭 (不计入 drop, label 用于排除)
-  source:
-    - "mock"   - mock 灰度
-    - "real"   - real 灰度 / 生产
+
+Note: r1 amend (§12.1) 删 source label, 同 USER_TOKEN_REVOKE_TOTAL.
 """
 ```
 
-### 3.3 Cardinality 估算
+### 3.3 Cardinality 估算 (r1 amend: 22→11 series)
 
 | Metric | label combination | 最大基数 |
 |---|---|---|
-| `user_token_revoke_total` | 5 reason × 2 source | 10 |
-| `user_relogin_success_total` | 2 source × 2 trigger | 4 |
-| `user_session_dropped_total` | 4 cause × 2 source | 8 |
-| **共** | | **22 time series** |
+| `user_token_revoke_total` | 5 reason | 5 |
+| `user_relogin_success_total` | 2 trigger | 2 |
+| `user_session_dropped_total` | 4 cause | 4 |
+| **共** | | **11 time series** (r0: 22, r1: 11) |
 
-✅ 22 series 远低于 prometheus 推荐上限 (通常 < 1000), 零基数风险.
+✅ 11 series 远低于 prometheus 推荐上限 (通常 < 1000), 零基数风险.
 
-### 3.4 Endpoint Hook 实装点 (参考, 不在本 design 范围)
+**r1 设计原则 (§12.1 amend)**: prometheus 只看 real, mock 走 audit SQL — 职责物理分离. 这样 source label 删, cardinality 减半, real 数据更清晰 (无 mock noise 污染 alert).
 
-`S2-OPS-A-READ-ONLY-FLAG-ADMIN-API` (hutao) 接手时 hook 这些点:
+### 3.4 Endpoint Hook 实装点 (r1 amend: source label 删, audit hook 必加)
 
-| Metric | Hook 位置 | 触发条件 |
+`S2-OPS-A-READ-ONLY-FLAG-ADMIN-API` (hutao) 接手时 hook 这些点 (双埋点: prometheus counter + audit_log 写入, **同 transaction 强约束**, ADR-0053 §7 收尾要求):
+
+| Metric | Prometheus Hook | **Audit Log Hook (新增, 必须同 transaction)** |
 |---|---|---|
-| `user_token_revoke_total{reason, source}` | `backend/app/api/v1/users.py:112` revoke_all (推荐 wrapper) | `bumps token_version` 后 `+1`, reason 从 request body / context 拿, source 从 env (mock vs real) 拿 |
-| `user_relogin_success_total{source, trigger}` | `backend/app/services/auth.py` `login_user` 成功 path | 用户 login 成功后, query 30min 内是否有 `user_token_revoke_total` 事件 → 是 = `post_revoke`, 否 = `passive` |
-| `user_session_dropped_total{cause, source}` | `backend/app/services/auth.py` `get_current_user` reject path + `RefreshTokenStore` 失效 path | token_version mismatch → `revoke`, refresh expire → `keepalive_timeout`, manual disconnect → `server_kick` |
+| `user_token_revoke_total{reason}` | `backend/app/services/auth.py:227` `revoke_all_sessions` 末尾 `+1`, 仅在 `ENVIRONMENT=production` 计 (mock 不上 prometheus, mock 走 audit SQL) | 同 method 同 transaction 插 `admin_audit_logs`: `action='user_token_revoke'`, `target_type='user'`, `target_id=user.id`, `operator=current_admin`, `reason=text(reason_enum)`, **`metadata={"source":"mock"\|"real","trigger":"manual\|auto_scanner"}`** (需 metadata JSONB 字段 alembic migration, 见 §3.5) |
+| `user_relogin_success_total{trigger}` | `backend/app/services/auth.py` `login_user` 成功 path, 仅 real 计 | 同 method 同 transaction 插 `user_audit_logs`: `action='user_login_success'`, `user_id=user.id`, `metadata={"source":"mock"\|"real","trigger":"post_revoke"\|"passive"}` (需 user_audit_logs action enum 扩 + metadata JSONB migration, 见 §3.5) |
+| `user_session_dropped_total{cause}` | `backend/app/services/auth.py` `get_current_user` reject path + `RefreshTokenStore` 失效 path, 仅 real 计 | 同 method 同 transaction 插 `user_audit_logs`: `action='user_session_dropped'`, `metadata={"source":...,"cause":...}` |
 
-⚠️ **本 design 不指定具体实施代码** (那是 develop task 范围), 仅 hint 实装位置.
+⚠️ **本 design 不指定具体实施代码** (那是 develop task 范围), 仅 hint 实装位置 + 强约束 (同 transaction).
+
+### 3.5 Schema Migration 前置 (r1 新增, 红线 #1 方案 A 收尾)
+
+**当前实测 (2026-06-10) 现状**:
+- `admin_audit_logs.reason: Text` 单字段 (no JSON)
+- `user_audit_logs` action enum: 只 3 contract action (无 login_success/session_dropped/token_revoke)
+- 2 表都**无 metadata JSONB 字段**
+- `revoke_all_sessions` 当前**无 audit hook**
+
+**新增 alembic migration** (`S2-OPS-A-READ-ONLY-FLAG-ADMIN-API` 实施时同 PR 出):
+
+```python
+# alembic/versions/XXXX_audit_logs_metadata_for_readonly_flag.py
+from alembic import op
+import sqlalchemy as sa
+from sqlalchemy.dialects import postgresql
+
+revision = 'XXXX'
+down_revision = 'YYYY'  # 当前 head
+
+def upgrade() -> None:
+    # AC#1 admin_audit_logs metadata JSONB (read-only flag source/trigger 扩展)
+    op.add_column(
+        'admin_audit_logs',
+        sa.Column('metadata', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+    )
+    op.create_index(
+        'ix_admin_audit_logs_metadata_source',
+        'admin_audit_logs',
+        [sa.text("(metadata->>'source')")],
+        postgresql_where=sa.text("action = 'user_token_revoke'"),
+    )
+
+    # AC#2 user_audit_logs metadata JSONB + 扩 action enum (login_success/session_dropped)
+    op.add_column(
+        'user_audit_logs',
+        sa.Column('metadata', postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+    )
+    op.create_index(
+        'ix_user_audit_logs_metadata_source',
+        'user_audit_logs',
+        [sa.text("(metadata->>'source')")],
+        postgresql_where=sa.text("action IN ('user_login_success', 'user_session_dropped')"),
+    )
+
+def downgrade() -> None:
+    op.drop_index('ix_user_audit_logs_metadata_source', table_name='user_audit_logs')
+    op.drop_column('user_audit_logs', 'metadata')
+    op.drop_index('ix_admin_audit_logs_metadata_source', table_name='admin_audit_logs')
+    op.drop_column('admin_audit_logs', 'metadata')
+```
+
+**ORM model 同步更新**:
+
+```python
+# backend/app/models/admin_audit_log.py 追加
+metadata: Mapped[dict | None] = mapped_column(
+    JSONB, nullable=True,
+    comment="扩展字段 (read-only flag source/trigger 等, ADR-0053 §7)"
+)
+
+# backend/app/models/user_audit_log.py 追加 (同 + 扩 action enum)
+```
+
+⚠️ 这是 `S2-OPS-A-READ-ONLY-FLAG-ADMIN-API` task **同 PR 必出** (单 PR 包含 metric + audit_log + migration + revoke_all hook), 不可拆 — 因为 baseline 取数依赖 audit_log, mock 灰度第 1 天就得能查.
 
 ---
 
@@ -278,30 +342,39 @@ labels:
 
 ## 5. Baseline Query SQL 模板
 
-### 5.1 Mock 灰度 baseline (S2-OPS-A 套件, 7 天滑动窗口)
+### 5.1 Mock 灰度 baseline (S2-OPS-A 套件, 7 天滑动窗口) — r1 amend
 
-mock 灰度上线后用 `audit_logs` 查 baseline (不靠 prometheus, 因 mock 期可能 metric 未部署):
+mock 灰度上线后用 **`admin_audit_logs` + `user_audit_logs`** 查 baseline (实测 schema, 红线 #1 修正):
+
+**前提**: §3.5 alembic migration 已上 (metadata JSONB + 扩 action enum) + revoke_all/login 同 transaction 写 audit. 否则 SQL 取不到数据 (mock baseline 直接 fail = §8 哨兵 #1 红).
 
 ```sql
 -- Mock 灰度 baseline (7 天滑动)
--- Source: audit_logs (S2-OPS-A 套件已埋点)
+-- Source: admin_audit_logs.action='user_token_revoke' + user_audit_logs.action='user_login_success'
+-- 字段实测 (2026-06-10):
+--   admin_audit_logs.reason: Text 单字段 (枚举 credential_leak/compliance_report/...)
+--   admin_audit_logs.metadata: JSONB (r1 §3.5 新增, 含 source=mock/real, trigger=...)
+--   user_audit_logs.metadata: JSONB (同上)
 WITH revoke_events AS (
     SELECT 
-        user_id,
+        target_id AS user_id,  -- admin_audit_logs.target_id = users.id
         created_at AS revoked_at,
-        detail->>'reason' AS reason
-    FROM audit_logs
+        reason  -- 直接字段, 非 JSON
+    FROM admin_audit_logs
     WHERE action = 'user_token_revoke'
-      AND detail->>'source' = 'mock'
+      AND target_type = 'user'
+      AND metadata->>'source' = 'mock'  -- r1 §3.5 新增 JSONB 字段
       AND created_at >= NOW() - INTERVAL '7 days'
-      AND detail->>'reason' NOT IN ('credential_leak', 'compliance_report')
+      AND reason NOT IN ('credential_leak', 'compliance_report')
 ),
 relogin_events AS (
     SELECT 
         user_id,
         created_at AS reloggin_at
-    FROM audit_logs
-    WHERE action = 'user_login_success'
+    FROM user_audit_logs
+    WHERE action = 'user_login_success'  -- r1 §3.5 扩 action enum
+      AND metadata->>'source' = 'mock'
+      AND metadata->>'trigger' = 'post_revoke'
       AND created_at >= NOW() - INTERVAL '7 days'
 )
 SELECT
@@ -320,7 +393,36 @@ SELECT
 FROM revoke_events r
 LEFT JOIN relogin_events l ON l.user_id = r.user_id;
 
--- Expected: relogin_sla_percent ≥ 99 (mock 期可接 90%+ 作为 lower bound, real 期严格 99)
+-- Expected (r1 amend, 凝光 PM review):
+--   mock 期 lower bound 95% (r0=90%, PM 推 → 95%, 风险偏小)
+--   real 期严格 99%
+```
+
+```sql
+-- Mock 灰度 session drop rate (7 天滑动)
+WITH drop_events AS (
+    SELECT user_id, created_at, metadata->>'cause' AS cause
+    FROM user_audit_logs
+    WHERE action = 'user_session_dropped'  -- r1 §3.5 扩 action enum
+      AND metadata->>'source' = 'mock'
+      AND metadata->>'cause' != 'client_close'  -- 排除主动 close
+      AND created_at >= NOW() - INTERVAL '7 days'
+),
+active_estimate AS (
+    -- 总活跃 session = revoke 数 + 自然重登数 (近似)
+    SELECT (
+        (SELECT COUNT(*) FROM admin_audit_logs WHERE action = 'user_token_revoke' AND metadata->>'source' = 'mock' AND created_at >= NOW() - INTERVAL '7 days')
+        +
+        (SELECT COUNT(*) FROM user_audit_logs WHERE action = 'user_login_success' AND metadata->>'source' = 'mock' AND metadata->>'trigger' = 'passive' AND created_at >= NOW() - INTERVAL '7 days')
+    ) AS total
+)
+SELECT
+    (SELECT COUNT(*) FROM drop_events) AS drops,
+    (SELECT total FROM active_estimate) AS active_sessions,
+    ROUND(100.0 * (SELECT COUNT(*) FROM drop_events) / NULLIF((SELECT total FROM active_estimate), 0), 4) AS drop_rate_percent;
+
+-- Expected (r1 amend):
+--   mock 期 < 1% (lower bound, real 严格 < 0.5%)
 ```
 
 ### 5.2 Real 灰度 T+7 真灰度回测对比
@@ -347,18 +449,32 @@ clamp_min(sum(rate(user_token_revoke_total{source="real"}[7d]) + rate(user_relog
 # Expected < 0.5 → AC#5 quantitative phase PASS
 ```
 
-### 5.3 客诉率 (需配合客服系统)
+### 5.3 客诉率 (需配合客服系统) — r1 amend (黄线 #3)
 
-客诉率 < 0.1% 不在 prometheus 范围, 配合客服系统 query (本 design 不覆盖, 由 PM/客服团队 own).
+客诉率 < 0.1% 不在 prometheus 范围 (无标准 customer support metric SDK).
+
+**r1 amend (黄线 #3)**:
+- **Owner**: 凝光 (PM, PM review 中已 ack own)
+- **流程**: weekly manual review — 每周一 PM 从客服系统 (拉单/工单系统) 拉**与 read-only flag 相关的客诉 ticket count** (按 trigger word 'token revoke' / 'session drop' / 'cannot login' 等过滤)
+- **公式**: `客诉率 = 周客诉数 / 周 revoke 总数` (revoke 总数从 §5.1 SQL 拿)
+- **录入 cron gate**: §6 cron `check_readonly_flag_real_gate()` 通过**手动注入接口** (`POST /admin/readonly/complaint-rate`, PM weekly 触发) 把客诉率喂给 cron gate, gate 取最近 7 天 rolling 值
+- **Follow-up task** (凝光 PM 提): `S3-OPS-CUSTOMER-SUPPORT-METRIC-INTEGRATION` (P3, 待客服系统 API 接入后自动化, 不阻 §7 read-only flag 上线)
+
+⚠️ **关键 trade-off**: 客诉率手动 vs 自动 — real 上线第一阶段接受 manual weekly, 后续 S3-OPS 把客服系统 API 化.
 
 ---
 
-## 6. Real T-7 Cron Gate (AC#6 实施 hint)
+## 6. Real T-7 Cron Gate (AC#6 实施 hint) — r1 amend
 
-`S2-OPS-A-READ-ONLY-FLAG-ADMIN-API` 实施时加 cron gate:
+**r1 amend (黄线 #2 + Q4)**: 拆独立 follow-up task `S2-OPS-A-READONLY-REAL-GATE-CRON` (P1, develop, hutao own, deps=[ADMIN-API, METRIC-DASHBOARD]), 凝光 PM + 刻晴 review 双推. 本 design 给 cron signature hint, 实施由该 follow-up task 接.
+
+**cron 调度时区**: **02:00 UTC** (与现有 `share_metrics` reconciliation cron 时区惯例不一致, 黄线 #2 提及). 选 UTC 理由:
+- prometheus 数据天然 UTC, retention window 计算 UTC 一致
+- `reconcile_money` cron 02:00 GMT+8 (=18:00 UTC) 是历史业务时区惯例, real T-7 cron 是技术 gate, 不必绑业务时区
+- 不阻 design, **黄线 #2 接受** (本 design 锁定 02:00 UTC, follow-up 实施按此)
 
 ```python
-# backend/app/cron/readonly_flag_real_gate.py (新建)
+# backend/app/cron/readonly_flag_real_gate.py (新建, S2-OPS-A-READONLY-REAL-GATE-CRON 实施)
 
 """
 ADR-0053 §AC#6 real T-7 cron gate.
@@ -375,66 +491,79 @@ async def check_readonly_flag_real_gate() -> dict:
         "relogin_sla": float (% 99+ = GO),
         "session_drop_rate": float (% <0.5 = GO),
         "metric_deployed": dict (3 metric 是否都查得到数据),
+        "customer_complaint_rate": float | None (None = manual review 待入, 见 §5.3),
         "reason": str (NOGO 时填)
     }
     """
     # 1. verify 3 metric 都查得到数据 (≥ 7 天数据)
     # 2. relogin SLA ≥ 99
     # 3. session drop < 0.5
-    # 4. 任一 fail → NOGO + alert 哨兵 1 红
+    # 4. customer_complaint_rate < 0.1 (manual 注入, 客服系统 weekly review)
+    # 5. 任一 fail → NOGO + alert 哨兵 1 红
     ...
 ```
 
-⚠️ **本 design 不指定具体 cron 实施** (那是 develop task 范围, 由 `S2-OPS-A-READ-ONLY-FLAG-ADMIN-API` 或独立 follow-up task `S2-OPS-A-READONLY-REAL-GATE-CRON` 接).
-
 ---
 
-## 7. AC verify map
+## 7. AC verify map (r1 amend)
 
 | 本 task AC | 本 design 覆盖 |
 |---|---|
-| AC#1 部署 `user_token_revoke_total{reason, source}` | §3.2 metric 定义 + §3.4 hook 位置 hint |
-| AC#2 部署 `user_relogin_success_total{source, trigger}` | §3.2 metric 定义 + §3.4 hook 位置 hint |
-| AC#3 部署 `user_session_dropped_total{cause, source}` | §3.2 metric 定义 + §3.4 hook 位置 hint |
-| AC#4 grafana panel 3 个 + commit `ops/grafana/yiluan-canary.json` | §4 dashboard 设计 (新文件 `yiluan-readonly-flag.json`, 不污染 yiluan-canary, **此点跟 task description 偏离, 走 §11 trade-off**) |
-| AC#5 baseline query SQL 模板 (mock 7 天滑动 + real T+7 对比) | §5 SQL + PromQL 模板 |
-| AC#6 real T-7 cron gate (3 metric + 7 天全绿) | §6 cron hint (实施由后续 task) |
+| AC#1 部署 `user_token_revoke_total{reason}` (r1: source label 删) | §3.2 metric 定义 + §3.4 hook + §3.5 audit schema migration |
+| AC#2 部署 `user_relogin_success_total{trigger}` (r1: source label 删) | §3.2 metric 定义 + §3.4 hook + §3.5 audit schema migration |
+| AC#3 部署 `user_session_dropped_total{cause}` (r1: source label 删) | §3.2 metric 定义 + §3.4 hook + §3.5 audit schema migration |
+| AC#4 grafana panel 3 个 + commit `ops/grafana/yiluan-canary.json` | §4 dashboard 设计 (新文件 `yiluan-readonly-flag.json`, 不污染 yiluan-canary, **trade-off §11.1, keqing PR #248 review ✅ APPROVE 此点**) |
+| AC#5 baseline query SQL 模板 (mock 7 天滑动 + real T+7 对比) | §5 SQL + PromQL 模板 (r1 §5.1 字段实测修正, §5.3 客诉率 owner 明示) |
+| AC#6 real T-7 cron gate (3 metric + 7 天全绿) | §6 cron hint + §6 拆 follow-up task `S2-OPS-A-READONLY-REAL-GATE-CRON` (r1 Q4) |
 | AC#7 PR description 强制 cite ADR-0053 §7 + §8 | 本 design PR description 强制 cite |
 
 ---
 
-## 8. 哨兵集成
+## 8. 哨兵集成 (r1 amend)
 
 ADR-0053 §8 哨兵 #1 (`S2-OPS-A-METRIC-DASHBOARD-READONLY` P1) 本 design 完成 = 哨兵转黄. 完整解锁需:
 
 1. ✅ design done (本 PR merge)
-2. ⏳ implement done (S2-OPS-A-READ-ONLY-FLAG-ADMIN-API 完成 metric 埋点)
-3. ⏳ deploy done (grafana + prometheus alert 上线)
-4. ⏳ 7 天数据收集 (real go-live 前)
-5. ⏳ baseline query 全绿
+2. ⏳ implement done (`S2-OPS-A-READ-ONLY-FLAG-ADMIN-API` 完成: metric 埋点 + audit_log hook + §3.5 migration **同 PR 出**)
+3. ⏳ cron gate done (`S2-OPS-A-READONLY-REAL-GATE-CRON` r1 Q4 follow-up)
+4. ⏳ deploy done (grafana + prometheus alert + cron 上线)
+5. ⏳ 7 天数据收集 (mock 灰度起跑, real go-live 前)
+6. ⏳ baseline query 全绿 (§5.1 mock SQL + §5.2 real PromQL)
+7. ⏳ 客诉率 weekly manual review (§5.3, PM 凝光 own)
 
 任一未完成, `S2-DEV-016-READ-ONLY-FLAG-DB` blocked (depends_on 链).
 
 ---
 
-## 9. Trade-off
+## 9. Trade-off (r1 amend)
 
-### 9.1 Grafana 文件位置
+### 9.1 Grafana 文件位置 — keqing review ✅ APPROVE
 
-task description AC#4 写 "部署到 `ops/grafana/yiluan-canary.json` 并 commit", 我设计**独立新文件** `ops/grafana/yiluan-readonly-flag.json`. 理由:
-- `yiluan-canary.json` 是 canary launch dashboard, 跟 share token 滥用 metric 强绑定, 加 read-only flag panel 视觉混乱
-- 独立 dashboard 便于 read-only flag 团队 (S2-OPS-A) 聚焦, OPS 入口分离
-- 不影响 prometheus rule (`yiluan-canary.yml`) 追加 alert 兼容
-
-→ AC#4 措辞偏离, 由 review 决定接受 trade-off 还是回到合并写法.
+task description AC#4 写 "部署到 `ops/grafana/yiluan-canary.json` 并 commit", 我设计**独立新文件** `ops/grafana/yiluan-readonly-flag.json`. keqing PR #248 review (id 4467903580) 明确 ✅ APPROVE 此 trade-off.
 
 ### 9.2 不直接定义 cron 实施
 
-§6 只 hint cron gate 结构, 不写完整代码. 这是 design 而非 develop, 实施由 OPS/develop task 接.
+§6 只 hint cron gate 结构, 不写完整代码. r1 amend 拆 follow-up task `S2-OPS-A-READONLY-REAL-GATE-CRON` (P1, develop, hutao).
 
-### 9.3 客诉率不在本 design
+### 9.3 客诉率 weekly manual + S3 自动化 (r1 amend)
 
-客诉率 < 0.1% (AC#5 第三条数字) 走客服系统而非 prometheus, 不在本 design 范围.
+r0 "客诉率不在本 design" → r1 §5.3 补完 owner + 流程:
+- 第一阶段: PM 凝光 own, weekly manual 客服系统拉数 + POST 接口注入 cron gate
+- 第二阶段: S3 follow-up task `S3-OPS-CUSTOMER-SUPPORT-METRIC-INTEGRATION` (P3, 客服系统 API 化, 不阻本 design)
+
+### 9.4 mock vs real prometheus source label 删 (r1 新增, 黄线 #1)
+
+r0 设计 prometheus counter 带 `source=mock|real` label 区分. r1 amend 删 source label:
+- prometheus 只看 real, mock 走 audit SQL (§5.1)
+- 职责物理分离, real 数据无 mock noise, alert 阈值不被 mock 拉偏
+- cardinality 22→11 series
+
+### 9.5 audit_log hook 同 transaction 强约束 (r1 新增, 红线 #1)
+
+r0 仅 hint metric hook 位置. r1 amend 加 audit_log hook **强约束**:
+- 同 transaction 写 `admin_audit_logs` / `user_audit_logs` (与 metric counter 同 method)
+- 需 §3.5 alembic migration (metadata JSONB + 扩 action enum) 前置
+- 这是 baseline 取数 (§5.1) 的物理依赖, 不可省
 
 ---
 
@@ -455,6 +584,35 @@ task description AC#4 写 "部署到 `ops/grafana/yiluan-canary.json` 并 commit
 
 | 角色 | Owner | Approve | Date |
 |---|---|---|---|
-| Architect | 魈 | (draft r0) | 2026-06-10 |
-| Reviewer (test) | 刻晴 | pending | — |
-| Implementer (OPS hint) | hutao | pending notify | — |
+| Architect | 魈 | r1 amend | 2026-06-10 |
+| Reviewer (test) | 刻晴 | r0 🔴 → r1 amend, 待 re-review | 2026-06-10 |
+| Reviewer (PM) | 凝光 | r0 🟢 APPROVE (业务侧) | 2026-06-10 |
+| Implementer (OPS hint) | hutao | r0 review pending | — |
+
+---
+
+## 12. Changelog
+
+### 12.1 r0 → r1 (2026-06-10 13:25 UTC, keqing PR #248 review 4467903580 amend)
+
+**🔴 红线 #1 (方案 A)**: §5.1 baseline SQL 字段全错 (实测 `audit_logs` 表不存在, 应为 `admin_audit_logs` + `user_audit_logs` 分离表, 字段非 JSON detail 而是 reason: Text 单字段, 无 source label, revoke_all 无 audit hook). r1 修正:
+- §3.4 加 audit_log hook (双埋点 prometheus + audit, 同 transaction)
+- §3.5 新增 alembic migration spec (metadata JSONB + 扩 action enum)
+- §5.1 SQL 全改, `FROM admin_audit_logs` + `metadata->>'source'`, mock baseline lower bound 90%→95% (凝光 PM review)
+- §8 哨兵集成步骤 (2) 补 audit_log hook + migration 同 PR 必出
+
+**🟡 黄线 #1**: source label 删, prometheus 只看 real, mock 走 audit SQL. r1 修正:
+- §3.2 3 metric 删 source label
+- §3.3 cardinality 22→11 series
+- §9.4 trade-off 新增解释
+
+**🟡 黄线 #2**: §6 cron 调度时区 02:00 UTC vs 现有 `reconcile_money` 02:00 GMT+8. r1 修正: 锁 02:00 UTC, §6 注明理由 (prometheus 数据 UTC 一致), 接受 keqing nit, 不阻.
+
+**🟡 黄线 #3**: §5.3 客诉率 owner + 流程空白. r1 修正:
+- §5.3 补 owner=凝光 PM, weekly manual review + POST 注入接口, follow-up `S3-OPS-CUSTOMER-SUPPORT-METRIC-INTEGRATION` (P3)
+- §6 cron return dict 加 `customer_complaint_rate` 字段
+- §9.3 trade-off 重写
+
+**Q4 拆 follow-up**: `S2-OPS-A-READONLY-REAL-GATE-CRON` (P1, develop, hutao, deps=[ADMIN-API, METRIC-DASHBOARD]). r1 §6 + §7 + §8 + §9.2 + §11 全部明示. (凝光 PM + 刻晴 双推, 不阻本 design)
+
+**S2-TEST-016 受影响**: red-line #1 方案 A → `admin_audit_logs.metadata` JSONB → keqing E#6 audit log 全字段测试范围扩 (verify metadata 字段). 只是扩, 不阻测试.
