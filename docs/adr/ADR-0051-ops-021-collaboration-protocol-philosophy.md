@@ -1,6 +1,6 @@
 # ADR-0051: OPS-021 协议哲学族（multi-agent 协作护栏）
 
-> 状态：Draft（PM §1/§6/§7 + architect §2/§3/§4/§5 + 2026-06-10 amend：§1 拆 4 角色子节 + §1.3 补 7 条实证教材（8-14） + 魈 review 拆 typo + §1.2.5(3) 语气设计 + §6 amend：§6.3 加错位重启检查点 + §6.4 跨 worktree 冲突处理 + §6.7 补反案 #13-15 + §6.8 加 typo check + list_tasks 自验，待甘雨 own draft 整合）
+> 状态：Draft（PM §1/§6/§7 + architect §2/§3/§4/§5 + 2026-06-10 amend：§1 拆 4 角色子节 + §1.3 补 7 条实证教材（8-14） + 魈 review 拆 typo + §1.2.5(3) 语气设计 + §6 amend：§6.3 加错位重启检查点 + §6.4 跨 worktree 冲突处理 + 过渡期 SOP 声明 + ADR-0050 终态 enforce link + §6.7 补反案 #13-15（cross-reference §1.3 避免 drift）+ §6.8 加 typo check + list_tasks 自验，待甘雨 own draft 整合）
 > 决策者：凝光（PM）+ 魈（architect）+ 甘雨（coordinator）三方共拟
 > Owner Approval：等帝君 + 三方签字
 > 关联：`docs/qa/s2-s3-implementation-retrospective-v1.md` §4 三方 fact check loop 战绩
@@ -292,6 +292,8 @@ PM 出以下物料必走 §6.1 流程：
 
 ### §6.4 PM 主 tree 保护
 
+**过渡期 SOP 声明**：本节 SOP 是 ADR-0050（`.OWNER` YAML + pre-push hook 全员部署）前的过渡期人工协议。ADR-0050 部署后转为机械 enforce，本节退化为参考。
+
 PM 主 tree `~/repo/YiLuAn` PM 独占，不允许 hutao session 写入（OPS-021 worktree 单写协议）。PM 物料 PR 后立刻 `git checkout _pm_idle` 回 idle 占位。
 
 **跨 worktree checkout 冲突处理**（反案 #9-10 实战）：
@@ -299,6 +301,8 @@ PM 主 tree `~/repo/YiLuAn` PM 独占，不允许 hutao session 写入（OPS-021
 - 不凭 worktree 目录名（如 `keqing-abac`）推定 owner—可能是别的 agent 占用
 - 如 worktree 占住是其他 agent，ping 对应 agent 释放，不强制 force checkout
 - 避免凭推定错诊别的 agent 占用（反案 #9 PM 在 keqing-abac 凭名推 keqing，魈也推「我」，刻晴 reflog 才实证「别人」）
+
+**终态 enforce 入口**：ADR-0050 `.OWNER` YAML + pre-push hook（跨 worktree owner 机械拦截，ADR-0052 OPENCLAW_AGENT_KEY env 注入解锁）。本节人工 SOP 与 ADR-0050 机械不矛盾：本节是当前人工过渡，后续 ADR-0050 全员部署后转机械。
 
 ### §6.5 venv 同步前置
 
@@ -317,8 +321,9 @@ PM rebase main 后必跑 `backend/.venv/bin/pip install -r backend/requirements.
 - (n2) PM rebase main 后必 pip install -r requirements.txt：PR #214 rebase 后 pre-push gate fail 误报"全员停"
 - (o) backend deps 改动 PR merge 后 push 者群里 announce：双向 gate 设计
 - (p) swap pattern PR 必跑机器对齐 source vs target：胡桃 swap typo「扌→扣」三方独立 fact check 拆穿
-- **(13) exec session 死中途 PM 漏 verify exec 完成度**：PM 06-10 08:52 UTC 起 ADR-0051 amend，commit + push 成功但 brisk-meadow session 死 → `gh pr create` 没跑 → PM 没 verify → 09:54 UTC 帝君催才发现。教训：§6.3 step 8 后必看返回 PR URL，exec session 超时/死→手动 verify。
-- **(14) PM IME typo 「撚”→「撚」 不是字**：PM 06-10 08:55 UTC 起 ADR-0051 amend 时「撚 v0.5」“撚”是手部偏旁不是字，魈 10:03 UTC review fact check 拆穿。同胡桃 06-09 PR #215「扌→扣」typo同款—IME 输入后需 visual review + 机器点对。ADR/合同/业务文案 PR 必跑 `grep -P '[\u2E80-\u2EFF\u2F00-\u2FDF]'` 检查偏旁部首 unicode（非汉字区间错字）或 chinese spell checker。
+- **(13) exec session 死中途物料维度**：详§1.3 反案 #13完整 entry。**PM 物料交付侧补充**：§6.3 step 9 verify exec 返回 PR URL = 本节加固点，避免 PM 写文件 + commit + push 后 exec session 死造成 PR 未开 = 物料未交付。
+- **(14) IME typo 部首类物料维度**：详§1.3 反案 #14完整 entry。**PM 物料交付侧补充**：ADR/合同/业务文案 PR 是部首 typo 最容易发生场景，§6.8 强制 typo check。
+- **(15) PM task 操作前必 list_tasks 自验**：PM 06-10 10:10 UTC 想新建 S3-DEV-002-PREP-FALLBACK-TEMPLATE-V1，没先 list_tasks 检查重复，直接 add_task 撞 "already exists"（魈 10:08 已建）。同反案 #7 "schema 类断言必 set verify" 同源—task 操作前必 list_tasks 自验。
 - **(15) PM task 操作前必 list_tasks 自验**：PM 06-10 10:10 UTC 想新建 S3-DEV-002-PREP-FALLBACK-TEMPLATE-V1，没先 list_tasks 检查重复，直接 add_task 撞 "already exists"（魈 10:08 已建）。同反案 #7 "schema 类断言必 set verify" 同源—task 操作前必 list_tasks 自验。
 
 ### §6.8 enforce 机制
