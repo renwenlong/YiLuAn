@@ -132,8 +132,11 @@ S2-OPS-A 灰度 real 路径上线前，必须支持「紧急只读」动作：
   - 重登成功率 ≥ 99% (revoke 用户)
   - 灰度期 session 中断率 < 0.5% (read-only flag 路径 = 0%)
   - 客诉率上限 = 紧急吊销不计入 (合规事件), 灰度异常 < 0.1%
-- **Baseline 来源**: S2-OPS-A 套件 mock 灰度日志 (回看 `revoke_all` 事件 + 用户重登成功率 query, S2-OPS 监控面板 read), real 上线 T+7 天首轮回测对比, baseline 不达 → 阻 real 全量推广.
-- **配套 follow-up**: `S2-OPS-A-METRIC-DASHBOARD-READONLY` (P3, OPS) — 加 read-only flag 触发率 / 灰度异常 session 中断率 / 客诉率 三个监控指标, 不阻 ADR close.
+- **Baseline 来源** (刻晴 12:41 UTC review 拍穿原 draft baseline 来源不存在, 重拟):
+  - 现状 (2026-06-10 实测): `deploy/prometheus/yiluan-canary.yml` + `ops/grafana/yiluan-canary.json` **只有** `share_token_auto_revoked_total` (share token 滥用自动 revoke), **没有** user-level revoke metric / 重登成功率 metric / session 中断率 metric
+  - **间 (Interim) qualitative phase** (real 上线 T-7 天前监控埋点缺位时): 运维 SOP 窗口期走 application log grep (`grep revoke_all backend.log` + `audit_logs WHERE action='set_user_read_only'` query) + 抽查, 不阻 ADR close 但 metric guard 只在 quantitative phase 生效
+  - **Quantitative phase** (监控埋点部署后): 准 prometheus metric `user_token_revoke_total` + `user_relogin_success_total` + `user_session_dropped_total`, real 上线 T+7 天首轮回测对比, baseline 不达 → 阻 real 全量推广
+- **接人依赖升级 ⚠️** (独立 §8 哨兵): `S2-OPS-A-METRIC-DASHBOARD-READONLY` 升 **P1** 且 **前置于** `S2-DEV-016-READ-ONLY-FLAG-DB`, 不能 P3 deferred
 
 ### AC#6: design 拆 implement task
 
@@ -245,15 +248,33 @@ iOS / 微信小程序 / admin-h5 三端均需:
 
 ## 7. Follow-up
 
-- `S2-DEV-016-READ-ONLY-FLAG-DB` (hutao P2) - alembic + dependency + 403 shape
-- `S2-OPS-A-READ-ONLY-FLAG-ADMIN-API` (hutao P2) - admin set/unset/batch endpoint  
-- `S2-TEST-016-READ-ONLY-FLAG-E2E` (keqing P2) - E2E 覆盖
+- `S2-OPS-A-METRIC-DASHBOARD-READONLY` (**P1**, OPS, **前置于 S2-DEV-016**) - read-only flag 监控指标埋点 (`user_token_revoke_total` / `user_relogin_success_total` / `user_session_dropped_total`), real 上线 T-7 天前必部署完成, 否则 AC#5 quantitative metric guard 跑不起来 (刻晴 PR #246 review 红线拍穿, 本 ADR amend r1)
+- `S2-PRD-016-READONLY-UX-COPY` (P2, PM own) - read-only flag UX 文案 4 场景分级 (mock灰度 / real-灰度异常 / 紧急吊销 / 合规举报, 凝光 PM review 推原则 = UX 不直接暴露后端 reason 原文, frontend 三端 i18n 规范)
+- `S2-DEV-016-READ-ONLY-FLAG-DB` (hutao P2, **depends_on=[S2-OPS-A-METRIC-DASHBOARD-READONLY]**) - alembic + dependency + 403 shape; admin endpoint audit log 同 transaction (刻晴建议) + `read_only_set_by` REFERENCES `admins(id)` **ON DELETE SET NULL** (刻晴建议)
+- `S2-OPS-A-READ-ONLY-FLAG-ADMIN-API` (hutao P2) - admin set/unset/batch endpoint
+- `S2-TEST-016-READ-ONLY-FLAG-E2E` (keqing P2) - E2E 覆盖, **刻晴 review 9 条 AC** (E#1 set / E#2 unset / E#3 batch ≤100 / E#4 batch >100 reject / E#5 GET 不受影响 / E#6 admin audit log / E#7 fail-open redis 挂 / E#8 已发 token 标记瞬时性 / E#9 mutating endpoint lint 全量覆盖)
 - `S3-OPS-READ-ONLY-FLAG-REDIS-CACHE` (P3, conditional) - 视 DB 压力上 cache 形态 D
-- `S2-OPS-A-METRIC-DASHBOARD-READONLY` (P3 OPS) - read-only flag 监控指标埋点 (AC#5 metric guard 配套)
 
 ---
 
-## 8. Refs
+## 8. 哨兵
+
+**本 ADR 前置依赖代理** (独立 section 起 review 报绿灯):
+
+| 哨兵 | 状态 | 备注 |
+|---|---|---|
+| `S2-OPS-A-METRIC-DASHBOARD-READONLY` P1 | 未立 (本 PR merge 后由 凝光/甘雨 拆) | AC#5 quantitative metric guard 前置 |
+| `S2-PRD-016-READONLY-UX-COPY` P2 | 未立 (本 PR merge 后由 凝光 拆) | AC#3 UX reason 分级文案 |
+| `S2-DEV-016-READ-ONLY-FLAG-DB` P2 | 未立 | depends_on [哨兵 metric-dashboard] |
+| `S2-OPS-A-READ-ONLY-FLAG-ADMIN-API` P2 | 未立 | 同上 |
+| `S2-TEST-016-READ-ONLY-FLAG-E2E` P2 | 未立 | depends_on [哨兵 dev-016] |
+| `S3-OPS-READ-ONLY-FLAG-REDIS-CACHE` P3 | 未立 (conditional) | 视未来 DB 压力决 |
+
+**ADR-0053 进入 main 后**: 凝光 PM 拆 6 哨兵 task, 作为 S2-OPS-A 灰度 real 路径上线前置 checklist.
+
+---
+
+## 9. Refs
 
 - ADR-0038 admin-h5 default token hardening
 - S2-OPS-A 灰度上线套件 §B.2 (回滚演练)
