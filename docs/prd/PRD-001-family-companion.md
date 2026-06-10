@@ -287,3 +287,78 @@ iOS 对应视图同名覆盖。视觉回归基线附在 P1-09 iOS 测试体系�
 1. 先 done 已对齐部分（避免阻塞下游）
 2. 立即起 patch task（保留追溯链）
 3. patch task acceptance 含「群里报备 Owner」
+
+## 附 D：F8 灰度安全 / read-only UX 文案规范（S2-PRD-016）
+
+> 关联：ADR-0053 §7/§8、`S2-OPS-A-METRIC-DASHBOARD-READONLY` design PR #248、`S2-PRD-016-READONLY-UX-COPY`。  
+> 原则：**backend 不向前端返回内部 reason 原文**；前端只根据 `reason_category` 映射产品文案，避免泄露灰度、凭据、安全、举报方等敏感信息。
+
+### D.1 API 错误码与响应结构
+
+read-only 用户访问写操作（POST/PUT/PATCH/DELETE）时，后端返回：
+
+| 字段 | 值 | 说明 |
+|---|---|---|
+| HTTP status | `403` | 读取操作 GET 不受影响 |
+| `error_code` | `USER_READONLY` | 三端统一识别只读状态 |
+| `reason_category` | `GRAY_REVOKE` / `GRAY_ANOMALY` / `CREDENTIAL_LEAK` / `COMPLIANCE_REPORT` | 产品文案枚举，非后端原始 reason |
+| `message` | 可选通用兜底文案 | 前端优先使用 i18n key，不依赖后端自由文本 |
+
+禁止返回：灰度 region、内部扫描器命中细节、凭据泄露判定细节、举报人或举报内容、管理员内部备注、`reason_detail` 原文。
+
+### D.2 UX 文案 4 场景分级
+
+| 场景 | `reason_category` | 标题文案 | 说明文案 | 行动入口 |
+|---|---|---|---|---|
+| mock 灰度 revoke | `GRAY_REVOKE` | 账户进入只读模式 | 请重新登录后继续操作。 | 重新登录 |
+| real 灰度异常 | `GRAY_ANOMALY` | 服务异常，账户暂时只读 | 当前服务正在恢复中，请稍后重试；如持续出现，请联系客服。 | 稍后重试 / 联系客服 |
+| 真凭据泄露 / 安全事件紧急吊销 | `CREDENTIAL_LEAK` | 为保障账户安全，账户已切换为只读模式 | 为保护您的账户与订单信息，部分写操作已临时限制。请联系客服处理。 | 联系客服 |
+| 合规举报 / 单用户合规只读 | `COMPLIANCE_REPORT` | 账户当前处于只读模式 | 详情请联系客服。 | 联系客服 |
+
+### D.3 三端 i18n key 规范
+
+三端（iOS / wxapp / admin-h5）统一使用以下 key 形态：
+
+```text
+error.readonly.<reason_category>.title
+error.readonly.<reason_category>.description
+error.readonly.<reason_category>.action
+```
+
+示例：
+
+```text
+error.readonly.CREDENTIAL_LEAK.title = 为保障账户安全，账户已切换为只读模式
+error.readonly.CREDENTIAL_LEAK.description = 为保护您的账户与订单信息，部分写操作已临时限制。请联系客服处理。
+error.readonly.CREDENTIAL_LEAK.action = 联系客服
+```
+
+### D.4 客服联系入口
+
+当 `reason_category` 为 `CREDENTIAL_LEAK` 或 `COMPLIANCE_REPORT` 时，三端必须展示联系客服入口，并至少提供以下通道之一；平台配置齐全后展示三通道：
+
+1. 客服微信
+2. 平台在线表单
+3. 客服电话
+
+客服入口文案保持中性，不指责用户，不暗示用户违规，不披露举报方或内部安全判断。
+
+### D.5 监控 reason label 与 UX reason_category 映射
+
+PR #248 metric design 的 monitoring `reason` label 是监控统计口径；本节 `reason_category` 是用户体验口径。两者映射如下，避免 frontend / backend / 监控三方 enum drift：
+
+| monitoring reason label | UX `reason_category` | 说明 |
+|---|---|---|
+| `credential_leak` | `CREDENTIAL_LEAK` | 安全事件，用户只看到安全保护文案 |
+| `compliance_report` | `COMPLIANCE_REPORT` | 合规只读，用户只看到联系客服文案 |
+| `admin_kick` | `GRAY_REVOKE` | mock/人工灰度 revoke 场景 |
+| `auto_scanner` | `GRAY_ANOMALY` | real 灰度异常或自动扫描器触发 |
+| `user_request` | 不展示 read-only 文案 | 用户主动登出/撤销，不属于 read-only UX 场景 |
+
+### D.6 业务边界守则
+
+- 不诊断用户风险，不写“您的账号异常/违规”等指责性措辞。
+- 不暴露后端技术细节，例如 region、token_version、scanner、Redis、灰度批次。
+- 不透露举报方、举报内容、内部客服备注或安全调查结论。
+- 不把 read-only 描述为永久处罚；统一表述为“当前 / 暂时 / 临时限制”。
+- GET 读取不受影响；仅写操作受限。
