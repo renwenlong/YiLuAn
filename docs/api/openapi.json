@@ -6590,22 +6590,6 @@
               ],
               "title": "Authorization"
             }
-          },
-          {
-            "in": "header",
-            "name": "X-Admin-Token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Admin-Token"
-            }
           }
         ],
         "responses": {
@@ -6695,22 +6679,6 @@
               ],
               "title": "Authorization"
             }
-          },
-          {
-            "in": "header",
-            "name": "X-Admin-Token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Admin-Token"
-            }
           }
         ],
         "responses": {
@@ -6791,22 +6759,6 @@
                 }
               ],
               "title": "Authorization"
-            }
-          },
-          {
-            "in": "header",
-            "name": "X-Admin-Token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Admin-Token"
             }
           }
         ],
