@@ -99,6 +99,19 @@ async def lifespan(app: FastAPI):
             start_scheduler(app)
         except Exception as exc:  # pragma: no cover - 不阻塞启动
             logger.exception("Failed to start scheduler: %s", exc)
+    # S3-DEV-002-PROMPT-VERSIONING AC#3: prompt_versions DB ↔ git fail-fast
+    # 校验。失败直接 raise （不 try/except 吞）让 lifespan 报错 boot
+    # 挂掉——防止上线后以梨名 prompt 版本生成 LLM 调用.
+    if settings.prompt_versions_validate_on_startup:
+        from app.database import async_session
+        from app.services.prompt_versioning import (
+            validate_prompt_versions_on_startup,
+        )
+        async with async_session() as session:
+            await validate_prompt_versions_on_startup(
+                session,
+                repo_root=settings.prompt_versions_repo_root,
+            )
     yield
     # Shutdown
     await shutdown_scheduler()
