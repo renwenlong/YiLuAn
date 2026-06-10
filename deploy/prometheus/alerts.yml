@@ -65,3 +65,44 @@ groups:
         annotations:
           summary: "Readiness probe failing for >2 min"
           description: "The /readiness endpoint has been returning non-200 for over 2 minutes."
+
+      # 6. AI budget soft warning (90%+ daily budget used) — info severity
+      #    PR #228 / S3-DEV-002-BUDGET-GUARD / ADR-0048 §3.2 fire_alert prom-native path
+      - alert: AIBudgetSoftWarning
+        expr: |
+          sum by (axis) (rate(ai_budget_threshold_alerts_total{severity="info"}[5m])) > 0
+        for: 1m
+        labels:
+          severity: P2
+        annotations:
+          summary: "AI budget axis {{ $labels.axis }} hit 90% soft threshold"
+          description: "AIBudgetGuard fired ``info`` severity threshold alert for axis {{ $labels.axis }} — daily budget at 90%+ but still ALLOW. 监控用量趋势 + 准备扩容或调降 limit."
+
+      # 7. AI budget exhausted (100%+ daily budget used) — warning severity, immediate ops attention
+      #    PR #228 / S3-DEV-002-BUDGET-GUARD / ADR-0048 §3.2 fire_alert prom-native path
+      - alert: AIBudgetExhausted
+        expr: |
+          sum by (axis) (rate(ai_budget_threshold_alerts_total{severity="warning"}[5m])) > 0
+        for: 1m
+        labels:
+          severity: P1
+        annotations:
+          summary: "AI budget axis {{ $labels.axis }} EXHAUSTED — calls being REJECTed"
+          description: "AIBudgetGuard fired ``warning`` severity threshold alert for axis {{ $labels.axis }} — daily budget 100%+ used, calls returning REJECT + fallback template. 用户感知降级 / 需扩 daily budget 或限流上游."
+
+      # 8. AI budget reject rate high (sustained reject = upstream 异常 / config bug)
+      #    PR #228 derived: 用 ai_budget_check_total result label 监控 reject ratio
+      - alert: AIBudgetRejectRateHigh
+        expr: |
+          (
+            sum by (axis) (rate(ai_budget_check_total{result="reject"}[5m]))
+          ) /
+          (
+            sum by (axis) (rate(ai_budget_check_total[5m])) > 0
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: P1
+        annotations:
+          summary: "AI budget axis {{ $labels.axis }} reject rate >50% over 5 min"
+          description: "AIBudgetGuard reject rate for axis {{ $labels.axis }} is {{ $value | humanizePercentage }}. 可能原因: daily budget 用完 / redis 不可用 / config error. 查 ai_budget_threshold_alerts_total + redis 健康."
