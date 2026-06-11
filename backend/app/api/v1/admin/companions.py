@@ -7,7 +7,7 @@ Auth: X-Admin-Token header (token-based, TODO: migrate to OAuth/JWT)
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Query, Response, UploadFile
+from fastapi import APIRouter, Depends, File, Query, Request, Response, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import or_, select
 
@@ -235,12 +235,65 @@ async def list_pending_companions(
 )
 async def approve_companion(
     companion_id: UUID,
+    request: Request,
     session: DBSession,
     operator: str = Depends(admin_operator_id),
 ):
-    """Approve a companion."""
+    """Approve a companion.
+
+    S3-DEV-003 c5 hook: after the verification flip, fan-out a
+    precheck recompute + WS broadcast to **every active order**
+    served by this companion. The companion-cert card is now green
+    on those orders, so clients should re-render without waiting for
+    the next polling tick.
+    """
     svc = AdminAuditService(session)
     await svc.approve_companion(companion_id, operator_id=operator)
+
+    # Fan-out precheck recompute hook. Best-effort post-approve:
+    # never raises into the endpoint, never blocks the response.
+    try:
+        from app.models.companion_profile import CompanionProfile
+        from app.models.order import Order, OrderStatus
+        from app.services.precheck_recompute_hook import (
+            CARD_COMPANION_CERT,
+            trigger_precheck_recompute_for_orders,
+        )
+
+        # Resolve companion's user_id (orders FK to companion via user_id)
+        profile = await session.get(CompanionProfile, companion_id)
+        if profile is not None:
+            # Active orders: not yet in any final state.
+            final_states = {
+                OrderStatus.completed,
+                OrderStatus.reviewed,
+                OrderStatus.cancelled_by_patient,
+                OrderStatus.cancelled_by_companion,
+                OrderStatus.rejected_by_companion,
+                OrderStatus.expired,
+            }
+            stmt = select(Order.id).where(
+                Order.companion_id == profile.user_id,
+                Order.status.notin_(final_states),
+            )
+            result = await session.execute(stmt)
+            order_ids = [row[0] for row in result.all()]
+            if order_ids:
+                redis_client = getattr(request.app.state, "redis", None)
+                await trigger_precheck_recompute_for_orders(
+                    app=request.app,
+                    session=session,
+                    redis=redis_client,
+                    order_ids=order_ids,
+                    card=CARD_COMPANION_CERT,
+                )
+    except Exception:  # pragma: no cover — best-effort hook
+        import logging
+        logging.getLogger(__name__).exception(
+            "approve_companion.precheck_hook_failed",
+            extra={"companion_id": str(companion_id)},
+        )
+
     return OkResponse()
 
 
