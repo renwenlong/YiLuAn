@@ -89,7 +89,10 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
-          context: ./backend
+          # S3-BUG-003: context 调到 repo 根 + 显示指 backend/Dockerfile, 需要 COPY docs/medical-content/.
+          # 与 deploy/docker-compose.yml backend.build.context: .. + .github/workflows/test.yml Docker Build Verification 三者一致.
+          context: .
+          file: backend/Dockerfile
           push: true
           tags: |
             ${{ env.ACR_NAME }}.azurecr.io/${{ env.IMAGE_NAME }}:${{ steps.version.outputs.version }}

@@ -33,6 +33,13 @@ async def lifespan(app: FastAPI):
     # Startup
     setup_logging()
     logger.info("Starting %s v%s", settings.app_name, settings.app_version)
+    # S3-BUG-003 startup fail-loud probe: 运维 env (staging/canary/prod) 下
+    # 缺 yml 拒绝 serve. 避免 silent fail-open 让 ADR-0048 §4.1/§4.3 关键词
+    # 过滤在 prod 默默失效. 默认 strict=False 保留 dev/test fail-open
+    # 以不阻本地启动.
+    from app.services.ai_prep_filter import assert_blocklist_loaded_or_raise
+
+    assert_blocklist_loaded_or_raise(strict=settings.ai_blocklist_strict_load)
     # Warm the alembic head cache so /readiness probes do not pay the
     # alembic-import cost on every call (TD-OPS-02).
     try:

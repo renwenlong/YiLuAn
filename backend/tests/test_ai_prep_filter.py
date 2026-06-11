@@ -266,3 +266,86 @@ class TestMetricIncrement:
             ai_prep_filter_l2_blocked_total, category="prescription"
         )
         assert after - baseline == pytest.approx(1.0)
+
+
+# ─────────────────── S3-BUG-003 startup probe tests ───────────────────
+
+
+class TestStartupProbe:
+    """S3-BUG-003: assert_blocklist_loaded_or_raise() fail-loud when strict=True."""
+
+    def test_probe_passes_when_strict_with_loaded_blocklist(self):
+        """yml 在 + snapshot 非空 → 不 raise."""
+        from app.services.ai_prep_filter import (
+            assert_blocklist_loaded_or_raise,
+            load_blocklist,
+        )
+
+        load_blocklist()  # ensure module cache loaded from real yml
+        assert_blocklist_loaded_or_raise(strict=True)
+
+    def test_probe_skips_when_strict_false(self):
+        """strict=False: 即使 yml 不存在 / snapshot 空也不 raise (fail-open)."""
+        from app.services.ai_prep_filter import (
+            _cache,
+            assert_blocklist_loaded_or_raise,
+        )
+
+        # 模拟 empty snapshot
+        original_snapshot = _cache._snapshot
+        original_version = _cache._version
+        try:
+            _cache._snapshot = ()
+            _cache._version = ""
+            # strict=False 不 raise (保留 fail-open)
+            assert_blocklist_loaded_or_raise(strict=False)
+        finally:
+            _cache._snapshot = original_snapshot
+            _cache._version = original_version
+
+    def test_probe_raises_when_strict_and_snapshot_empty(self):
+        """strict=True + empty snapshot → BlocklistStartupError."""
+        from app.services.ai_prep_filter import (
+            BlocklistStartupError,
+            _cache,
+            assert_blocklist_loaded_or_raise,
+        )
+
+        original_snapshot = _cache._snapshot
+        original_version = _cache._version
+        try:
+            _cache._snapshot = ()  # simulate fail-open empty
+            _cache._version = ""
+            with pytest.raises(BlocklistStartupError) as exc_info:
+                assert_blocklist_loaded_or_raise(strict=True)
+            msg = str(exc_info.value)
+            assert "snapshot" in msg or "empty" in msg
+        finally:
+            _cache._snapshot = original_snapshot
+            _cache._version = original_version
+
+    def test_probe_raises_when_strict_and_yml_missing(self, monkeypatch, tmp_path):
+        """strict=True + yml not exists → BlocklistStartupError."""
+        import app.services.ai_prep_filter as mod
+        from app.services.ai_prep_filter import (
+            BlocklistStartupError,
+            _cache,
+            assert_blocklist_loaded_or_raise,
+        )
+
+        original_path = mod._DEFAULT_YML_PATH
+        original_snapshot = _cache._snapshot
+        original_version = _cache._version
+        try:
+            fake_path = tmp_path / "no-such-yml.yml"
+            monkeypatch.setattr(mod, "_DEFAULT_YML_PATH", fake_path)
+            _cache._snapshot = ()
+            _cache._version = ""
+            with pytest.raises(BlocklistStartupError) as exc_info:
+                assert_blocklist_loaded_or_raise(strict=True)
+            assert "yml file missing" in str(exc_info.value)
+            assert str(fake_path) in str(exc_info.value)
+        finally:
+            monkeypatch.setattr(mod, "_DEFAULT_YML_PATH", original_path)
+            _cache._snapshot = original_snapshot
+            _cache._version = original_version
