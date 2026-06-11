@@ -30,28 +30,28 @@ query, see board comments).
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
-from typing import Sequence
+from typing import TYPE_CHECKING, Sequence
 
+from app.schemas.recommendation import CompanionCertStatus
 
-class CompanionCertStatus(str, Enum):
-    """Three-state cert status from PRD-001 v1.5 §F8 (spec v1 final §1.2).
+if TYPE_CHECKING:
+    from app.models.companion_profile import CompanionProfile, VerificationStatus
 
-    Spec字面 enum (not yet wired to model — see fast-track query):
-      - ``verified`` 已认证
-      - ``pending_supplement`` 临时证明补交中
-      - ``uncertified`` 未认证
+_logger = logging.getLogger(__name__)
 
-    Architect ratify pending: 是否 alembic-migrate model enum 字面到此 (方案 A)
-    或在 service 层 facade mapping (方案 B). 本 enum 只是 spec 字面,
-    不依赖任何 model 实装. unit test 直接构造此 enum 验证 ranking 算法.
-    """
-
-    verified = "verified"
-    pending_supplement = "pending_supplement"
-    uncertified = "uncertified"
+# Re-exported for backward compat (commit 1 unit tests import from here).
+__all__ = [
+    "CompanionCertStatus",
+    "RankingCandidate",
+    "CERT_RANK",
+    "sort_companions_for_recommendation",
+    "filter_top3_recommendations",
+    "map_verification_to_cert_status",
+    "companion_to_ranking_candidate",
+]
 
 
 # Spec §1.3: smaller rank = higher priority.
@@ -132,3 +132,87 @@ def filter_top3_recommendations(
         c for c in sorted_candidates if c.companion_cert_status != CompanionCertStatus.uncertified
     ]
     return eligible[:limit]
+
+
+# ===================================================================
+# Service layer: model ↔ spec mapping (魈拍板方案 B, 2026-06-11)
+# ===================================================================
+#
+# spec 字面 (CompanionCertStatus) ↔ model 字面 (VerificationStatus)
+#
+# Architect ratify B: 0 DB migration. Service layer facade mapping.
+# DB 保留 VerificationStatus(pending/verified/rejected) 原字面.
+# 推荐 endpoint 返 spec 字面 enum via this mapping.
+#
+# Rationale (PM-005-1/2 业务三态):
+#   - verified → verified (1:1)
+#   - pending → pending_supplement (PM 语义: "补交中")
+#   - rejected → uncertified (PM 语义: "未认证")
+#   - None (defensive, NOT NULL DDL 理论上不会出)
+#       → uncertified (safe fallback) + logger.warning("[CERT_STATUS_DRIFT]")
+#
+# 魈 18:18Z 拍: logger.warning 加 `[CERT_STATUS_DRIFT]` tag prefix
+# (Grafana/Datadog alert 打标可检索).
+
+
+def map_verification_to_cert_status(
+    vs: "VerificationStatus | None",
+    *,
+    companion_id: str | None = None,
+) -> CompanionCertStatus:
+    """Map ``CompanionProfile.verification_status`` → spec ``CompanionCertStatus``.
+
+    Single source of truth for the 3-state mapping (PM-005-1/2):
+      - verified → verified
+      - pending → pending_supplement (“补交中”)
+      - rejected → uncertified (“未认证”)
+      - None (defensive, DB DDL NOT NULL 保证不会真出) → uncertified +
+        ``logger.warning("[CERT_STATUS_DRIFT]")`` for observability.
+
+    Args:
+        vs: model side enum (or None for ORM defensive).
+        companion_id: optional id for log context (None safe).
+
+    Returns:
+        Spec side 3-state enum.
+    """
+    # Late import to avoid circular dep (schemas → services → schemas).
+    from app.models.companion_profile import VerificationStatus  # noqa: PLC0415
+
+    if vs is None:
+        _logger.warning(
+            "[CERT_STATUS_DRIFT] CompanionProfile.verification_status is None "
+            "(NOT NULL DDL 冲突, ORM defensive fallback uncertified) companion_id=%s",
+            companion_id,
+        )
+        return CompanionCertStatus.uncertified
+    if vs == VerificationStatus.verified:
+        return CompanionCertStatus.verified
+    if vs == VerificationStatus.pending:
+        return CompanionCertStatus.pending_supplement
+    # vs == VerificationStatus.rejected (唯一剩下)
+    return CompanionCertStatus.uncertified
+
+
+def companion_to_ranking_candidate(profile: "CompanionProfile") -> RankingCandidate:
+    """Project ``CompanionProfile`` model row → ``RankingCandidate`` (spec 字面).
+
+    Mapping (per architect ratify B):
+      - id → companion_id (str)
+      - verification_status → companion_cert_status
+        (3-state via ``map_verification_to_cert_status``)
+      - avg_rating → rating (alias)
+      - total_orders → completed_orders (alias)
+      - created_at → created_at (名 1:1)
+
+    PII 字段 (real_name / id_number / certification_no / certification_image_url) 严禁拷入.
+    """
+    return RankingCandidate(
+        companion_id=str(profile.id),
+        companion_cert_status=map_verification_to_cert_status(
+            profile.verification_status, companion_id=str(profile.id)
+        ),
+        rating=profile.avg_rating,
+        completed_orders=profile.total_orders,
+        created_at=profile.created_at,
+    )

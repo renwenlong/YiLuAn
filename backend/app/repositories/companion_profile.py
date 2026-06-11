@@ -72,3 +72,30 @@ class CompanionProfileRepository(BaseRepository[CompanionProfile]):
         )
         result = await self.session.execute(stmt)
         return result.scalars().all()
+
+    async def list_for_recommendations(
+        self,
+        *,
+        city: str | None = None,
+    ) -> Sequence[CompanionProfile]:
+        """Return all companion profiles for recommendation ranking.
+
+        Differs from ``search`` (which filters ``verification_status=verified``):
+        recommendation ranking needs to see all 3 cert states because spec
+        §1.3 sorts ``verified > pending_supplement > uncertified`` (then
+        service-layer ``filter_top3_recommendations`` removes uncertified).
+
+        Returns ALL rows (no offset/limit) because the ranking algorithm
+        is pure-Python sort; SQL pagination would corrupt the global
+        ordering. Caller (``RecommendationService``) is responsible for
+        applying ``top_k`` after ranking.
+
+        Args:
+            city: optional city filter (spec §1.5, when None returns
+                  all cities).
+        """
+        stmt = select(CompanionProfile)
+        if city:
+            stmt = stmt.where(CompanionProfile.service_city == city)
+        result = await self.session.execute(stmt)
+        return result.scalars().all()
