@@ -451,26 +451,60 @@ async def get_feedback_for_companion(companion_id: UUID, feedback_id: UUID):
 
 ## 7. API 契约
 
-| Method | Path | 角色 | 说明 |
-|---|---|---|---|
-| POST | `/api/v1/users/feedbacks` | user | 用户/家属提交首条反馈 |
-| POST | `/api/v1/users/feedbacks/{parent_id}/append` | user | **用户补充补反馈**（胡桃 review #5 amend）|
-| POST | `/api/v1/admin/feedbacks` | admin | 客服代录 |
-| GET | `/api/v1/admin/feedbacks` | admin | 反馈列表/筛选 |
-| GET | `/api/v1/admin/feedbacks/{id}` | admin | 反馈详情 |
-| PATCH | `/api/v1/admin/feedbacks/{id}/status` | admin | 处理状态流转 |
-| POST | `/api/v1/companions/feedbacks/{id}/appeal` | companion | 陪诊师申诉 |
-| GET | `/api/v1/companions/feedbacks/{id}/summary` | companion | 陪诊师摘要视图 |
+| Method | Path | 角色 | 说明 | Content-Type |
+|---|---|---|---|---|
+| POST | `/api/v1/users/feedbacks` | user | 用户/家属提交首条反馈 | `multipart/form-data` |
+| POST | `/api/v1/users/feedbacks/{parent_id}/append` | user | **用户补充补反馈**（胡桃 review #5 amend）| `multipart/form-data` |
+| POST | `/api/v1/admin/feedbacks` | admin | 客服代录 | `multipart/form-data` |
+| GET | `/api/v1/admin/feedbacks` | admin | 反馈列表/筛选 | — |
+| GET | `/api/v1/admin/feedbacks/{id}` | admin | 反馈详情（含 signed URL）| — |
+| PATCH | `/api/v1/admin/feedbacks/{id}/status` | admin | 处理状态流转 | `application/json` |
+| POST | `/api/v1/companions/feedbacks/{id}/appeal` | companion | 陪诊师申诉 | `application/json` |
+| GET | `/api/v1/companions/feedbacks/{id}/summary` | companion | 陪诊师摘要视图 | — |
+
+**为什么 3 个 user/admin 提交 endpoint 必须 multipart**（架构师 r1 amend 2026-06-11，反案 #30）：
+
+FastAPI 物理约束：单个 endpoint 不允许 `Body(JSON)` + `Form()` + `UploadFile` 三者共存（content-type 序列化冲突）。提交反馈必须带附件（图片/PDF），所以 3 个 POST 提交 endpoint 全走 `multipart/form-data`，文本字段用 `Form(...)`，附件用 `list[UploadFile] = File([])`。
+
+`UserFeedbackSubmitRequest` / `UserFeedbackAppendRequest` / `AdminCreateFeedbackBody` 这 3 个 Pydantic schema **保留作 OpenAPI 文档参考**（说明字段约束），但 endpoint 不直接 `Body(...)` 它们。
+
+**为什么不分两步上传**（架构师裁决方案 X，反案 #30 同源）：
+
+方案 Y（先 staging blob → 拿 attachment_id → 再 POST JSON body）物理不可行：`feedback_attachment_storage.put_attachment(*, feedback_id: str, ...)` 签名要 feedback_id，blob_path = `feedback/{YYYY}/{MM}/{feedback_id}_{hash16}{ext}`，staging 阶段没 feedback_id 无法构造 blob_path。所以必须先 INSERT user_feedbacks row 拿到 feedback_id，再 put_attachment。流程必须**单 POST 原子**：
+
+```
+INSERT user_feedbacks → flush 拿 feedback_id
+  → loop put_attachment(feedback_id=row.id, ...)
+  → loop record_attachment_after_blob_put → bind feedback_attachments row
+  → counter inc feedback_submitted_total
+  → commit
+```
+
+失败处理（service 抛 → endpoint 层捕获）：
+
+| 异常 | HTTP | rollback |
+|---|---|---|
+| `FeedbackAttachmentContentTypeError` / `FeedbackAttachmentSizeError` | 422 | session.rollback() |
+| `FeedbackAttachmentPutError`（blob 存储不可用）| 503 | session.rollback() |
+| `IntegrityError`（唯一约束冲突，如 once_per_order_category）| 409 | session.rollback() |
+| `InvalidFeedbackStateTransitionError` | 409 | — |
+| `AppendWindowExpiredError`（closed > 30d）| 410 | — |
+
+孤儿 blob：storage 已 PUT 但 transaction rollback 时，blob 不自动清理，走 cleanup cron（ADR-0045 cert image 同模式）。
 
 ### 7.1 补充反馈 endpoint 权限
 
-`POST /api/v1/users/feedbacks/{parent_id}/append`：
+`POST /api/v1/users/feedbacks/{parent_id}/append`（`multipart/form-data`）：
 
 - 鉴权：`get_current_user`
 - 允许条件：parent.user_id == current_user.id（只能用户本人 append 自己的反馈）
 - 不允许代补充（admin 走 PATCH status 加备注路径）
-- request body：`{ "raw_content": str, "attachments": list[UploadFile] }`
-- response：返回 child UserFeedback。
+- request 字段（multipart Form parts + File parts）：
+  - `raw_content: str = Form(min_length=1, max_length=10_000)`
+  - `attachments: list[UploadFile] = File([])`（沿用 §5.1 allowlist：image/jpeg, image/png, image/webp, application/pdf；单文件 ≤ 10 MiB）
+- response：返回 child UserFeedback（OpenAPI schema `UserFeedbackDetailView`）。
+
+classification 字段（feedback_function_module / category / severity）从 parent 继承，**不再 re-supply**。
 
 ---
 
@@ -478,10 +512,10 @@ async def get_feedback_for_companion(companion_id: UUID, feedback_id: UUID):
 
 | Task | 内容 |
 |---|---|
-| S3-DEV-004-FEEDBACK-DOMAIN | `user_feedbacks` / `feedback_attachments` migration + `UserFeedbackStateMachine` |
-| S3-DEV-004-FEEDBACK-STORAGE | `FeedbackAttachmentStorageBackend` |
-| S3-DEV-004-FEEDBACK-API | 用户提交 + admin-v2 反馈模块 + 陪诊师 summary/appeal endpoints |
-| S3-TEST-005 | 反馈采集 E2E + ABAC 病史不暴露 |
+| S3-DEV-004-FEEDBACK-DOMAIN | `user_feedbacks` migration + `UserFeedbackStateMachine`（架构师 r1 ratify D 2026-06-11：`feedback_attachments` migration scope **merge 到 FEEDBACK-API**，反案 #10 同源 — DOMAIN AC 漏列附件表，dev 按 AC 实施合规无错，架构师责任）|
+| S3-DEV-004-FEEDBACK-STORAGE | `FeedbackAttachmentStorageBackend`（实施用 service module + composition，不走 ABC 子类，与 `certification_image.py` / `contract_storage.py` 一致，ADR-0046 §3.1 amendment）|
+| S3-DEV-004-FEEDBACK-API | `feedback_attachments` migration + 8 endpoint（multipart 提交）+ admin-v2 反馈模块 + 陪诊师 summary/appeal + S4_FEEDBACK_SUMMARY budget axis + OpenAPI/Schemathesis 契约 lock |
+| S3-TEST-005 | 反馈采集 E2E + ABAC 病史不暴露（含 17 字段 negative list 哨兵 + multipart 流 E2E）|
 
 ---
 
@@ -642,3 +676,10 @@ S3-DEV-004-FEEDBACK-DOMAIN 同样加 `user_feedbacks` / `feedback_attachments` m
   - #6（§4.1）：状态机补 `closed --> in_review: user_append_feedback_within_30d` 边 + 5 状态 append 行为表（closed > 30d 拒 410 Gone）。
   - #7（§6.4）：补 schemathesis positive list 哨兵 `FEEDBACK_RESPONSE_POSITIVE_LIST`，未在列表内的 response 字段名 CI 失败。positive list 加字段必须 PR + reviewer ack。
 - 2026-06-06 r4 Amend：刻晴启动守护强化全采纳：`S3_STARTUP_HEALTHCHECK_STRICT=true` production/staging 默认开启；startup 校验 S4 axis 关闭、DB schema、Azure container、SAS smoke，失败 exit 1 + prometheus/Alertmanager 告警。
+- 2026-06-11 r5 Amend (架构师 魈, PR #267 merged 5693b0e 后):
+  - §7 表 amend：3 个 POST 提交 endpoint (user submit / user append / admin create) 加 `Content-Type` 列明写 `multipart/form-data`，消除 §7 表格言与 §7.1 字面之间的形式差异 (PR #267 review 阻塞 #1 同源)。
+  - §7 新增 `为什么 3 个 user/admin 提交 endpoint 必须 multipart` 段：FastAPI 物理约束 (单 endpoint 不允许 `Body(JSON)` + `Form()` + `UploadFile` 共存)，3 个 POST 提交 endpoint 全走 multipart，文本字段用 `Form(...)`，附件用 `list[UploadFile] = File([])`。Pydantic schema (`UserFeedbackSubmitRequest` / `UserFeedbackAppendRequest` / `AdminCreateFeedbackBody`) 保留作 OpenAPI 文档参考但不再被 endpoint 直接 `Body(...)` 绑定 (dead-binding disclose，可接受)。
+  - §7 新增 `为什么不分两步上传` 段：方案 Y (先 staging blob → 拿 attachment_id → 再 POST JSON body) 物理不可行 — `feedback_attachment_storage.put_attachment` 签名要 feedback_id，blob_path 含 feedback_id，staging 阶段没 feedback_id 无法构造 blob_path。必须单 POST 原子流：INSERT user_feedbacks row → flush 拿 feedback_id → put_attachment → bind feedback_attachments row → counter inc → commit。同时落盘 5 个失败异常 → HTTP 映射表 (422 / 503 / 409 / 410)。
+  - §7.1 amend：明写 multipart Form parts + File parts (`raw_content: str = Form(...)`，`attachments: list[UploadFile] = File([])`)，对齐 §7 表。
+  - §8 实施任务映射 amend (架构师 r1 ratify D 2026-06-11，反案 #10 同源)：`feedback_attachments` migration scope 从 FEEDBACK-DOMAIN merge 到 FEEDBACK-API — DOMAIN AC 漏列附件表，dev 按 AC 实施合规无错，scope 漂移是架构师责任。FEEDBACK-STORAGE 同步明写实施用 service module + composition 模式 (不走 ABC 子类)，与 `certification_image.py` / `contract_storage.py` 一致 (ADR-0046 §3.1 amendment 同源)。
+  - 反案落 ADR-0051 r3 amend backlog (架构师 own): 反案 #30 (FastAPI Body+Form 不能同 endpoint) + 反案 #10 (AC vs ADR §8 拆分表 drift)。
