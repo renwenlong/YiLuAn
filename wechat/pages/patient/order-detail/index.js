@@ -8,7 +8,7 @@ const {
   triggerEmergencyEvent,
 } = require('../../../services/emergency')
 // S3-DEV-003-TRUST-UI-WX: 订单付款前 4 信任卡 precheck-status + WS 推送.
-// 本 task 范围仅 cert card (4 cert 字段 + 3 状态 + companion_cert_status_changed event).
+// 本 task 范围仅 cert card (4 cert 字段 + 3 状态 + precheck.status.updated event, envelope 含 cert 状态语义).
 // 后台奇意 cert/contract/insurance/preparation 4 card 汇总返 — 现阶段仅渲染 cert.
 const { getOrderPrecheckStatus } = require('../../../services/precheck')
 const precheckWs = require('../../../services/precheckWs')

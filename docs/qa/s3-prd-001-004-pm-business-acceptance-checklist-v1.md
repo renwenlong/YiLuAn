@@ -27,7 +27,7 @@
 | Check ID | 业务断言 | verify 方法 | 来源 AC |
 |---|---|---|---|
 | PM-005-5 | ShareOrderResponse 不新增任何 `share_*` 字段；用 `response.companion.cert_status` sub-object 承载 masked enum；不新增 `companion_cert_url` / `companion_cert_image_url` 等 URL 字段 | schemathesis CI gate + API spec grep | AC-F8-3 |
-| PM-005-6 | admin-v2 修证件状态后调用 `POST /admin/cache/invalidate {key: "companion_cert:{id}"}` + 发布 `companion_cert_status_changed` 事件 | endpoint trace + Redis pub/sub log | AC-F8-4 |
+| PM-005-6 | admin-v2 修证件状态后调用 `POST /admin/cache/invalidate {key: "companion_cert:{id}"}` + 发布 `precheck.status.updated` 事件 (envelope 含 cert 状态语义, 与 c4 aggregator 实装一致) | endpoint trace + Redis pub/sub log | AC-F8-4 |
 | PM-005-7 | 活跃端 ≤5s invalidate + refetch；不走 CDN 缓存 | WS test + UI poll | AC-F8-4 |
 | PM-005-8 | 离线/非活跃页面下次打开取最新值 | UI 操作 + endpoint poll | AC-F8-4 |
 | PM-005-9 | 未认证陪诊师不进首屏推荐位（`recommended=true` 或 top3）；排序规则：已认证 > 临时证明补交中 > 未认证；admin 不得 override 未认证进 top3 | 排序算法 unit test + admin endpoint 测试 | AC-F8-5 |
