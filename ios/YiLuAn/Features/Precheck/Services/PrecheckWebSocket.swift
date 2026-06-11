@@ -121,6 +121,14 @@ final class PrecheckWebSocket {
     }
 
     /// 走应用层 ping (后端 expect `{type:"ping"}` JSON 帧, 不是 WS protocol-level ping).
+    ///
+    /// **为什么不用 `URLSessionWebSocketTask.sendPing()`** (魈 review PR #266 问):
+    /// - backend `ws.py:_authenticate` + `_message_loop` 在 first-frame auth 走完后只
+    ///   读 JSON 帧 (`recv() → json.loads()`), WS protocol-level ping/pong 帧不会进入
+    ///   应用层, 后端看不到 → idle_timeout 5min 后 close 4002.
+    /// - 需要跳过 NAT 60s~5min 静默回收 + 同时让后端 recv loop 报活,
+    ///   只能走应用层 `{type:"ping"}` → 服务端回 `{type:"pong"}`.
+    /// - protocol-level ping 只保 NAT, 不保 backend recv timeout — 二者不可代.
     private func sendPing() {
         guard let task else { return }
         let payload: [String: String] = ["type": "ping"]
@@ -221,6 +229,13 @@ final class PrecheckWebSocket {
            let event = PrecheckEventType(rawValue: eventStr) {
             onEvent?(PrecheckWSEvent(event: event, rawPayload: obj))
         }
-        // 未知 event type 静默丢弃 (forward-compat: 后端加新 event 不应 crash 旧 client)
+        // 未知 event type: forward-compat 不 crash 旧 client, 但 prod debug 需要到 trace.
+        // 魈 review PR #266 建议: 加 debug log 方便后端加新 event 后发现老版 iOS 未接.
+        if let unknownEvent = obj["event"] as? String {
+            #if DEBUG
+            print("[PrecheckWebSocket] unknown event type: \(unknownEvent), raw: \(obj)")
+            #endif
+            // TODO: prod 接 Sentry breadcrumb (现阶段 ios 项目未集成 Sentry, 迟后续 PR)
+        }
     }
 }

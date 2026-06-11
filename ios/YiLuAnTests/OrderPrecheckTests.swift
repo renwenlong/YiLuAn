@@ -201,16 +201,36 @@ final class OrderPrecheckTests: XCTestCase {
 
     // MARK: - Error path
 
-    func testRefreshHandlesAPIError() async {
-        let vm = PrecheckViewModel(orderId: "ord-err")
+    /// AC #5 / Error path: 404 静默 fallback (历史订单照应, 不作为错误).
+    /// ViewModel 设计意图: 404 不报错, summary 留 nil, 付款闸门由父 View
+    /// (`OrderDetailView` `if order.contractId != nil` block) 接管.
+    /// 魈 review PR #266 拍板方案 A: keep silent fallback, 修 test 期待跟实现走.
+    func testRefresh404IsSilentFallback() async {
+        let vm = PrecheckViewModel(orderId: "ord-historical")
         vm.serviceFetch = { _ in
             throw APIError.httpError(statusCode: 404, message: "order_not_found")
         }
         await vm.refresh()
 
+        XCTAssertNil(vm.summary, "404 应 silent fallback summary=nil")
+        XCTAssertNil(vm.errorMessage, "404 不应上报错误 (历史订单场景)")
+    }
+
+    /// AC #5 / Error path: 非 404 错误 (500 / network) 仍须上报错误.
+    /// 区别于上一 test, 验证 silent fallback **仅限 404**, 其他错误走正常错误路径.
+    func testRefresh500ReportsError() async {
+        let vm = PrecheckViewModel(orderId: "ord-err")
+        vm.serviceFetch = { _ in
+            throw APIError.httpError(statusCode: 500, message: "internal_error")
+        }
+        await vm.refresh()
+
         XCTAssertNil(vm.summary)
-        XCTAssertNotNil(vm.errorMessage)
-        XCTAssertTrue(vm.errorMessage?.contains("404") ?? false)
+        XCTAssertNotNil(vm.errorMessage, "500 应上报错误")
+        XCTAssertTrue(
+            vm.errorMessage?.contains("500") ?? false,
+            "errorMessage 应含 status code (让用户反馈问题能附上)"
+        )
     }
 
     // MARK: - Helpers
