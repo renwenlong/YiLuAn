@@ -59,15 +59,16 @@ import logging
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from redis.asyncio import Redis
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.deps_precheck import (
+    assert_order_owner_or_404,
+    get_precheck_aggregator,
+)
 from app.api.v1.openapi_meta import err
 from app.core.redis import get_redis
 from app.dependencies import CurrentPatient, DBSession
-from app.models.order import Order
 from app.schemas.order_precheck import OrderPrecheckSummaryView
 from app.services.order_precheck_aggregator import (
     OrderPrecheckAggregator,
@@ -81,57 +82,10 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/users/orders", tags=["users-precheck"])
 
 
-async def _get_aggregator(
-    redis: Annotated[Redis, Depends(get_redis)],
-    session: DBSession,
-) -> OrderPrecheckAggregator:
-    """FastAPI dependency that wires the aggregator with per-request
-    Redis + DB session — c2 lifecycle contract.
-    """
-    return OrderPrecheckAggregator(redis=redis, session=session)
-
-
-async def _assert_order_owner_or_404(
-    session: AsyncSession,
-    order_id: UUID,
-    user_id: UUID,
-) -> None:
-    """ABAC Layer 2.5 — order-owner gate.
-
-    Hybrid option C: any failure (order missing OR order exists with
-    different patient_id) returns 404, never 403, to prevent order_id
-    enumeration. The patient-role gate (``CurrentPatient``) above
-    already raises 403 for admin / companion JWTs so ABAC Layer 2
-    role-distinction stays observable.
-
-    SELECTs only the ``patient_id`` column — full ``Order`` row is not
-    needed and would widen the negative-list surface unnecessarily.
-    """
-    stmt = select(Order.patient_id).where(Order.id == order_id)
-    result = await session.execute(stmt)
-    patient_id = result.scalar_one_or_none()
-    if patient_id is None:
-        logger.info(
-            "precheck-status 404: order missing",
-            extra={"order_id": str(order_id), "user_id": str(user_id)},
-        )
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="order not found",
-        )
-    if patient_id != user_id:
-        logger.info(
-            "precheck-status 404: ABAC owner-mismatch (hybrid 404 mask)",
-            extra={
-                "order_id": str(order_id),
-                "user_id": str(user_id),
-                "true_owner_id": str(patient_id),
-            },
-        )
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="order not found",
-        )
+# ABAC Layer 2.5 owner gate + aggregator wiring moved to
+# :mod:`app.api.v1.deps_precheck` in c4 so the WS handshake can reuse
+# the same SELECT projection and gate without depending on this
+# sibling endpoint module.
 
 
 @router.get(
@@ -152,7 +106,7 @@ async def get_precheck_status(
     current_user: CurrentPatient,
     session: DBSession,
     redis: Annotated[Redis, Depends(get_redis)],
-    aggregator: Annotated[OrderPrecheckAggregator, Depends(_get_aggregator)],
+    aggregator: Annotated[OrderPrecheckAggregator, Depends(get_precheck_aggregator)],
 ) -> OrderPrecheckSummaryView:
     """Return the aggregated 4-card precheck status for ``order_id``.
 
@@ -160,7 +114,8 @@ async def get_precheck_status(
 
     1. ``CurrentPatient`` dependency rejects admin / companion JWTs
        (Layer 2 role gate, 401 if no token, 403 if non-patient role).
-    2. :func:`_assert_order_owner_or_404` enforces order ownership;
+    2. :func:`assert_order_owner_or_404` (from ``deps_precheck``)
+       enforces order ownership;
        missing order or owner-mismatch → 404 (防 enum).
     3. Cache read-through: ``GET precheck:order:{order_id}``.
        - HIT → parse JSON, return :class:`OrderPrecheckSummaryView`.
@@ -173,7 +128,7 @@ async def get_precheck_status(
     columns and never the full row.
     """
     # ABAC Layer 2.5: order owner gate (hybrid 404).
-    await _assert_order_owner_or_404(session, order_id, current_user.id)
+    await assert_order_owner_or_404(session, order_id, current_user.id)
 
     # Cache read-through (HIT path, target P95 ≤200ms).
     cache_key = _build_cache_key(order_id)
