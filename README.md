@@ -1133,6 +1133,23 @@ black --check app/ tests/              # 格式检查
 ruff check app/ tests/                 # lint 检查
 ```
 
+### pre-commit hooks
+
+```bash
+# 一锁装 git hooks (防 alembic / OpenAPI drift)
+pip install pre-commit
+pre-commit install
+```
+
+涵盖的检查:
+
+| hook | 触发路径 | 作用 |
+|------|--------|------|
+| `alembic-check` | `backend/app/models/`, `backend/alembic/` | model vs migration drift 拦截 |
+| `openapi-drift-check` | `backend/app/api/v1/`, `backend/app/schemas/` | endpoint/schema 改动 未同步 `docs/api/openapi.json` + `admin*.md` 拦截 (反案 #15/#17, 起源 PR #277) |
+
+过程会 fail 时 指示 `cd backend && python scripts/dump_openapi.py && python scripts/build_api_md.py` + `git add docs/api/` + `git commit --amend --no-edit`. CI `.github/workflows/api-docs-check.yml` 兑底检查同逻辑.
+
 ### 微信小程序开发
 
 ```bash
