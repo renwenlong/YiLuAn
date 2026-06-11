@@ -13,18 +13,19 @@ Auth model:
    ownership filter (admins see any order).
 3. ``response_model=AdminPrepPackageView`` — the only view that exposes
    ops metadata.
-4. **S3-DEV-002-PREP-API AC#3**: write a ``view_prep_package``
-   :class:`AdminAuditLog` row before returning so the admin's view of
-   sensitive medical context is reconcilable.
+4. **S3-DEV-002-PREP-API AC#3** + **S3-OPS-VIEW-PREP-AUDIT-ISOLATED-SESSION**:
+   write a ``view_prep_package`` :class:`AdminAuditLog` row in a
+   **dedicated audit session** that commits *before* the data fetch,
+   so the audit trail is durable even when the service layer raises
+   404 / 500. This captures admin reconnaissance attempts (probes for
+   non-existent orders) in addition to successful views — closing the
+   AC#3 "known limitation" from the original implementation.
 
-   We write the audit row *before* the data fetch (not after) so a
-   successful view always has an audit trace ahead of the heavy I/O.
-   However, the audit row shares the request-scoped transaction with
-   the fetch, so a 404 / 500 from the service layer rolls back both —
-   probe attempts against non-existent orders are **not** captured.
-   Auditing reconnaissance is a stronger property that would need a
-   second commit boundary; tracked as a follow-up (separate ADR) and
-   intentionally out of scope for AC#3.
+   Pattern follows ``cache_invalidate.py`` (PR #250, S3-DEV-005): two
+   independent FastAPI dependencies of ``get_db`` give two independent
+   ``AsyncSession`` instances with separate transactions. We
+   ``await audit_session.commit()`` inside the handler before the fetch
+   so the audit row outlives a fetch crash / 404 / 500.
 
 Lives under ``backend/app/api/v1/admin/`` (sub-package) so it inherits
 the admin router's existing ``/admin`` prefix wiring.
@@ -32,17 +33,35 @@ the admin router's existing ``/admin`` prefix wiring.
 
 from __future__ import annotations
 
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.openapi_meta import err
+from app.database import get_db
 from app.dependencies import CurrentAdmin, DBSession
 from app.models.admin_audit_log import AdminAuditLog
 from app.schemas.prep_package import AdminPrepPackageView
 from app.services.prep_package_service import PrepPackageService
 
 router = APIRouter(prefix="/prep-packages", tags=["admin-prep-package"])
+
+
+AuditSession = Annotated[AsyncSession, Depends(get_db)]
+"""Dedicated DB session for AdminAuditLog persistence.
+
+Reuses ``get_db`` so the test suite's ``override_get_db`` (SQLite
+in-memory) and any production replicas continue to work, but FastAPI
+treats this as a separate dependency from :data:`DBSession`. We get
+two independent ``AsyncSession`` instances, each with its own
+transaction. We ``commit`` the audit session inside the handler *before*
+the data fetch so the audit row is durable even when the request
+session rolls back (404 from service layer, 500 from DB, etc.).
+
+Pattern source: ``cache_invalidate.py`` (PR #250, S3-DEV-005-CACHE-INVALIDATE).
+"""
 
 
 @router.get(
@@ -53,8 +72,10 @@ router = APIRouter(prefix="/prep-packages", tags=["admin-prep-package"])
         "返回完整内容 + ops metadata (trace_id / prompt_version_id / "
         "model / estimated/actual cost / generation_time_ms / fallback_reason)。"
         "仅 admin JWT principal 可访问 (legacy X-Admin-Token sentinel 拒绝)。"
-        "成功返回时写入 AdminAuditLog (target_type=prep_package, action=view); "
-        "404/500 因事务回滚不留 audit (probe 审计是后续 ADR 范围)。"
+        "**所有 admin 访问 (成功 200 / 404 不存在 / 500 异常) 均落 AdminAuditLog** "
+        "(target_type=prep_package, action=view), 由 isolated AuditSession 保证 "
+        "(S3-OPS-VIEW-PREP-AUDIT-ISOLATED-SESSION + PR #250 模式), 捕获 "
+        "admin 侦察行为 (probe 不存在的 order_id)。"
     ),
     responses={**err(401, 403, 404, 500)},
 )
@@ -62,26 +83,32 @@ async def get_admin_prep_package(
     order_id: UUID,
     current_admin: CurrentAdmin,
     session: DBSession,
+    audit_session: AuditSession,
 ) -> AdminPrepPackageView:
-    # AC#3: write audit log *before* the data fetch.
-    # Why before (not after):
-    #  * a successful view always lands an audit row ahead of the heavy I/O,
-    #    so a fetch crash mid-flight doesn't lose the audit trace
-    #  * the audit insert is cheap, the fetch is the costly part
-    #  * if audit insert itself fails, the request should also fail; the
-    #    admin's "I viewed this" claim is only meaningful when persisted
+    # AC#3 + S3-OPS-VIEW-PREP-AUDIT-ISOLATED-SESSION: write the audit
+    # row in a **dedicated** session that commits *before* the data
+    # fetch. This makes admin reads (including 404 probes and 500
+    # crashes) auditable — closing the original AC#3 "known limitation"
+    # where ``DBSession`` rollback on exception also rolled back the
+    # audit row.
     #
-    # Known limitation: the audit row shares this request's transaction with
-    # the fetch, so a 404/500 from the service layer rolls back both. Probe
-    # attempts (admin GETs an order id that does not exist) are NOT audited.
-    # Capturing reconnaissance needs a second commit boundary — separate ADR,
-    # tracked as follow-up, intentionally out of scope for AC#3.
-    audit = AdminAuditLog(
-        target_type="prep_package",
-        target_id=order_id,
-        action="view",
-        operator=current_admin.username,
+    # Why commit before the fetch (not after):
+    #   * audit row is durable even if service layer raises 404/500
+    #   * captures admin reconnaissance (probes for non-existent ids)
+    #   * pattern is identical to cache_invalidate.py (PR #250 lock-in)
+    #
+    # The two sessions are independent because they are two FastAPI
+    # ``Depends(get_db)`` instances. FastAPI's dep cache keys on the
+    # callable + parameter signature, not the callable identity alone
+    # when the annotation differs — so ``DBSession`` and ``AuditSession``
+    # resolve to two distinct sessions per request.
+    audit_session.add(
+        AdminAuditLog(
+            target_type="prep_package",
+            target_id=order_id,
+            action="view",
+            operator=current_admin.username,
+        )
     )
-    session.add(audit)
-    await session.flush()
+    await audit_session.commit()
     return await PrepPackageService(session).get_prep_for_admin(order_id)

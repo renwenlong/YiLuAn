@@ -22,11 +22,17 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Any
+from uuid import uuid4
 
-from httpx import AsyncClient
+import pytest
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 
+from app.database import get_db
+from app.main import app
 from app.models.admin_audit_log import AdminAuditLog
+from app.services import prep_package_service as _prep_pkg_service
+from tests.conftest import override_get_db
 from tests.conftest import test_session_factory as _session_factory
 
 pytest_plugins = ["tests.api.v1.prep_package_abac_fixtures"]
@@ -170,12 +176,111 @@ async def test_companion_token_does_not_create_admin_audit(
     assert len(after) == len(before)
 
 
-# Note on 404 paths: a probe for a non-existent order id raises
-# NotFoundException from the service layer, which causes the request to
-# unwind the transaction and the audit row written before the fetch is
-# NOT persisted.  AC#3 says "admin 写 view_prep_package audit_log" which
-# we read as "successful admin views write an audit row".  Auditing
-# reconnaissance attempts (probes for ids that don't exist) is a stronger
-# property that would need a separate session.commit() before the fetch,
-# which complicates the request-scoped transaction model.  Left as a
-# follow-up if the security team raises it; not in scope for AC#3.
+# ---------------------------------------------------------------------------
+# S3-OPS-VIEW-PREP-AUDIT-ISOLATED-SESSION: 404 / 500 audit persistence
+# ---------------------------------------------------------------------------
+# These tests close the original AC#3 "known limitation" — they verify the
+# audit row is durable even when the service layer raises (404 probe for
+# non-existent order_id, 500 from an unexpected exception). The endpoint
+# uses an isolated AuditSession dependency that commits before the fetch,
+# following the pattern from PR #250 (cache_invalidate.py / S3-DEV-005).
+#
+# Why this matters: capturing reconnaissance (admin probes for ids that
+# do not exist) is a stronger forensic property than logging only
+# successful reads. Required by ABAC + compliance review.
+
+
+async def test_view_prep_package_audit_persists_on_404(
+    client: AsyncClient, prep_abac_context: Mapping[str, Any]
+) -> None:
+    """404 probe for non-existent order_id MUST still write an audit row.
+
+    Closes original AC#3 "known limitation" — captures admin
+    reconnaissance attempts. Implementation: isolated AuditSession
+    (S3-OPS-VIEW-PREP-AUDIT-ISOLATED-SESSION + PR #250 pattern).
+    """
+    bogus_order_id = uuid4()
+    bogus_str = str(bogus_order_id)
+    before = await _list_prep_view_audits(bogus_str)
+
+    response = await client.get(
+        ADMIN_URL_TEMPLATE.format(order_id=bogus_str),
+        headers={"Authorization": f"Bearer {prep_abac_context['admin_token']}"},
+    )
+    # Service layer raises NotFoundException → 404
+    assert response.status_code == 404, response.text
+
+    after = await _list_prep_view_audits(bogus_str)
+    assert len(after) == len(before) + 1, (
+        f"404 probe MUST persist audit row (forensic invariant): "
+        f"got {len(after) - len(before)} new rows, expected exactly 1. "
+        f"Regression: AuditSession not isolated from request-scoped DBSession."
+    )
+
+    new_row = after[-1]
+    assert new_row.target_type == "prep_package"
+    assert new_row.action == "view"
+    assert str(new_row.target_id) == bogus_str
+    # operator must still resolve to the admin's username (probe identity)
+    assert new_row.operator
+    assert new_row.operator.startswith("prep_"), (
+        f"operator should carry admin identity even on probe; "
+        f"got {new_row.operator!r}"
+    )
+
+
+async def test_view_prep_package_audit_persists_on_500(
+    fake_redis: object,
+    prep_abac_context: Mapping[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """500 from service layer MUST still write an audit row.
+
+    Same forensic invariant as the 404 test: even unexpected
+    exceptions must not erase the audit trail of an admin's view
+    attempt. We monkeypatch ``get_prep_for_admin`` to raise an
+    unexpected RuntimeError, simulating a DB outage or service bug.
+
+    Uses a dedicated client with ``raise_app_exceptions=False`` so
+    the unhandled RuntimeError becomes an HTTP 500 response (the
+    default ``client`` fixture re-raises into the test).
+    """
+    order_id = str(prep_abac_context["order"].id)
+    before = await _list_prep_view_audits(order_id)
+
+    async def _raise(self: object, _order_id: object) -> None:
+        raise RuntimeError("simulated 500 from prep_package_service")
+
+    monkeypatch.setattr(
+        _prep_pkg_service.PrepPackageService,
+        "get_prep_for_admin",
+        _raise,
+    )
+
+    # Dedicated client with raise_app_exceptions=False so RuntimeError
+    # becomes a real HTTP 500 instead of bubbling into the test body.
+    app.dependency_overrides[get_db] = override_get_db
+    app.state.redis = fake_redis
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
+    async with AsyncClient(transport=transport, base_url="http://test") as raw_client:
+        response = await raw_client.get(
+            ADMIN_URL_TEMPLATE.format(order_id=order_id),
+            headers={
+                "Authorization": f"Bearer {prep_abac_context['admin_token']}"
+            },
+        )
+
+    # FastAPI default exception handler → 500
+    assert response.status_code == 500, response.text
+
+    after = await _list_prep_view_audits(order_id)
+    assert len(after) == len(before) + 1, (
+        f"500 crash MUST persist audit row (forensic invariant): "
+        f"got {len(after) - len(before)} new rows, expected exactly 1. "
+        f"Regression: AuditSession not isolated from request-scoped DBSession."
+    )
+
+    new_row = after[-1]
+    assert new_row.target_type == "prep_package"
+    assert new_row.action == "view"
+    assert str(new_row.target_id) == order_id
