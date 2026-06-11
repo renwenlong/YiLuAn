@@ -2125,6 +2125,118 @@
         "title": "CompanionPrepPackageView",
         "type": "object"
       },
+      "CompanionPublicCertView": {
+        "additionalProperties": false,
+        "description": "``ShareOrderResponse.companion.cert_status`` — family-facing\ndesensitized companion certification view (PM-005-4/5).\n\n9 字段契约锁 (S3-DEV-005): 后端硬锁 status + 文案 + 视觉三层,\n三端 (iOS / 小程序 / admin-h5) 0 mapping 自由度,\n`scripts/qa/extract_share_contract.py` 落 OpenAPI baseline diff CI gate.",
+        "properties": {
+          "cert_badge_color": {
+            "description": "三色徽章 (PM-005-2 a11y 不靠颜色单, 与 icon 配对): verified→green / pending_supplement→yellow / unverified→gray",
+            "enum": [
+              "green",
+              "yellow",
+              "gray"
+            ],
+            "title": "Cert Badge Color",
+            "type": "string"
+          },
+          "cert_badge_icon": {
+            "description": "三 icon (PM-005-2): verified→check / pending_supplement→clock / unverified→dash",
+            "enum": [
+              "check",
+              "clock",
+              "dash"
+            ],
+            "title": "Cert Badge Icon",
+            "type": "string"
+          },
+          "cert_count": {
+            "description": "已通过资质件数, e.g. 2; 默认 0",
+            "minimum": 0.0,
+            "title": "Cert Count",
+            "type": "integer"
+          },
+          "cert_detail_text": {
+            "description": "弱入口三态文案 (PM-005-3), e.g. '该陪诊师已完成资质认证'; i18n 由 backend 落, 前端不重写",
+            "maxLength": 80,
+            "title": "Cert Detail Text",
+            "type": "string"
+          },
+          "cert_pseudonym_name": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "化名 (脱敏, e.g. '陈师傅') — 严禁出真名 ``real_name`` (ABAC layer 1 + PM-005-3/4); 可 null 但字段必出",
+            "title": "Cert Pseudonym Name"
+          },
+          "cert_status": {
+            "description": "三态认证状态 (PM-005-2): verified=已认证 / pending_supplement=临时证明补交中 / unverified=未认证",
+            "enum": [
+              "verified",
+              "pending_supplement",
+              "unverified"
+            ],
+            "title": "Cert Status",
+            "type": "string"
+          },
+          "cert_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "证件类型文案 (PM-005-3 弱入口), e.g. '康复治疗师'; unverified 态 + 无 cert record 时为 null 但字段必出",
+            "title": "Cert Type"
+          },
+          "cert_verified_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "认证通过时间 (UTC, ISO8601, 映射 ``CompanionProfile.verification_completed_at``, fallback ``certified_at``); unverified/pending 时 null 但字段必出",
+            "title": "Cert Verified At"
+          },
+          "cert_work_id": {
+            "anyOf": [
+              {
+                "maxLength": 20,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "工号, e.g. 'PC0042' (PM-005-3 弱入口); 可 null 但字段必出",
+            "title": "Cert Work Id"
+          }
+        },
+        "required": [
+          "cert_status",
+          "cert_type",
+          "cert_count",
+          "cert_verified_at",
+          "cert_pseudonym_name",
+          "cert_work_id",
+          "cert_badge_color",
+          "cert_badge_icon",
+          "cert_detail_text"
+        ],
+        "title": "CompanionPublicCertView",
+        "type": "object"
+      },
       "CompanionPublicView": {
         "properties": {
           "avatar_url": {
@@ -2137,6 +2249,17 @@
               }
             ],
             "title": "Avatar Url"
+          },
+          "cert_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CompanionPublicCertView"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "资质认证状态 sub-object (PRD-001 v1.4 §F8 + PM-005-1~11); companion 为 null 时本字段同步 null"
           },
           "name": {
             "anyOf": [

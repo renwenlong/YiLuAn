@@ -32,8 +32,14 @@ _BACKEND_ROOT = Path(__file__).resolve().parent.parent
 if str(_BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(_BACKEND_ROOT))
 
-# ADR-0036 §2.7 的 7 个跨端字段（含一个伴生 expires，明确纳入锚定）。
+# ADR-0036 §2.7 的 7 个跨端字段（含一个伴生 expires，明确纳入锚定）.
+# S3-DEV-005-SHARE-CONTRACT (魈 2026-06-11 拍板): 扩 9 个
+# ``CompanionPublicCertView`` sub-object 字段 + ``CompanionPublicView``
+# ``cert_status`` ref (PRD-001 v1.4 §F8 + PM-005-1~11 + ADR-0046 §3.5 第 4 域
+# ``companion_cert_*`` positive list). sub-object 内字段去 ``companion_cert_``
+# 前缀 (sub-object 即 namespace, 详 ADR-0046 §3.5 r6 amend).
 CONTRACT_FIELDS = {
+    # S2-INT-002 原锁 share_* + patient_name_masked (9 个)
     "share_token",
     "share_url",
     "share_scope",
@@ -41,10 +47,18 @@ CONTRACT_FIELDS = {
     "share_revoked_at",
     "share_session",
     "share_active_count",
-    # 伴生但同属换取响应的硬字段，一并锚定避免被悄悄改类型。
     "share_session_expires_at",
-    # ShareOrderResponse 脱敏视图字段，跨端同属硬契约（S2-INT-002 魈拍板补入）。
     "patient_name_masked",
+    # S3-DEV-005 CompanionPublicCertView sub-object 9 字段 (魈 Ghost #1 D 改良版)
+    "cert_status",
+    "cert_type",
+    "cert_count",
+    "cert_verified_at",
+    "cert_pseudonym_name",
+    "cert_work_id",
+    "cert_badge_color",
+    "cert_badge_icon",
+    "cert_detail_text",
 }
 
 DEFAULT_BASELINE = (

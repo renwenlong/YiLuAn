@@ -233,20 +233,108 @@ class ShareService:
     # -- viewer-side: desensitized order view ------------------------------
 
     @staticmethod
+    def build_companion_cert_view(
+        companion_profile,  # app.models.companion_profile.CompanionProfile | None
+    ) -> dict | None:
+        """Map ``CompanionProfile`` → 9-field cert sub-object dict.
+
+        Returns ``None`` when ``companion_profile is None`` (caller decides
+        whether to wrap in ``CompanionPublicCertView`` or leave null).
+
+        魈 2026-06-11 拍板 (S3-DEV-005-SHARE-CONTRACT Ghost #1 D 改良版):
+        - 三态映射 model.verification_status → PRD-001 §F8 UI 三态 enum
+        - 颜色/icon/文案三层 backend hardcode, 三端 0 mapping 自由度 (PM-005-2/3)
+        - 绝不出 real_name / id_number / certification_image_url (ABAC layer 1)
+        """
+        if companion_profile is None:
+            return None
+
+        from app.models.companion_profile import VerificationStatus
+
+        vs = getattr(companion_profile, "verification_status", None)
+        if vs == VerificationStatus.verified:
+            status_enum = "verified"
+            badge_color = "green"
+            badge_icon = "check"
+            detail_text = "该陪诊师已完成资质认证"
+        elif vs == VerificationStatus.pending:
+            status_enum = "pending_supplement"
+            badge_color = "yellow"
+            badge_icon = "clock"
+            detail_text = "该陪诊师临时证明有效，资质补交中"
+        else:
+            # ``rejected`` 或 None 都归 unverified (对外不区分)
+            status_enum = "unverified"
+            badge_color = "gray"
+            badge_icon = "dash"
+            detail_text = "该陪诊师尚未完成资质认证"
+
+        # cert_count: PRD-001 §F8 "资质件数" — model 当前只有
+        # certification_type (单个) + certifications (Text json), 未拆列表.
+        # 仅 verified 状 + 有 certification_type 计 1, 其他 0. 后续
+        # PRD-001 v1.5 拆 multi-cert table 时重映射.
+        cert_type_val = getattr(companion_profile, "certification_type", None)
+        cert_count = 1 if (vs == VerificationStatus.verified and cert_type_val) else 0
+
+        # cert_verified_at: 优先 verification_completed_at (魈 r2 加,
+        # admin approve 实际时间), fallback certified_at (凭证颁发日).
+        verified_at = getattr(
+            companion_profile, "verification_completed_at", None
+        ) or getattr(companion_profile, "certified_at", None)
+        if vs != VerificationStatus.verified:
+            verified_at = None  # pending/rejected 不出时间
+
+        # cert_pseudonym_name: 化名 — model 未落专字段, S3 本 task null
+        # (PRD-001 v1.5 拆 companion_pseudonym table 时接入, 现仅占位).
+        # 严禁 fallback real_name (ABAC layer 1 + PM-005-3/4).
+        pseudonym = None
+
+        # cert_work_id: model.certification_no 是证件号 (同质但不完全等于
+        # 平台工号); PRD-001 v1.5 拆 work_id 时更新. S3 仅 verified
+        # 状下暴露, 限 PC + 4 位 hash 脱敏.
+        work_id = None
+        if vs == VerificationStatus.verified:
+            cert_no = getattr(companion_profile, "certification_no", None)
+            if cert_no:
+                # 脱敏: 取后 4 位, 前加 'PC' 前缀 (与 PRD §F8 例 'PC0042' 对齐)
+                tail = cert_no[-4:].rjust(4, "0")
+                work_id = f"PC{tail}"
+
+        return {
+            "cert_status": status_enum,
+            "cert_type": cert_type_val if vs == VerificationStatus.verified else None,
+            "cert_count": cert_count,
+            "cert_verified_at": verified_at,
+            "cert_pseudonym_name": pseudonym,
+            "cert_work_id": work_id,
+            "cert_badge_color": badge_color,
+            "cert_badge_icon": badge_icon,
+            "cert_detail_text": detail_text,
+        }
+
+    @staticmethod
     def build_share_order_view(
         *,
         order,  # app.models.Order
         share_scope: ShareScope,
         companion=None,  # app.models.User | None
+        companion_profile=None,  # app.models.companion_profile.CompanionProfile | None
     ) -> dict:
-        """Apply §2.5 PII rules + §2.7 field set."""
+        """Apply §2.5 PII rules + §2.7 field set.
+
+        S3-DEV-005-SHARE-CONTRACT: 加 ``companion_profile`` 参以构建
+        ``companion.cert_status`` sub-object (PM-005-1~5). 向后兼容 —
+        不传 profile 时 cert_status=None (未认证陪诊师 / 无 profile).
+        """
         is_full = share_scope == ShareScope.FULL
         companion_view = None
         if companion is not None:
+            cert_view = ShareService.build_companion_cert_view(companion_profile)
             companion_view = {
                 "name": getattr(companion, "real_name", None)
                 or getattr(companion, "nickname", None),
                 "avatar_url": getattr(companion, "avatar_url", None),
+                "cert_status": cert_view,
             }
         return {
             "order_id": order.id,

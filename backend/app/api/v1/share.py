@@ -335,16 +335,27 @@ async def get_share_session_order(
         raise NotFoundException("Order not found")
 
     companion = None
+    companion_profile = None
     companion_id = getattr(order, "companion_id", None)
     if companion_id is not None:
+        from app.repositories.companion_profile import (
+            CompanionProfileRepository,
+        )
         from app.repositories.user import UserRepository
 
         companion = await UserRepository(session).get_by_id(companion_id)
+        # S3-DEV-005-SHARE-CONTRACT: 加载陪诊师 profile 资质信息入
+        # ``companion.cert_status`` sub-object (PM-005-1~5). profile
+        # 为 None 时 (陪诊师未创建 profile) 后续 mapping 落 unverified 态.
+        companion_profile = await CompanionProfileRepository(
+            session
+        ).get_by_user_id(companion_id)
 
     view = ShareService.build_share_order_view(
         order=order,
         share_scope=token_row.share_scope,
         companion=companion,
+        companion_profile=companion_profile,
     )
     return ShareOrderResponse(**view)
 
