@@ -18,12 +18,12 @@ PRD-001 v1.4 §F8. 4 硬要求 per 魈 task comment ``79ce3e34``:
    aggregator packs all 4 cards into one key, do not introduce
    per-card keys).
 
-**Stub edition behavior** — until S3-DEV-003-PRECHECK-BACKEND fills
-``OrderPrecheckAggregator.evaluate``, this endpoint returns **501
-Not Implemented**. The defensive Redis ``DEL`` *does* run before the
-501 (the cache is genuinely cleared, ops drills can rely on that);
-the audit row is also persisted before the 501 so accountability
-holds even on the stub path.
+**c2 evaluate landed**: S3-DEV-003-PRECHECK-BACKEND c2 fills
+``OrderPrecheckAggregator.evaluate`` + ``_redis_set``, so this
+endpoint now returns 200 with real ``invalidated_keys`` +
+``broadcast`` (broadcast still ``False`` until c4 WS infra lands).
+The audit row is persisted before aggregator runs so failure
+modes still leave a forensic trail.
 
 Auth model:
 
@@ -86,7 +86,7 @@ treats this as a separate dependency from :data:`DBSession`. We get
 two independent ``AsyncSession`` instances, each with its own
 transaction. We ``commit`` the audit session inside the handler so
 the audit row is durable even when the request session rolls back
-(e.g. 501 stub path raises an exception).
+(e.g. aggregator / cache layer raises an unexpected exception).
 """
 
 
@@ -131,23 +131,15 @@ def _admin_rate_limit_key(request: Request) -> str:
     description=(
         "admin (仅 super) 手动触发某订单 precheck:order:{order_id} 缓存失效 + "
         "OrderPrecheckAggregator 重算 + WS broadcast。\n\n"
-        "**stub 阶段返 501** (本 PR S3-DEV-005-CACHE-INVALIDATE 范围)。\n"
-        "aggregator.evaluate 在 S3-DEV-003-PRECHECK-BACKEND 实装后, "
-        "本 endpoint 不动, 自动返 200 (invalidated_keys + broadcast=true)。\n\n"
-        "保证 (即使 501 回应)：\n"
+        "**S3-DEV-003 c2 evaluate 已落**: 本 endpoint 返 200 + invalidated_keys + "
+        "broadcast (broadcast=False 直到 c4 WS infra 落)。\n\n"
+        "保证 (200 响应)：\n"
         "* defensive Redis DEL precheck:order:{order_id} 已执行;\n"
+        "* OrderPrecheckAggregator.evaluate 重算 4 卡 + redis SET (TTL 5min);\n"
         "* AdminAuditLog 已写 (admin_id / order_id / cards / timestamp)。\n\n"
         "rate limit: 5/min per admin (按 Authorization token 分桶)。"
     ),
-    responses={
-        **err(401, 403, 404, 422, 429, 500),
-        501: {
-            "description": (
-                "OrderPrecheckAggregator stub 未实装 evaluate / SET / broadcast "
-                "(S3-DEV-005-CACHE-INVALIDATE 范围)。PRECHECK-BACKEND 接管后翻 200。"
-            ),
-        },
-    },
+    responses=err(401, 403, 404, 422, 429, 500),
 )
 @limiter.limit("5/minute", key_func=_admin_rate_limit_key)
 async def invalidate_cache(
@@ -160,19 +152,16 @@ async def invalidate_cache(
     # AC #1 + #3: write the audit row in a **dedicated** session that
     # commits independently of the request-scoped transaction.
     #
-    # ``DBSession`` (via ``get_db``) rolls back on any exception, so a
-    # 501 from the stub path would drop the audit row if we used the
-    # same session — violating 魈 hard requirement #1 ("AdminAuditLog
-    # 必写"). ``AuditSession`` is a second injection of ``get_db`` and
-    # FastAPI gives us a fresh session per dep; we ``commit`` it here
-    # so the audit trace is durable even when the aggregator raises.
+    # ``DBSession`` (via ``get_db``) rolls back on any exception. We
+    # use a second session for the audit row so failures further down
+    # the call chain (aggregator error, redis outage, etc.) still leave
+    # a durable forensic trail — satisfying 魈 hard requirement #1
+    # ("AdminAuditLog 必写").
     #
     # ``cards`` is JSON-friendly comma-joined into the ``reason`` text
     # column for per-card forensics (魈 Q4 #3). Sorting makes the row
     # stable across client orderings (eases dedup / log analysis).
-    cards_repr = (
-        ",".join(sorted(body.cards)) if body.cards else "*all"
-    )
+    cards_repr = ",".join(sorted(body.cards)) if body.cards else "*all"
     audit_session.add(
         AdminAuditLog(
             target_type="precheck_cache",
@@ -184,37 +173,21 @@ async def invalidate_cache(
     )
     await audit_session.commit()
 
-    # AC #4 + stub orchestrator. ``invalidate_and_recompute`` will:
-    #   1. run defensive ``redis DEL precheck:order:{order_id}``
-    #      (real, ships in this task);
-    #   2. call ``evaluate`` (stub → NotImplementedError).
+    # AC #4 + S3-DEV-003 c2 evaluate landed: ``invalidate_and_recompute``
+    # now returns a real summary. The endpoint just relays
+    # ``invalidated_keys`` + ``broadcast`` to the admin.
     #
-    # We catch ``NotImplementedError`` and surface 501 to the admin so
-    # the response shape is deterministic during the stub window.
-    # PRECHECK-BACKEND swaps the body for real evaluate / SET /
-    # broadcast and the same endpoint starts returning 200; **no
-    # endpoint code changes** are required for that flip.
-    aggregator = OrderPrecheckAggregator(request.app.state.redis)
-    try:
-        result = await aggregator.invalidate_and_recompute(
-            order_id=body.order_id,
-            cards=body.cards,
-        )
-    except NotImplementedError as exc:
-        # Audit row is already committed via the session; the
-        # defensive DEL also already ran inside the aggregator before
-        # ``evaluate`` raised. We surface 501 so the admin client
-        # knows the operation is only partially applied (cache
-        # cleared, no recompute, no broadcast). Detail string is
-        # stable so monitoring can alert on the stub window closing.
-        raise HTTPException(
-            status_code=status.HTTP_501_NOT_IMPLEMENTED,
-            detail=(
-                "precheck aggregator evaluate stub — "
-                "S3-DEV-003-PRECHECK-BACKEND must land before this "
-                "endpoint returns 200. Defensive cache DEL has run; "
-                "audit row is persisted."
-            ),
-        ) from exc
+    # Note: ``_ws_broadcast`` is still a c2 stub returning ``False``;
+    # c4 (WS infra) replaces it with the real broadcast. Until then
+    # admin UI must accept ``broadcast=False`` as a normal value (cache
+    # has been invalidated + recomputed, just no live push).
+    aggregator = OrderPrecheckAggregator(
+        request.app.state.redis,
+        session=session,
+    )
+    result = await aggregator.invalidate_and_recompute(
+        order_id=body.order_id,
+        cards=body.cards,
+    )
 
     return CacheInvalidateResponse(**result)
