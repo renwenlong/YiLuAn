@@ -412,27 +412,26 @@ class TestAbacLayer1RedLineE2E:
 
 
 # ---------------------------------------------------------------------------
-# S3-BUG-004 reproduce - share.companion.name 当前 = real_name fallback
-# 等胡桃 fix 后 == nickname/通名
+# S3-BUG-004 regression - share.companion.name display_name-first + 通名 fallback
+# 胡桃 PR #271 修了, xfail 解除, 改为正常 PASS regression assert
 # ---------------------------------------------------------------------------
 
 
 class TestS3Bug004CompanionNameLeakE2E:
-    """S3-BUG-004 OOS of S3-DEV-005: share.py line 334 用 getattr(companion, 'real_name')
-    从 User 读 → User 无该字段 → 永远 None → fallback User.nickname (也 None) →
-    实际 share.companion.name = None。
+    """S3-BUG-004 regression: PR #271 (commit 9ee0cf5) 修了 share.py:334-335
+    旧 ``getattr(companion, 'real_name') or getattr(companion, 'nickname')``
+    (永远 None, User 无该 2 字段) -> 改成 ``getattr(companion, 'display_name')
+    or '陪诊师'`` (符合 lifecycle.py:143/216 + review.py:97 套路).
 
-    胡桃 fix 后应从 CompanionProfile.real_name 黑名单不出, fallback 到
-    User.display_name 或通名 '陪诊师'.
+    永不 fallback ``CompanionProfile.real_name`` (ABAC layer 1).
     """
 
-    async def test_real_name_field_not_on_user_so_name_falls_back(
+    async def test_name_falls_back_to_generic_when_display_name_missing(
         self, client: AsyncClient
     ):
-        """**当前** state: User 无 real_name/nickname 字段 → share.companion.name = None.
+        """PR #271 fix: User.display_name=None 时 -> share.companion.name = '陪诊师'.
 
-        这不是意图行为, 胡桃 fix S3-BUG-004 时应 (a) 从 CompanionProfile.real_name 黑名单
-        (b) fallback 到 User.display_name (c) 最后 fallback '陪诊师' 通名."""
+        Profile.real_name='张三' 严禁出 (ABAC layer 1)."""
         patient, companion, profile, order = await _seed_patient_companion_order(
             verification_status=VerificationStatus.verified,
             real_name="张三",
@@ -450,28 +449,25 @@ class TestS3Bug004CompanionNameLeakE2E:
         body = response.json()
         actual_name = body["companion"]["name"]
 
-        # 当前 bug 状态: User 无 real_name/nickname 字段 -> name=None (不是 real_name)
-        assert actual_name is None, (
-            f"S3-BUG-004: User 无 real_name/nickname 字段下 name 应 None, got {actual_name!r}"
+        # PR #271 fix: display_name=None -> '陪诊师' 通名
+        assert actual_name == "陪诊师", (
+            f"S3-BUG-004 PR #271 regression: display_name=None 时 name 应 "
+            f"fallback '陪诊师', got {actual_name!r}"
+        )
+        # ABAC layer 1: real_name 永不出
+        assert "张三" not in response.text, (
+            "ABAC layer 1 violation: CompanionProfile.real_name '张三' leaked!"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "S3-BUG-004 fix expected (胡桃 in-progress): share.companion.name 应 "
-            "'CompanionProfile.real_name' 黑名单不出, fallback display_name, 最后 "
-            "通名 '陪诊师'. 修后此 test 应 XPASS 触发 unset."
-        ),
-    )
-    async def test_real_name_should_not_leak_after_bug_fix(
+    async def test_name_prefers_display_name_over_generic_when_set(
         self, client: AsyncClient
     ):
-        """S3-BUG-004 fix 后: 即使有 profile.real_name='张三' + display_name=None,
-        share.companion.name 应不出 '张三' → 应 fallback '陪诊师'."""
+        """PR #271 fix: User.display_name='陪诊师小李' 时 -> share.companion.name
+        = '陪诊师小李' (不出 real_name '张三')."""
         patient, companion, profile, order = await _seed_patient_companion_order(
             verification_status=VerificationStatus.verified,
             real_name="张三",
-            display_name=None,
+            display_name="陪诊师小李",  # 设 display_name
         )
         token_row = await _create_share_token(order.id, created_by=patient.id)
         share_jwt = await _create_share_session_jwt(token_row)
@@ -484,9 +480,15 @@ class TestS3Bug004CompanionNameLeakE2E:
         assert response.status_code == 200
         body = response.json()
         actual_name = body["companion"]["name"]
-        # fix 后: name 应 fallback '陪诊师' 通名 (不出 real_name '张三')
-        assert actual_name == "陪诊师", (
-            f"S3-BUG-004 fix expected: name should fallback '陪诊师', got {actual_name!r}"
+
+        # PR #271 fix: display_name='陪诊师小李' -> 用 display_name
+        assert actual_name == "陪诊师小李", (
+            f"S3-BUG-004 PR #271 regression: display_name set 时应取 display_name, "
+            f"got {actual_name!r}"
+        )
+        # ABAC layer 1: real_name 永不出
+        assert "张三" not in response.text, (
+            "ABAC layer 1 violation: CompanionProfile.real_name '张三' leaked!"
         )
 
 
