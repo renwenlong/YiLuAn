@@ -330,9 +330,17 @@ class ShareService:
         companion_view = None
         if companion is not None:
             cert_view = ShareService.build_companion_cert_view(companion_profile)
+            # S3-BUG-004-SHARE-COMPANION-NAME-PII-LEAK: User model 0
+            # ``real_name`` / ``nickname`` 字段 (fact check: grep + python
+            # inspect(User).columns 双验), 旧 ``getattr(companion, "real_name")
+            # or getattr(companion, "nickname")`` 永返 None 是 silent author
+            # bug, 不是 ABAC layer 1 漏出. 改用唯一存在的 ``display_name``
+            # 字段, fallback 通名 "陪诊师" (跟 lifecycle.py:143/216 + review.py:97
+            # 套路一致). 绝不 fallback ``real_name`` (即使后期 User 加字段,
+            # 也走 CompanionProfile pseudonym 路径).
             companion_view = {
-                "name": getattr(companion, "real_name", None)
-                or getattr(companion, "nickname", None),
+                "name": getattr(companion, "display_name", None)
+                or "陪诊师",
                 "avatar_url": getattr(companion, "avatar_url", None),
                 "cert_status": cert_view,
             }

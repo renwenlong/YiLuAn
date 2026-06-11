@@ -336,8 +336,10 @@ class TestBuildShareOrderViewBackwardCompat:
 
     def _mock_user(self):
         u = types.SimpleNamespace()
-        u.real_name = "李四"
-        u.nickname = "lisi"
+        # S3-BUG-004: User model 只有 ``display_name``, 0 ``real_name`` / ``nickname``.
+        # 老 test 写死 ``u.real_name = "李四"`` 是 mock 故意 set, 模型实际 0 该字段.
+        # 新版用真实模型字段 ``display_name``.
+        u.display_name = "张医生"
         u.avatar_url = "/a.png"
         return u
 
@@ -397,3 +399,161 @@ class TestBuildShareOrderViewBackwardCompat:
             ShareService.build_share_order_view(
                 self._mock_order(), ShareScope.FULL  # type: ignore[misc]
             )
+
+
+# ---------------------------------------------------------------------------
+# S3-BUG-004-SHARE-COMPANION-NAME-PII-LEAK: companion.name display_name-first +
+# 通名 fallback (非 real_name / nickname)
+# ---------------------------------------------------------------------------
+
+
+class TestBuildShareOrderViewCompanionName:
+    """S3-BUG-004 修法 AC#1 + AC#2 全 case 覆盖.
+
+    现 share.py:333-336 旧实现 ``getattr(real_name) or getattr(nickname)``
+    实际永返 None (User model 0 那俩字段, fact check 见 task description).
+    新实现 display_name-first + "陪诊师" 通名 fallback.
+    AC#4 顺便 verify 即使 mock 故意 set ``real_name``, view name 也绝不出实姓.
+    """
+
+    def _mock_order(self):
+        o = types.SimpleNamespace()
+        o.id = "00000000-0000-0000-0000-000000000001"
+        o.order_number = "ORD-001"
+        o.status = "confirmed"
+        o.service_type = "standard"
+        o.appointment_date = "2026-01-15"
+        o.appointment_time = "14:00"
+        o.hospital_name = "三甲医院"
+        o.patient_name = "张三"
+        o.companion_id = None
+        return o
+
+    def test_case_a_display_name_present(self):
+        """AC#2 case A: display_name='张医生' → view name == '张医生'."""
+        from app.models.order_share_token import ShareScope
+
+        u = types.SimpleNamespace()
+        u.display_name = "张医生"
+        u.avatar_url = "/a.png"
+
+        view = ShareService.build_share_order_view(
+            order=self._mock_order(),
+            share_scope=ShareScope.FULL,
+            companion=u,
+        )
+        assert view["companion"]["name"] == "张医生"
+
+    def test_case_b_display_name_none_fallback_generic(self):
+        """AC#2 case B: display_name=None → view name == '陪诊师' 通名."""
+        from app.models.order_share_token import ShareScope
+
+        u = types.SimpleNamespace()
+        u.display_name = None
+        u.avatar_url = "/a.png"
+
+        view = ShareService.build_share_order_view(
+            order=self._mock_order(),
+            share_scope=ShareScope.FULL,
+            companion=u,
+        )
+        assert view["companion"]["name"] == "陪诊师"
+
+    def test_case_c_companion_none(self):
+        """AC#2 case C: companion=None → view['companion'] is None (向后兼容)."""
+        from app.models.order_share_token import ShareScope
+
+        view = ShareService.build_share_order_view(
+            order=self._mock_order(),
+            share_scope=ShareScope.FULL,
+            companion=None,
+        )
+        assert view["companion"] is None
+
+    def test_case_d_abac_layer_1_real_name_attr_ignored(self):
+        """AC#1 + AC#4 红线: 即使 SimpleNamespace 故意 set ``real_name`` + ``nickname``,
+        view name 也绝不出实姓, 只走 display_name 通道.
+
+        防御未来 User model 加 ``real_name`` 字段时 silent fallback 立刻泄漏.
+        """
+        from app.models.order_share_token import ShareScope
+
+        u = types.SimpleNamespace()
+        u.real_name = "李实姓"  # 故意 set (模型 0 字段, 测试不能依赖)
+        u.nickname = "lishishi"  # 故意 set (模型 0 字段, 测试不能依赖)
+        u.display_name = "李医生"
+        u.avatar_url = "/a.png"
+
+        view = ShareService.build_share_order_view(
+            order=self._mock_order(),
+            share_scope=ShareScope.FULL,
+            companion=u,
+        )
+        # 必须走 display_name, 0 走 real_name / nickname
+        assert view["companion"]["name"] == "李医生"
+        assert view["companion"]["name"] != "李实姓"  # PII 绝不出
+        assert view["companion"]["name"] != "lishishi"  # nickname 不在路径
+
+    def test_case_e_abac_real_name_only_no_display_falls_to_generic(self):
+        """AC#4 极端: User 既无 display_name 也无 real_name 字段时 fallback 通名,
+        而非空 string (空 string 会 truthy fail or 渲染空白)."""
+        from app.models.order_share_token import ShareScope
+
+        u = types.SimpleNamespace()
+        # 故意 set real_name 但 0 display_name — 验证 "绝不 real_name fallback"
+        u.real_name = "陈实姓"
+        u.avatar_url = "/a.png"
+        # display_name 不 set (SimpleNamespace getattr 返 None)
+
+        view = ShareService.build_share_order_view(
+            order=self._mock_order(),
+            share_scope=ShareScope.FULL,
+            companion=u,
+        )
+        assert view["companion"]["name"] == "陪诊师"  # 通名 fallback
+        assert view["companion"]["name"] != "陈实姓"  # real_name 绝不漏
+
+    def test_case_f_display_name_empty_string_falls_to_generic(self):
+        """AC#4 边: display_name='' (空 string) → fallback '陪诊师' (因 truthy fail).
+
+        防 UI 渲染空白. ``or`` 短路依赖 truthy, 空 string falsy → 走 fallback.
+        """
+        from app.models.order_share_token import ShareScope
+
+        u = types.SimpleNamespace()
+        u.display_name = ""  # 空 string
+        u.avatar_url = "/a.png"
+
+        view = ShareService.build_share_order_view(
+            order=self._mock_order(),
+            share_scope=ShareScope.FULL,
+            companion=u,
+        )
+        assert view["companion"]["name"] == "陪诊师"
+
+    def test_case_g_cert_status_orthogonal_to_name(self):
+        """verify name 改法不影响 cert_status sub-object (S3-DEV-005 PR #270 0 regression)."""
+        from app.models.order_share_token import ShareScope
+
+        u = types.SimpleNamespace()
+        u.display_name = "张医生"
+        u.avatar_url = "/a.png"
+
+        p = _MockProfile(
+            verification_status=VerificationStatus.verified,
+            certification_type="康复治疗师",
+            certification_no="CERT0042",
+            verification_completed_at=datetime(
+                2026, 1, 1, tzinfo=timezone.utc
+            ),
+        )
+        view = ShareService.build_share_order_view(
+            order=self._mock_order(),
+            share_scope=ShareScope.FULL,
+            companion=u,
+            companion_profile=p,
+        )
+        # name 修 + cert_status 不受影响
+        assert view["companion"]["name"] == "张医生"
+        assert view["companion"]["cert_status"]["cert_status"] == "verified"
+        assert view["companion"]["cert_status"]["cert_work_id"] == "PC0042"
