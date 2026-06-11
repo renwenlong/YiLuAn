@@ -1,5 +1,87 @@
 {
   "fields": {
+    "CompanionPublicCertView.cert_badge_color": {
+      "type": "string",
+      "required": true,
+      "enum": [
+        "gray",
+        "green",
+        "yellow"
+      ],
+      "nullable": false,
+      "format": null
+    },
+    "CompanionPublicCertView.cert_badge_icon": {
+      "type": "string",
+      "required": true,
+      "enum": [
+        "check",
+        "clock",
+        "dash"
+      ],
+      "nullable": false,
+      "format": null
+    },
+    "CompanionPublicCertView.cert_count": {
+      "type": "integer",
+      "required": true,
+      "enum": null,
+      "nullable": false,
+      "format": null
+    },
+    "CompanionPublicCertView.cert_detail_text": {
+      "type": "string",
+      "required": true,
+      "enum": null,
+      "nullable": false,
+      "format": null
+    },
+    "CompanionPublicCertView.cert_pseudonym_name": {
+      "type": "string",
+      "required": true,
+      "enum": null,
+      "nullable": true,
+      "format": null
+    },
+    "CompanionPublicCertView.cert_status": {
+      "type": "string",
+      "required": true,
+      "enum": [
+        "pending_supplement",
+        "unverified",
+        "verified"
+      ],
+      "nullable": false,
+      "format": null
+    },
+    "CompanionPublicCertView.cert_type": {
+      "type": "string",
+      "required": true,
+      "enum": null,
+      "nullable": true,
+      "format": null
+    },
+    "CompanionPublicCertView.cert_verified_at": {
+      "type": "string",
+      "required": true,
+      "enum": null,
+      "nullable": true,
+      "format": null
+    },
+    "CompanionPublicCertView.cert_work_id": {
+      "type": "string",
+      "required": true,
+      "enum": null,
+      "nullable": true,
+      "format": null
+    },
+    "CompanionPublicView.cert_status": {
+      "type": "null",
+      "required": false,
+      "enum": null,
+      "nullable": true,
+      "format": null
+    },
     "CreateShareRequest.share_scope": {
       "type": "ref:ShareScope",
       "required": false,
