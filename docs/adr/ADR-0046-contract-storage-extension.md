@@ -447,3 +447,24 @@ python scripts/qa/openapi_contract_diff.py --json-summary
   - 触发: 胡桃 2026-06-08 08:10 UTC fact check (`PatientProfile` 无 id_card / `put_contract` docstring "caller owns generation" 但 ContractService 类不存在 / ContractTemplate 表 ghost 引用)
   - 配套 task: S3-DEV-001-CONTRACT-SERVICE-CORE AC 修订至 5 条 (加 id_card 占位 + PDF stub + settings.CONTRACT_TEMPLATE_VERSION + 原 hash 一次性 + facade pattern), 新立 S3-DEV-001-CONTRACT-PDF-RENDER task
   - **"ghost interface" 反模式记录**: 本次 fact check 暴露 ADR-0046 设计文档存在多处 "docstring/字段引用了一个类/表，但 schema 章节没定义" 的 ghost 引用 (ContractService 类 + ContractTemplate 表)。未来 ADR 写作时，凡 docstring 引用的类型/表/字段，必须在 schema 章节同时定义或明示 "后续 ADR 落地"，避免 implementer 临 implement 时才发现 gap
+- **r6（2026-06-11）**：share endpoint cache 决策拍板 — **不加 cache，read-light 直读 DB**（架构师魈拍 A）
+  - 触发：S3-TEST-006 (刻晴 PR #272) verify `build_share_order_view` 直读 DB 0 cache hit，但 S3-DEV-005 AC#3 字面 schemathesis CI gate 配 invalidate broadcast=True 暗示有 cache 层，spec drift。S3-ADR-0046-SHARE-CACHE-SPEC-RATIFY task 触发 (P3, 魈 own)
+  - 现状 evidence (2026-06-11 16:30 UTC，main HEAD `fc55e90`):
+    - `backend/app/services/share.py:316` `build_share_order_view` = 静态方法，直接组装 dict，**0 Redis/cache layer 调用**
+    - `backend/app/api/v1/share.py:354` 直 call `ShareService.build_share_order_view`，**0 cache 装饰器**
+    - `backend/app/config.py:181` `ws_share_loc_cache_ttl_seconds=60` = WebSocket location cache（地理位置实时刷新），**与 share order view cache 不同概念**
+    - ADR-0046 r1-r5 全文 0 mention `share order view cache`
+  - 拍板 (魈)：方案 A 不加 cache，read-light pattern，理据：
+    1. **business 频率低**：share endpoint 是用户分享链接打开 / 陪诊师查看 / admin 审计，QPS 远低于 hot path (precheck cache hit 95% 是热缓存的核心场景)。单次 DB query (Order + User + CompanionProfile 3 表 join + simple select) p95 < 50ms，无需 cache
+    2. **PII 一致性优先**：share view 含 desensitized PII (mask_name + cert_pseudonym)，cache 引入会增加 cache invalidation 复杂度 (用户改名、陪诊师 cert 升级、admin 强制吊销资质都要 broadcast invalidate)，bug risk 高于性能收益
+    3. **简化测试链路**：刻晴 S3-TEST-006 (PR #272) verify 0 cache hit 是正确测试期望，不需重写 fixture / xfail / mock invalidate broadcast。test 描述对齐实装直读 DB 模式
+    4. **WORM 模型联动**：合同 (§3.1) 已是 WORM blob immutability，share order view 只是 hot read 该 WORM 数据，加 cache = 多一层 staleness 风险，违反 WORM 立即可见性 (合同生效 → 用户立即拉到最新 SignedReadURL)
+    5. **S3 budget 优先 hot path cache**：S3 缓存预算 (ADR-0048 budget guard) 优先 AI prep package cache (高 latency 60s+) + precheck status cache (高 QPS)，不分配 share view (低 QPS + 低 latency)
+  - 实施动作:
+    - keqing S3-TEST-006 PR #272 xfail 改 assert 0 cache 行为 (魈 sessions_send 通知)
+    - S3-DEV-005-CACHE-INVALIDATE (PR #250 已 merge) 范围限于 admin/cache_invalidate.py endpoint 本身 ABAC + audit 哑接口，**不含 share view cache invalidation** (因为不存在该 cache)
+    - S3-DEV-007-SHARE-CACHE task **不创建** (B 方案被否决)
+    - 灰度 checklist (S3-TEST-004 PR #276 已 merge) §6 "跨副本一致性" 项加注: "share endpoint = 直读 DB 模式，无 cache 跨副本一致性问题，本项 N/A for share"
+  - 反例哨兵: 未来如需为 share endpoint 引入 cache (例如 share QPS 进入 hot path)，必须新立独立 ADR + 新 task S3-DEV-XXX-SHARE-CACHE，并 amend 本 r6 决策
+  - 触发 task: S3-ADR-0046-SHARE-CACHE-SPEC-RATIFY (魈 own, P3)
+
