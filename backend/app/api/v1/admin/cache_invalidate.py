@@ -191,4 +191,11 @@ async def invalidate_cache(
         cards=body.cards,
     )
 
-    return CacheInvalidateResponse(**result)
+    # c6 dedup: orchestrator returns ``summary`` for internal hook
+    # reuse, but admin endpoint contract stays 2 fields only.
+    # Explicit field pick prevents ABAC side-channel via summary key
+    # leaking 4-card detail to admin without proper UI gating.
+    return CacheInvalidateResponse(
+        invalidated_keys=result["invalidated_keys"],
+        broadcast=result["broadcast"],
+    )

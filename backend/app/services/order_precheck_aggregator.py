@@ -178,14 +178,15 @@ class OrderPrecheckAggregator:
           hook helpers consume this instead of re-calling
           :meth:`evaluate`)
 
-        c6 dedup commit 1 note
-        ----------------------
+        c6 dedup
+        --------
         The recomputed ``summary`` is now included in the return dict
-        so hook helpers (``precheck_recompute_hook``) can consume it
-        in commit 3 instead of re-calling :meth:`evaluate`. Commit 2
-        extends :meth:`_ws_broadcast` signature to accept ``summary``
-        so the broadcast path also stops re-evaluating. End result
-        after commit 3: 1 hook trigger = 1 evaluate (was 3 pre-c6).
+        AND passed explicitly to :meth:`_ws_broadcast` so the broadcast
+        path does NOT re-call :meth:`evaluate`. Hook helpers
+        (``precheck_recompute_hook``) consume ``result["summary"]``
+        for secondary events (``all_ready`` / ``blocked``) without
+        another evaluate. End result: 1 hook trigger = 1 evaluate
+        (was 3 before c6).
 
         Backward compat: old callers reading ``result["invalidated_keys"]``
         or ``result["broadcast"]`` keep working — new ``summary`` key
@@ -201,12 +202,14 @@ class OrderPrecheckAggregator:
         # Step 3: SET — overwrite cache with fresh summary (TTL 5min).
         await self._redis_set(order_id, summary)
 
-        # Step 4: WS broadcast — c6 dedup commit 2 will pass
-        # ``summary`` here so broadcast does NOT re-call evaluate.
-        # In commit 1 the signature is unchanged — commit 2 extends.
+        # Step 4: WS broadcast — c6 dedup: pass summary so
+        # _ws_broadcast does NOT re-call evaluate (was evaluate #2
+        # pre-c6). Without summary= the broadcast would fallback to
+        # evaluate for unit test / background callers.
         broadcast_ok = await self._ws_broadcast(
             order_id,
             tuple(cards) if cards else None,
+            summary=summary,
         )
 
         return {
@@ -240,8 +243,9 @@ class OrderPrecheckAggregator:
         self,
         order_id: UUID,
         cards_changed: tuple[str, ...] | None,
+        summary: dict[str, Any] | None = None,
     ) -> bool:
-        """WS broadcast — c5 implementation using broadcast facade.
+        """WS broadcast — c5 facade impl, c6 dedup signature.
 
         Resolves the precheck broker from ``self._app`` (injected via
         :func:`app.api.v1.deps_precheck.get_precheck_aggregator` or
@@ -253,22 +257,31 @@ class OrderPrecheckAggregator:
         Pushes a fresh ``precheck.status.updated`` event with the
         recomputed summary so connected clients (user app via WS)
         receive the new card states without an extra GET round-trip.
+
+        c6 dedup
+        --------
+        ``summary`` is now an optional parameter. When provided
+        (normal path — orchestrator step 4 passes the step-2 summary),
+        :meth:`evaluate` is NOT re-called. When omitted (direct
+        ``_ws_broadcast`` callers, unit tests, background tasks), the
+        method falls back to :meth:`evaluate` to preserve the c5
+        contract.
         """
         if self._app is None:
             return False
 
-        # Re-evaluate to get fresh summary (cache was just SET by
-        # orchestrator step 3, but the in-memory ``summary`` is what
-        # we need to broadcast — caller passes nothing back here so
-        # we re-read from cache or re-evaluate cheaply).
-        try:
-            summary = await self.evaluate(order_id)
-        except Exception:  # pragma: no cover — defensive
-            logger.exception(
-                "_ws_broadcast.evaluate_failed",
-                extra={"order_id": str(order_id)},
-            )
-            return False
+        # c6 dedup: prefer caller-supplied summary; fallback to
+        # evaluate only when caller did not pass one (test / direct
+        # broadcast caller path).
+        if summary is None:
+            try:
+                summary = await self.evaluate(order_id)
+            except Exception:  # pragma: no cover — defensive
+                logger.exception(
+                    "_ws_broadcast.evaluate_failed",
+                    extra={"order_id": str(order_id)},
+                )
+                return False
 
         # Pick the first changed card for the broadcast envelope, or
         # a sentinel ``"summary"`` when callers do not scope.
