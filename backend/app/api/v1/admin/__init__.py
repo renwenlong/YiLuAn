@@ -26,6 +26,7 @@ from app.api.v1.admin.companions import (
 from app.api.v1.admin.contracts import router as admin_contracts_router
 from app.api.v1.admin.dashboard import router as dashboard_router
 from app.api.v1.admin.dead_letters import router as dead_letters_router
+from app.api.v1.admin.feedbacks import router as admin_feedbacks_router
 from app.api.v1.admin.notes import (
     notes_router as admin_notes_router,
 )
@@ -54,6 +55,7 @@ router.include_router(orders_router)
 router.include_router(admin_order_timeline_router)
 router.include_router(admin_notes_router)
 router.include_router(admin_prep_packages_router)
+router.include_router(admin_feedbacks_router)
 router.include_router(reconciliation_router)
 router.include_router(service_packages_router)
 router.include_router(telemetry_router)

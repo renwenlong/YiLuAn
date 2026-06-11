@@ -72,6 +72,7 @@ class BudgetAxis(str, Enum):
 
     S2_SUMMARY = "s2_summary"
     S3_PREP = "s3_prep"
+    S4_FEEDBACK_SUMMARY = "s4_feedback_summary"  # ADR-0049 §10.1; S3 阶段 enabled=false
 
 
 @dataclass(frozen=True)
@@ -102,6 +103,21 @@ def _load_axis_config(axis: BudgetAxis) -> _AxisConfig:
             redis_key_prefix="ai:budget:s3_prep:daily_cost",
             enabled=settings.s3_prep_enabled,
             soft_threshold_pct=settings.s3_prep_fallback_threshold_pct,
+        )
+    if axis is BudgetAxis.S4_FEEDBACK_SUMMARY:
+        # ADR-0049 §10.1: S3 阶段占位, enabled=false.
+        # S4 阶段启用后: settings.s4_feedback_summary_enabled=true + daily_budget>0.
+        # _AxisConfig 允许 enabled=false (axis 未启用 → caller 走 fallback 人工).
+        return _AxisConfig(
+            cost_per_order_yuan=Decimal(
+                str(settings.s4_feedback_summary_cost_per_call_yuan)
+            ),
+            daily_budget_yuan=Decimal(
+                str(settings.s4_feedback_summary_daily_budget_yuan)
+            ),
+            redis_key_prefix="ai:budget:s4_feedback_summary:daily_cost",
+            enabled=settings.s4_feedback_summary_enabled,
+            soft_threshold_pct=90,
         )
     raise ValueError(f"Unknown BudgetAxis: {axis!r}")
 
