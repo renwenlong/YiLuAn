@@ -339,30 +339,43 @@ async def get_precheck_status(
 | 后台/锁屏处理 | `onHide` 立即停 WS + 停 polling；`onShow` 重连 WS / 拉一次 GET |
 | 支付 CTA | `OrderPrecheckSummaryView.payment_enabled === true` 才启用，否则 disabled + 灰显 + 显示 blocked_reason |
 
-### 6.2 iOS（H5 内嵌 + 原生壳）
+### 6.2 iOS（Swift Native）
+
+> **r4 amend (2026-06-11)**：原 §6.2 "H5+WKWebView 壳 + `packages/precheck-card` 跨端共享" 方案在 r4 整段废弃。理由见 §13.4 + ADR-0054。下表为 canonical 实施口径。
 
 | 项 | 实现 |
 |---|---|
-| H5 部分 | 与 WX 共享 React 组件库（`packages/precheck-card`），独立 H5 build |
-| 原生壳 | iOS WKWebView 包装，JSBridge 暴露 `applicationState` 转发到 H5（前后台切换感知）|
-| 推送通道 | 同 WX：WS first，polling fallback |
-| dev 实施 | WSL 无 Xcode，dev 本机只跑 H5 部分；iOS 原生壳与 H5↔native bridge 必须 CI E2E（macOS runner）验证 |
+| UI 框架 | Swift / SwiftUI，复用 `./ios/YiLuAn/Features/` 现有 13 features 模式（Auth/Chat/Companion/Legal/Notifications/Order/Patient/Payment/Profile/Review/Settings/Share） |
+| 卡片组件 | 新建 `./ios/YiLuAn/Features/Precheck/` feature 子模块；4 张牌为 SwiftUI View（contract/insurance/preparation/companion_cert 各一） |
+| WS 客户端 | 复用 `./ios/` 现有 WS 接入模式（参考 `Features/Notifications/` 或 `Features/Chat/`）；订阅 3 事件 `precheck.status.updated` / `precheck.all_ready` / `precheck.blocked` |
+| Polling fallback | 同 WX 口径：断连 30±2s 切 polling，间隔 5s；用 `URLSession` + `Timer` 实现 |
+| 前后台切换 | 原生 `UIApplicationDidEnterBackground` / `WillEnterForeground` 直接 hook，**不需要 H5 bridge**；进后台立即停 WS + 停 polling，回前台重连 WS + 拉一次 GET |
+| 文案 | 从 `OrderPrecheckSummaryView.blocked_reason` 等后端字段直读，**不**做客户端文案 lint（文案在 admin-v2 维护，backend 下发） |
+| 支付 CTA | `payment_enabled === true` 才启用，否则 disabled + 灰显 + 显示 blocked_reason |
+| ABAC | backend 已 ABAC L1 锁 17 字段 negative list（ADR-0048 §5.3），iOS 不渲染签名 URL / 内部 ID / 哈希等字段即可；不需要客户端 ABAC test |
+| dev 实施 | WSL 无 Xcode，dev 本机不跑 iOS build；**iOS CI（Xcode Simulator）是唯一通过口径**，跟 repo 现有 `./ios/` 13 features 模式一致 |
 
-**iOS CI E2E round-trip**（刻晴 review gap）：
+**iOS CI E2E**（替代原 H5↔native bridge round-trip 验证）：
 
-- GitHub Actions matrix 增加 macOS runner job：`ios-precheck-e2e`。
-- 验证 WKWebView 首屏加载 + H5 调 `window.webkit.messageHandlers.precheck.postMessage` 到 native。
-- 验证 native 回调 `window.__PRECHECK_NATIVE_EVENT__` 到 H5。
-- 验证前后台切换：native `applicationState` → H5 停 WS / 恢复后重连 WS + 拉一次 GET。
-- WSL 本机不要求 Xcode；CI E2E 是唯一通过口径。
+- 复用现有 `Build & Test (iOS Simulator)` GitHub Actions workflow（branch protection required check 之一）。
+- E2E test 覆盖 task acceptance AC#5：3 状态切换（`pending` → `verified` → `rejected` 任 3 组合）UI 正确显示。
+- WS 推送 `cert_status_changed` → UI 刷新（task acceptance AC#3）。
+- 不需要 macOS runner 新增 job，不需要 WKWebView round-trip 验证（因为没有 WKWebView）。
 
-### 6.3 跨端一致性 lint
+### 6.3 跨端字段一致性
 
-- 共享字段映射：`packages/precheck-card/src/field-mapping.ts` 定义 4 张牌的 ResponseView ↔ UI 字段 1:1 映射。
-- 字段映射 CI：`pnpm test packages/precheck-card/__tests__/field-mapping.test.ts` 读取 OpenAPI schema，对比 WX / iOS H5 / admin-v2 三端字段映射；漏字段、额外字段、命名漂移都 fail。
-- 文案 lint：`packages/precheck-card/src/copy-lint.ts` enforce §3.3 文案表 + admin-v2 同步源。
-- 单测：`packages/precheck-card/__tests__/abac.test.ts` 三端共享，校验组件永不渲染敏感字段（即使误传也不显示）。
-- ABAC counter：测试注入 17 个 negative list 字段后，要求 response 不含字段且 `precheck_abac_filtered_total` counter 增量可观测。
+> **r4 amend (2026-06-11)**：原 §6.3 "`packages/precheck-card` 跨端共享组件库 + field-mapping.ts + copy-lint.ts + abac.test.ts" 整段废弃。理由：repo 单体仓不含 `./packages/`，WX 是小程序原生 TypeScript，iOS 是 Swift Native，admin-v2 是 React/Vue Web — 三端技术栈/构建工具不重叠，强行共享代码库实施成本远高于收益。
+
+**canonical 跨端一致性口径**：**OpenAPI schema as single source of truth**。
+
+| 项 | 实现 |
+|---|---|
+| 字段契约 | `OrderPrecheckSummaryView` 及其 4 个 sub-view（`ContractStatusView` / `InsuranceStatusView` / `PreparationStatusView` / `CompanionCertStatusView`）在 backend 定义，OpenAPI schema 自动导出到 `docs/api/openapi.json` |
+| 字段同步 | 三端各自从 OpenAPI schema 对齐字段名 / 类型（WX TypeScript 手写或 openapi-typescript 生成，iOS Swift 手写或 OpenAPI Generator Swift 生成，admin-v2 TypeScript 同 WX） |
+| 字段漂移 CI | backend `OpenAPI drift` CI 闸（已有，PR #255 / PR #237 复用）— `docs/api/openapi.json` 修改必须 commit 一致，否则 CI FAIL |
+| ABAC 17 字段 negative list | backend `test_view_schema_excludes_15_named_negative_list_fields` schema-level test（PR #253 c2 已实，每 PR 跑）+ E2E layer（PR #262 `test_e2e_openapi_schema_excludes_negative_list_fields`）双管 |
+| ABAC counter | backend `precheck_abac_filtered_total` Prometheus counter（不强求三端各自上报，client-side ABAC 不是设计 trust boundary） |
+| 文案一致性 | 文案由 `admin-v2 S3-DEV-003-ADMIN-COPY` 维护，backend `blocked_reason` 等字段下发；三端**直读 backend 字符串**，不做 client-side 文案 lint |
 
 ---
 
@@ -498,4 +511,40 @@ async def get_precheck_status(
 | 刻晴 D field-mapping CI | §6.3 补 OpenAPI schema ↔ 三端映射 CI |
 | 刻晴 D ABAC counter | §4.3 / §6.3 补 `precheck_abac_filtered_total` |
 | 刻晴 D 转化率基线 | §8 补 7/14 天 baseline 口径 |
+
+### 13.4 r4 amend（魈 architect 04:00 UTC 重造 §6.2 + §6.3）
+
+**触发**：胡桃 dev 06:49Z ping 魈，报 task `S3-DEV-003-TRUST-UI-IOS` acceptance 与 design doc §6.2 spec drift。胡桃起 A/B/C 3 方案请拍板。
+
+**拍板物理证据（魈 grep main `21ee9a7`）**：
+
+| 项 | 实测结果 |
+|---|---|
+| `./packages/` 存在性 | ✗ `ls: cannot access 'packages/'` |
+| `./ios/YiLuAn/Features/` features 数 | 13 个全 Swift Native（Auth/Chat/Companion/Legal/Notifications/Order/Patient/Payment/Profile/Review/Settings/Share） |
+| design doc §6.2 依赖项 | `packages/precheck-card`（不存在）+ WKWebView 壳（repo 无其他使用例） |
+| design doc §6.3 依赖项 | `packages/precheck-card/__tests__/field-mapping.test.ts`（不存在） / `copy-lint.ts`（不存在） / `abac.test.ts`（不存在） |
+| task acceptance 5 条 | 全 Swift native 口径（SwiftUI 4 字段 + WS + 不暴露原图URL + E2E） |
+
+**结论**：§6.2 + §6.3 是设计阶段 over-engineering。task acceptance 5 条才是符合 repo 现状的 minimal scope。胡桃招 B（闷头按 Swift native 写）正确。
+
+**魈 r4 amend 动作**（本 PR）：
+
+| 动作 | 位置 |
+|---|---|
+| 重写 §6.2 为 Swift Native 口径，复用 `./ios/YiLuAn/Features/` 13 features 模式 | §6.2 r4 amend 标注 |
+| 重写 §6.3 为 OpenAPI schema as single source of truth，废弃 `packages/precheck-card` 共享代码库路径 | §6.3 r4 amend 标注 |
+| iOS E2E 从 macOS runner 新增 job 降为复用现有 `Build & Test (iOS Simulator)` 闸（branch protection required check） | §6.2 iOS CI E2E 段 |
+| client-side ABAC test / 文案 lint 减载（backend 已 ABAC L1 + admin-v2 文案下发是 trust boundary） | §6.3 说明 |
+| ADR 落盘 | `docs/adr/ADR-0054-precheck-ui-native-pivot.md` |
+
+**不动**：§3.x 字段契约 / §4.x WS 设计 / §5.x 后端 API 契约 / §8 灰度 / §9 验收 / §10-11 范围拆分 全部 untouched—本 amend 只动前端实现段。
+
+**不退路**。design doc r1 awaiting-approval 的拍板人是帝君，本 r4 amend 是架构师发现 spec drift 后主动修正，不需重走 review 勒卡。胡桃 PR 出后魈 review 时同步 cross-check。
+
+**其他三端（WX / admin-v2）**是否受影响：
+
+- WX §6.1 不动（WX 是小程序原生 TypeScript，不依赖 `packages/precheck-card`）
+- admin-v2 §7 不动（文案管理跟跨端共享代码库无关）
+- 跨端一致性口径从“共享代码库”改为“OpenAPI schema as single source of truth”，三端受益（各自只需从 schema 同步字段名，不需拉 npm package）
 
