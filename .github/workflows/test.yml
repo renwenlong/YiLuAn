@@ -143,7 +143,10 @@ jobs:
 
       - name: Build Docker image
         if: ${{ needs.changes.outputs.backend == 'true' }}
-        run: docker build -t yiluan-backend:test ./backend
+        # S3-BUG-003: build context 调到 repo 根 (原 ./backend), Dockerfile 路径加 backend/ 前缀.
+        # 需要 COPY docs/medical-content/ 进 image, 不能限于 backend/ 子目录.
+        # 与 deploy/docker-compose.yml backend.build.context: .. 保持一致.
+        run: docker build -t yiluan-backend:test -f backend/Dockerfile .
 
   wechat:
     name: WeChat Mini Program Tests

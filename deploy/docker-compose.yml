@@ -108,8 +108,10 @@ services:
 
   backend:
     build:
-      context: ../backend
-      dockerfile: Dockerfile
+      # S3-BUG-003: context 调到 repo 根 (原 ../backend), Dockerfile 路径加 backend/ 前缀.
+      # 原因: 需要 COPY docs/medical-content/ 进 image, 不能限于 backend/ 子目录.
+      context: ..
+      dockerfile: backend/Dockerfile
     profiles: ["staging", "canary", "production"]
     environment:
       ENVIRONMENT: ${ENVIRONMENT}
@@ -136,6 +138,9 @@ services:
       # config.py validate_secrets_for_environment 在 prod env 会 fail-fast 拒默认值。
       PII_HASH_SALT: ${PII_HASH_SALT:-}
       PII_ENVELOPE_KEY: ${PII_ENVELOPE_KEY:-}
+      # S3-BUG-003: AI blocklist startup strict load (运维 env opt-in fail-loud).
+      # True 时缺 prohibited-keywords.yml 拒启。env.staging/canary/production 都设 true.
+      AI_BLOCKLIST_STRICT_LOAD: ${AI_BLOCKLIST_STRICT_LOAD:-false}
     depends_on:
       pg:
         condition: service_healthy
@@ -159,8 +164,10 @@ services:
   backend-dev:
     profiles: ["dev"]
     build:
-      context: ../backend
-      dockerfile: Dockerfile
+      # S3-BUG-003: context 调到 repo 根 (原 ../backend), Dockerfile 路径加 backend/ 前缀.
+      # 需要 COPY docs/medical-content/ 进 image.
+      context: ..
+      dockerfile: backend/Dockerfile
     ports:
       - "${BACKEND_HOST_BIND:-127.0.0.1}:${BACKEND_HOST_PORT:-8000}:8000"
     environment:
@@ -179,6 +186,8 @@ services:
       # S3-OPS-DEPLOY-PII-SECRETS-AUDIT (ADR-0029 §3): dev profile 跳同一 backend image。
       PII_HASH_SALT: ${PII_HASH_SALT:-}
       PII_ENVELOPE_KEY: ${PII_ENVELOPE_KEY:-}
+      # S3-BUG-003: AI blocklist startup strict load. dev 默认 false 不阻本地启动.
+      AI_BLOCKLIST_STRICT_LOAD: ${AI_BLOCKLIST_STRICT_LOAD:-false}
     # 热挂载源码，保留被删 dev 栈的开发体验（改代码即生效）
     volumes:
       - ../backend/app:/app/app
