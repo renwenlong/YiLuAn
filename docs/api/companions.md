@@ -25,6 +25,7 @@
 | `GET` | `/api/v1/companions/me` | 获取我的陪诊师档案 |
 | `PUT` | `/api/v1/companions/me` | 更新我的陪诊师档案 |
 | `GET` | `/api/v1/companions/me/stats` | 获取陪诊师统计概览 |
+| `GET` | `/api/v1/companions/recommendations` | 陕诊师推荐位 top3 |
 | `GET` | `/api/v1/companions/{companion_id}` | 查看陪诊师详情 |
 
 ## 端点详情
@@ -161,6 +162,39 @@ curl -X PUT 'https://api.yiluan.example.com/api/v1/companions/me' \
 
 ```bash
 curl -X GET 'https://api.yiluan.example.com/api/v1/companions/me/stats' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `GET /api/v1/companions/recommendations` — 陕诊师推荐位 top3
+
+返回 top3 推荐陕诊师 (默认 N=3, 可通过 top_k 参数调)。
+
+**排序规则** (spec v1 final §1.3): verified > pending_supplement > uncertified, 同 level tie-breaker rating DESC → completed_orders DESC → created_at ASC.
+
+**硕约束门** (spec §1.4, PM-005-9 admin override 守门): 未认证 (uncertified) 陕诊师不进 top3, admin 不可 override (服务层硬编码 filter, 不依赖 admin endpoint).
+
+**ABAC** (ADR-0049 §6): 返 ``RecommendationItem`` (no PII), 使用 ``mask_name`` 脚敏生成 ``pseudonym_name``。严禁返 ``real_name`` / ``id_number`` / ``certification_no`` / ``certification_image_url``。
+
+**参数：**
+
+- `city` (query, —, required=—) — 可选城市过滤 (spec §1.5)
+- `top_k` (query, integer, required=—) — 推荐位 N (default=3, max=3)
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `401` | 未鉴权或令牌无效 |
+| `422` | 校验失败（FastAPI 标准） |
+| `500` | 服务器内部错误 |
+
+**curl 示例：**
+
+```bash
+curl -X GET 'https://api.yiluan.example.com/api/v1/companions/recommendations' \
   -H 'Authorization: Bearer <access_token>'
 ```
 
