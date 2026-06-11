@@ -1,8 +1,13 @@
 # PRD-001 家庭陪诊家属端 + U-1 创建订单折叠式分步交互
 
-> Task: `S2-REQ-001` ｜ 产出人：凝光（PM）｜ 状态：**v1.1（已吸收刻晴预审 5 项必补 + 3 项建议补充，待帝君批准）**
+> Task: `S2-REQ-001` ｜ 产出人：凝光（PM）｜ 状态：**v1.5（v1.1 → v1.5 跳版补 §F8 推荐过滤 spec, 业务措辞 AC#5/#7 占位 TBD 等 Owner 拍板 amend）**
 > 帝君拍板：2026-05-28 08:02 UTC — 仅 Top1 立项
-> 关联：`docs/adr/ADR-0036-family-share-authorization.md`（魈 Draft，2026-05-28）
+> v1.5 changelog（2026-06-11）：
+> - 新增 `### F8 陪诊师资质透明度 + 首屏推荐过滤（陪诊师侧）`（§3 MVP 功能范围内）
+> - 来源：`docs/prd/drafts/2026-06-11-s3-prd-001-f8-recommendation-filter-spec-v1-final.md`（魈 14:05 UTC review approve 7/7 ✅）
+> - **跳过 v1.2/v1.3/v1.4 版本号**：历史 6 处文档（design/qa/yml/adr/review）reference 「PRD-001 v1.2 §F8」或「PRD-001 v1.4 §F8」但主 PRD 0 patch，是反案 #23 跨文档 reference 历史欠账。本次 v1.5 直接合入, 不补造 v1.2/v1.3/v1.4 中间版本（grep 历史 reference 不困惑：spec 内容 = v1.5 § F8 正文一致, 仅版本号字面变更）
+> - AC#5 (admin override warning toast 文案) + AC#7 (NO_ELIGIBLE_COMPANIONS 异常文案) 暂占位 TBD, 等帝君业务措辞拍板后 amend
+> 关联：`docs/adr/ADR-0036-family-share-authorization.md`（魈 Draft，2026-05-28）, `docs/adr/ADR-0046-share-cache-spec.md`（§3.5 r2 锁 `companion_cert_*` 字段前缀）, `docs/qa/s3-prd-001-004-pm-business-acceptance-checklist-v1.md`（PM-005 段落锁 §F8 业务规则）
 > 战略一致性：`docs/team-handover/competitive-analysis.md` § 二
 
 ---
@@ -63,6 +68,88 @@
 - 步骤：① 服务类型 ② 医院 ③ 日期 ④ 患者+陪诊师确认
 - 服务类型档位（名称/价格/启用状态/排序）由后端动态提供（`GET /api/v1/public/service-packages`），admin 可增删改、价格变更仅影响新订单（历史订单下单时快照不漂移）——详 ADR-0043
 - 已完成步骤显示结果且可点击回改；回改后下游步骤数据不重置（除非冲突）
+
+### F8 陪诊师资质透明度 + 首屏推荐过滤（陪诊师侧, v1.5 新增）
+
+> 来源：`docs/prd/drafts/2026-06-11-s3-prd-001-f8-recommendation-filter-spec-v1-final.md` (S3-PRD-001-V12-F8-RECOMMENDATION-FILTER-SPEC, 魈 2026-06-11 14:05 UTC review approve 7/7 ✅)
+> Lock 条件：魈 architecture review pass ✅ + 帝君 Owner Accept (待业务措辞 AC#5/#7 回执)
+> 关联 ADR：ADR-0046 §3.5 r2 (companion_cert_* 字段前缀), ADR-0048 §7.0 ABAC 字段矩阵
+> 关联 impl task：S3-DEV-006-RECOMMENDATION-API (hutao own, 10 AC, depends_on 本节锁定)
+
+#### F8.1 资质三态徽章
+
+陪诊师资质有 3 个状态:
+
+| 字段 | 值域 | 业务语义 |
+|---|---|---|
+| `companion_cert_status` | enum: `verified` / `pending_supplement` / `uncertified` | 资质三态 |
+| `companion_cert_type` | enum: `nurse` / `health_manager` / `none` | 证件类型 |
+| `companion_cert_updated_at` | ISO timestamp | 状态变更时间, 用于 cache invalidate 判活 |
+
+字段命名遵从 ADR-0046 §3.5 r2 positive list 前缀 `companion_cert_*`, 通过 schemathesis CI gate 强约束。
+
+#### F8.2 首屏推荐过滤算法
+
+**核心业务规则 3 条硬约束**:
+
+1. **未认证陪诊师不进首屏推荐位** (`recommended=true` 或 top3)
+2. **排序优先级**: 已认证 (`verified`) > 临时证明补交中 (`pending_supplement`) > 未认证 (`uncertified`)
+3. **admin 不得 override 未认证进 top3** (admin endpoint service 层内置守门, 见 §F8.4)
+
+**排序算法 (业务逻辑)**:
+- 三态优先级排序 (CERT_RANK: verified=0, pending_supplement=1, uncertified=2)
+- 同 cert_status 内 tie-breaker: `(rating DESC, completed_orders DESC, created_at ASC)`
+- 未认证陪诊师永远不进 top3 (即使 admin 设 `recommended=true`)
+
+详细 Python 实装见 spec v1 final §1.3.
+
+#### F8.3 endpoint signature
+
+**首屏推荐 endpoint** (top3 固定, 无翻页):
+
+```
+GET /v1/companions/recommendations
+```
+
+Query params: `city` (默认从 token 取), `service_type` (可选), `limit` (默认 3, max 3)
+
+Response schema (200 OK, 详 spec v1 final §2.1):
+- 返回字段: `companion_id`, `companion_name_masked`, `companion_avatar_url`, `companion_cert_status`, `companion_cert_type`, `companion_cert_updated_at`, `rating`, `completed_orders`, `recommended`, `recommendation_rank`
+- envelope 字段: `total_eligible`, `filtered_uncertified_count`
+- **ABAC 4 字段 negative list 严禁返回**: `companion_phone` / `companion_id_card` / `companion_cert_url` / `companion_real_name` (ADR-0046 §3.5 ABAC + ADR-0048 §7.0)
+
+**全列表 endpoint** (区分推荐 endpoint):
+
+```
+GET /v1/companions
+```
+
+- 排序行为锁定: 跟推荐 endpoint 一致 (verified > pending_supplement > uncertified + 同 tie-breaker)
+- 区别: 不过滤 uncertified, 但 uncertified 不进 top3 推荐位 (前端按三态徽章展示)
+- 分页: `page_size=20`, `page` 默认 1, 最大 100 页 (防爬虫)
+
+#### F8.4 admin override 守门
+
+- admin-v2 编辑陪诊师页面 `recommended` 字段可被 admin 手动设 `true` / `false`
+- 后端 service 层在推荐 endpoint 调用前**再 filter 一次** `cert_status != "uncertified"`
+- admin 设 `recommended=true` 但 `cert_status="uncertified"` → 数据库写入成功 (不报错) 但**推荐 endpoint 仍不返回**
+- admin-v2 UI 加 warning toast (业务措辞 TBD, 等帝君拍板, 见 §F8.5 AC#5 占位)
+
+#### F8.5 业务文案 (占位 TBD, v1.5 等帝君业务措辞 amend)
+
+- **AC#5 admin override warning toast 文案**: TBD (PM 草稿 "该陪诊师未认证, 无法进入首屏推荐位 (业务规则锁定)" — 等帝君拍板)
+- **AC#7 NO_ELIGIBLE_COMPANIONS 异常文案**: TBD (PM 草稿 "当前城市暂无可推荐的已认证陪诊师" — 等帝君拍板)
+- 这两个文案不阻塞 hutao S3-DEV-006 起手 (文案 i18n 占位即可, 后续 amend)
+
+#### F8.6 字段集合规
+
+- `companion_cert_*` 资质字段 → ADR-0046 §3.5 r2 `S3_NEW_FIELD_PREFIXES` 第 4 域 (已锁)
+- `recommended` / `recommendation_rank` / `total_eligible` / `filtered_uncertified_count` 4 字段 → `COMMON_FIELDS_WHITELIST` (魈 2026-06-11 14:05 UTC 拍 B, 不需新 ADR amend)
+- 实装位置: `scripts/qa/openapi_contract_diff.py` 在 S3-DEV-006 PR 内由 hutao 加 4 字段进 `COMMON_FIELDS_WHITELIST`, 魈 review approve
+
+#### F8.7 关联 ABAC
+
+ABAC §7.0 (ADR-0048) 矩阵覆盖本 spec 的家属/陪诊师/admin 视图. 推荐 endpoint 必须严守 ABAC 4 字段 negative list, sentinel test (类似 SI-2026-06-11-001 fix PR #282 `test_abac_companions_public_view.py` 134 行) 字面 assert 无 PII 字段.
 
 ## 4. 跨端字段对齐（来源 ADR-0036 §2.7，严格一致）
 
