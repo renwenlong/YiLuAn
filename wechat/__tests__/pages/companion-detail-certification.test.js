@@ -5,8 +5,18 @@
  * (a) page data is shaped to drive the WXML badge, and
  * (b) tapping the badge previews the certificate image via wx.previewImage.
  *
- * The WXML snippet itself is asserted inline as a snapshot string so that
- * accidental removal of the badge is caught by `npm test`.
+ * **S3-DEV-003-TRUST-UI-WX AC#3 update (2026-06-11, 胡桃)**:
+ * 原 F-01 测 certification-badge 节点存在 + 绑 onPreviewCertification +
+ * 用 hasCertification 条件 — 但 wxml 原 badge 文案 '已认证·{{certificationType}}'
+ * 在 cert_type='护士证' / '医师执业证' 时渲染 = '已认证·护士证' 等
+ * 职业背书文案, 违 ADR-0046 §3.5 / S3-DEV-003-TRUST-UI §AC#3.
+ *
+ * 现 wxml 已删 certification-badge 节点 (仅保 'is_verified' 中性徽章),
+ * 详细资质信息走 patient/order-detail 页 <cert-card> 组件 (仅后端
+ * positive-list 过 ABAC 的 companion_cert_qualifications 表取不拼 已X资格).
+ *
+ * 本测试保留 page.data shape + onPreviewCertification handler 原状,
+ * 另加反向 lint 防回归 (源件不得重新引入 certification-badge / certificationType wxml 渲染).
  */
 
 jest.mock('../../services/companion', () => ({
@@ -127,11 +137,15 @@ describe('F-01 companion-detail certification badge', function () {
     expect(wx.previewImage).not.toHaveBeenCalled()
   })
 
-  test('WXML contains certification-badge node bound to onPreviewCertification', function () {
+  test('S3-DEV-003-TRUST-UI-WX AC#3: WXML 不含 certification-badge / certificationType 渲染 (反向 lint)', function () {
     var wxmlPath = path.join(__dirname, '..', '..', 'pages', 'companion-detail', 'index.wxml')
     var wxml = fs.readFileSync(wxmlPath, 'utf8')
-    expect(wxml).toContain('certification-badge')
-    expect(wxml).toContain('bindtap="onPreviewCertification"')
-    expect(wxml).toContain('wx:if="{{companion.hasCertification}}"')
+    // certification-badge 类名 不应出现在活 wxml (主名节点 已删).
+    // 注释里提 'S3-DEV-003-TRUST-UI-WX AC#3: 删除 ...' 是 OK 的 lint reminder.
+    // 简化: 扫仅 wxml 渲染式 (去掉 <!-- --> 注释 block).
+    var stripped = wxml.replace(/<!--[\s\S]*?-->/g, '')
+    expect(stripped).not.toContain('certification-badge')
+    expect(stripped).not.toContain('{{companion.certificationType}}')
+    expect(stripped).not.toContain('hasCertification')
   })
 })
