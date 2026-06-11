@@ -1040,7 +1040,7 @@ curl -X GET 'https://api.yiluan.example.com/api/v1/admin/orders/{order_id}/timel
 
 ### `GET /api/v1/admin/prep-packages/{order_id}` — admin 查看订单的 AI 准备包 (含 ops metadata)
 
-返回完整内容 + ops metadata (trace_id / prompt_version_id / model / estimated/actual cost / generation_time_ms / fallback_reason)。仅 admin JWT principal 可访问 (legacy X-Admin-Token sentinel 拒绝)。成功返回时写入 AdminAuditLog (target_type=prep_package, action=view); 404/500 因事务回滚不留 audit (probe 审计是后续 ADR 范围)。
+返回完整内容 + ops metadata (trace_id / prompt_version_id / model / estimated/actual cost / generation_time_ms / fallback_reason)。仅 admin JWT principal 可访问 (legacy X-Admin-Token sentinel 拒绝)。**所有 admin 访问 (成功 200 / 404 不存在 / 500 异常) 均落 AdminAuditLog** (target_type=prep_package, action=view), 由 isolated AuditSession 保证 (S3-OPS-VIEW-PREP-AUDIT-ISOLATED-SESSION + PR #250 模式), 捕获 admin 侦察行为 (probe 不存在的 order_id)。
 
 **参数：**
 
