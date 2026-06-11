@@ -91,7 +91,12 @@ jobs:
 
       - name: Run e2e tests
         if: ${{ needs.changes.outputs.backend == 'true' }}
-        run: cd backend && python -m pytest tests/e2e/ -m e2e -v
+        # NOTE(S2-BUG-CI-WORKFLOW-MARKER-OVERRIDE): 显式 -m "e2e and not docker"
+        # 因为 -m 覆盖 pyproject.toml addopts 默认 "not smoke and not docker",
+        # 仅写 -m e2e 会 pick up @pytest.mark.docker 标的 staging E2E (需 docker compose stack),
+        # 在 in-process CI 必失败 (No such container: yiluan-staging-backend-1).
+        # docker marker 是 opt-in, 给 staging quantitative phase 手动跑.
+        run: cd backend && python -m pytest tests/e2e/ -m "e2e and not docker" -v
         timeout-minutes: 5
 
       # ---------------------------------------------------------------
