@@ -146,26 +146,49 @@ def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _collect_all_keys(obj: Any, *, prefix: str = "") -> list[tuple[str, str]]:
-    """Walk a JSON tree and return all ``(top_level_view, leaf_key)``
+def _collect_all_keys(
+    obj: Any,
+    *,
+    view: str | None = None,
+) -> list[tuple[str, str]]:
+    """Walk a JSON tree and return all ``(view_name, leaf_key)``
     pairs so AC#8 negative-list + AC#9 positive-prefix lint can inspect
     every field.
 
     Returns list of ``(view_name, field_name)``. ``view_name`` is the
     top-level sub-view (``contract_status`` etc.); ``field_name`` is
     the leaf key. Lists are flattened (only dict keys count).
+
+    Semantics:
+    - At the top-level call (``view is None``), each top-level dict
+      key becomes its own view name for the subtree rooted at that key.
+    - Once inside a view subtree, all descendant keys inherit that
+      view name. This is what AC#9 prefix lint wants — every field
+      under ``contract_status`` should carry the ``contract_`` prefix
+      (or be in the cross-cutting allowlist).
+
+    Note (2026-06-11 06:46Z 魈 review on PR #262): the previous
+    ``prefix or k`` form silently collapsed deeply nested envelopes
+    like ``{"event": "...", "card": "contract", "status": {...}}``
+    onto the ``event`` view (any non-empty prefix wins), which would
+    have led to false negatives once cross-replica follow-up tests
+    started inspecting WS envelopes. Explicit ``view`` parameter
+    removes that ambiguity.
     """
     out: list[tuple[str, str]] = []
     if isinstance(obj, dict):
         for k, v in obj.items():
-            out.append((prefix or k, k))
-            sub_prefix = prefix or k
+            # 顶层入口: 当前 key 自己就是 view 名;
+            # 进入子树后: 继承外层传入的 view 名 (不再 "第一个 key 之后的
+            # sibling 都挂第一个 prefix 下" 那种隐式行为)。
+            current_view = view if view is not None else k
+            out.append((current_view, k))
             if isinstance(v, (dict, list)):
-                out.extend(_collect_all_keys(v, prefix=sub_prefix))
+                out.extend(_collect_all_keys(v, view=current_view))
     elif isinstance(obj, list):
         for item in obj:
             if isinstance(item, (dict, list)):
-                out.extend(_collect_all_keys(item, prefix=prefix))
+                out.extend(_collect_all_keys(item, view=view))
     return out
 
 
