@@ -39,7 +39,7 @@ from sqlalchemy import select
 from app.config import settings
 from app.core.distributed_lock import RedisNXLock, acquire_scheduler_lock
 from app.database import async_session
-from app.models.preparation_package import PrepStatus, PreparationPackage
+from app.models.preparation_package import PreparationPackage, PrepStatus
 from app.services.prep_generate_service import generate_for_order
 
 logger = logging.getLogger("app.cron.prep_generate")
@@ -108,6 +108,13 @@ async def prep_generate_job(app: Any = None) -> dict[str, Any]:
                         "processed": 0, "fallback": 0, "failed": 0,
                     }
 
+                # S3-DEV-003 c5: collect order_ids that flipped to
+                # active / active_fallback_template so we can trigger
+                # precheck recompute + WS broadcast after the loop.
+                # Hook is best-effort; failures cannot poison the
+                # outer cron transaction.
+                hook_order_ids: list = []
+
                 for package in rows:
                     order_id = package.order_id
 
@@ -156,10 +163,31 @@ async def prep_generate_job(app: Any = None) -> dict[str, Any]:
                         continue
                     if result_pkg.status == PrepStatus.active:
                         processed += 1
+                        hook_order_ids.append(order_id)
                     elif result_pkg.status == PrepStatus.active_fallback_template:
                         fallback += 1
+                        hook_order_ids.append(order_id)
                     elif result_pkg.status == PrepStatus.generation_failed:
                         failed += 1
+
+                # S3-DEV-003 c5: precheck recompute hook fan-out.
+                # _process_one already committed its own session per
+                # row, so we can fan-out immediately. Hook helper
+                # swallows per-order errors.
+                if hook_order_ids and app is not None:
+                    from app.services.precheck_recompute_hook import (
+                        CARD_PREPARATION,
+                        trigger_precheck_recompute_for_orders,
+                    )
+
+                    async with async_session() as hook_session:
+                        await trigger_precheck_recompute_for_orders(
+                            app=app,
+                            session=hook_session,
+                            redis=redis_client,
+                            order_ids=hook_order_ids,
+                            card=CARD_PREPARATION,
+                        )
 
     except Exception as exc:  # pragma: no cover - safety net
         logger.error("prep.generate.batch_error", exc_info=exc)

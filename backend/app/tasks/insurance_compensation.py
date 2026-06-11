@@ -173,6 +173,12 @@ async def _retry_tier(
                 result = await session.execute(stmt)
                 rows = list(result.scalars())
 
+                # S3-DEV-003 c5: collect order_ids of records that flip
+                # to ``active`` so we can trigger precheck recompute +
+                # WS broadcast after batch commit. Hook is best-effort
+                # post-commit so failures cannot poison the cron tx.
+                hook_order_ids: list = []
+
                 for record in rows:
                     summary["retried"] += 1
                     success, policy_no = await _issue_with_vendor(record)
@@ -184,6 +190,9 @@ async def _retry_tier(
                         record.issued_at = datetime.now(timezone.utc)
                         record.failure_reason = None
                         summary["succeeded"] += 1
+                        # S3-DEV-003 c5: collect order_id for post-commit
+                        # precheck recompute hook fan-out.
+                        hook_order_ids.append(record.order_id)
                         logger.info(
                             "insurance_compensation.retry_succeeded",
                             extra={
@@ -209,6 +218,25 @@ async def _retry_tier(
                         )
 
                 await session.commit()
+
+                # S3-DEV-003 c5: precheck recompute hook fan-out
+                # post-commit. Hook is best-effort — any failure is
+                # logged inside trigger_precheck_recompute and never
+                # propagates back to the cron loop.
+                if hook_order_ids and app is not None:
+                    from app.services.precheck_recompute_hook import (
+                        CARD_INSURANCE,
+                        trigger_precheck_recompute_for_orders,
+                    )
+
+                    await trigger_precheck_recompute_for_orders(
+                        app=app,
+                        session=session,
+                        redis=redis_client,
+                        order_ids=hook_order_ids,
+                        card=CARD_INSURANCE,
+                    )
+
                 return summary
 
     except Exception:

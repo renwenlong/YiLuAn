@@ -107,10 +107,19 @@ async def contract_generate_pickup_job(app: Any = None) -> dict[str, Any]:
                     return {"status": "ok", "processed": 0, "failed": 0}
 
                 contract_service = ContractService(session=session)
+                # S3-DEV-003 c5: collect order_ids of successfully
+                # promoted contracts so we can trigger precheck
+                # recompute + WS broadcast after the batch commit.
+                # The hook runs post-commit so failures cannot poison
+                # the cron transaction.
+                hook_order_ids: list = []
                 for contract in rows:
                     try:
                         await contract_service.generate_now(contract.id)
                         processed += 1
+                        # generate_now flipped status to active; capture
+                        # order_id for post-commit hook fan-out.
+                        hook_order_ids.append(contract.order_id)
                     except ContractGenerateNowError as exc:
                         # generate_now 已在内部写 generation_failed +
                         # last_error_trace, 这里仅计数 + 继续处理下一行.
@@ -132,6 +141,24 @@ async def contract_generate_pickup_job(app: Any = None) -> dict[str, Any]:
                         )
 
                 await session.commit()
+
+                # S3-DEV-003 c5: precheck recompute hook fan-out
+                # post-commit. Hook is best-effort — any failure is
+                # logged inside trigger_precheck_recompute and never
+                # propagates back to the cron loop.
+                if hook_order_ids and app is not None:
+                    from app.services.precheck_recompute_hook import (
+                        CARD_CONTRACT,
+                        trigger_precheck_recompute_for_orders,
+                    )
+
+                    await trigger_precheck_recompute_for_orders(
+                        app=app,
+                        session=session,
+                        redis=redis_client,
+                        order_ids=hook_order_ids,
+                        card=CARD_CONTRACT,
+                    )
     except Exception as exc:  # pragma: no cover - safety net
         logger.error("contract.generate_pickup.batch_error", exc_info=exc)
         return {"status": "error", "processed": processed, "failed": failed}

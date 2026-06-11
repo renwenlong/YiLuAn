@@ -177,13 +177,14 @@ async def invalidate_cache(
     # now returns a real summary. The endpoint just relays
     # ``invalidated_keys`` + ``broadcast`` to the admin.
     #
-    # Note: ``_ws_broadcast`` is still a c2 stub returning ``False``;
-    # c4 (WS infra) replaces it with the real broadcast. Until then
-    # admin UI must accept ``broadcast=False`` as a normal value (cache
-    # has been invalidated + recomputed, just no live push).
+    # S3-DEV-003 c5: ``_ws_broadcast`` now real. Pass app so the
+    # aggregator can publish via the precheck broadcast facade. When
+    # no WS subscriber is connected to the order_id room, broadcast
+    # still records ``True`` (publish succeeded, no recipients).
     aggregator = OrderPrecheckAggregator(
         request.app.state.redis,
         session=session,
+        app=request.app,
     )
     result = await aggregator.invalidate_and_recompute(
         order_id=body.order_id,
