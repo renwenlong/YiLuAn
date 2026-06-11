@@ -22,6 +22,7 @@ from app.api.v1.reviews import router as reviews_router
 from app.api.v1.share import router as share_router
 from app.api.v1.telemetry import router as telemetry_router
 from app.api.v1.users import router as users_router
+from app.api.v1.users_precheck import router as users_precheck_router
 from app.api.v1.wallet import router as wallet_router
 from app.api.v1.ws import router as ws_router
 
@@ -57,6 +58,7 @@ api_v1_router.include_router(payment_callback_router)
 api_v1_router.include_router(public_service_packages_router)
 api_v1_router.include_router(prep_packages_users_router)
 api_v1_router.include_router(prep_packages_companions_router)
+api_v1_router.include_router(users_precheck_router)
 api_v1_router.include_router(share_router)
 api_v1_router.include_router(telemetry_router)
 api_v1_router.include_router(admin_router)

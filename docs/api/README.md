@@ -406,6 +406,12 @@ K8s / ACA 探针使用：
 | `DELETE` | `/api/v1/users/me/family-members/{member_id}` | 软删除一位家人 (F-05) |
 | `PATCH` | `/api/v1/users/me/family-members/{member_id}` | 更新一位家人 (F-05) |
 
+### [users-precheck](./users-precheck.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/users/orders/{order_id}/precheck-status` | 患者获取订单 4 信任卡 precheck 状态 (合同 / 保险 / AI 准备包 / 陪诊师资质) |
+
 ### [users-prep-package](./users-prep-package.md)
 
 | 方法 | 路径 | 说明 |
