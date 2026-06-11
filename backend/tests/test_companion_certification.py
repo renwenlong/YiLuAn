@@ -10,13 +10,12 @@ import uuid
 from datetime import datetime, timezone
 
 import pytest
+from sqlalchemy import select
 
 from app.core.security import create_access_token
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.companion_profile import CompanionProfile, VerificationStatus
 from app.models.user import User, UserRole
-from sqlalchemy import select
-
 from tests.conftest import test_session_factory
 
 ADMIN_TOKEN = "dev-admin-token"
@@ -89,10 +88,18 @@ async def test_get_companion_returns_certification_fields(client):
     resp = await client.get(f"{PUBLIC_BASE}/{profile.id}", headers=_user_headers(owner.id))
     assert resp.status_code == 200, resp.text
     body = resp.json()
+    # S3-OPS-ABAC: detail endpoint (non-self) 返 CompanionPublicDetailView,
+    # 仅 positive list 字段 (certification_type 保, certified_at 保).
+    # 严禁返 PII: certification_no 与 certification_image_url.
     assert body["certification_type"] == "护士证"
-    assert body["certification_no"] == "NO.20231234"
-    assert body["certification_image_url"] == "https://oss.example.com/cert/abc.jpg"
     assert body["certified_at"] is not None
+    # ABAC layer 3+4: PII 4 字段 not-in-response
+    assert "real_name" not in body
+    assert "id_number" not in body
+    assert "certification_no" not in body
+    assert "certification_image_url" not in body
+    # pseudonym_name positive (mask_name fallback)
+    assert body["pseudonym_name"].startswith("公")  # "公开字段测试" 首字
 
 
 # ---- Admin certify endpoint ----

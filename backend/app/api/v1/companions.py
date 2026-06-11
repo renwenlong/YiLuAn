@@ -7,20 +7,31 @@ from app.dependencies import CurrentUser, DBSession
 from app.schemas.companion import (
     ApplyCompanionRequest,
     CompanionDetailResponse,
-    CompanionListResponse,
+    CompanionDirectoryDetailView,
+    CompanionDirectoryView,
     CompanionStatsResponse,
     UpdateCompanionProfileRequest,
 )
-from app.services.companion_profile import CompanionProfileService
+from app.services.companion_profile import (
+    CompanionProfileService,
+    _to_public_detail_view,
+    _to_public_view,
+)
 
 router = APIRouter(prefix="/companions", tags=["companions"])
 
 
 @router.get(
     "",
-    response_model=list[CompanionListResponse],
+    response_model=list[CompanionDirectoryView],
     summary="搜索陪诊师列表",
-    description="按区域、城市、服务类型、医院筛选可接单的陪诊师，分页返回。",
+    description=(
+        "按区域、城市、服务类型、医院筛选可接单的陪诊师，分页返回。"
+        "\n\n**ABAC**: 返回 ``CompanionDirectoryView`` (no PII), "
+        "使用 ``mask_name`` 脱敏 生成 ``pseudonym_name``。"
+        "严禁返 ``real_name`` / ``id_number`` / "
+        "``certification_no`` / ``certification_image_url``。"
+    ),
     responses={**err(401, 422, 500)},
 )
 async def list_companions(
@@ -28,23 +39,35 @@ async def list_companions(
     current_user: CurrentUser,
     area: str | None = Query(None, description="服务区域关键字，如『朝阳区』"),
     city: str | None = Query(None, description="城市，如『北京』"),
-    service_type: str | None = Query(None, description="服务类型：full_accompany / half_accompany / errand"),
+    service_type: str | None = Query(
+        None, description="服务类型：full_accompany / half_accompany / errand"
+    ),
     hospital_id: str | None = Query(None, description="按签约医院 ID 过滤"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
 ):
     service = CompanionProfileService(session)
     skip = (page - 1) * page_size
-    return await service.list_companions(
-        area=area, city=city, service_type=service_type, hospital_id=hospital_id, skip=skip, limit=page_size
+    profiles = await service.list_companions(
+        area=area,
+        city=city,
+        service_type=service_type,
+        hospital_id=hospital_id,
+        skip=skip,
+        limit=page_size,
     )
+    # ABAC layer 2: service-layer masking before response_model serialization
+    return [_to_public_view(p) for p in profiles]
 
 
 @router.get(
     "/me",
     response_model=CompanionDetailResponse,
     summary="获取我的陪诊师档案",
-    description="返回当前登录用户的陪诊师档案；若用户未申请陪诊师角色将抛出 404。",
+    description=(
+        "返回当前登录用户的陪诊师档案；若用户未申请陪诊师角色将抛出 404。"
+        "\n\n**ABAC**: 用户看自己, OK 返 real_name (本身)。"
+    ),
     responses={**err(401, 404, 500)},
 )
 async def get_my_profile(
@@ -72,9 +95,14 @@ async def get_companion_stats(
 
 @router.get(
     "/{companion_id}",
-    response_model=CompanionDetailResponse,
+    response_model=CompanionDirectoryDetailView,
     summary="查看陪诊师详情",
-    description="根据陪诊师 ID 查看公开的资料、服务范围与评分概要。",
+    description=(
+        "根据陪诊师 ID 查看公开的资料、服务范围与评分概要。"
+        "\n\n**ABAC**: 返 ``CompanionDirectoryDetailView`` (no PII)。"
+        "严禁 ``real_name`` / ``certification_no`` / "
+        "``certification_image_url``。"
+    ),
     responses={**err(401, 404, 500)},
 )
 async def get_companion(
@@ -83,7 +111,9 @@ async def get_companion(
     current_user: CurrentUser,
 ):
     service = CompanionProfileService(session)
-    return await service.get_detail(companion_id)
+    profile = await service.get_detail(companion_id)
+    # ABAC layer 2: service-layer masking before response_model serialization
+    return _to_public_detail_view(profile)
 
 
 @router.post(
@@ -119,4 +149,6 @@ async def update_companion_profile(
     session: DBSession,
 ):
     service = CompanionProfileService(session)
-    return await service.update_profile(current_user.id, body, display_name=current_user.display_name)
+    return await service.update_profile(
+        current_user.id, body, display_name=current_user.display_name
+    )

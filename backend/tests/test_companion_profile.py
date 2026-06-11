@@ -61,6 +61,14 @@ class TestCompanionProfile:
         data = resp.json()
         assert len(data) == 1
         assert data[0]["service_area"] == "海淀区"
+        # ABAC layer 3: public list endpoint MUST NOT leak PII
+        assert "real_name" not in data[0], "PII leak: real_name in public list"
+        assert "id_number" not in data[0], "PII leak: id_number in public list"
+        # pseudonym_name = mask_name(real_name) fallback (与 share.py 同款脱敏)
+        assert data[0]["pseudonym_name"] == "测**", (
+            "pseudonym_name should be mask_name('测试陪诊师')='测**', got "
+            f"{data[0]['pseudonym_name']!r}"
+        )
 
     async def test_list_companions_filter_area(
         self, authenticated_client, seed_user, seed_companion_profile
@@ -83,7 +91,24 @@ class TestCompanionProfile:
         profile = await seed_companion_profile(user_id=user.id)
         resp = await authenticated_client.get(f"/api/v1/companions/{profile.id}")
         assert resp.status_code == 200
-        assert resp.json()["real_name"] == "测试陪诊师"
+        data = resp.json()
+        # ABAC layer 3 (S3-OPS-ABAC-COMPANIONS-LIST-PII-FIX):
+        # public endpoint MUST NOT return real_name / id_number /
+        # certification_no / certification_image_url.
+        assert "real_name" not in data, (
+            "PII leak: real_name in public companion detail response"
+        )
+        assert "id_number" not in data, "PII leak: id_number in public detail"
+        assert "certification_no" not in data, "PII leak: certification_no in public detail"
+        assert "certification_image_url" not in data, (
+            "PII leak: certification_image_url in public detail"
+        )
+        # Public-safe fields present:
+        assert data["pseudonym_name"] == "测**", (
+            "pseudonym_name should be mask_name('测试陪诊师')='测**', got "
+            f"{data['pseudonym_name']!r}"
+        )
+        assert data["id"] == str(profile.id)
 
     async def test_get_companion_not_found(self, authenticated_client):
         import uuid
