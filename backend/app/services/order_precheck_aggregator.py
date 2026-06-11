@@ -40,7 +40,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Final, Sequence
+from typing import TYPE_CHECKING, Any, Final, Sequence, TypedDict
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -89,6 +89,20 @@ _BLOCKED_REASON_PREP_PENDING: Final[str] = "AI 准备包生成中"
 _BLOCKED_REASON_COMPANION_NOT_VERIFIED: Final[str] = "陪诊师资质待审核"
 _BLOCKED_REASON_COMPANION_REJECTED: Final[str] = "陪诊师资质审核未通过，请联系客服"
 _BLOCKED_REASON_NO_COMPANION: Final[str] = "尚未指派陪诊师"
+
+
+class InvalidateRecomputeResult(TypedDict):
+    """Return type for :meth:`OrderPrecheckAggregator.invalidate_and_recompute`.
+
+    c6 dedup: ``summary`` field added so hook helpers / WS broadcast
+    can reuse the recomputed summary without re-calling :meth:`evaluate`.
+    Old callers reading ``invalidated_keys`` / ``broadcast`` keep
+    working (additive change).
+    """
+
+    invalidated_keys: list[str]
+    broadcast: bool
+    summary: dict[str, Any]
 
 
 def _build_cache_key(order_id: UUID) -> str:
@@ -154,19 +168,28 @@ class OrderPrecheckAggregator:
         self,
         order_id: UUID,
         cards: Sequence[str] | None = None,
-    ) -> dict[str, Any]:
+    ) -> InvalidateRecomputeResult:
         """Public orchestrator — DEL → evaluate → SET → broadcast.
 
-        Returns the 200 response body
-        (``invalidated_keys`` + ``broadcast``) suitable for the admin
-        cache invalidate endpoint to render directly.
+        Returns :class:`InvalidateRecomputeResult` with:
+        - ``invalidated_keys``: cache keys deleted (admin endpoint 200 body)
+        - ``broadcast``: WS publish success boolean (admin endpoint 200 body)
+        - ``summary``: recomputed 4-card summary dict (c6 dedup —
+          hook helpers consume this instead of re-calling
+          :meth:`evaluate`)
 
-        Notes
-        -----
-        ``_ws_broadcast`` is still a stub in c2 (returns ``False``).
-        S3-DEV-003 c4 (WS infra) replaces it with the real broadcast
-        call. ``broadcast=False`` is the canonical c2 signal — admin
-        UI / tests must accept it without treating as failure.
+        c6 dedup commit 1 note
+        ----------------------
+        The recomputed ``summary`` is now included in the return dict
+        so hook helpers (``precheck_recompute_hook``) can consume it
+        in commit 3 instead of re-calling :meth:`evaluate`. Commit 2
+        extends :meth:`_ws_broadcast` signature to accept ``summary``
+        so the broadcast path also stops re-evaluating. End result
+        after commit 3: 1 hook trigger = 1 evaluate (was 3 pre-c6).
+
+        Backward compat: old callers reading ``result["invalidated_keys"]``
+        or ``result["broadcast"]`` keep working — new ``summary`` key
+        is additive.
         """
         # Step 1: defensive DEL (always real).
         key = _build_cache_key(order_id)
@@ -178,7 +201,9 @@ class OrderPrecheckAggregator:
         # Step 3: SET — overwrite cache with fresh summary (TTL 5min).
         await self._redis_set(order_id, summary)
 
-        # Step 4: WS broadcast — c2 stub returns False; c4 implements.
+        # Step 4: WS broadcast — c6 dedup commit 2 will pass
+        # ``summary`` here so broadcast does NOT re-call evaluate.
+        # In commit 1 the signature is unchanged — commit 2 extends.
         broadcast_ok = await self._ws_broadcast(
             order_id,
             tuple(cards) if cards else None,
@@ -187,6 +212,7 @@ class OrderPrecheckAggregator:
         return {
             "invalidated_keys": [key],
             "broadcast": broadcast_ok,
+            "summary": summary,
         }
 
     # ------------------------------------------------------------------

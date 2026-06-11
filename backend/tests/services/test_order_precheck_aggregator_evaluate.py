@@ -464,6 +464,64 @@ async def test_invalidate_and_recompute_overwrites_stale_cache() -> None:
 
 
 # ---------------------------------------------------------------------------
+# c6 dedup: invalidate_and_recompute return shape extension
+# ---------------------------------------------------------------------------
+
+
+async def test_invalidate_and_recompute_returns_summary_in_result() -> None:
+    """c6 dedup: return dict includes ``summary`` so hook helpers /
+    callers can reuse the recomputed summary without calling
+    :meth:`evaluate` again."""
+    companion_user_id = uuid4()
+    order_id = await _seed_order(companion_id=companion_user_id)
+    await _seed_contract(order_id, status=ContractStatus.active)
+    await _seed_insurance(order_id, status=InsuranceStatus.active)
+    await _seed_prep(order_id, status=PrepStatus.active)
+    await _seed_companion(companion_user_id, status=VerificationStatus.verified)
+
+    redis = _FakeRedis()
+    async with _session_factory() as session:
+        agg = OrderPrecheckAggregator(redis, session=session)
+        result = await agg.invalidate_and_recompute(order_id)
+
+    # c6 new: ``summary`` key present, matches what evaluate() would return
+    assert "summary" in result
+    summary = result["summary"]
+    assert isinstance(summary, dict)
+    assert summary["order_id"] == str(order_id)
+    assert summary["all_ready"] is True
+    # Sanity: all 4 cards present in summary
+    assert "contract_status" in summary
+    assert "insurance_status" in summary
+    assert "preparation_status" in summary
+    assert "companion_cert_status" in summary
+
+
+async def test_invalidate_result_backward_compat_old_keys() -> None:
+    """c6 dedup: old callers reading ``invalidated_keys`` /
+    ``broadcast`` keep working — ``summary`` addition is additive,
+    not breaking."""
+    companion_user_id = uuid4()
+    order_id = await _seed_order(companion_id=companion_user_id)
+    await _seed_contract(order_id, status=ContractStatus.active)
+    await _seed_insurance(order_id, status=InsuranceStatus.active)
+    await _seed_prep(order_id, status=PrepStatus.active)
+    await _seed_companion(companion_user_id, status=VerificationStatus.verified)
+
+    redis = _FakeRedis()
+    async with _session_factory() as session:
+        agg = OrderPrecheckAggregator(redis, session=session)
+        result = await agg.invalidate_and_recompute(order_id)
+
+    # Old c5 contract: these keys must exist + work as before
+    key = _build_cache_key(order_id)
+    assert result["invalidated_keys"] == [key]
+    assert result["broadcast"] is False  # _ws_broadcast c5 default (app=None)
+    # Confirm TypedDict shape — 3 keys exactly
+    assert set(result.keys()) == {"invalidated_keys", "broadcast", "summary"}
+
+
+# ---------------------------------------------------------------------------
 # _mask_policy_no helper
 # ---------------------------------------------------------------------------
 
