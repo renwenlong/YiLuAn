@@ -14,12 +14,13 @@
       <text class="profile-name">{{companion.name}}</text>
       <text wx:if="{{companion.is_verified}}" class="verified-badge">已认证</text>
       <text wx:else class="unverified-badge">未认证</text>
-      <text
-        wx:if="{{companion.hasCertification}}"
-        class="certification-badge"
-        bindtap="onPreviewCertification"
-        data-testid="certification-badge"
-      >已认证·{{companion.certificationType}}</text>
+      <!--
+        S3-DEV-003-TRUST-UI-WX AC#3: 删除 '已认证·{{certificationType}}'
+        职业背书徽章 (例 '已认证·护士执业证' 隐含医疗权威背书).
+        上面 'is_verified' 徽章 已足 trust signal, 具体 cert 资质
+        走订单详情页 <cert-card> (仅 patient/order-detail 展,
+        代入后端同一 ABAC 处理后的 companion_cert_qualifications 详细表).
+      -->
     </view>
     <view class="profile-rating" wx:if="{{companion.rating > 0}}">
       <rating-stars value="{{companion.rating}}" readonly="{{true}}" />

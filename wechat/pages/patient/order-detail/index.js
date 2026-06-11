@@ -7,6 +7,11 @@ const {
   getEmergencyHotline,
   triggerEmergencyEvent,
 } = require('../../../services/emergency')
+// S3-DEV-003-TRUST-UI-WX: 订单付款前 4 信任卡 precheck-status + WS 推送.
+// 本 task 范围仅 cert card (4 cert 字段 + 3 状态 + companion_cert_status_changed event).
+// 后台奇意 cert/contract/insurance/preparation 4 card 汇总返 — 现阶段仅渲染 cert.
+const { getOrderPrecheckStatus } = require('../../../services/precheck')
+const precheckWs = require('../../../services/precheckWs')
 const store = require('../../../store/index')
 const router = require('../../../utils/router')
 const { ORDER_STATUS, SERVICE_TYPES } = require('../../../utils/constants')
@@ -41,13 +46,19 @@ Page({
     // [F-03] Emergency call
     showEmergency: false,
     emergencyContacts: [],
-    emergencyHotline: ''
+    emergencyHotline: '',
+    // S3-DEV-003-TRUST-UI-WX: cert 信任卡 (companion_cert_status sub-object 仅).
+    // null = 未拉, 不渲染 <cert-card>; 拉后为 object even when ready=false.
+    certStatus: null
   },
 
   onLoad(options) {
     this.orderId = options.id
     this.needPay = options.need_pay === '1'
     this.loadOrder()
+    // S3-DEV-003-TRUST-UI-WX: 启动 precheck WS 并发拉 cert status.
+    this._loadPrecheck()
+    this._connectPrecheckWs()
   },
 
   onShow() {
@@ -62,6 +73,8 @@ Page({
 
   onUnload() {
     this._clearCountdown()
+    // S3-DEV-003-TRUST-UI-WX: 页面退出时 disconnect precheck WS, 避免 socket leak.
+    precheckWs.disconnect()
   },
 
   _clearCountdown() {
@@ -484,5 +497,53 @@ Page({
       }
       wx.showToast({ title: msg, icon: 'none' })
     }
+  },
+
+  // ============================================================
+  // S3-DEV-003-TRUST-UI-WX: precheck cert card load + WS hot-refresh
+  // ============================================================
+
+  /**
+   * 拉 GET /api/v1/users/orders/{order_id}/precheck-status,
+   * 取 companion_cert_status sub-object 填进 data.certStatus.
+   * 路径压平 — 跳过 cache miss / 404 / 403 仅 logger.warn 不弹反,
+   * cert card 用 null 隐藏, 不阻订单详情主流程.
+   */
+  async _loadPrecheck() {
+    if (!this.orderId) return
+    try {
+      const summary = await getOrderPrecheckStatus(this.orderId)
+      // backend OrderPrecheckSummaryView 结构: { companion_cert_status: {...}, ... }
+      this.setData({
+        certStatus: (summary && summary.companion_cert_status) || null
+      })
+    } catch (err) {
+      // 404 ABAC mask / 403 / network: cert card 隐藏, 不弹反.
+      // Do not console.warn here (生产 noise); fall through silently.
+    }
+  },
+
+  /**
+   * 连 precheck WS 推送, 收任何 precheck.* event 后重拉 GET
+   * (WS 是触发器, HTTP 是 source of truth — design §3.4).
+   */
+  _connectPrecheckWs() {
+    if (!this.orderId) return
+    var self = this
+    precheckWs.connect({
+      orderId: this.orderId,
+      onEvent: function (evt) {
+        // 3 event 类型: precheck.status.updated / .all_ready / .blocked
+        // 任一 event 老老实实 重拉 HTTP, 不拼 payload (避免 front-end
+        // 重复后端 ABAC 逻辑).
+        if (!evt) return
+        var ev = evt.event
+        if (ev === 'precheck.status.updated'
+            || ev === 'precheck.all_ready'
+            || ev === 'precheck.blocked') {
+          self._loadPrecheck()
+        }
+      }
+    })
   }
 })

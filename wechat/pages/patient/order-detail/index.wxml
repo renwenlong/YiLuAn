@@ -112,6 +112,13 @@
     </view>
   </view>
 
+  <!-- S3-DEV-003-TRUST-UI-WX: 陪诊师资质信任卡 (cert-card)
+       仅在 precheck-status 拉到 且 certStatus 非 null 时渲染.
+       certStatus null 时隐藏, 不阻订单详情主流程. -->
+  <view class="detail-section" wx:if="{{certStatus}}">
+    <cert-card cert-status="{{certStatus}}" />
+  </view>
+
   <!-- [F-05] 实际就诊人（代他人下单） -->
   <view class="detail-section" wx:if="{{order.family_member}}">
     <view class="section-title">实际就诊人</view>

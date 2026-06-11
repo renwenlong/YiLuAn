@@ -1,0 +1,72 @@
+<!--
+  components/cert-card — S3-DEV-003-TRUST-UI-WX 陪诊师资质信任卡 UI.
+
+  AC#1: 4 个 cert 字段 + 3 状态切换
+  AC#2: 不渲染证件原图 URL (companion_cert_proof_image_urls 不出现)
+  AC#3: 不出现 "已护士资格" / "已医生资格" 类职业背书文案
+        (仅 qualifications 字段原文显, 后端医疗顾问 review 过)
+-->
+<view class="cert-card" data-testid="cert-card">
+  <view class="cert-card__header">
+    <text class="cert-card__title">陪诊师资质</text>
+    <!-- 3 状态徽章 -->
+    <view
+      wx:if="{{derivedState === STATE_VERIFIED}}"
+      class="cert-card__badge cert-card__badge--verified"
+      data-testid="cert-badge-verified"
+    >已认证</view>
+    <view
+      wx:elif="{{derivedState === STATE_PENDING_RESUBMIT}}"
+      class="cert-card__badge cert-card__badge--pending"
+      data-testid="cert-badge-pending"
+    >临时证明补交中</view>
+    <view
+      wx:else
+      class="cert-card__badge cert-card__badge--unverified"
+      data-testid="cert-badge-unverified"
+    >未认证</view>
+  </view>
+
+  <view class="cert-card__body" wx:if="{{certStatus}}">
+    <!-- 字段 1: 化名 (永不出真名) -->
+    <view class="cert-card__row" wx:if="{{certStatus.companion_cert_pseudonym_name}}">
+      <text class="cert-card__label">姓名</text>
+      <text class="cert-card__value" data-testid="cert-pseudonym-name">{{certStatus.companion_cert_pseudonym_name}}</text>
+    </view>
+
+    <!-- 字段 2: 工号 -->
+    <view class="cert-card__row" wx:if="{{certStatus.companion_cert_work_id}}">
+      <text class="cert-card__label">工号</text>
+      <text class="cert-card__value" data-testid="cert-work-id">{{certStatus.companion_cert_work_id}}</text>
+    </view>
+
+    <!-- 字段 3: 资质列表 (原文展示, 不加职业背书前缀) -->
+    <view
+      class="cert-card__row"
+      wx:if="{{certStatus.companion_cert_qualifications && certStatus.companion_cert_qualifications.length > 0}}"
+    >
+      <text class="cert-card__label">资质</text>
+      <view class="cert-card__tags" data-testid="cert-qualifications">
+        <text
+          class="cert-card__tag"
+          wx:for="{{certStatus.companion_cert_qualifications}}"
+          wx:key="*this"
+        >{{item}}</text>
+      </view>
+    </view>
+
+    <!-- 字段 4: 认证时间 -->
+    <view class="cert-card__row" wx:if="{{verifiedAtDisplay}}">
+      <text class="cert-card__label">认证时间</text>
+      <text class="cert-card__value" data-testid="cert-verified-at">{{verifiedAtDisplay}}</text>
+    </view>
+  </view>
+
+  <!-- 空态文案 (3 状态各不同, 都不出现职业背书) -->
+  <view wx:if="{{derivedState === STATE_PENDING_RESUBMIT}}" class="cert-card__hint">
+    陪诊师正在补交临时证明, 服务暂停受理.
+  </view>
+  <view wx:elif="{{derivedState === STATE_UNVERIFIED}}" class="cert-card__hint">
+    陪诊师资质未通过审核.
+  </view>
+</view>

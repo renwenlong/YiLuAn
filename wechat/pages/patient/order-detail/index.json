@@ -1,6 +1,7 @@
 {
   "navigationBarTitleText": "订单详情",
   "usingComponents": {
-    "rating-stars": "/components/rating-stars/index"
+    "rating-stars": "/components/rating-stars/index",
+    "cert-card": "/components/cert-card/index"
   }
 }
