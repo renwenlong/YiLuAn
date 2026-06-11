@@ -73,7 +73,7 @@
 | 2.3 | iOS 家属端打开订单详情 trust-precheck UI (r4 Swift Native) | 同 2.2, XCUITest matching | ⬜ | | |
 | 2.4 | WS 通道 `/api/v1/ws/v1/orders/{order_id}/precheck` 连接成功 | first frame auth → 后续 `precheck.status.updated` / `precheck.all_ready` / `precheck.blocked` event 收到 | ⬜ | | |
 | 2.5 | admin 后台改 `companion_profiles.verification_status` 从 pending → verified | WS 推 `precheck.status.updated`, 客户端 5s 内收到 + HTTP refetch | ⬜ | | |
-| 2.6 | `companion_cert_status_changed` 专用 WS event (BUG-005 缺口) | **当前后端未实现** — Bug 锁记 `S3-BUG-005-CERT-WS-EVENT-SCHEMA-VS-IMPL-DRIFT` (P1, in-review), 灰度前必须修法 B (改 schema doc 字面) 或修法 A (实装 event) | ⬜ | | |
+| 2.6 | WS `precheck.status.updated` event (cert change 触发) — 客户端 5s 内收到 + UI refetch + cert_status 更新 | event payload 含 `order_id`, `card_type="companion_cert"`, `status` (verified/pending_supplement/unverified); 客户端 cert card 实时更新 ⚠️ S3-BUG-005 (PR #275 即将合) 后, doc 字面收敛到 `precheck.status.updated`, **不**新增 `companion_cert_status_changed` event 名 | ⬜ | | |
 | 2.7 | 未认证 (verification_status=None/pending/rejected) 陪诊师 `companion_cert_status` 字段不暴露原图 | ABAC 4 层守住, sentinel 字段拒绝 | ⬜ | | |
 | 2.8 | 未认证陪诊师不进首屏推荐 `/api/v1/companions/recommendations` | **当前端点未实现** — AC#5 缺口锁 (S3-TEST-006 xfail strict=False), PM-005-6 task 待拆 | ⬜ | | |
 | 2.9 | 文案 lint: 三端 trust UI 不出现 "权威认证" / "国家级" / "100% 安全" 等违规承诺 | grep 全 0 命中 | ⬜ | | |
@@ -103,13 +103,13 @@
 
 | # | 验收项 | 期望 | 结果 | 执行人 | 时间 |
 |---|--------|------|------|--------|------|
-| 4.1 | 患者端创建 share token → 家属端拉 `GET /api/v1/shares/session/order` | 返回 `companion` sub-object 含 9 字段 (display_name / avatar / verification_status / cert_type / cert_no / cert_verified_at / 不含 real_name / 不含 phone / 不含 cert_image_url) | ⬜ | | |
+| 4.1 | 患者端创建 share token → 家属端拉 `GET /api/v1/shares/session/order` | 返回 `companion.cert_status` sub-object (`CompanionPublicCertView`) **9 字段** (`cert_status` / `cert_type` / `cert_count` / `cert_verified_at` / `cert_pseudonym_name` / `cert_work_id` / `cert_badge_color` / `cert_badge_icon` / `cert_detail_text`); 严禁出 `real_name` / `phone` / `cert_image_url` / 完整身份证号 (ABAC layer 1) | ⬜ | | |
 | 4.2 | OpenAPI contract diff (CI: `Backend §2.7 contract diff`) | 4.1 字段集与 `docs/api/openapi.json` + `docs/api/share-contract-baseline.json` 一致, drift 0 | ⬜ | | |
 | 4.3 | schemathesis fuzz from OpenAPI (反案 #11 asset-presence) | 4 verification_status (pending / verified / rejected / None) 全 case schema 合规 | ⬜ | | |
-| 4.4 | S3-BUG-004 regression: `companion.name` = display_name 优先, fallback "陪诊师", **不出 real_name** | 100 次随机 fuzz no real_name 泄漏 (ABAC layer 1 red-line sweep) | ⬜ | | |
+| 4.4 | S3-BUG-004 regression: `companion.name` 顶层字段优先取 `companion_profiles.display_name`, fallback 通名 "陪诊师", **严禁出 `real_name`** + cert_status sub-object 走 `cert_pseudonym_name` (脱敏化名 max_length=20) | 100 次随机 fuzz, 0 real_name / 0 身份证号 / 0 phone 命中 (ABAC layer 1 red-line sweep) | ⬜ | | |
 | 4.5 | admin 后台 `POST /api/v1/admin/cache/invalidate` (cards=companion_cert, order_id=X) | 200 + broadcast=False; 下一次 GET share 立即拿到新 cert 状态 | ⬜ | | |
 | 4.6 | `precheck:order:{order_id}` Redis cache hit/miss metric | hit rate ≥80% (热订单 100 次访问); invalidate 后 next read miss + refetch DB | ⬜ | | |
-| 4.7 | WS 通道收到 `precheck.status.updated` (cert change) 触发客户端 refetch | UI 5s 内更新 cert_status | ⬜ | | |
+| 4.7 | WS 通道收到 `precheck.status.updated` (cert change) 触发客户端 refetch | UI 5s 内更新 `cert_status` + `cert_badge_color` + `cert_badge_icon` + `cert_detail_text` (三色徽章 + 弱入口文案同步) | ⬜ | | |
 
 ## 5. S3 服务合同 + 保险 (PRD-003 S3-REQ-001 / ADR-0046 / ADR-0047 / S3-DEV-001)
 
@@ -195,10 +195,10 @@
 
 ## 附 A: 已知缺口 (灰度前必须解决)
 
-1. **S3-BUG-005** (`CERT-WS-EVENT-SCHEMA-VS-IMPL-DRIFT`, P1, in-review) — `companion_cert_status_changed` event 后端未实装, doc 提及但 0 代码; **修法 A 实装 OR B 改 doc 字面**, 灰度前必须二选一收口
+1. **S3-BUG-005** (`CERT-WS-EVENT-SCHEMA-VS-IMPL-DRIFT`, P1, in-review) — `companion_cert_status_changed` event 后端未实装, doc 提及但 0 代码; **架构师 (魈) 拍修法 B (PR #275)** = doc 字面收敛到 `precheck.status.updated`, 灰度前合 PR #275 后此项 close
 2. **AC#5 recommendation endpoint** (S3-TEST-006 xfail strict=False) — `/api/v1/companions/recommendations` 端点不存在; 等 PM-005-6 (PR #274) 拆出后再补该 endpoint + filter
 3. **AC#9 feedback_lifecycle** (S3-TEST-005 xfail strict=True) — `feedback_lifecycle` 模块未实装; 灰度前必须实装
-4. **AC#3 share endpoint cache 接入** — `build_share_order_view` 直读 DB 无 cache 层; 等 `S3-ADR-0046-SHARE-CACHE-SPEC-RATIFY` (架构师 魈, P3) 拍 A (不加) / B (拆 S3-DEV-007) 后实施
+4. **AC#3 share endpoint cache 接入** — `build_share_order_view` 直读 DB 无 cache 层; **架构师 (魈) 拍 A (ADR-0046 r6 read-light, 不加 cache)**, 灰度前完成 ADR amend 后此项 close, 无需新 dev task
 
 ## 附 B: S3 阶段未做 (灰度 scope 外, 不阻塞)
 
