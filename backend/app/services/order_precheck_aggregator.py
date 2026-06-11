@@ -40,7 +40,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Final, Sequence
+from typing import TYPE_CHECKING, Any, Final, Sequence, TypedDict
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -89,6 +89,20 @@ _BLOCKED_REASON_PREP_PENDING: Final[str] = "AI 准备包生成中"
 _BLOCKED_REASON_COMPANION_NOT_VERIFIED: Final[str] = "陪诊师资质待审核"
 _BLOCKED_REASON_COMPANION_REJECTED: Final[str] = "陪诊师资质审核未通过，请联系客服"
 _BLOCKED_REASON_NO_COMPANION: Final[str] = "尚未指派陪诊师"
+
+
+class InvalidateRecomputeResult(TypedDict):
+    """Return type for :meth:`OrderPrecheckAggregator.invalidate_and_recompute`.
+
+    c6 dedup: ``summary`` field added so hook helpers / WS broadcast
+    can reuse the recomputed summary without re-calling :meth:`evaluate`.
+    Old callers reading ``invalidated_keys`` / ``broadcast`` keep
+    working (additive change).
+    """
+
+    invalidated_keys: list[str]
+    broadcast: bool
+    summary: dict[str, Any]
 
 
 def _build_cache_key(order_id: UUID) -> str:
@@ -154,19 +168,29 @@ class OrderPrecheckAggregator:
         self,
         order_id: UUID,
         cards: Sequence[str] | None = None,
-    ) -> dict[str, Any]:
+    ) -> InvalidateRecomputeResult:
         """Public orchestrator — DEL → evaluate → SET → broadcast.
 
-        Returns the 200 response body
-        (``invalidated_keys`` + ``broadcast``) suitable for the admin
-        cache invalidate endpoint to render directly.
+        Returns :class:`InvalidateRecomputeResult` with:
+        - ``invalidated_keys``: cache keys deleted (admin endpoint 200 body)
+        - ``broadcast``: WS publish success boolean (admin endpoint 200 body)
+        - ``summary``: recomputed 4-card summary dict (c6 dedup —
+          hook helpers consume this instead of re-calling
+          :meth:`evaluate`)
 
-        Notes
-        -----
-        ``_ws_broadcast`` is still a stub in c2 (returns ``False``).
-        S3-DEV-003 c4 (WS infra) replaces it with the real broadcast
-        call. ``broadcast=False`` is the canonical c2 signal — admin
-        UI / tests must accept it without treating as failure.
+        c6 dedup
+        --------
+        The recomputed ``summary`` is now included in the return dict
+        AND passed explicitly to :meth:`_ws_broadcast` so the broadcast
+        path does NOT re-call :meth:`evaluate`. Hook helpers
+        (``precheck_recompute_hook``) consume ``result["summary"]``
+        for secondary events (``all_ready`` / ``blocked``) without
+        another evaluate. End result: 1 hook trigger = 1 evaluate
+        (was 3 before c6).
+
+        Backward compat: old callers reading ``result["invalidated_keys"]``
+        or ``result["broadcast"]`` keep working — new ``summary`` key
+        is additive.
         """
         # Step 1: defensive DEL (always real).
         key = _build_cache_key(order_id)
@@ -178,15 +202,20 @@ class OrderPrecheckAggregator:
         # Step 3: SET — overwrite cache with fresh summary (TTL 5min).
         await self._redis_set(order_id, summary)
 
-        # Step 4: WS broadcast — c2 stub returns False; c4 implements.
+        # Step 4: WS broadcast — c6 dedup: pass summary so
+        # _ws_broadcast does NOT re-call evaluate (was evaluate #2
+        # pre-c6). Without summary= the broadcast would fallback to
+        # evaluate for unit test / background callers.
         broadcast_ok = await self._ws_broadcast(
             order_id,
             tuple(cards) if cards else None,
+            summary=summary,
         )
 
         return {
             "invalidated_keys": [key],
             "broadcast": broadcast_ok,
+            "summary": summary,
         }
 
     # ------------------------------------------------------------------
@@ -214,8 +243,9 @@ class OrderPrecheckAggregator:
         self,
         order_id: UUID,
         cards_changed: tuple[str, ...] | None,
+        summary: dict[str, Any] | None = None,
     ) -> bool:
-        """WS broadcast — c5 implementation using broadcast facade.
+        """WS broadcast — c5 facade impl, c6 dedup signature.
 
         Resolves the precheck broker from ``self._app`` (injected via
         :func:`app.api.v1.deps_precheck.get_precheck_aggregator` or
@@ -227,22 +257,31 @@ class OrderPrecheckAggregator:
         Pushes a fresh ``precheck.status.updated`` event with the
         recomputed summary so connected clients (user app via WS)
         receive the new card states without an extra GET round-trip.
+
+        c6 dedup
+        --------
+        ``summary`` is now an optional parameter. When provided
+        (normal path — orchestrator step 4 passes the step-2 summary),
+        :meth:`evaluate` is NOT re-called. When omitted (direct
+        ``_ws_broadcast`` callers, unit tests, background tasks), the
+        method falls back to :meth:`evaluate` to preserve the c5
+        contract.
         """
         if self._app is None:
             return False
 
-        # Re-evaluate to get fresh summary (cache was just SET by
-        # orchestrator step 3, but the in-memory ``summary`` is what
-        # we need to broadcast — caller passes nothing back here so
-        # we re-read from cache or re-evaluate cheaply).
-        try:
-            summary = await self.evaluate(order_id)
-        except Exception:  # pragma: no cover — defensive
-            logger.exception(
-                "_ws_broadcast.evaluate_failed",
-                extra={"order_id": str(order_id)},
-            )
-            return False
+        # c6 dedup: prefer caller-supplied summary; fallback to
+        # evaluate only when caller did not pass one (test / direct
+        # broadcast caller path).
+        if summary is None:
+            try:
+                summary = await self.evaluate(order_id)
+            except Exception:  # pragma: no cover — defensive
+                logger.exception(
+                    "_ws_broadcast.evaluate_failed",
+                    extra={"order_id": str(order_id)},
+                )
+                return False
 
         # Pick the first changed card for the broadcast envelope, or
         # a sentinel ``"summary"`` when callers do not scope.

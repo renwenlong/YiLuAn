@@ -111,20 +111,27 @@ async def trigger_precheck_recompute(
         )
         return
 
-    # invalidate_and_recompute returned successfully. Read the cache
-    # we just SET to get the fresh summary for the secondary events
-    # (all_ready / blocked) without re-evaluating.
+    # c6 dedup: consume the summary from orchestrator result.
+    # invalidate_and_recompute already computed summary in step 2
+    # and passed it to _ws_broadcast (step 4), so we reuse it here
+    # for the secondary all_ready / blocked events instead of
+    # calling evaluate() a third time.
     #
     # We do NOT re-issue status.updated here \u2014 aggregator._ws_broadcast
     # already did with the matching card identifier.
-    try:
-        summary = await aggregator.evaluate(order_id)
-    except Exception:
-        logger.exception(
-            "precheck_recompute_hook.post_evaluate_failed",
-            extra={"order_id": str(order_id), "card": card},
-        )
-        return
+    summary = result.get("summary")
+    if summary is None:
+        # Defensive fallback: orchestrator should always include
+        # summary (TypedDict contract), but if a future refactor
+        # drops it, evaluate is still correct. Belt-and-suspenders.
+        try:
+            summary = await aggregator.evaluate(order_id)
+        except Exception:
+            logger.exception(
+                "precheck_recompute_hook.fallback_evaluate_failed",
+                extra={"order_id": str(order_id), "card": card},
+            )
+            return
 
     try:
         if summary.get("all_ready"):

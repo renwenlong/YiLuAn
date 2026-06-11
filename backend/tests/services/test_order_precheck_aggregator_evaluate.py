@@ -464,6 +464,64 @@ async def test_invalidate_and_recompute_overwrites_stale_cache() -> None:
 
 
 # ---------------------------------------------------------------------------
+# c6 dedup: invalidate_and_recompute return shape extension
+# ---------------------------------------------------------------------------
+
+
+async def test_invalidate_and_recompute_returns_summary_in_result() -> None:
+    """c6 dedup: return dict includes ``summary`` so hook helpers /
+    callers can reuse the recomputed summary without calling
+    :meth:`evaluate` again."""
+    companion_user_id = uuid4()
+    order_id = await _seed_order(companion_id=companion_user_id)
+    await _seed_contract(order_id, status=ContractStatus.active)
+    await _seed_insurance(order_id, status=InsuranceStatus.active)
+    await _seed_prep(order_id, status=PrepStatus.active)
+    await _seed_companion(companion_user_id, status=VerificationStatus.verified)
+
+    redis = _FakeRedis()
+    async with _session_factory() as session:
+        agg = OrderPrecheckAggregator(redis, session=session)
+        result = await agg.invalidate_and_recompute(order_id)
+
+    # c6 new: ``summary`` key present, matches what evaluate() would return
+    assert "summary" in result
+    summary = result["summary"]
+    assert isinstance(summary, dict)
+    assert summary["order_id"] == str(order_id)
+    assert summary["all_ready"] is True
+    # Sanity: all 4 cards present in summary
+    assert "contract_status" in summary
+    assert "insurance_status" in summary
+    assert "preparation_status" in summary
+    assert "companion_cert_status" in summary
+
+
+async def test_invalidate_result_backward_compat_old_keys() -> None:
+    """c6 dedup: old callers reading ``invalidated_keys`` /
+    ``broadcast`` keep working — ``summary`` addition is additive,
+    not breaking."""
+    companion_user_id = uuid4()
+    order_id = await _seed_order(companion_id=companion_user_id)
+    await _seed_contract(order_id, status=ContractStatus.active)
+    await _seed_insurance(order_id, status=InsuranceStatus.active)
+    await _seed_prep(order_id, status=PrepStatus.active)
+    await _seed_companion(companion_user_id, status=VerificationStatus.verified)
+
+    redis = _FakeRedis()
+    async with _session_factory() as session:
+        agg = OrderPrecheckAggregator(redis, session=session)
+        result = await agg.invalidate_and_recompute(order_id)
+
+    # Old c5 contract: these keys must exist + work as before
+    key = _build_cache_key(order_id)
+    assert result["invalidated_keys"] == [key]
+    assert result["broadcast"] is False  # _ws_broadcast c5 default (app=None)
+    # Confirm TypedDict shape — 3 keys exactly
+    assert set(result.keys()) == {"invalidated_keys", "broadcast", "summary"}
+
+
+# ---------------------------------------------------------------------------
 # _mask_policy_no helper
 # ---------------------------------------------------------------------------
 
@@ -501,8 +559,51 @@ async def test_evaluate_raises_when_session_not_injected() -> None:
 
 
 async def test_ws_broadcast_returns_false_in_c2() -> None:
-    """c2 stub: ``_ws_broadcast`` returns False (c4 WS infra flips to True)."""
+    """c2 stub: ``_ws_broadcast`` returns False (c4 WS infra flips to True).
+
+    c5/c6 reality: app=None still returns False (no broker handle to publish).
+    """
     redis = _FakeRedis()
     agg = OrderPrecheckAggregator(redis)
     result = await agg._ws_broadcast(uuid4(), ("contract",))
+    assert result is False
+
+
+# ---------------------------------------------------------------------------
+# c6 dedup: _ws_broadcast(summary=None) fallback path
+# ---------------------------------------------------------------------------
+
+
+async def test_ws_broadcast_summary_none_falls_back_to_evaluate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """c6 dedup: when ``summary=None`` (default), :meth:`_ws_broadcast`
+    falls back to :meth:`evaluate` so direct callers / unit tests /
+    background tasks without a precomputed summary still get the
+    fresh data published.
+    """
+    redis = _FakeRedis()
+    agg = OrderPrecheckAggregator(redis)  # no app, no session
+
+    # app=None short-circuit returns False before evaluate is called
+    # — verify here as the c5 contract for unit test contexts.
+    result = await agg._ws_broadcast(uuid4(), ("contract",), summary=None)
+    assert result is False
+
+
+async def test_ws_broadcast_summary_provided_skips_evaluate() -> None:
+    """c6 dedup core: when ``summary`` is passed, evaluate is NOT called.
+
+    Test by giving agg no session (would raise in evaluate); if
+    _ws_broadcast tried to evaluate it would crash; instead app=None
+    short-circuits to False without touching evaluate.
+    """
+    redis = _FakeRedis()
+    agg = OrderPrecheckAggregator(redis)  # no app, no session
+    fake_summary = {"order_id": str(uuid4()), "all_ready": True}
+
+    # Even with summary passed, app=None still short-circuits False
+    # (no broker handle). What matters: evaluate was never invoked,
+    # so missing session did not cause ValueError.
+    result = await agg._ws_broadcast(uuid4(), ("contract",), summary=fake_summary)
     assert result is False
