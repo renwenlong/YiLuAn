@@ -123,9 +123,9 @@ async def test_super_admin_gets_200_with_invalidated_keys(
 
     * ``status_code == 200``
     * ``invalidated_keys`` contains the canonical ``precheck:order:{id}`` key
-    * ``broadcast == False`` (c4 WS infra still pending; that flip
-      lands in c4 and this test must be updated to ``broadcast=True``
-      at that point — same canary mechanics, one layer deeper)
+    * ``broadcast == True`` (c5 wires aggregator ``_ws_broadcast`` to
+      the precheck broadcast facade; even with zero connected WS
+      subscribers, the publish succeeds and counts as broadcast=True)
 
     The order need not exist; aggregator returns a 4-card view with
     all ``ready=False`` when rows are missing, which is still a valid
@@ -140,9 +140,9 @@ async def test_super_admin_gets_200_with_invalidated_keys(
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["invalidated_keys"] == [f"precheck:order:{order_id}"]
-    assert body["broadcast"] is False, (
-        "c2 stub _ws_broadcast returns False; flip to True is c4 work "
-        "and should re-update this test at that point."
+    assert body["broadcast"] is True, (
+        "c5 wires _ws_broadcast to broadcast facade; publish succeeds "
+        "even with no connected subscribers — broadcast must be True."
     )
 
 

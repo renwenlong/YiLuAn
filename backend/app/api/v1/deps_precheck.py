@@ -26,7 +26,7 @@ import logging
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,6 +40,7 @@ logger = logging.getLogger(__name__)
 
 
 async def get_precheck_aggregator(
+    request: Request,
     redis: Annotated[Redis, Depends(get_redis)],
     session: DBSession,
 ) -> OrderPrecheckAggregator:
@@ -48,8 +49,17 @@ async def get_precheck_aggregator(
 
     Promoted from ``users_precheck._get_aggregator`` in c4 so both the
     GET endpoint and the WS handler share a single source of truth.
+
+    S3-DEV-003 c5: injects ``request.app`` so the aggregator
+    ``_ws_broadcast`` step can publish via the precheck broadcast
+    facade (admin cache invalidate endpoint now sees ``broadcast=True``
+    when at least one WS subscriber is connected to the order_id room).
     """
-    return OrderPrecheckAggregator(redis=redis, session=session)
+    return OrderPrecheckAggregator(
+        redis=redis,
+        session=session,
+        app=request.app,
+    )
 
 
 class OwnerCheckFailure(Exception):

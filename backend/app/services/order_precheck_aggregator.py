@@ -40,12 +40,15 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime, timezone
-from typing import Any, Final, Sequence
+from typing import TYPE_CHECKING, Any, Final, Sequence
 from uuid import UUID
 
 from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
+if TYPE_CHECKING:
+    from fastapi import FastAPI
 
 from app.models.companion_profile import CompanionProfile, VerificationStatus
 from app.models.order import Order
@@ -127,9 +130,21 @@ class OrderPrecheckAggregator:
     FastAPI), not shared across requests. Redis + session are injected.
     """
 
-    def __init__(self, redis: Redis, session: AsyncSession | None = None) -> None:
+    def __init__(
+        self,
+        redis: Redis,
+        session: AsyncSession | None = None,
+        app: "FastAPI | None" = None,
+    ) -> None:
         self._redis = redis
         self._session = session
+        # S3-DEV-003 c5: optional FastAPI app for WS broadcast. When
+        # provided, :meth:`_ws_broadcast` pushes the recomputed summary
+        # via the precheck broadcast facade. When ``None`` (e.g. unit
+        # tests, background tasks without app handle), broadcast is a
+        # no-op returning ``False`` — caller (admin endpoint) treats
+        # ``broadcast=False`` as normal per c2 contract.
+        self._app = app
 
     # ------------------------------------------------------------------
     # Public orchestrator
@@ -197,19 +212,59 @@ class OrderPrecheckAggregator:
 
     async def _ws_broadcast(
         self,
-        order_id: UUID,  # noqa: ARG002 — c4 WS infra parameter
-        cards_changed: tuple[str, ...] | None,  # noqa: ARG002 — c4 hook parameter
+        order_id: UUID,
+        cards_changed: tuple[str, ...] | None,
     ) -> bool:
-        """WS broadcast stub — c4 WS infra implements real push.
+        """WS broadcast — c5 implementation using broadcast facade.
 
-        Returns ``False`` (not ``raise``) so c2 orchestrator can
-        complete without endpoint rewrap. c4 commit replaces body with
-        real WS room push to ``user:{user_id}`` + ``companion:{cid}``
-        per 魈 Q2. c5 commit adds hook integration that calls this
-        method on Contract / Insurance / Prep / CompanionProfile
-        after_commit.
+        Resolves the precheck broker from ``self._app`` (injected via
+        :func:`app.api.v1.deps_precheck.get_precheck_aggregator` or
+        admin cache invalidate endpoint). When app is not available
+        (unit test / background context), returns ``False`` so the
+        admin endpoint contract (``broadcast`` boolean in 200 body)
+        is preserved without rewrapping the orchestrator.
+
+        Pushes a fresh ``precheck.status.updated`` event with the
+        recomputed summary so connected clients (user app via WS)
+        receive the new card states without an extra GET round-trip.
         """
-        return False
+        if self._app is None:
+            return False
+
+        # Re-evaluate to get fresh summary (cache was just SET by
+        # orchestrator step 3, but the in-memory ``summary`` is what
+        # we need to broadcast — caller passes nothing back here so
+        # we re-read from cache or re-evaluate cheaply).
+        try:
+            summary = await self.evaluate(order_id)
+        except Exception:  # pragma: no cover — defensive
+            logger.exception(
+                "_ws_broadcast.evaluate_failed",
+                extra={"order_id": str(order_id)},
+            )
+            return False
+
+        # Pick the first changed card for the broadcast envelope, or
+        # a sentinel ``"summary"`` when callers do not scope.
+        card = (cards_changed[0] if cards_changed else "summary")
+
+        try:
+            from app.services.precheck_broadcast import broadcast_status_updated
+
+            await broadcast_status_updated(
+                self._app,
+                order_id,
+                card=card,
+                status=summary,
+                all_ready=bool(summary.get("all_ready", False)),
+            )
+            return True
+        except Exception:  # pragma: no cover — defensive
+            logger.exception(
+                "_ws_broadcast.publish_failed",
+                extra={"order_id": str(order_id), "card": card},
+            )
+            return False
 
     # ------------------------------------------------------------------
     # Evaluate: load 4 cards + aggregate
