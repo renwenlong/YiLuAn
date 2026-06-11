@@ -387,8 +387,8 @@ async def _share_auth_handshake(websocket: WebSocket) -> dict | None:
     Returns the decoded JWT payload on success, else closes the socket
     with the appropriate ``4011`` and returns ``None``.
     """
-    from app.services.share import decode_share_session
     from app.exceptions import UnauthorizedException
+    from app.services.share import decode_share_session
 
     try:
         raw = await asyncio.wait_for(
@@ -570,3 +570,96 @@ async def websocket_share(websocket: WebSocket, token: str):
         await share_broker.unregister(order_id, websocket)
         if cap and cap > 0:
             await share_broker.unregister(f"token:{token}", websocket)
+
+
+# ---------------------------------------------------------------------------
+# S3-DEV-003 c4: precheck status push WebSocket
+# ---------------------------------------------------------------------------
+
+
+@router.websocket("/ws/v1/orders/{order_id}/precheck")
+async def websocket_precheck(websocket: WebSocket, order_id: UUID):
+    """Order-scoped precheck-status push WebSocket — S3-DEV-003 c4.
+
+    Read-only stream of ``precheck.status.updated`` / ``precheck.all_ready``
+    / ``precheck.blocked`` events for the 4 信任卡 UI (design §4.3 / §5).
+
+    Auth + authz (mirrors :func:`websocket_chat`):
+
+    - Layer 2 (role) — first frame ``{type:"auth", token:"<jwt>"}`` via
+      :func:`_authenticate`; admin / companion JWTs are decoded the same
+      way but the owner gate below closes them with 4003.
+    - Layer 2.5 (owner) — :func:`load_order_owner_id` (from
+      :mod:`app.api.v1.deps_precheck`) returns ``Order.patient_id``;
+      mismatch or missing order ⇒ close(4003, "not_owner") /
+      close(4004, "order_not_found"). The REST endpoint uses a hybrid
+      404 mask to defeat enumeration, but the WS handshake has already
+      established a valid JWT so distinguishing 4003 vs 4004 is
+      consistent with the ``/ws/chat`` precedent and harmless.
+
+    Upstream frames: ping/pong only (read-only push stream). Any other
+    upstream frame closes with 4012 (mirrors the family-share semantics).
+    """
+    from app.api.v1.deps_precheck import OwnerCheckFailure, load_order_owner_id
+    from app.services.precheck_broadcast import get_or_create_precheck_broker
+
+    user_id = await _authenticate(websocket, channel="precheck")
+    if user_id is None:
+        return
+
+    # ABAC Layer 2.5: order owner gate.
+    async with async_session() as session:
+        try:
+            owner_id = await load_order_owner_id(session, order_id)
+        except OwnerCheckFailure:
+            await websocket.close(code=4004, reason="order_not_found")
+            return
+    if owner_id != user_id:
+        await websocket.close(code=4003, reason="not_owner")
+        return
+
+    broker = get_or_create_precheck_broker(websocket.app)
+    await broker.register(order_id, websocket)
+
+    try:
+        while True:
+            try:
+                raw = await asyncio.wait_for(
+                    websocket.receive_text(),
+                    timeout=WS_IDLE_TIMEOUT_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                ws_idle_timeout_total.labels(channel="precheck").inc()
+                logger.info(
+                    "ws.idle_timeout",
+                    extra={
+                        "channel": "precheck",
+                        "order_id": str(order_id),
+                        "user_id": str(user_id),
+                    },
+                )
+                try:
+                    await websocket.close(code=4002, reason="idle_timeout")
+                except Exception:
+                    pass
+                break
+
+            try:
+                data = json.loads(raw)
+            except (TypeError, ValueError):
+                continue
+
+            if data.get("type") == "ping":
+                await websocket.send_text(json.dumps({"type": "pong"}))
+                continue
+
+            # Push-only stream: any non-ping upstream frame is rejected
+            # (mirrors family-share §2.4 read-only contract).
+            await websocket.close(code=4012, reason="upstream_write_forbidden")
+            break
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        pass
+    finally:
+        await broker.unregister(order_id, websocket)
