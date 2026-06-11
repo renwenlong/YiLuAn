@@ -31,6 +31,14 @@ struct OrderDetailView: View {
     /// S3-DEV-001-CONTRACT-UI: 合同 service (复用 APIClient.shared).
     private let contractService = ContractService()
 
+    /// S3-DEV-003-TRUST-UI-IOS: 4 信任卡 precheck 状态闸门.
+    /// `precheckPaymentEnabled=true` 表示 4 张牌全 ready + 后端 `payment_enabled=true`,
+    /// 此时支付按钮才 enable. 后端 ABAC + PM payment-pause overrides 决定.
+    ///
+    /// 历史订单 (`contractId == nil`) 跳过 precheck 闸门: 默认 `true`,
+    /// 不是依赖 PrecheckViewModel 的 404 fallback (历史订单没 4 牌记录).
+    @State private var precheckPaymentEnabled = false
+
     /// AI-9: 命中区 ≥ 44pt（HIG 推荐最小可点尺寸），按钮 frame 用这个常量。
     private let minTapSide: CGFloat = 44
 
@@ -267,6 +275,21 @@ struct OrderDetailView: View {
             }
 
             if order.status == .created {
+                // S3-DEV-003-TRUST-UI-IOS: 4 信任卡 precheck summary, 挂在支付按钮上方.
+                // 设计来源 docs/design/S3-trust-precheck-ui.md §3.1.
+                // 任一卡片 ready=false → precheckPaymentEnabled=false → 支付按钮灰显.
+                // 历史订单 (contractId == nil) 跳过闸门, 不加载 precheck UI.
+                if order.contractId != nil {
+                    OrderPrecheckSummaryView(orderId: order.id) { enabled in
+                        precheckPaymentEnabled = enabled
+                    }
+                } else {
+                    // 历史订单: 默认 precheck 闸门开
+                    Color.clear.frame(height: 0).onAppear {
+                        precheckPaymentEnabled = true
+                    }
+                }
+
                 // S3-DEV-001-CONTRACT-UI (ADR-0047 §6.3): 合同 checkbox 默认 unchecked +
                 // 支付按钮 disabled until 勾选. order.contractId == nil (历史订单) 时
                 // 不显示 checkbox, 支付按钮直接可用.
@@ -290,8 +313,16 @@ struct OrderDetailView: View {
                     actionLabel(actionInProgress ? "处理中..." : "立即支付", showProgress: actionInProgress)
                 }
                 .buttonStyle(.borderedProminent)
-                // disabled = actionInProgress OR (合同存在 && 未勾选)
-                .disabled(actionInProgress || (order.contractId != nil && !contractAccepted))
+                // disabled =
+                //   actionInProgress
+                //   OR (合同存在 && 未勾选)
+                //   OR (合同存在 && !precheckPaymentEnabled) — S3-DEV-003-TRUST-UI-IOS 4 信任卡未全 ready
+                // 历史订单 (contractId == nil) 跳过 precheck 闸门 (上方 onAppear set true).
+                .disabled(
+                    actionInProgress
+                    || (order.contractId != nil && !contractAccepted)
+                    || (order.contractId != nil && !precheckPaymentEnabled)
+                )
             }
 
             // [F-03] 紧急呼叫：服务进行中/已接单状态可用，与 wechat 一致
