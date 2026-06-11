@@ -74,7 +74,13 @@ class AdminAuditService:
             )
 
         profile.verification_status = VerificationStatus.verified
-        profile.updated_at = datetime.now(timezone.utc)
+        # S3-DEV-003-PRECHECK-BACKEND c1 — stamp the moment admin
+        # verification completes; OrderPrecheckSummaryView.companion_cert_status
+        # surfaces this verbatim. Distinct from updated_at (any row mutation
+        # bumps that) and from certified_at (cert issuance date, not verify).
+        now = datetime.now(timezone.utc)
+        profile.verification_completed_at = now
+        profile.updated_at = now
 
         log = AdminAuditLog(
             target_type="companion",

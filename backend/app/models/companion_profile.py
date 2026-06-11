@@ -43,6 +43,16 @@ class CompanionProfile(Base):
     certified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    # S3-DEV-003-PRECHECK-BACKEND c1 — admin verify 通过那一刻 timestamp.
+    # Set in app/services/admin_audit.py:approve_companion when
+    # verification_status flips pending -> verified. Historical verified
+    # rows pre-S3 keep NULL; OrderPrecheckSummaryView surfaces NULL as-is
+    # (front-end fallback to certified_at per PRD §F4 文案规范).
+    # Distinct from certified_at (cert issuance date from credential
+    # authority), see ADR-0046 §3.5 + 魈 14:10Z 拍板.
+    verification_completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),

@@ -16,22 +16,22 @@ GET /api/v1/admin/ai-blocklist/preview
 - 任何 admin 查看入 audit_log: action=ai_blocklist_viewed + admin_id + category_filter
 
 # 审计
-- 写 admin_audit_logs (target_type=ai_blocklist, target_id=None,
+- 写 admin_audit_logs (target_type=ai_blocklist, target_id=_CONFIG_TARGET sentinel,
   action=ai_blocklist_viewed, operator=admin_user.id 字串, reason=category_filter or "ALL")
 - 同时 incr metric ai_blocklist_viewed_total{admin_id=...}
 """
+
 from __future__ import annotations
 
 from typing import Optional
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Query, Request, status
 from pydantic import BaseModel, Field
 
 from app.api.v1.openapi_meta import err
-from app.core.admin_jwt import require_admin
-from app.dependencies import DBSession
+from app.dependencies import CurrentAdmin, DBSession
 from app.models.admin_audit_log import AdminAuditLog
-from app.models.admin_user import AdminUser
 from app.services.ai_blocklist_pubsub import AI_BLOCKLIST_RELOAD_CHANNEL
 from app.services.ai_prep_filter import (
     get_blocklist_snapshot,
@@ -40,19 +40,17 @@ from app.services.ai_prep_filter import (
 
 router = APIRouter(prefix="/ai-blocklist", tags=["admin-ai-blocklist"])
 
+# S3-BUG-002 fix (2026-06-10): 使用 CurrentAdmin pattern 对齐 cache_invalidate.py.
+# 原 _require_jwt_admin helper 假设 principal.user 取 AdminUser, 但 require_admin
+# 直接返 AdminUser 实例 — 永远 403. CurrentAdmin = Annotated[AdminUser,
+# Depends(get_current_admin)] 在 app/dependencies.py:152 定义, 与 require_admin_jwt
+# 等价, 拒 X-Admin-Token sentinel.
 
-def _require_jwt_admin(principal) -> AdminUser:
-    """Reject legacy X-Admin-Token sentinel; need admin_user.id for audit_log."""
-    admin_user = getattr(principal, "user", None)
-    if admin_user is None or getattr(admin_user, "id", None) is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=(
-                "ai blocklist preview requires admin JWT login "
-                "(legacy X-Admin-Token sentinel rejected — audit_log needs admin_user.id)"
-            ),
-        )
-    return admin_user
+# S3-BUG-002 fix (2026-06-10): admin_audit_logs.target_id 是 NOT NULL UUID.
+# ai_blocklist 是配置文件 (无单条资源 UUID), 复用 orders.py:316 已有的
+# sentinel pattern (UUID("00000000-0000-0000-0000-000000000000")) 标识
+# "面向整体配置的操作, 非单条资源".
+_CONFIG_TARGET = UUID("00000000-0000-0000-0000-000000000000")
 
 
 class BlocklistCategoryItem(BaseModel):
@@ -89,14 +87,12 @@ class BlocklistPreviewResponse(BaseModel):
 )
 async def preview_blocklist(
     session: DBSession,
+    admin_user: CurrentAdmin,
     category: Optional[str] = Query(
         None,
         description="可选: 指定分类只返该分类 (e.g. diagnosis); 不指定返全部",
     ),
-    principal=Depends(require_admin),
 ) -> BlocklistPreviewResponse:
-    admin_user = _require_jwt_admin(principal)
-
     snapshot = get_blocklist_snapshot()
     version = get_blocklist_version()
 
@@ -117,10 +113,11 @@ async def preview_blocklist(
     total = sum(c.pattern_count for c in categories)
 
     # 审计 admin_audit_logs (ADR-0048 §4.1 强约束)
+    # S3-BUG-002 fix: target_id 用 _CONFIG_TARGET sentinel (参见模块顶 notes).
     category_filter_label = category or "ALL"
     audit = AdminAuditLog(
         target_type="ai_blocklist",
-        target_id=None,  # 不指向单条记录 (blocklist 是配置文件)
+        target_id=_CONFIG_TARGET,
         action="ai_blocklist_viewed",
         operator=str(admin_user.id),
         reason=f"category_filter={category_filter_label}",
@@ -175,14 +172,13 @@ class BlocklistReloadResponse(BaseModel):
 async def trigger_blocklist_reload(
     request: Request,
     session: DBSession,
-    principal=Depends(require_admin),
+    admin_user: CurrentAdmin,
 ) -> BlocklistReloadResponse:
-    admin_user = _require_jwt_admin(principal)
-
     # 写 admin_audit_logs
+    # S3-BUG-002 fix: target_id 用 _CONFIG_TARGET sentinel (参见模块顶 notes)
     audit = AdminAuditLog(
         target_type="ai_blocklist",
-        target_id=None,
+        target_id=_CONFIG_TARGET,
         action="ai_blocklist_reload",
         operator=str(admin_user.id),
         reason=f"trigger reload via redis pub/sub channel={AI_BLOCKLIST_RELOAD_CHANNEL}",
@@ -246,9 +242,8 @@ class BlocklistDebugVersionResponse(BaseModel):
     responses={**err(401, 403)},
 )
 async def debug_blocklist_version(
-    principal=Depends(require_admin),
+    admin_user: CurrentAdmin,  # noqa: ARG001 — enforce JWT admin (S3-BUG-002 fix), debug 不写 audit
 ) -> BlocklistDebugVersionResponse:
-    _require_jwt_admin(principal)
     from app.services.ai_blocklist_pubsub import get_instance_id
 
     snap = get_blocklist_snapshot()
