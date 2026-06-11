@@ -449,3 +449,94 @@ async def test_card_identifier_routed_through_chain(
     cards_seen = [e["card"] for e in status_events]
     for card in _ALL_CARDS:
         assert card in cards_seen, (card, cards_seen)
+
+
+# ---------------------------------------------------------------------------
+# c6 dedup: evaluate() called exactly once per hook trigger
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_hook_consumes_result_summary_no_extra_evaluate(
+    app: FastAPI,
+    db_session: Any,
+    fake_redis: FakeRedis,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """c6 dedup: hook reads summary from invalidate_and_recompute result
+    instead of calling :meth:`evaluate` a third time.
+
+    Verification: count evaluate() invocations across one hook trigger.
+    Pre-c6 = 3 (orchestrator step 2 + _ws_broadcast + hook post).
+    Post-c6 = 1 (orchestrator step 2 only).
+    """
+    from app.services.order_precheck_aggregator import OrderPrecheckAggregator
+
+    call_count = 0
+    original_evaluate = OrderPrecheckAggregator.evaluate
+
+    async def counting_evaluate(self, order_id):  # type: ignore[no-untyped-def]
+        nonlocal call_count
+        call_count += 1
+        return await original_evaluate(self, order_id)
+
+    monkeypatch.setattr(OrderPrecheckAggregator, "evaluate", counting_evaluate)
+
+    order_id = uuid4()
+    await trigger_precheck_recompute(
+        app=app,
+        session=db_session,
+        redis=fake_redis,
+        order_id=order_id,
+        card=CARD_CONTRACT,
+    )
+
+    # c6 dedup: 1 hook trigger = 1 evaluate (orchestrator step 2 only).
+    # Pre-c6 was 3 (step 2 + _ws_broadcast re-evaluate + hook post).
+    # Reverse-dedup canary: if this fails, someone reintroduced an
+    # extra evaluate() somewhere in the chain.
+    assert call_count == 1, (
+        f"c6 dedup regression: expected exactly 1 evaluate() per hook "
+        f"trigger, got {call_count}. Check orchestrator step 4 "
+        f"(_ws_broadcast) and hook helper post-orchestrator path."
+    )
+
+
+@pytest.mark.asyncio
+async def test_hook_falls_back_to_evaluate_when_summary_missing(
+    app: FastAPI,
+    db_session: Any,
+    fake_redis: FakeRedis,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """c6 dedup defensive: when orchestrator result lacks 'summary' key
+    (future regression / drift), hook falls back to evaluate so
+    secondary events still fire."""
+    from app.services.order_precheck_aggregator import OrderPrecheckAggregator
+
+    # Patch invalidate_and_recompute to drop summary key (simulates
+    # future regression where TypedDict shape drifts).
+    original_invalidate = OrderPrecheckAggregator.invalidate_and_recompute
+
+    async def stripped_invalidate(self, order_id, cards=None):  # type: ignore[no-untyped-def]
+        result = await original_invalidate(self, order_id, cards=cards)
+        # Strip summary to simulate broken contract.
+        result_copy = dict(result)
+        result_copy.pop("summary", None)
+        return result_copy
+
+    monkeypatch.setattr(
+        OrderPrecheckAggregator,
+        "invalidate_and_recompute",
+        stripped_invalidate,
+    )
+
+    order_id = uuid4()
+    # Should NOT raise — fallback evaluate kicks in for secondary events.
+    await trigger_precheck_recompute(
+        app=app,
+        session=db_session,
+        redis=fake_redis,
+        order_id=order_id,
+        card=CARD_CONTRACT,
+    )
