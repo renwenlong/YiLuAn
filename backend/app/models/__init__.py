@@ -8,6 +8,7 @@ from app.models.dead_letter import DeadLetter, DeadLetterStatus
 from app.models.device_token import DeviceToken
 from app.models.emergency import EmergencyContact, EmergencyEvent
 from app.models.family_member import FamilyGender, FamilyMember, FamilyRelation
+from app.models.feedback_attachment import FeedbackAttachment
 from app.models.followup_reminder import (
     MAX_ATTEMPTS as FOLLOWUP_MAX_ATTEMPTS,
 )
@@ -17,14 +18,6 @@ from app.models.followup_reminder import (
 )
 from app.models.hospital import Hospital
 from app.models.idempotency_key import IDEMPOTENCY_KEY_TTL, IdempotencyKey
-from app.models.user_feedback import (
-    CLOSED_APPEND_WINDOW_DAYS,
-    FeedbackFunctionModule,
-    FeedbackSeverity,
-    FeedbackSource,
-    FeedbackStatus,
-    UserFeedback,
-)
 from app.models.notification import (
     Notification,
     NotificationTargetType,
@@ -80,6 +73,14 @@ from app.models.sms_send_log import SmsSendLog
 from app.models.telemetry_event import TelemetryEvent
 from app.models.user import User, UserRole
 from app.models.user_audit_log import UserAuditAction, UserAuditLog
+from app.models.user_feedback import (
+    CLOSED_APPEND_WINDOW_DAYS,
+    FeedbackFunctionModule,
+    FeedbackSeverity,
+    FeedbackSource,
+    FeedbackStatus,
+    UserFeedback,
+)
 from app.models.wallet_ledger import (
     WalletLedger,
     WalletLedgerDirection,
@@ -160,6 +161,7 @@ __all__ = [
     "IdempotencyKey",
     "IDEMPOTENCY_KEY_TTL",
     "UserFeedback",
+    "FeedbackAttachment",
     "FeedbackStatus",
     "FeedbackSeverity",
     "FeedbackSource",

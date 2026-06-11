@@ -139,3 +139,22 @@ ws_auth_handshake_total = Counter(
     "WebSocket auth-handshake outcomes (first-frame token rollout)",
     ["channel", "result"],
 )
+
+# S3-DEV-004 user feedback metrics (ADR-0049 §4.2 + §10.1)
+feedback_submitted_total = Counter(
+    "feedback_submitted_total",
+    "用户反馈提交计数; severity=urgent 触发 UrgentFeedbackSubmitted alert",
+    ["severity", "module", "source"],
+)
+
+feedback_ratelimit_429_total = Counter(
+    "feedback_ratelimit_429_total",
+    "反馈 endpoint 限频拒绝计数; user_id 1h>=2 触 UserFeedbackRateLimitTriggered alert",
+    ["user_id", "endpoint"],
+)
+
+feedback_startup_healthcheck_failed_total = Counter(
+    "feedback_startup_healthcheck_failed_total",
+    "feedback startup healthcheck 失败计数; strict=true 时仍 raise 拒启动",
+    ["reason"],
+)

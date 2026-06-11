@@ -100,6 +100,161 @@
         "title": "AdminContractInvalidateResponse",
         "type": "object"
       },
+      "AdminFeedbackListItem": {
+        "description": "Admin list row. ``raw_content`` is truncated to a preview.",
+        "properties": {
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "companion_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Companion Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "feedback_function_module": {
+            "$ref": "#/components/schemas/FeedbackFunctionModule"
+          },
+          "handled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Handled At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "order_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Id"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/FeedbackSeverity"
+          },
+          "source": {
+            "$ref": "#/components/schemas/FeedbackSource"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FeedbackStatus"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "feedback_function_module",
+          "category",
+          "severity",
+          "status",
+          "source",
+          "order_id",
+          "companion_id",
+          "user_id",
+          "created_at"
+        ],
+        "title": "AdminFeedbackListItem",
+        "type": "object"
+      },
+      "AdminFeedbackListResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AdminFeedbackListItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "page": {
+            "title": "Page",
+            "type": "integer"
+          },
+          "page_size": {
+            "title": "Page Size",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "page",
+          "page_size"
+        ],
+        "title": "AdminFeedbackListResponse",
+        "type": "object"
+      },
+      "AdminFeedbackPatchStatusRequest": {
+        "additionalProperties": false,
+        "description": "Admin PATCH /api/v1/admin/feedbacks/{id}/status body.\n\n``target_status`` must be a legal next state per\n:class:`UserFeedbackStateMachine`; endpoint layer asserts using\n``assert_transition()`` and returns HTTP 409 on illegal moves.",
+        "properties": {
+          "admin_resolution_summary": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Resolution Summary"
+          },
+          "admin_sanitized_summary": {
+            "anyOf": [
+              {
+                "maxLength": 4000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Sanitized Summary"
+          },
+          "target_status": {
+            "$ref": "#/components/schemas/FeedbackStatus"
+          }
+        },
+        "required": [
+          "target_status"
+        ],
+        "title": "AdminFeedbackPatchStatusRequest",
+        "type": "object"
+      },
       "AdminLoginRequest": {
         "properties": {
           "password": {
@@ -695,6 +850,186 @@
         "title": "BlocklistReloadResponse",
         "type": "object"
       },
+      "Body_admin_create_feedback_api_v1_admin_feedbacks_post": {
+        "properties": {
+          "attachments": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "binary",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attachments"
+          },
+          "category": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Category",
+            "type": "string"
+          },
+          "companion_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Companion Id"
+          },
+          "feedback_function_module": {
+            "$ref": "#/components/schemas/FeedbackFunctionModule"
+          },
+          "order_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Id"
+          },
+          "raw_content": {
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Raw Content",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/FeedbackSeverity"
+          },
+          "source": {
+            "$ref": "#/components/schemas/FeedbackSource",
+            "description": "必须是 customer_service / phone / offline; 拒 user"
+          },
+          "user_id": {
+            "description": "反馈归属的 user_id (admin 代录目标)",
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "feedback_function_module",
+          "category",
+          "severity",
+          "source",
+          "raw_content"
+        ],
+        "title": "Body_admin_create_feedback_api_v1_admin_feedbacks_post",
+        "type": "object"
+      },
+      "Body_append_user_feedback_api_v1_users_feedbacks__parent_id__append_post": {
+        "properties": {
+          "attachments": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "binary",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attachments"
+          },
+          "raw_content": {
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Raw Content",
+            "type": "string"
+          }
+        },
+        "required": [
+          "raw_content"
+        ],
+        "title": "Body_append_user_feedback_api_v1_users_feedbacks__parent_id__append_post",
+        "type": "object"
+      },
+      "Body_submit_user_feedback_api_v1_users_feedbacks_post": {
+        "properties": {
+          "attachments": {
+            "anyOf": [
+              {
+                "items": {
+                  "format": "binary",
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attachments"
+          },
+          "category": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Category",
+            "type": "string"
+          },
+          "companion_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Companion Id"
+          },
+          "feedback_function_module": {
+            "$ref": "#/components/schemas/FeedbackFunctionModule"
+          },
+          "order_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Id"
+          },
+          "raw_content": {
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Raw Content",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/FeedbackSeverity"
+          }
+        },
+        "required": [
+          "feedback_function_module",
+          "category",
+          "severity",
+          "raw_content"
+        ],
+        "title": "Body_submit_user_feedback_api_v1_users_feedbacks_post",
+        "type": "object"
+      },
       "Body_upload_avatar_api_v1_users_me_avatar_post": {
         "properties": {
           "file": {
@@ -1006,6 +1341,23 @@
           "reason"
         ],
         "title": "CloseRequest",
+        "type": "object"
+      },
+      "CompanionAppealRequest": {
+        "additionalProperties": false,
+        "description": "Companion appeal body. ``companion_appeal`` is the only writeable\nfield; companion cannot change status / resolution / other fields.",
+        "properties": {
+          "companion_appeal": {
+            "maxLength": 4000,
+            "minLength": 1,
+            "title": "Companion Appeal",
+            "type": "string"
+          }
+        },
+        "required": [
+          "companion_appeal"
+        ],
+        "title": "CompanionAppealRequest",
         "type": "object"
       },
       "CompanionCertStatusView": {
@@ -1488,6 +1840,51 @@
           "created_at"
         ],
         "title": "CompanionDetailResponse",
+        "type": "object"
+      },
+      "CompanionFeedbackSummaryView": {
+        "description": "RED LINE: 陪诊师端摘要视图. Field set is **frozen**.\n\nForbidden fields (asserted in test_companion_summary_field_set_locked):\n- raw_content / metadata / user_phone / patient_name\n- attachments / signed_url (no signed URLs to companion)\n- admin_user_id / admin_review_comments\n\nOnly the admin-curated ``sanitized_summary`` is exposed (NULL if not\nyet curated; companion sees \"等待客服处理\" placeholder).",
+        "properties": {
+          "companion_appeal": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Companion Appeal"
+          },
+          "feedback_id": {
+            "format": "uuid",
+            "title": "Feedback Id",
+            "type": "string"
+          },
+          "sanitized_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sanitized Summary"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/FeedbackSeverity"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FeedbackStatus"
+          }
+        },
+        "required": [
+          "feedback_id",
+          "severity",
+          "status"
+        ],
+        "title": "CompanionFeedbackSummaryView",
         "type": "object"
       },
       "CompanionItem": {
@@ -3124,6 +3521,90 @@
         ],
         "title": "FamilyMemberResponse",
         "type": "object"
+      },
+      "FeedbackAttachmentView": {
+        "description": "Attachment metadata + signed URL (TTL ≤15min per ADR-0048).\n\nReturned to user/admin endpoints. **Never** returned to companion\nendpoints (ABAC red line — companion never gets signed URLs).",
+        "properties": {
+          "byte_size": {
+            "title": "Byte Size",
+            "type": "integer"
+          },
+          "content_type": {
+            "title": "Content Type",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "signed_url": {
+            "title": "Signed Url",
+            "type": "string"
+          },
+          "signed_url_expires_at": {
+            "format": "date-time",
+            "title": "Signed Url Expires At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "content_type",
+          "byte_size",
+          "signed_url",
+          "signed_url_expires_at"
+        ],
+        "title": "FeedbackAttachmentView",
+        "type": "object"
+      },
+      "FeedbackFunctionModule": {
+        "description": "Function module domain (ADR-0049 §3.1).\n\n覆盖 8 个功能模块. ``other`` 兜底未来扩展, 防 ENUM 漂移频繁 migration.",
+        "enum": [
+          "insurance",
+          "contract",
+          "ai_prep",
+          "family_share",
+          "service_package",
+          "service_quality",
+          "payment",
+          "other"
+        ],
+        "title": "FeedbackFunctionModule",
+        "type": "string"
+      },
+      "FeedbackSeverity": {
+        "description": "Feedback severity (ADR-0049 §3.1).",
+        "enum": [
+          "normal",
+          "important",
+          "urgent"
+        ],
+        "title": "FeedbackSeverity",
+        "type": "string"
+      },
+      "FeedbackSource": {
+        "description": "Feedback submission source (ADR-0049 §3.1).",
+        "enum": [
+          "user",
+          "customer_service",
+          "phone",
+          "offline"
+        ],
+        "title": "FeedbackSource",
+        "type": "string"
+      },
+      "FeedbackStatus": {
+        "description": "Feedback lifecycle states (ADR-0049 §4.1, 5 states ground truth).",
+        "enum": [
+          "pending",
+          "in_review",
+          "resolved",
+          "closed",
+          "rejected"
+        ],
+        "title": "FeedbackStatus",
+        "type": "string"
       },
       "FollowupReminderListResponse": {
         "properties": {
@@ -6509,6 +6990,146 @@
         "title": "UpdateUserRequest",
         "type": "object"
       },
+      "UserFeedbackDetailView": {
+        "description": "User self-view + admin detail view (full content).",
+        "properties": {
+          "admin_resolution_summary": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admin Resolution Summary"
+          },
+          "attachments": {
+            "items": {
+              "$ref": "#/components/schemas/FeedbackAttachmentView"
+            },
+            "title": "Attachments",
+            "type": "array"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "closed_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Closed At"
+          },
+          "companion_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Companion Id"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "feedback_function_module": {
+            "$ref": "#/components/schemas/FeedbackFunctionModule"
+          },
+          "feedback_parent_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feedback Parent Id"
+          },
+          "handled_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Handled At"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "order_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Order Id"
+          },
+          "raw_content": {
+            "title": "Raw Content",
+            "type": "string"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/FeedbackSeverity"
+          },
+          "source": {
+            "$ref": "#/components/schemas/FeedbackSource"
+          },
+          "status": {
+            "$ref": "#/components/schemas/FeedbackStatus"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "user_id": {
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "feedback_parent_id",
+          "feedback_function_module",
+          "category",
+          "severity",
+          "status",
+          "source",
+          "raw_content",
+          "order_id",
+          "companion_id",
+          "user_id",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "UserFeedbackDetailView",
+        "type": "object"
+      },
       "UserItem": {
         "properties": {
           "created_at": {
@@ -8676,6 +9297,514 @@
         "tags": [
           "admin",
           "admin-dead-letters"
+        ]
+      }
+    },
+    "/api/v1/admin/feedbacks": {
+      "get": {
+        "description": "支持过滤: status / severity / module / companion_id. 默认每页 50, 最多 100. 排序: created_at desc.",
+        "operationId": "admin_list_feedbacks_api_v1_admin_feedbacks_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "maximum": 10000,
+              "minimum": 1,
+              "title": "Page",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page_size",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Page Size",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FeedbackStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "in": "query",
+            "name": "severity",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FeedbackSeverity"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Severity"
+            }
+          },
+          {
+            "in": "query",
+            "name": "module",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/FeedbackFunctionModule"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Module"
+            }
+          },
+          {
+            "in": "query",
+            "name": "companion_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Companion Id"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AdminFeedbackListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "summary": "admin 反馈列表 + 过滤分页",
+        "tags": [
+          "admin",
+          "admin-feedbacks"
+        ]
+      },
+      "post": {
+        "description": "**multipart/form-data**. 客服/电话/线下代用户录反馈 (可选附件). source 必须是 {customer_service, phone, offline}, 拒绝 'user' (admin 不能伪装用户提交). 写入 AdminAuditLog (target_type=user_feedback, action=create). 限频: 60/h per admin (ADR-0049 §3.2.1).",
+        "operationId": "admin_create_feedback_api_v1_admin_feedbacks_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_admin_create_feedback_api_v1_admin_feedbacks_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserFeedbackDetailView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Rate limit exceeded: 5 per 1 minute"
+                }
+              }
+            },
+            "description": "触发限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "summary": "admin 代录反馈 (multipart, customer_service / phone / offline)",
+        "tags": [
+          "admin",
+          "admin-feedbacks"
+        ]
+      }
+    },
+    "/api/v1/admin/feedbacks/{feedback_id}": {
+      "get": {
+        "description": "全字段视图. 写入 AdminAuditLog (target_type=user_feedback, action=view); audit 在外层 transaction commit, fetch 走 SAVEPOINT — 404 仅回滚 fetch, audit 行仍保留 (probe 审计, ADR-0049 §6.2 魈 review #5 双 commit boundary).",
+        "operationId": "admin_get_feedback_api_v1_admin_feedbacks__feedback_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "feedback_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Feedback Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserFeedbackDetailView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "summary": "admin 反馈详情 (全字段)",
+        "tags": [
+          "admin",
+          "admin-feedbacks"
+        ]
+      }
+    },
+    "/api/v1/admin/feedbacks/{feedback_id}/status": {
+      "patch": {
+        "description": "UserFeedbackStateMachine 5 状态合法迁移. 非法迁移 → HTTP 409. 首次 pending → in_review 自动设 handled_by_admin_id + handled_at. 迁移到 closed 自动设 closed_at (供后续 user_append 30d 窗口判). 写入 AdminAuditLog (target_type=user_feedback, action=patch_status).",
+        "operationId": "admin_patch_feedback_status_api_v1_admin_feedbacks__feedback_id__status_patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "feedback_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Feedback Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdminFeedbackPatchStatusRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserFeedbackDetailView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "summary": "admin 状态流转 (state-machine 验)",
+        "tags": [
+          "admin",
+          "admin-feedbacks"
         ]
       }
     },
@@ -12484,6 +13613,203 @@
         "summary": "申请成为陪诊师",
         "tags": [
           "companions"
+        ]
+      }
+    },
+    "/api/v1/companions/feedbacks/{feedback_id}/appeal": {
+      "post": {
+        "description": "陪诊师对反馈写申诉理由. 这个 endpoint 不创建新资源, 仅更新已有 UserFeedback 行 的 companion_appeal 字段, 所以 200 不是 201 (REST 语义 alignment). ABAC: 仅 feedback.companion_id == current_companion.id 才能写 (否则 HTTP 404, 不泄露存在). 返回脱敏摘要视图 (RED LINE 5 字段, 不含 raw_content).",
+        "operationId": "companion_appeal_feedback_api_v1_companions_feedbacks__feedback_id__appeal_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "feedback_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Feedback Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CompanionAppealRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanionFeedbackSummaryView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "陪诊师对反馈申诉 (写 companion_appeal 字段)",
+        "tags": [
+          "companions-feedbacks"
+        ]
+      }
+    },
+    "/api/v1/companions/feedbacks/{feedback_id}/summary": {
+      "get": {
+        "description": "**红线**: 不含 raw_content / metadata / user_phone / patient_name / attachments / signed_url / handled_by_admin_id. 仅返 (id, severity, status, sanitized_summary, companion_appeal) 5 字段. sanitized_summary NULL 表示 admin 未脱敏 — 端展示「等待客服处理」. 仅 feedback.companion_id == current_companion.id 才返; 否则 HTTP 404.",
+        "operationId": "companion_get_feedback_summary_api_v1_companions_feedbacks__feedback_id__summary_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "feedback_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Feedback Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CompanionFeedbackSummaryView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Forbidden"
+                }
+              }
+            },
+            "description": "无权限"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "陪诊师反馈摘要视图 (RED LINE, 不含病史/附件原图)",
+        "tags": [
+          "companions-feedbacks"
         ]
       }
     },
@@ -17023,6 +18349,200 @@
         "summary": "上报埋点 / 异常事件",
         "tags": [
           "telemetry"
+        ]
+      }
+    },
+    "/api/v1/users/feedbacks": {
+      "post": {
+        "description": "**multipart/form-data**. 文本字段 + 可选 attachments[] 文件流, 一次性 POST. user_id 取自 JWT, 不接受请求体覆盖. 状态机初始: pending; admin 触达后流转 in_review → resolved/rejected → closed. 唯一约束: 同 user 对同 order 同 category 不可重复首条 (partial unique index uq_user_feedback_once_per_order_category, parent IS NULL). 重复 → HTTP 409. 限频: 10/h + 50/d per user (ADR-0049 §3.2.1).",
+        "operationId": "submit_user_feedback_api_v1_users_feedbacks_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_submit_user_feedback_api_v1_users_feedbacks_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserFeedbackDetailView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Rate limit exceeded: 5 per 1 minute"
+                }
+              }
+            },
+            "description": "触发限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "用户/家属提交首条反馈 (multipart, ADR-0049 §7)",
+        "tags": [
+          "users-feedbacks"
+        ]
+      }
+    },
+    "/api/v1/users/feedbacks/{parent_id}/append": {
+      "post": {
+        "description": "**multipart/form-data**. 对已有反馈追加内容 (可选附件). 鉴权: parent.user_id == current_user.id. 状态机要求: parent 处于 resolved/rejected/closed 才允许 append (pending/in_review 拒绝, HTTP 409). closed → in_review 受 30d 窗口限, 超期返 HTTP 410 Gone. append 成功后 parent 重新激活到 in_review. 限频: 30/h + 100/d per user (ADR-0049 §3.2.1).",
+        "operationId": "append_user_feedback_api_v1_users_feedbacks__parent_id__append_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "parent_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Parent Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_append_user_feedback_api_v1_users_feedbacks__parent_id__append_post"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserFeedbackDetailView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Not authenticated"
+                }
+              }
+            },
+            "description": "未鉴权或令牌无效"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Resource not found"
+                }
+              }
+            },
+            "description": "资源不存在"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": [
+                    {
+                      "loc": [
+                        "body",
+                        "phone"
+                      ],
+                      "msg": "Invalid phone number format",
+                      "type": "value_error"
+                    }
+                  ]
+                }
+              }
+            },
+            "description": "校验失败（FastAPI 标准）"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Rate limit exceeded: 5 per 1 minute"
+                }
+              }
+            },
+            "description": "触发限流"
+          },
+          "500": {
+            "content": {
+              "application/json": {
+                "example": {
+                  "detail": "Internal server error"
+                }
+              }
+            },
+            "description": "服务器内部错误"
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "summary": "用户补充已有反馈 (multipart, ADR-0049 §7.1)",
+        "tags": [
+          "users-feedbacks"
         ]
       }
     },

@@ -167,6 +167,10 @@
 | `GET` | `/api/v1/admin/dead-letters` | 后台：死信队列表 |
 | `GET` | `/api/v1/admin/dead-letters/{dl_id}` | 后台：死信详情 |
 | `POST` | `/api/v1/admin/dead-letters/{dl_id}/resolve` | 后台：标记死信已解决 |
+| `GET` | `/api/v1/admin/feedbacks` | admin 反馈列表 + 过滤分页 |
+| `POST` | `/api/v1/admin/feedbacks` | admin 代录反馈 (multipart, customer_service / phone / offline) |
+| `GET` | `/api/v1/admin/feedbacks/{feedback_id}` | admin 反馈详情 (全字段) |
+| `PATCH` | `/api/v1/admin/feedbacks/{feedback_id}/status` | admin 状态流转 (state-machine 验) |
 | `POST` | `/api/v1/admin/login` | Admin v2 登录（JWT） |
 | `GET` | `/api/v1/admin/notes` | 后台：按 target 列出备注 |
 | `POST` | `/api/v1/admin/notes` | 后台：新增备注 |
@@ -263,6 +267,15 @@ K8s / ACA 探针使用：
 | `GET` | `/api/v1/admin/dead-letters/{dl_id}` | 后台：死信详情 |
 | `POST` | `/api/v1/admin/dead-letters/{dl_id}/resolve` | 后台：标记死信已解决 |
 
+### [admin-feedbacks](./admin-feedbacks.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `GET` | `/api/v1/admin/feedbacks` | admin 反馈列表 + 过滤分页 |
+| `POST` | `/api/v1/admin/feedbacks` | admin 代录反馈 (multipart, customer_service / phone / offline) |
+| `GET` | `/api/v1/admin/feedbacks/{feedback_id}` | admin 反馈详情 (全字段) |
+| `PATCH` | `/api/v1/admin/feedbacks/{feedback_id}/status` | admin 状态流转 (state-machine 验) |
+
 ### [admin-auth](./admin-auth.md)
 
 | 方法 | 路径 | 说明 |
@@ -341,6 +354,13 @@ K8s / ACA 探针使用：
 | `POST` | `/api/v1/admin/wallet-ledger/adjustments` | Create Manual Adjustment |
 | `GET` | `/api/v1/admin/wallet-ledger/{user_id}` | List User Ledger |
 
+### [companions-feedbacks](./companions-feedbacks.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `POST` | `/api/v1/companions/feedbacks/{feedback_id}/appeal` | 陪诊师对反馈申诉 (写 companion_appeal 字段) |
+| `GET` | `/api/v1/companions/feedbacks/{feedback_id}/summary` | 陪诊师反馈摘要视图 (RED LINE, 不含病史/附件原图) |
+
 ### [companions-prep-package](./companions-prep-package.md)
 
 | 方法 | 路径 | 说明 |
@@ -396,6 +416,13 @@ K8s / ACA 探针使用：
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `POST` | `/api/v1/telemetry/events` | 上报埋点 / 异常事件 |
+
+### [users-feedbacks](./users-feedbacks.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `POST` | `/api/v1/users/feedbacks` | 用户/家属提交首条反馈 (multipart, ADR-0049 §7) |
+| `POST` | `/api/v1/users/feedbacks/{parent_id}/append` | 用户补充已有反馈 (multipart, ADR-0049 §7.1) |
 
 ### [family-members](./family-members.md)
 

@@ -192,6 +192,24 @@ class Settings(BaseSettings):
     s3_prep_enabled: bool = True
     # 软门限百分比（90 = 日预算用到 90% 时 fire warn alert，仍允许调用）。
     s3_prep_fallback_threshold_pct: int = 90
+
+    # ─────────── [S3-DEV-004] S4_FEEDBACK_SUMMARY budget axis 占位 (ADR-0049 §10.1) ───────────
+    # PRD-004 v0.3 §安全边界：S3 阶段反馈摘要必走 admin 人工脱敏，不作 AI 自动。
+    # S4 阶段启用 AI 自动脱敏。本配置在 S3 阶段强制 enabled=false 。
+    s4_feedback_summary_enabled: bool = False  # S3 阶段强制 false; startup healthcheck 拒 true
+    s4_feedback_summary_daily_budget_yuan: float = 0.0  # 0 = 全 fallback 人工
+    s4_feedback_summary_cost_per_call_yuan: float = 0.0  # S4 填
+    s4_feedback_summary_fallback_to_manual: bool = True  # S4 启用后仍保留人工 fallback
+
+    # S3 启动守护（ADR-0049 §10.1 刻晴 r2 amend）。production/staging 必 true；
+    # dev/test 仅 warning。strict=true 时 healthcheck 失败 → 进程 exit 1 拒启动。
+    s3_startup_healthcheck_strict: bool = False
+
+    # ─────────── [S3-DEV-004] feedback 限频（ADR-0049 §3.2.1 胡桃 Gap 3 amend）───────────
+    feedback_submit_per_user_hourly: int = 10
+    feedback_submit_per_user_daily: int = 50
+    feedback_append_per_user_hourly: int = 30
+    feedback_append_per_user_daily: int = 100
     # S3-DEV-002-PROMPT-VERSIONING AC#3: 启动时校验 DB-active prompt 与 git 端
     # 文件存在 + commit hash 匹配。production 必开，dev/test 可关。
     prompt_versions_validate_on_startup: bool = True

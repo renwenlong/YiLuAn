@@ -112,6 +112,21 @@ async def lifespan(app: FastAPI):
                 session,
                 repo_root=settings.prompt_versions_repo_root,
             )
+    # S3-DEV-004 (ADR-0049 §10.1) feedback startup healthcheck.
+    # strict=true (production/staging): 任一检查失败 → raise 令 worker exit 1
+    #   (拒接流量; 避免 alembic 未 upgrade / s4 enabled 误启用 → backend healthy 但
+    #    500 用户请求).
+    # strict=false (dev/test): 仅 warning, 不阻本地开发.
+    # 详 ADR-0049 §10.1 "拒绝启动口径".
+    from app.database import engine as db_engine
+    from app.services.feedback_startup_healthcheck import (
+        FeedbackStartupHealthcheck,
+    )
+    healthcheck = FeedbackStartupHealthcheck(
+        engine=db_engine,
+        strict=settings.s3_startup_healthcheck_strict,
+    )
+    await healthcheck.run()
     yield
     # Shutdown
     await shutdown_scheduler()

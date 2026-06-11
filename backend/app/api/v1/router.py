@@ -5,6 +5,7 @@ from app.api.v1.auth import router as auth_router
 from app.api.v1.auth_apple import router as auth_apple_router
 from app.api.v1.chats import router as chats_router
 from app.api.v1.companions import router as companions_router
+from app.api.v1.companions_feedbacks import router as companions_feedbacks_router
 from app.api.v1.contracts import router as contracts_router
 from app.api.v1.emergency import router as emergency_router
 from app.api.v1.family_members import router as family_members_router
@@ -22,6 +23,7 @@ from app.api.v1.reviews import router as reviews_router
 from app.api.v1.share import router as share_router
 from app.api.v1.telemetry import router as telemetry_router
 from app.api.v1.users import router as users_router
+from app.api.v1.users_feedbacks import router as users_feedbacks_router
 from app.api.v1.users_precheck import router as users_precheck_router
 from app.api.v1.wallet import router as wallet_router
 from app.api.v1.ws import router as ws_router
@@ -59,6 +61,8 @@ api_v1_router.include_router(public_service_packages_router)
 api_v1_router.include_router(prep_packages_users_router)
 api_v1_router.include_router(prep_packages_companions_router)
 api_v1_router.include_router(users_precheck_router)
+api_v1_router.include_router(users_feedbacks_router)
+api_v1_router.include_router(companions_feedbacks_router)
 api_v1_router.include_router(share_router)
 api_v1_router.include_router(telemetry_router)
 api_v1_router.include_router(admin_router)
