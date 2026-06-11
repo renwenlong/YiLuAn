@@ -1842,6 +1842,295 @@
         "title": "CompanionDetailResponse",
         "type": "object"
       },
+      "CompanionDirectoryDetailView": {
+        "description": "Public-facing companion detail (non-self).\n\nABAC layer 3 — extends list view with public-safe detail fields.\n``certification_type`` 可暴露 (公开资质类别如「护士证」, 非证件号).\n``certified_at`` 仅 verified 状态时填 (与 share.py 对齐).\n``certifications`` 描述性文本可暴露 (公开宣传, 不含 OSS URL).",
+        "properties": {
+          "avg_rating": {
+            "default": 0.0,
+            "description": "平均评分（0~5）",
+            "examples": [
+              4.8
+            ],
+            "title": "Avg Rating",
+            "type": "number"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "个人简介",
+            "title": "Bio"
+          },
+          "certification_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "认证类型 (如『护士证』, 非证件号)",
+            "examples": [
+              "护士证"
+            ],
+            "title": "Certification Type"
+          },
+          "certifications": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "资质证书描述",
+            "title": "Certifications"
+          },
+          "certified_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "认证通过时间 (仅 verified 状态填)",
+            "title": "Certified At"
+          },
+          "created_at": {
+            "description": "档案创建时间",
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "dimension_scores": {
+            "$ref": "#/components/schemas/DimensionScores",
+            "description": "F-04 4 个维度的平均评分"
+          },
+          "id": {
+            "description": "陪诊师档案 ID",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "pseudonym_name": {
+            "description": "化名 (PRD-001 v1.5 §F8 PII 脱敏)。S3 阶段 fallback ``mask_name(real_name)`` = 「张**」格式。PRD-001 v1.5 拆 ``companion_pseudonym`` table 后将切真正化名。",
+            "examples": [
+              "张**"
+            ],
+            "title": "Pseudonym Name",
+            "type": "string"
+          },
+          "service_area": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "服务区域",
+            "title": "Service Area"
+          },
+          "service_city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "服务城市",
+            "title": "Service City"
+          },
+          "service_hospitals": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "签约医院 ID 列表",
+            "title": "Service Hospitals"
+          },
+          "service_types": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "服务类型",
+            "title": "Service Types"
+          },
+          "total_orders": {
+            "default": 0,
+            "description": "累计完成订单数",
+            "examples": [
+              126
+            ],
+            "title": "Total Orders",
+            "type": "integer"
+          },
+          "user_id": {
+            "description": "对应用户 ID",
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "verification_status": {
+            "default": "pending",
+            "description": "审核状态: pending/verified/rejected (UI 三态映射见 share.py)",
+            "examples": [
+              "verified"
+            ],
+            "title": "Verification Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "pseudonym_name",
+          "created_at"
+        ],
+        "title": "CompanionDirectoryDetailView",
+        "type": "object"
+      },
+      "CompanionDirectoryView": {
+        "description": "Public-facing companion list item (non-self).\n\nABAC layer 3 positive list — strictly forbids 4 PII fields (see module docstring).\nReuses ``app.core.pii.mask_name`` for ``pseudonym_name`` (share.py 同款脱敏).",
+        "properties": {
+          "avg_rating": {
+            "default": 0.0,
+            "description": "平均评分（0~5）",
+            "examples": [
+              4.8
+            ],
+            "title": "Avg Rating",
+            "type": "number"
+          },
+          "bio": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "个人简介",
+            "title": "Bio"
+          },
+          "id": {
+            "description": "陪诊师档案 ID",
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "pseudonym_name": {
+            "description": "化名 (PRD-001 v1.5 §F8 PII 脱敏)。S3 阶段 fallback ``mask_name(real_name)`` = 「张**」格式。PRD-001 v1.5 拆 ``companion_pseudonym`` table 后将切真正化名。",
+            "examples": [
+              "张**"
+            ],
+            "title": "Pseudonym Name",
+            "type": "string"
+          },
+          "service_area": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "服务区域",
+            "title": "Service Area"
+          },
+          "service_city": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "服务城市",
+            "title": "Service City"
+          },
+          "service_hospitals": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "签约医院 ID 列表",
+            "title": "Service Hospitals"
+          },
+          "service_types": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "服务类型",
+            "title": "Service Types"
+          },
+          "total_orders": {
+            "default": 0,
+            "description": "累计完成订单数",
+            "examples": [
+              126
+            ],
+            "title": "Total Orders",
+            "type": "integer"
+          },
+          "user_id": {
+            "description": "对应用户 ID",
+            "format": "uuid",
+            "title": "User Id",
+            "type": "string"
+          },
+          "verification_status": {
+            "default": "pending",
+            "description": "审核状态: pending/verified/rejected (UI 三态映射见 share.py)",
+            "examples": [
+              "verified"
+            ],
+            "title": "Verification Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "user_id",
+          "pseudonym_name"
+        ],
+        "title": "CompanionDirectoryView",
+        "type": "object"
+      },
       "CompanionFeedbackSummaryView": {
         "description": "RED LINE: 陪诊师端摘要视图. Field set is **frozen**.\n\nForbidden fields (asserted in test_companion_summary_field_set_locked):\n- raw_content / metadata / user_phone / patient_name\n- attachments / signed_url (no signed URLs to companion)\n- admin_user_id / admin_review_comments\n\nOnly the admin-curated ``sanitized_summary`` is exposed (NULL if not\nyet curated; companion sees \"等待客服处理\" placeholder).",
         "properties": {
@@ -1956,121 +2245,6 @@
           "real_name"
         ],
         "title": "CompanionItem",
-        "type": "object"
-      },
-      "CompanionListResponse": {
-        "properties": {
-          "avg_rating": {
-            "default": 0.0,
-            "description": "平均评分（0~5）",
-            "examples": [
-              4.8
-            ],
-            "title": "Avg Rating",
-            "type": "number"
-          },
-          "bio": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "个人简介",
-            "title": "Bio"
-          },
-          "id": {
-            "description": "陪诊师档案 ID",
-            "format": "uuid",
-            "title": "Id",
-            "type": "string"
-          },
-          "real_name": {
-            "description": "真实姓名",
-            "title": "Real Name",
-            "type": "string"
-          },
-          "service_area": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "服务区域",
-            "title": "Service Area"
-          },
-          "service_city": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "服务城市",
-            "title": "Service City"
-          },
-          "service_hospitals": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "签约医院 ID 列表",
-            "title": "Service Hospitals"
-          },
-          "service_types": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "服务类型",
-            "title": "Service Types"
-          },
-          "total_orders": {
-            "default": 0,
-            "description": "累计完成订单数",
-            "examples": [
-              126
-            ],
-            "title": "Total Orders",
-            "type": "integer"
-          },
-          "user_id": {
-            "description": "对应用户 ID",
-            "format": "uuid",
-            "title": "User Id",
-            "type": "string"
-          },
-          "verification_status": {
-            "default": "pending",
-            "description": "审核状态：pending/verified/rejected",
-            "examples": [
-              "verified"
-            ],
-            "title": "Verification Status",
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "user_id",
-          "real_name"
-        ],
-        "title": "CompanionListResponse",
         "type": "object"
       },
       "CompanionPrepPackageView": {
@@ -13488,7 +13662,7 @@
     },
     "/api/v1/companions": {
       "get": {
-        "description": "按区域、城市、服务类型、医院筛选可接单的陪诊师，分页返回。",
+        "description": "按区域、城市、服务类型、医院筛选可接单的陪诊师，分页返回。\n\n**ABAC**: 返回 ``CompanionDirectoryView`` (no PII), 使用 ``mask_name`` 脱敏 生成 ``pseudonym_name``。严禁返 ``real_name`` / ``id_number`` / ``certification_no`` / ``certification_image_url``。",
         "operationId": "list_companions_api_v1_companions_get",
         "parameters": [
           {
@@ -13593,7 +13767,7 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/CompanionListResponse"
+                    "$ref": "#/components/schemas/CompanionDirectoryView"
                   },
                   "title": "Response List Companions Api V1 Companions Get",
                   "type": "array"
@@ -13938,7 +14112,7 @@
     },
     "/api/v1/companions/me": {
       "get": {
-        "description": "返回当前登录用户的陪诊师档案；若用户未申请陪诊师角色将抛出 404。",
+        "description": "返回当前登录用户的陪诊师档案；若用户未申请陪诊师角色将抛出 404。\n\n**ABAC**: 用户看自己, OK 返 real_name (本身)。",
         "operationId": "get_my_profile_api_v1_companions_me_get",
         "responses": {
           "200": {
@@ -14225,7 +14399,7 @@
     },
     "/api/v1/companions/{companion_id}": {
       "get": {
-        "description": "根据陪诊师 ID 查看公开的资料、服务范围与评分概要。",
+        "description": "根据陪诊师 ID 查看公开的资料、服务范围与评分概要。\n\n**ABAC**: 返 ``CompanionDirectoryDetailView`` (no PII)。严禁 ``real_name`` / ``certification_no`` / ``certification_image_url``。",
         "operationId": "get_companion_api_v1_companions__companion_id__get",
         "parameters": [
           {
@@ -14244,7 +14418,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CompanionDetailResponse"
+                  "$ref": "#/components/schemas/CompanionDirectoryDetailView"
                 }
               }
             },

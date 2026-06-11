@@ -33,6 +33,8 @@
 
 按区域、城市、服务类型、医院筛选可接单的陪诊师，分页返回。
 
+**ABAC**: 返回 ``CompanionDirectoryView`` (no PII), 使用 ``mask_name`` 脱敏 生成 ``pseudonym_name``。严禁返 ``real_name`` / ``id_number`` / ``certification_no`` / ``certification_image_url``。
+
 **参数：**
 
 - `area` (query, —, required=—) — 服务区域关键字，如『朝阳区』
@@ -92,6 +94,8 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/companions/apply' \
 ### `GET /api/v1/companions/me` — 获取我的陪诊师档案
 
 返回当前登录用户的陪诊师档案；若用户未申请陪诊师角色将抛出 404。
+
+**ABAC**: 用户看自己, OK 返 real_name (本身)。
 
 **响应：**
 
@@ -165,6 +169,8 @@ curl -X GET 'https://api.yiluan.example.com/api/v1/companions/me/stats' \
 ### `GET /api/v1/companions/{companion_id}` — 查看陪诊师详情
 
 根据陪诊师 ID 查看公开的资料、服务范围与评分概要。
+
+**ABAC**: 返 ``CompanionDirectoryDetailView`` (no PII)。严禁 ``real_name`` / ``certification_no`` / ``certification_image_url``。
 
 **参数：**
 

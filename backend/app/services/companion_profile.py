@@ -4,7 +4,13 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core import error_codes
-from app.exceptions import BadRequestException, ConflictException, ForbiddenException, NotFoundException
+from app.core.pii import mask_name
+from app.exceptions import (
+    BadRequestException,
+    ConflictException,
+    ForbiddenException,
+    NotFoundException,
+)
 from app.models.companion_profile import CompanionProfile
 from app.models.user import User, UserRole
 from app.repositories.companion_profile import CompanionProfileRepository
@@ -13,6 +19,62 @@ from app.repositories.order import OrderRepository
 from app.repositories.review import ReviewRepository
 from app.repositories.user import UserRepository
 from app.schemas.companion import ApplyCompanionRequest, UpdateCompanionProfileRequest
+
+
+def _to_public_view(profile: CompanionProfile) -> dict:
+    """Map CompanionProfile model → CompanionDirectoryView dict (ABAC layer 2 脱敏).
+
+    Public-facing (non-self, non-admin) consumers only.
+    Source of pseudonym: ``mask_name(profile.real_name)`` (与 share.py 同款脱敏 helper).
+    PRD-001 v1.5 拆 ``companion_pseudonym`` table 后可切真正化名 (简单 swap).
+
+    NEVER returns these PII fields:
+      - real_name, id_number, certification_no, certification_image_url
+    """
+    return {
+        "id": profile.id,
+        "user_id": profile.user_id,
+        "pseudonym_name": mask_name(getattr(profile, "real_name", None)),
+        "service_area": profile.service_area,
+        "service_types": profile.service_types,
+        "service_hospitals": profile.service_hospitals,
+        "service_city": profile.service_city,
+        "bio": profile.bio,
+        "avg_rating": float(profile.avg_rating or 0.0),
+        "total_orders": int(profile.total_orders or 0),
+        "verification_status": str(profile.verification_status)
+        if profile.verification_status
+        else "pending",
+    }
+
+
+def _to_public_detail_view(profile: CompanionProfile) -> dict:
+    """Map CompanionProfile → CompanionDirectoryDetailView dict.
+
+    Extends ``_to_public_view`` with public-safe detail fields:
+      - certifications: 描述性文本 (公开宣传, 不含 OSS URL)
+      - certification_type: 资质类别 (如「护士证」, 非证件号)
+      - certified_at: 仅 verified 状填
+      - dimension_scores: F-04 评分维度 (需 service 预填到 profile.dimension_scores)
+
+    NEVER returns: real_name / id_number / certification_no / certification_image_url.
+    """
+    from app.models.companion_profile import VerificationStatus
+
+    base = _to_public_view(profile)
+    vs = profile.verification_status
+    base["certifications"] = profile.certifications
+    base["certification_type"] = (
+        profile.certification_type if vs == VerificationStatus.verified else None
+    )
+    base["certified_at"] = profile.certified_at if vs == VerificationStatus.verified else None
+    base["created_at"] = profile.created_at
+    base["dimension_scores"] = getattr(
+        profile,
+        "dimension_scores",
+        {"punctuality": 0.0, "professionalism": 0.0, "communication": 0.0, "attitude": 0.0},
+    )
+    return base
 
 
 class CompanionProfileService:
@@ -93,7 +155,9 @@ class CompanionProfileService:
         }
         return profile
 
-    async def get_detail_by_user(self, user_id: UUID, display_name: str | None = None) -> CompanionProfile:
+    async def get_detail_by_user(
+        self, user_id: UUID, display_name: str | None = None
+    ) -> CompanionProfile:
         profile = await self.repo.get_by_user_id(user_id)
         if profile is None:
             # Auto-create profile for users with companion role but no profile record
