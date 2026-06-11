@@ -253,8 +253,11 @@ admin verify endpoint commit
 
 - WS upgrade header `Authorization: Bearer <user_token>`；微信小程序 WS API 不支持自定义 header 时允许 `?token=<user_token>` fallback。
 - handler 验证 token → 提取 user_id。
-- 查询 `orders` 表 `order_id` 的 user_id，不等 → WS 4401 close（语义等价 HTTP 401）。
-- token 过期期间服务侧主动推送 `precheck.session.expired` 事件后 4401 close。
+- 查询 `orders` 表 `order_id` 的 user_id，不等 → WS close code `4003`（not_owner，跟 `/ws/chat/{order_id}` 范式一致）。
+- 若 `order_id` 不存在 → close code `4004`（order_not_found）。
+- 其他 close codes 参见实现 `backend/app/api/v1/ws.py`：`4001` invalid token / `4002` idle_timeout / `4011` auth handshake timeout / `4012` upstream_write_forbidden / `4013` token revoked / `4014` share token cap。
+- token 过期期间服务侧主动推送 `precheck.session.expired` 事件后 close（code 同 `4013`）。
+- 历史文字 `4401` 仅为方案草稿笔误，实现 source of truth 为 `4003/4004` 对齐 chat WS（c4 实现 + c5 design 校齐）。
 
 ### 5.2 GET endpoint 行为
 
