@@ -93,5 +93,9 @@ class CacheInvalidateResponse(BaseModel):
     )
     broadcast: bool = Field(
         ...,
-        description="WS broadcast 是否完成 (companion_cert_status_changed 推 user + companion)。",
+        description=(
+            "WS broadcast 是否完成 "
+            "(precheck.status.updated 推 user + companion, "
+            "envelope 含 cert 状态语义)。"
+        ),
     )
