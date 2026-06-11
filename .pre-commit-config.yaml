@@ -4,6 +4,9 @@
 # alembic-check: model vs migration drift guard
 #   使用 throwaway SQLite 文件：先 upgrade head 再 check（不需要 PG）
 #   env.py 通过 ALEMBIC_DATABASE_URL 切换
+#
+# openapi-drift-check: endpoint/schema 改动必同步 docs/api/openapi.json + admin*.md
+#   触发 S3-OPS-OPENAPI-DRIFT-PRECOMMIT-HOOK (反案 #15/#17, 起源 PR #277)
 repos:
   - repo: local
     hooks:
@@ -13,3 +16,9 @@ repos:
         language: system
         pass_filenames: false
         files: ^backend/(app/models/|alembic/versions/|alembic/env\.py)
+      - id: openapi-drift-check
+        name: openapi drift check (endpoint/schema vs docs/api/ sync)
+        entry: python scripts/openapi_drift_check_hook.py
+        language: system
+        pass_filenames: false
+        files: ^backend/app/(api/v1/|schemas/)
