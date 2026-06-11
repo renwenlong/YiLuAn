@@ -54,6 +54,15 @@ class Settings(BaseSettings):
     # _render_pdf 读同一个 settings, single source of truth.
     contract_template_version: str = "v1.0.0"
 
+    # S3-BUG-003: AI blocklist startup probe 严格加载开关.
+    # True 时, lifespan startup 检 prohibited-keywords.yml 未加载 → raise
+    # BlocklistStartupError, FastAPI 拒启. 默认 False (dev/test 保 fail-open).
+    # 运维语义: env.staging / env.canary / env.production 都设 True
+    # (不仅依靠 environment 字段—— env.staging/env.canary 现在是
+    # ENVIRONMENT=development 以便 dev-OTP, 不能用 settings.environment
+    # 判别 prod-like). 详见 docs/ops/blocklist-yml-deployment.md.
+    ai_blocklist_strict_load: bool = False
+
     # S3-DEV-001-CONTRACT-PICKUP-CRON / 魈 EVENT-WIRING 拍板:
     # Contract generate pickup cron 启用开关。默认 False — CORE PR 合并后
     # cron 仍 disabled (因 _render_pdf 目前只产出最小合法 PDF stub,

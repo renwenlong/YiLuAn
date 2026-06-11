@@ -203,6 +203,74 @@ def get_blocklist_version() -> str:
     return _cache.version
 
 
+class BlocklistStartupError(RuntimeError):
+    """S3-BUG-003: startup fail-loud probe 报错.
+
+    在运维 deploy 环境 (settings.ai_blocklist_strict_load=True) 下如 yml
+    不存在或载入后 snapshot 为空, backend startup MUST refuse to serve
+    (避免 silent fail-open 释放违规关键词给 LLM / 返给用户).
+
+    详见 docs/ops/blocklist-yml-deployment.md.
+    """
+
+
+def assert_blocklist_loaded_or_raise(strict: bool) -> None:
+    """S3-BUG-003 startup probe: fail loudly when blocklist 未加载.
+
+    在 ``app/main.py`` lifespan startup 调.
+
+    Args:
+        strict: 仅在 ``True`` 时招错. 需调用方传 ``settings.ai_blocklist_strict_load``
+            (默认 False 保留 dev/test fail-open 以不阻本地启动;
+            运维 env.staging/env.canary/env.production 都设 True).
+
+    检查维度 (任何一个 fail 都 raise):
+    1. _DEFAULT_YML_PATH 存在 (Dockerfile COPY 是否走到)
+    2. snapshot 非空 (parse 是否成功, fail-open 判别)
+    3. version 非空 (yml 头 version 字段 sanity)
+    """
+    if not strict:
+        logger.debug(
+            "assert_blocklist_loaded_or_raise: skip probe (strict=False)"
+        )
+        return
+
+    errors: list[str] = []
+    if not _DEFAULT_YML_PATH.exists():
+        errors.append(
+            f"yml file missing: {_DEFAULT_YML_PATH} (检查 Dockerfile / build context)"
+        )
+    snapshot = _cache.snapshot  # 未 load 时会 lazy load
+    version = _cache.version
+    if not snapshot:
+        errors.append(
+            "blocklist snapshot is empty (fail-open detected); "
+            "yml 存在但 parse 失败 / categories 不是 dict / 空 yml."
+        )
+    if not version:
+        errors.append(
+            "blocklist version is empty string (yml 缺 version 字段或 parse fail)."
+        )
+
+    if errors:
+        joined = "; ".join(errors)
+        logger.error(
+            "S3-BUG-003 startup probe FAIL (strict mode): %s",
+            joined,
+        )
+        raise BlocklistStartupError(
+            f"AI prep blocklist startup probe FAIL (strict): {joined}. "
+            f"Refusing to serve (参考 ADR-0048 §4.1/§4.3, 关键词过滤是医疗安全哨兵)."
+        )
+
+    logger.info(
+        "S3-BUG-003 startup probe OK (strict): yml=%s categories=%d version=%s",
+        _DEFAULT_YML_PATH,
+        len(snapshot),
+        version,
+    )
+
+
 def _try_increment_metric(layer: FilterLayer, category: str) -> None:
     """触发 prometheus metric, 失败不阻业务."""
     try:
