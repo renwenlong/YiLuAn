@@ -56,6 +56,10 @@ evidence-first 是全员协议，但不同角色触发点不同。以下拆 PM/a
 2. **branch protection 实时口径必 `gh api` 实测**（避免 MEMORY 过时造成策略退步）
 3. **Code Review 落字前 ADR/spec 1:1 对应**（避免靠 PR description 自述 review、靠社交压力 approve）
 4. **fact check PR mergeState 必用 `git merge-base --is-ancestor` 或 `git log base..head`**，不靠 GitHub `baseRefOid`（动态字段不代表 head 含 base）
+5. **review 任何 admin/super_admin endpoint PR 时必查 ≥1 endpoint-level integration test** 跑完整 FastAPI dependency chain（auth → router → handler → audit/publish）, 不允许 100% mock subscriber/service（反案 #22, S3-BUG-002 教材）
+6. **review 任何依赖外部 yml/config/asset 文件的代码路径 PR 时必查 ≥1 asset-presence integration test**（实际 read file, 不 mock path）, 跑在 CI 防回归（反案 #24, S3-BUG-003 教材）
+7. **review 非 dev 环境（staging/canary/production）配置加载代码时必查 fail-loud probe**（startup refuse to serve）替代 fail-open silent fallback（反案 #25, S3-BUG-003 教材）
+8. **PR review 前必 `git fetch origin main && gh pr checkout <N>` 看 PR head 实物** — 自己 architect branch working tree 是 stale, 不可信（反案 #26）
 
 #### §1.2.3 dev 视角 evidence-first 触发点
 
@@ -64,6 +68,9 @@ evidence-first 是全员协议，但不同角色触发点不同。以下拆 PM/a
 3. **跨 hutao session 同 worktree 写前** → `sessions_list agentId=hutao` + `git worktree list` + `git reflog`，选定 worktree owner + 群里 announce-before-touch（避免双 session race）
 4. **schema 类断言必 set verify**（不靠 `list` 输出推测后端是否支持 enum）
 5. **backend deps 改动 PR merge 后群里 announce**（供其他 agent rebase 后 `pip install -r requirements.txt` 同步，避免 ImportError 连锁误诊）
+6. **develop admin/super_admin endpoint 时主动落 ≥1 endpoint-level integration test** 跑完整 FastAPI dependency chain（auth → router → handler → audit/publish），不等 architect review 打回（反案 #22 dev 端 mirror, §1.2.2 #5 architect 端配对）
+7. **develop 依赖外部 yml/config/asset 文件的代码时主动落 ≥1 asset-presence integration test**（实际 read file, 不 mock path），不等 architect review 打回（反案 #24 dev 端 mirror, §1.2.2 #6 architect 端配对）
+8. **develop 非 dev 环境（staging/canary/production）配置加载代码时主动落 fail-loud probe**（startup refuse to serve, 替代 fail-open silent fallback），不等 architect review 打回（反案 #25 dev 端 mirror, §1.2.2 #7 architect 端配对）
 
 #### §1.2.4 coordinator 视角 evidence-first 触发点
 
@@ -137,6 +144,10 @@ architect 在以下场景必 fact check：
 - **(反案 #19) PR 多 commit intermediate 不可独立运行**：2026-06-10 14:06Z hutao S3-DEV-003 PR 原计划 c4 (hook + Schemathesis) 在前, c5 (WS handler) 在后 → hook 触发需 broadcast 需 WS 实装, c4 落时 broadcast 还是 stub NotImplementedError → intermediate commit `git checkout c4 + pytest` 会 fail → git bisect 友好性死. architect review 拍板 c4↔c5 重排 (c4 = WS infra 先, c5 = hook 后). 教训：大 PR 拆 commit 必画 DAG, 拓扑序排, 反 pattern = 前 commit 调后 commit stub.
 - **(反案 #20) schema migration 与 business logic commit 混**：同 PR hutao c2 (aggregator evaluate) 原计划能含 alembic migration (verification_completed_at 加列). architect review 拍 schema 必独立 c1, business 必独立 c2/c3 — layer 严格隔离按 schema/business/api/test 拆独立 commit. 教训：alembic migration = schema layer, 不混入 business commit, 违 reject.
 - **(反案 #21) DDD ubiquitous language vs bounded context 不一致是设计意图**：2026-06-10 14:07Z hutao 发现 design doc 抽象命名 (`InsuranceOrderStateMachine`/`companion_cert_verifications` 表) vs codebase 实际 model (`ServiceInsuranceRecord`/`CompanionProfile.verification_status` 字段) 4 处不一致, 担心是 bug. architect 14:08Z 拍板：DDD design doc 描述领域概念 (ubiquitous), bounded context 实现按 codebase model (actual), 故意分层, **不打回 design doc**, PR commit msg 标 "design abstract / impl actual" 即可; 仅 typo (如 model 已 rename) 才 amend. 教训：不要强求 ubiquitous 与 actual 一致, 二者是两个抽象层次.
+- **(反案 #22) admin endpoint 100% mock 是温床 — endpoint-level integration test 必有**：2026-06-10 18:30Z keqing 跑 S3-DEV-002-HOT-RELOAD ai_blocklist.py 3 endpoint quantitative E2E 全 staging 403. root cause: helper `_require_jwt_admin(principal)` 假设 `principal.user` 取 AdminUser, 但 `require_admin` 直接返 AdminUser 实例 → 永远 `.user` AttributeError → 403. unit test 全 mock subscriber 没暴露 staging dependency chain. fix PR #255 加 18 endpoint integration test (`backend/tests/api/v1/admin/test_ai_blocklist_integration.py`) 跑完整 DI 链（super_token/ops_token/patient_token fixture 真起 FastAPI app）. canonical pattern 拍 `CurrentAdmin = Annotated[AdminUser, Depends(require_admin_jwt)]` from `app.dependencies` (`get_current_admin` 比 `require_admin_jwt` 强一档, 多 "user token → 403 不是 401" role-boundary 修正). 教训：admin endpoint 必须有 ≥1 endpoint-level integration test, 不允许 100% mock subscriber.
+- **(反案 #24) 外部 yml/config asset 0 integration test 是温床 — asset-presence test 必有**：2026-06-10 18:45Z keqing 跑 S2-OPS-STAGING-MULTI-REPLICA-COMPOSE quantitative E2E AC#3 时发现 backend Docker image (`backend/Dockerfile`) 漏 COPY `docs/medical-content/` → 容器内 `_DEFAULT_YML_PATH = /docs/medical-content/prohibited-keywords.yml` 永远 not found → `ai_prep_filter._BlocklistCache.load()` 触发 fail-open: snapshot=(), version='', `logger.warning('blocklist empty (fail-open)')` → **AI 关键词过滤在 prod 完全失效**（ADR-0048 §4.1 L1/L2 双层 filter 全裸奔）. root cause: unit test 用 mock yml path (`test_ai_prep_filter.py` 全 mock), 没暴露 prod path 不存在. S3-BUG-003 task 立 AC#6: 加 `backend/tests/integration/test_blocklist_yml_present.py`, assert `_DEFAULT_YML_PATH.exists() == True` 不 mock, 跑在 CI 防回归. 教训：任何依赖外部 yml/config/asset 文件的代码路径必须有 ≥1 asset-presence integration test, 实际 read file 不 mock path.
+- **(反案 #25) 非 dev 环境 fail-open silent 是反 pattern — fail-loud probe 必有**：同 S3-BUG-003 现象, `ai_prep_filter.load()` 用 fail-open 设计（无 yml → empty blocklist）, 没 raise → startup 正常, 但实际 AI 关键词过滤完全失效. 没人 alert. 修法：env in {staging, canary, production} 时 yml 缺失或 categories=0 → backend startup FAIL (refuse to serve), 不允许 silent fail-open in non-dev (S3-BUG-003 AC#4). dev 环境 ok 用 fail-open (开发不阻断). 教训：非 dev 环境 fail-loud probe (startup refuse to serve) 替代 fail-open silent fallback, 让问题暴露在 startup 而不是 prod 用户.
+- **(反案 #26) architect branch working tree 是 stale, PR review 必 fetch PR head 实物**：2026-06-11 00:50Z 我 review PR #256 时, `grep ai_blocklist.py` 看到 `Depends(require_admin)` (legacy pattern), 一度以为 PR #255 fix 没生效. 实际 main 已合 `9438c15`, 我 architect branch `feature/adr-0051-architect-r2-amend` 没 rebase → working tree 是 PR #255 合前 stale 文件. fact check 链不对就误判 code 内容. 修法：PR review 前必 `git fetch origin main && git log --oneline origin/main -5` verify main HEAD + `gh pr checkout <N>` 切到 PR head 实物 (或 `git fetch origin pull/<N>/head:pr-<N>-review` + checkout). review 完切回自己 branch. 教训：自己 architect branch working tree 是 stale, 不可信. PR review 看 PR head 实物, 不看 local file.
 
 ### §2.4 违反成本
 
