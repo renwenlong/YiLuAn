@@ -8,9 +8,13 @@ Exit codes:
   0 - clean
   1 - violations found (CI must FAIL)
 
-Allow-list:
-  - logout_all   (auth.py) -- read-only user must be able to log out
-  - bind_phone   (auth.py) -- new-device phone bind is auth/recovery
+Allow-list (ratify 魈 08:14Z r3 double-track):
+  - logout_all      (auth.py)  -- read-only user must be able to log out
+                                  (GRAY_REVOKE / CREDENTIAL_LEAK 场景)
+  - delete_account  (users.py) -- GDPR / 个保法合规删除账号权利 > read-only
+                                  business limit; soft-delete + anonymize
+                                  PII + cancel orders, 90-day recovery
+                                  window per ADR-0029 / D-043
 
 `# noqa` markers are DISALLOWED (would allow silent bypass; if a new
 endpoint genuinely needs to opt out, edit the ALLOW set here in a follow-up
@@ -28,7 +32,7 @@ import glob
 import re
 import sys
 
-ALLOW = {"logout_all", "bind_phone"}
+ALLOW = {"logout_all", "delete_account"}
 
 
 def find_violations():

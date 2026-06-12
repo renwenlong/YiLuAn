@@ -101,7 +101,7 @@ async def switch_role(
     },
 )
 async def delete_account(
-    current_user: WriteableUser,
+    current_user: CurrentUser,
     session: DBSession,
     request: Request,
 ):

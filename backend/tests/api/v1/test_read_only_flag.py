@@ -117,3 +117,41 @@ async def test_reason_category_null_when_admin_did_not_set_one(
     # Key must be present even when null — frontend mapper depends on it.
     assert "reason_category" in detail
     assert detail["reason_category"] is None
+
+
+async def test_reason_detail_never_leaks_to_frontend(
+    authenticated_client: AsyncClient,
+):
+    """PRD-001 §F8 D1 security guarantee: admin free-text ``reason_detail``
+    (loaded from ``users.read_only_reason_detail`` column) MUST NEVER appear
+    in any 403 response body to the user.
+
+    Frontend only renders ``reason_category`` enum, never the detail prose
+    (which could contain admin notes about grayscale strategy / credential
+    leak source / report origin etc.).
+
+    Sentinel: persist a distinctive marker into ``reason_detail`` and assert
+    it never appears in the 403 body (any field, any nesting).
+    """
+    from tests.conftest import test_session_factory as _factory
+
+    user = authenticated_client._test_user  # type: ignore[attr-defined]
+    marker = "SECRET_ADMIN_NOTE_42_DO_NOT_LEAK"
+    # Persist both category + detail.
+    async with _factory() as session:
+        u = await session.get(User, user.id)
+        assert u is not None
+        u.is_read_only = True
+        u.read_only_reason_category = "COMPLIANCE_REPORT"
+        u.read_only_reason_detail = marker
+        await session.commit()
+
+    resp = await authenticated_client.post("/api/v1/notifications/read-all")
+    assert resp.status_code == 403, resp.text
+    # Marker MUST NOT appear anywhere in body.
+    assert marker not in resp.text, (
+        f"SECURITY REGRESSION: reason_detail leaked into 403 body: {resp.text!r}"
+    )
+    # Sanity: category still present (positive control).
+    detail = resp.json()["detail"]
+    assert detail.get("reason_category") == "COMPLIANCE_REPORT"

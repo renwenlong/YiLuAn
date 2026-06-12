@@ -1,38 +1,42 @@
-"""S2-DEV-016 users add is_read_only + read_only_reason_category + read_only_set_at + read_only_set_by.
+"""S2-DEV-016 users add is_read_only + read_only_reason_{category,detail} + read_only_set_{at,by}.
 
-S2-DEV-016-READ-ONLY-FLAG-DB (ADR-0053 §5.1).
+S2-DEV-016-READ-ONLY-FLAG-DB (ADR-0053 §5.1 r3 amend PR #296).
 
-Schema (ratified 魈 08:08Z PR #295 `2566a02` after ADR §5 evidence typo fix):
+Schema (ratified 魈 08:14Z double-track ratify, ADR amend MERGED 08:18Z):
 
     ALTER TABLE users
         ADD COLUMN is_read_only BOOLEAN NOT NULL DEFAULT FALSE,
         ADD COLUMN read_only_reason_category VARCHAR(32) NULL,
+        ADD COLUMN read_only_reason_detail TEXT NULL,
         ADD COLUMN read_only_set_at TIMESTAMPTZ NULL,
         ADD COLUMN read_only_set_by INT NULL REFERENCES admin_users(id) ON DELETE SET NULL;
 
     CREATE INDEX ix_users_is_read_only ON users (is_read_only)
         WHERE is_read_only = TRUE;  -- partial index per ADR-0053 §5.1
 
-Reason column design (single-column, ratify via AdminAuditLog re-use):
+Reason columns dual-column design (PRD-001 §F8 D1 ratify):
 
-    - ``read_only_reason_category`` (VARCHAR(32)) — UX enum returned to frontend
+    - ``read_only_reason_category`` (VARCHAR(32)) — UX enum **returned to frontend**
       per PRD-001 §F8 D2 (GRAY_REVOKE / GRAY_ANOMALY / CREDENTIAL_LEAK /
       COMPLIANCE_REPORT). NULL when ``is_read_only = FALSE``.
-    - Free-text admin ``reason_detail`` (not user-facing) stored in
-      ``admin_audit_logs.reason`` (existing TEXT NULL column) per S2-OPS-A-
-      READ-ONLY-FLAG-ADMIN-API AC#4 — *not* a new column on ``users``.
+    - ``read_only_reason_detail`` (TEXT) — admin free-text reason **NEVER returned
+      to frontend** per PRD-001 §F8 D1 (禁返 detail 原文 避免泄露灰度/凭据/安全/
+      举报方等敷感信息). For internal audit + cust-svc query only.
+    - AdminAuditLog 复用 (admin_audit_logs.reason TEXT NULL, PR #238): event-level
+      audit history complements per-row latest snapshot in ``users``.
 
 FK target = ``admin_users.id`` (BigInt PG / Int SQLite), not ``users.id``:
 
     - business semantics = admin operation (admin set the flag, not the user)
     - AC#1 字面 typo (REFERENCES users(id) + INT) — UUID/INT type mismatch
-      against ``users.id``. ratify 魈 08:08Z → ``admin_users(id)`` (INT match).
+      against ``users.id``. ratify 魈 08:08Z + §8:14Z r3 → ``admin_users(id)`` (INT match).
     - ADR-0053 §5 字面 (UUID + admins) was also wrong — fixed by ADR amend
-      PR #295.
+      PR #295/#296.
 
 ON DELETE SET NULL: when an admin row is deleted (rare), preserve the read-only
 history fields (``read_only_set_at``, ``read_only_reason_category``,
-``is_read_only``) for audit/forensics; only the FK link is cleared.
+``read_only_reason_detail``, ``is_read_only``) for audit/forensics; only the
+FK link is cleared.
 
 Partial index ``ix_users_is_read_only WHERE is_read_only = TRUE``: read-only
 users are the small minority (<<1% expected); partial index keeps the planner
@@ -82,6 +86,19 @@ def upgrade() -> None:
                 "UX category mapped by frontend per PRD-001 §F8 D2"
                 " (GRAY_REVOKE / GRAY_ANOMALY / CREDENTIAL_LEAK / COMPLIANCE_REPORT)."
                 " NULL when is_read_only=FALSE."
+            ),
+        ),
+    )
+    op.add_column(
+        "users",
+        sa.Column(
+            "read_only_reason_detail",
+            sa.Text(),
+            nullable=True,
+            comment=(
+                "Admin free-text reason detail; NEVER returned to frontend per"
+                " PRD-001 §F8 D1 (禁返). For internal admin audit / cust-svc query"
+                " only. ratify 魈 08:14Z (r3 ADR-0053 §5.1 amend PR #296)."
             ),
         ),
     )
@@ -139,5 +156,6 @@ def downgrade() -> None:
     )
     op.drop_column("users", "read_only_set_by")
     op.drop_column("users", "read_only_set_at")
+    op.drop_column("users", "read_only_reason_detail")
     op.drop_column("users", "read_only_reason_category")
     op.drop_column("users", "is_read_only")

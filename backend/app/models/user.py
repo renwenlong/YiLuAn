@@ -11,6 +11,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Text,
     Uuid,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -93,6 +94,21 @@ class User(Base):
             "UX category mapped by frontend per PRD-001 §F8 D2"
             " (GRAY_REVOKE / GRAY_ANOMALY / CREDENTIAL_LEAK / COMPLIANCE_REPORT)."
             " NULL when is_read_only=FALSE."
+        ),
+    )
+    # Admin free-text reason; **NEVER returned to frontend** per PRD-001 §F8 D1
+    # (禁返 detail 原文 避免泄露灰度/凭据/安全/举报方等敷感信息). For internal
+    # admin audit / cust-svc query only. Pydantic response schemas MUST exclude
+    # this field; only the per-event audit log row in ``admin_audit_logs.reason``
+    # is the long-form source of truth (PR #238).
+    # ratify 魈 08:14Z r3 + ADR-0053 §5.1 amend PR #296.
+    read_only_reason_detail: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True,
+        comment=(
+            "Admin free-text reason detail; NEVER returned to frontend per"
+            " PRD-001 §F8 D1 (禁返). For internal admin audit / cust-svc query"
+            " only. ratify 魈 08:14Z (r3 ADR-0053 §5.1 amend PR #296)."
         ),
     )
     read_only_set_at: Mapped[datetime | None] = mapped_column(
