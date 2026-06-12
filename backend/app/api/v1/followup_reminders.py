@@ -12,7 +12,7 @@ from uuid import UUID
 from fastapi import APIRouter, status
 
 from app.api.v1.openapi_meta import err
-from app.dependencies import CurrentUser, DBSession
+from app.dependencies import CurrentUser, DBSession, WriteableUser
 from app.exceptions import BadRequestException, NotFoundException
 from app.models.followup_reminder import FollowupReminder, FollowupReminderStatus
 from app.models.order import OrderStatus
@@ -40,7 +40,7 @@ _ALLOWED_ORDER_STATUSES = {OrderStatus.completed, OrderStatus.reviewed}
 async def create_followup_reminder(
     order_id: UUID,
     body: CreateFollowupReminderRequest,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     # path 与 body order_id 必须一致（防止前端 bug）
@@ -94,7 +94,7 @@ async def list_my_followup_reminders(
 )
 async def cancel_followup_reminder(
     reminder_id: UUID,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     repo = FollowupReminderRepository(session)

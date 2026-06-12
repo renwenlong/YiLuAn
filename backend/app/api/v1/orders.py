@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from app.api.v1.openapi_meta import err
 from app.core.admin_auth import require_admin_token
 from app.core.rate_limit import limiter
-from app.dependencies import CurrentUser, DBSession
+from app.dependencies import CurrentUser, DBSession, WriteableUser
 from app.schemas.order import (
     CreateOrderRequest,
     OrderListResponse,
@@ -146,7 +146,7 @@ async def accept_order(
 )
 async def start_order(
     order_id: UUID,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     service = OrderService(session)
@@ -162,7 +162,7 @@ async def start_order(
 )
 async def request_start_order(
     order_id: UUID,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     service = OrderService(session)
@@ -178,7 +178,7 @@ async def request_start_order(
 )
 async def confirm_start_order(
     order_id: UUID,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     service = OrderService(session)
@@ -194,7 +194,7 @@ async def confirm_start_order(
 )
 async def complete_order(
     order_id: UUID,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     service = OrderService(session)
@@ -210,7 +210,7 @@ async def complete_order(
 )
 async def reject_order(
     order_id: UUID,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     service = OrderService(session)
