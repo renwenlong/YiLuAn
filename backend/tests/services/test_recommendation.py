@@ -276,3 +276,220 @@ def test_sort_parameterized(input_list, expected_order):
     candidates = [_make(cid, status, rating=rating) for cid, status, rating in input_list]
     result = sort_companions_for_recommendation(candidates)
     assert [c.companion_id for c in result] == expected_order
+
+
+# ============================================================
+# S3-DEV-006-FOLLOWUP-ADMIN-OVERRIDE — admin override sort key tests
+# ============================================================
+# AC#A5 5 case (架构师 魈 02:30Z 拍板方案 C):
+#   (1) admin=true + cert=verified → 进 top3 rank 1
+#   (2) admin=true + cert=uncertified → 0 进 top3 (硬约束生效)
+#   (3) admin=false + cert=verified → 全列表末序 (admin_rank=2)
+#   (4) admin=NULL + cert=verified → 默认 rank (admin_rank=1, 跟普通 verified 序)
+#   (5) mixed 场景: 3 verified (2 admin=true 1 NULL) + 2 pending
+#       → top3 = 2 admin=true verified + 1 NULL verified
+# 引用: spec v1 final §1.4 line 125-156, PR #286 `5bdadd4`.
+
+
+def _make_with_admin(
+    cid: str,
+    status: CompanionCertStatus = CompanionCertStatus.verified,
+    admin: bool | None = None,
+    rating: float = 5.0,
+    completed: int = 100,
+    created_at: datetime | None = None,
+) -> RankingCandidate:
+    """Test factory with admin_recommended_override 显示参数。"""
+    return RankingCandidate(
+        companion_id=cid,
+        companion_cert_status=status,
+        rating=rating,
+        completed_orders=completed,
+        created_at=created_at or datetime(2026, 1, 1, tzinfo=timezone.utc),
+        admin_recommended_override=admin,
+    )
+
+
+class TestAdminOverrideRank:
+    """ADMIN_OVERRIDE_RANK 字面常量 (smaller = higher priority).
+
+    架构决策 2026-06-12 02:30Z 魈拍方案 C: True < None < False.
+    """
+
+    def test_true_rank_is_zero(self):
+        from app.services.recommendation import ADMIN_OVERRIDE_RANK
+
+        assert ADMIN_OVERRIDE_RANK[True] == 0
+
+    def test_none_rank_is_one(self):
+        from app.services.recommendation import ADMIN_OVERRIDE_RANK
+
+        assert ADMIN_OVERRIDE_RANK[None] == 1
+
+    def test_false_rank_is_two(self):
+        from app.services.recommendation import ADMIN_OVERRIDE_RANK
+
+        assert ADMIN_OVERRIDE_RANK[False] == 2
+
+    def test_rank_order_strict_priority(self):
+        from app.services.recommendation import ADMIN_OVERRIDE_RANK
+
+        assert ADMIN_OVERRIDE_RANK[True] < ADMIN_OVERRIDE_RANK[None] < ADMIN_OVERRIDE_RANK[False]
+
+
+class TestAdminOverrideSort5Case:
+    """AC#A5: admin override 5 case 字面 (spec v1 final §1.4 + 魈 02:30Z 方案 C)."""
+
+    def test_case_1_admin_true_verified_enters_top3_rank_1(self):
+        """Case 1: admin=true + cert=verified → 进 top3 rank 1.
+
+        admin_override=True + 普通 verified rating 平局时, admin=True (admin_rank=0)
+        排在普通 verified (admin_rank=1) 之前.
+        """
+        admin_true = _make_with_admin(
+            "admin_true_verified", CompanionCertStatus.verified, admin=True, rating=4.0
+        )
+        default = _make_with_admin(
+            "default_verified", CompanionCertStatus.verified, admin=None, rating=5.0
+        )
+        sorted_list = sort_companions_for_recommendation([default, admin_true])
+        assert sorted_list[0].companion_id == "admin_true_verified"
+        assert sorted_list[1].companion_id == "default_verified"
+        top3 = filter_top3_recommendations(sorted_list)
+        assert top3[0].companion_id == "admin_true_verified"
+
+    def test_case_2_admin_true_uncertified_filtered_from_top3(self):
+        """Case 2: admin=true + cert=uncertified → 0 进 top3 (硬约束生效).
+
+        即使 admin_override=True, cert_status=uncertified 仍被 filter.
+        守门规则不可绕过 (spec §1.4 字面).
+        """
+        admin_uncert = _make_with_admin(
+            "admin_true_uncertified",
+            CompanionCertStatus.uncertified,
+            admin=True,
+            rating=5.0,
+            completed=999,
+        )
+        verified = _make_with_admin(
+            "verified", CompanionCertStatus.verified, admin=None, rating=3.0
+        )
+        sorted_list = sort_companions_for_recommendation([admin_uncert, verified])
+        assert sorted_list[0].companion_id == "verified"
+        assert sorted_list[1].companion_id == "admin_true_uncertified"
+        top3 = filter_top3_recommendations(sorted_list)
+        assert [c.companion_id for c in top3] == ["verified"]
+        assert "admin_true_uncertified" not in [c.companion_id for c in top3]
+
+    def test_case_3_admin_false_verified_falls_to_end_of_full_list(self):
+        """Case 3: admin=false + cert=verified → 全列表末序 (admin_rank=2).
+
+        admin=False 显示压低, 在同 cert_status 内排到末尾.
+        但仍是 verified, filter 后仍进 top3 (uncertified 才被守门).
+        """
+        admin_false = _make_with_admin(
+            "admin_false_verified", CompanionCertStatus.verified, admin=False, rating=5.0
+        )
+        default = _make_with_admin(
+            "default_verified", CompanionCertStatus.verified, admin=None, rating=3.0
+        )
+        sorted_list = sort_companions_for_recommendation([admin_false, default])
+        assert sorted_list[0].companion_id == "default_verified"
+        assert sorted_list[1].companion_id == "admin_false_verified"
+        top3 = filter_top3_recommendations(sorted_list)
+        assert [c.companion_id for c in top3] == ["default_verified", "admin_false_verified"]
+
+    def test_case_4_admin_none_verified_default_rank(self):
+        """Case 4: admin=NULL + cert=verified → 默认 rank (admin_rank=1, 跟普通 verified 序).
+
+        admin=None 即未 override, sort 序按默认 cert/rating/orders/created_at.
+        多个 admin=None verified 之间按 rating DESC.
+        """
+        candidates = [
+            _make_with_admin("default_low", CompanionCertStatus.verified, admin=None, rating=3.0),
+            _make_with_admin("default_high", CompanionCertStatus.verified, admin=None, rating=5.0),
+            _make_with_admin("default_mid", CompanionCertStatus.verified, admin=None, rating=4.0),
+        ]
+        sorted_list = sort_companions_for_recommendation(candidates)
+        assert [c.companion_id for c in sorted_list] == [
+            "default_high",
+            "default_mid",
+            "default_low",
+        ]
+
+    def test_case_5_mixed_realistic_scenario(self):
+        """Case 5: 3 verified (2 admin=true, 1 NULL) + 2 pending.
+
+        期望: top3 = 2 admin=true verified + 1 NULL verified.
+
+        混合场景 — admin override 影响排序但不绕过 cert_status 守门.
+        2 admin=true verified rank 0-1, 1 default verified rank 2, pending rank 3-4.
+        """
+        candidates = [
+            _make_with_admin(
+                "v_admin_true_high", CompanionCertStatus.verified, admin=True, rating=4.5
+            ),
+            _make_with_admin(
+                "v_admin_true_low", CompanionCertStatus.verified, admin=True, rating=4.0
+            ),
+            _make_with_admin("v_default", CompanionCertStatus.verified, admin=None, rating=5.0),
+            _make_with_admin(
+                "p_high", CompanionCertStatus.pending_supplement, admin=None, rating=4.9
+            ),
+            _make_with_admin(
+                "p_low", CompanionCertStatus.pending_supplement, admin=None, rating=4.7
+            ),
+        ]
+        sorted_list = sort_companions_for_recommendation(candidates)
+        expected_order = [
+            "v_admin_true_high",
+            "v_admin_true_low",
+            "v_default",
+            "p_high",
+            "p_low",
+        ]
+        assert [c.companion_id for c in sorted_list] == expected_order
+        top3 = filter_top3_recommendations(sorted_list)
+        assert [c.companion_id for c in top3] == [
+            "v_admin_true_high",
+            "v_admin_true_low",
+            "v_default",
+        ]
+
+
+class TestAdminOverrideEdgeCases:
+    """Edge cases — admin override + cert_status 组合矩阵 + 守门 verify."""
+
+    def test_admin_true_pending_supplement_promoted_in_pending_tier(self):
+        """admin=True 在 pending_supplement 内也生效 — admin 影响 rank 在所有 cert tier 适用."""
+        candidates = [
+            _make_with_admin(
+                "p_admin_true", CompanionCertStatus.pending_supplement, admin=True, rating=3.0
+            ),
+            _make_with_admin(
+                "p_default", CompanionCertStatus.pending_supplement, admin=None, rating=5.0
+            ),
+        ]
+        sorted_list = sort_companions_for_recommendation(candidates)
+        assert sorted_list[0].companion_id == "p_admin_true"
+
+    def test_admin_false_uncertified_double_excluded(self):
+        """admin=False + uncertified — 双重排末尾, 仍被守门, 不进 top3."""
+        admin_false_uncert = _make_with_admin(
+            "admin_false_uncert", CompanionCertStatus.uncertified, admin=False, rating=5.0
+        )
+        verified = _make_with_admin("verified", CompanionCertStatus.verified, admin=None)
+        sorted_list = sort_companions_for_recommendation([admin_false_uncert, verified])
+        assert sorted_list[-1].companion_id == "admin_false_uncert"
+        top3 = filter_top3_recommendations(sorted_list)
+        assert [c.companion_id for c in top3] == ["verified"]
+
+    def test_all_admin_true_verified_break_tie_by_rating(self):
+        """全部 admin=True + verified 同 admin_rank, 后续 sort key (rating) 起作用."""
+        candidates = [
+            _make_with_admin("low", CompanionCertStatus.verified, admin=True, rating=3.0),
+            _make_with_admin("high", CompanionCertStatus.verified, admin=True, rating=5.0),
+            _make_with_admin("mid", CompanionCertStatus.verified, admin=True, rating=4.0),
+        ]
+        sorted_list = sort_companions_for_recommendation(candidates)
+        assert [c.companion_id for c in sorted_list] == ["high", "mid", "low"]

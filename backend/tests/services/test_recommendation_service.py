@@ -72,9 +72,9 @@ class TestMapVerificationToCertStatus:
         assert any(
             "[CERT_STATUS_DRIFT]" in rec.message for rec in caplog.records
         ), "logger.warning missing [CERT_STATUS_DRIFT] tag"
-        assert any("abc-123" in rec.message for rec in caplog.records), (
-            "companion_id should be in warning message context"
-        )
+        assert any(
+            "abc-123" in rec.message for rec in caplog.records
+        ), "companion_id should be in warning message context"
 
     def test_valid_values_emit_no_warning(self, caplog):
         """正常 3 state 不应 emit drift warning."""
@@ -115,6 +115,9 @@ class TestCompanionToRankingCandidate:
             "total_orders": 126,
             "verification_status": VerificationStatus.verified,
             "created_at": datetime(2026, 1, 1, tzinfo=timezone.utc),
+            # S3-DEV-006-FOLLOWUP-ADMIN-OVERRIDE: admin 手动 override 字段
+            # 默认 None = 未 override, 走 service 默认计算 cert_status != uncertified
+            "admin_recommended_override": None,
         }
         defaults.update(overrides)
         return SimpleNamespace(**defaults)
@@ -146,6 +149,24 @@ class TestCompanionToRankingCandidate:
         fields = set(candidate.__dataclass_fields__.keys())
         for pii in ("real_name", "id_number", "certification_no", "certification_image_url"):
             assert pii not in fields, f"PII field {pii!r} leaked into RankingCandidate"
+
+    def test_admin_override_projection_none(self):
+        """S3-DEV-006-FOLLOWUP: profile.admin_recommended_override=None 默认传递."""
+        profile = self._make_profile(admin_recommended_override=None)
+        candidate = companion_to_ranking_candidate(profile)
+        assert candidate.admin_recommended_override is None
+
+    def test_admin_override_projection_true(self):
+        """S3-DEV-006-FOLLOWUP: profile.admin_recommended_override=True 透传."""
+        profile = self._make_profile(admin_recommended_override=True)
+        candidate = companion_to_ranking_candidate(profile)
+        assert candidate.admin_recommended_override is True
+
+    def test_admin_override_projection_false(self):
+        """S3-DEV-006-FOLLOWUP: profile.admin_recommended_override=False 透传."""
+        profile = self._make_profile(admin_recommended_override=False)
+        candidate = companion_to_ranking_candidate(profile)
+        assert candidate.admin_recommended_override is False
 
 
 # ============================================================
@@ -253,16 +274,14 @@ class TestRecommendationABACSentinel:
     def test_recommendation_item_no_pii_intersection(self):
         item_fields = set(RecommendationItem.model_fields.keys())
         intersection = item_fields & RECOMMENDATION_RESPONSE_NEGATIVE_LIST
-        assert intersection == set(), (
-            f"RecommendationItem leaks {intersection}; remove from positive list"
-        )
+        assert (
+            intersection == set()
+        ), f"RecommendationItem leaks {intersection}; remove from positive list"
 
     def test_recommendation_response_no_pii_intersection(self):
         resp_fields = set(RecommendationResponse.model_fields.keys())
         intersection = resp_fields & RECOMMENDATION_RESPONSE_NEGATIVE_LIST
-        assert intersection == set(), (
-            f"RecommendationResponse leaks {intersection}; remove"
-        )
+        assert intersection == set(), f"RecommendationResponse leaks {intersection}; remove"
 
     def test_negative_list_immutable_frozenset(self):
         with pytest.raises((AttributeError, TypeError)):
@@ -275,6 +294,6 @@ class TestRecommendationABACSentinel:
             "companion_cert_url",
             "companion_real_name",
         ):
-            assert pii in RECOMMENDATION_RESPONSE_NEGATIVE_LIST, (
-                f"core PII {pii!r} missing from negative list — ABAC layer 4 weakened"
-            )
+            assert (
+                pii in RECOMMENDATION_RESPONSE_NEGATIVE_LIST
+            ), f"core PII {pii!r} missing from negative list — ABAC layer 4 weakened"
