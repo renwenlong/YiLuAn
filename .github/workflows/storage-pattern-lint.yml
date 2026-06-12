@@ -1,0 +1,48 @@
+name: Storage Pattern Lint
+
+# S2-OPS-016-PATTERN-LINT — ADR-0046 r4 AC-1 反例哨兵.
+#
+# 双检 (single script):
+#   Lint A: StorageBackend ABC 子类化白名单 (LocalStorageBackend +
+#           AzureBlobStorageBackend only)
+#   Lint B: LocalStorageBackend 5 fs-access method 必调 _safe_key in prelude
+#           (put / put_if_absent / open / verify_sig / resolve_path)
+#
+# 触发: 仅当影响 storage 相关代码 + lint script 自身 + 本 workflow.
+# 全 backend 改动跑成本太高且无信息 (Python AST lint, ~1s; OK on push)。
+# CI: GitHub Actions required check. Fail PR 即阻 merge。
+
+on:
+  pull_request:
+    paths:
+      - "backend/app/services/**"
+      - "backend/scripts/qa/check_storage_patterns.py"
+      - "backend/tests/qa/test_check_storage_patterns.py"
+      - ".github/workflows/storage-pattern-lint.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/app/services/**"
+      - "backend/scripts/qa/check_storage_patterns.py"
+      - "backend/tests/qa/test_check_storage_patterns.py"
+      - ".github/workflows/storage-pattern-lint.yml"
+
+jobs:
+  storage-pattern-lint:
+    name: Storage Pattern Lint (ADR-0046 r4 AC-1)
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run lint on backend/app/services/
+        working-directory: backend
+        run: |
+          echo "::group::Storage pattern lint"
+          python3 scripts/qa/check_storage_patterns.py app/services/
+          echo "::endgroup::"
