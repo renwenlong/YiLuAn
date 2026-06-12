@@ -195,9 +195,12 @@
 | `PATCH` | `/api/v1/admin/service-packages/{pkg_id}` | 后台：更新服务档位 |
 | `GET` | `/api/v1/admin/telemetry/events` | 埋点事件列表（admin） |
 | `GET` | `/api/v1/admin/users` | 后台：用户列表 |
+| `POST` | `/api/v1/admin/users/batch-read-only` | 后台：批量设置/解除只读 (≤100) |
 | `GET` | `/api/v1/admin/users/{user_id}` | 后台：用户详情 |
 | `POST` | `/api/v1/admin/users/{user_id}/disable` | 后台：停用用户 |
 | `POST` | `/api/v1/admin/users/{user_id}/enable` | 后台：启用用户 |
+| `DELETE` | `/api/v1/admin/users/{user_id}/read-only` | 后台：解除用户只读 (unset read-only) |
+| `POST` | `/api/v1/admin/users/{user_id}/read-only` | 后台：将用户置为只读 (read-only) |
 | `POST` | `/api/v1/admin/wallet-ledger/adjustments` | Create Manual Adjustment |
 | `GET` | `/api/v1/admin/wallet-ledger/{user_id}` | List User Ledger |
 
@@ -344,9 +347,12 @@ K8s / ACA 探针使用：
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `GET` | `/api/v1/admin/users` | 后台：用户列表 |
+| `POST` | `/api/v1/admin/users/batch-read-only` | 后台：批量设置/解除只读 (≤100) |
 | `GET` | `/api/v1/admin/users/{user_id}` | 后台：用户详情 |
 | `POST` | `/api/v1/admin/users/{user_id}/disable` | 后台：停用用户 |
 | `POST` | `/api/v1/admin/users/{user_id}/enable` | 后台：启用用户 |
+| `DELETE` | `/api/v1/admin/users/{user_id}/read-only` | 后台：解除用户只读 (unset read-only) |
+| `POST` | `/api/v1/admin/users/{user_id}/read-only` | 后台：将用户置为只读 (read-only) |
 
 ### [admin-wallet-ledger](./admin-wallet-ledger.md)
 
