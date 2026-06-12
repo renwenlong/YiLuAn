@@ -47,6 +47,7 @@ __all__ = [
     "CompanionCertStatus",
     "RankingCandidate",
     "CERT_RANK",
+    "ADMIN_OVERRIDE_RANK",
     "sort_companions_for_recommendation",
     "filter_top3_recommendations",
     "map_verification_to_cert_status",
@@ -63,6 +64,20 @@ CERT_RANK: dict[CompanionCertStatus, int] = {
 }
 
 
+# S3-DEV-006-FOLLOWUP-ADMIN-OVERRIDE 架构决策 2026-06-12 02:30Z 魈拍方案 C:
+# admin override 作为第 2 sort key (CERT_RANK 之后、-rating 之前).
+# True (admin 显示推) < None (默认) < False (admin 显示压)
+#
+# 设计哲学: admin override 影响 rank 但不破坏 cert/rating 序。admin 在
+# verified 同 cert_status 内 推/压某个 companion, 但不能将 uncertified
+# 括进 top3 (filter_top3_recommendations 硬约束).
+ADMIN_OVERRIDE_RANK: dict[bool | None, int] = {
+    True: 0,  # admin 显示推荐 (上推)
+    None: 1,  # 未 override, 默认计算 (cert_status != uncertified 则默认 recommended)
+    False: 2,  # admin 显示压低
+}
+
+
 @dataclass(frozen=True)
 class RankingCandidate:
     """Minimal companion projection for ranking (no PII, no full model).
@@ -73,6 +88,11 @@ class RankingCandidate:
     Field names follow spec v1 final §1.2 (``rating`` / ``completed_orders``
     / ``companion_cert_status``), independent of underlying model field
     names (``avg_rating`` / ``total_orders`` / ``verification_status``).
+
+    S3-DEV-006-FOLLOWUP 加 ``admin_recommended_override``:
+      - NULL (默认) = 未 override, 走 cert_status != uncertified 默认
+      - True = admin 显示推 (sort rank 0)
+      - False = admin 显示压 (sort rank 2)
     """
 
     companion_id: str
@@ -80,28 +100,38 @@ class RankingCandidate:
     rating: float
     completed_orders: int
     created_at: datetime
+    admin_recommended_override: bool | None = None
 
 
 def sort_companions_for_recommendation(
     candidates: Sequence[RankingCandidate],
 ) -> list[RankingCandidate]:
-    """Sort candidates by spec §1.3 ordering rule.
+    """Sort candidates by spec §1.3 + §1.4 ordering rule (5 层 sort key).
 
     Sort key (lower = higher priority):
       1. cert_status rank (verified < pending_supplement < uncertified)
-      2. -rating  (higher rating first)
-      3. -completed_orders  (more completed first)
-      4. created_at  (earlier registered first)
+      2. admin_override rank (True < None < False)  — S3-DEV-006-FOLLOWUP
+      3. -rating  (higher rating first)
+      4. -completed_orders  (more completed first)
+      5. created_at  (earlier registered first)
 
     uncertified candidates are sorted but NOT filtered here; use
     ``filter_top3_recommendations`` for top3 enforcement.
 
-    PM-005-9 排序规则: 已认证 > 临时证明补交中 > 未认证.
+    PM-005-9 排序规则:
+      - 已认证 > 临时证明补交中 > 未认证 (第 1 层)
+      - 同 cert_status 内, admin 显示推 > 默认 > admin 显示压 (第 2 层)
+      - 同 admin override 内, rating > orders > created_at (3-5 层)
+
+    架构决策 2026-06-12 02:30Z 魈拍方案 C: admin override 影响 rank 但不
+    破坏 cert/rating 序, admin 不能跨 cert_status 守门 (硬约束留在
+    ``filter_top3_recommendations``).
     """
     return sorted(
         candidates,
         key=lambda c: (
             CERT_RANK[c.companion_cert_status],
+            ADMIN_OVERRIDE_RANK[c.admin_recommended_override],
             -c.rating,
             -c.completed_orders,
             c.created_at,
@@ -215,4 +245,5 @@ def companion_to_ranking_candidate(profile: "CompanionProfile") -> RankingCandid
         rating=profile.avg_rating,
         completed_orders=profile.total_orders,
         created_at=profile.created_at,
+        admin_recommended_override=profile.admin_recommended_override,
     )
