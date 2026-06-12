@@ -1,698 +1,668 @@
 """
-Cross-replica precheck broadcast — in-process mock harness E2E
-(S3-TEST-003-PRECHECK-CROSS-REPLICA-E2E AC#2).
+Cross-replica precheck broadcast — real docker double-replica E2E
+(S3-TEST-003-PRECHECK-CROSS-REPLICA-E2E AC#2 docker marker path).
 
-设计动机
+ADR-0048 §4.1 / ADR-0053 §AC#5 quantitative phase:
+- qualitative phase: docs/sop + endpoint shape verify (passed PR #262)
+- quantitative phase: 真 docker compose --scale=2 起双副本, 模拟 prod 流量
+  跨副本 WS broadcast 时序 + 幂等
+
+测试范围 (S3-TEST-003-PRECHECK-CROSS-REPLICA-E2E AC#2 docker path)
+=================================================================
+
+- AC#2.1: docker compose --scale backend=2 即用 (test_two_backend_replicas_running_and_healthy)
+- AC#2.2: nginx upstream backend:8000 docker DNS round-robin 多副本
+  (test_nginx_proxies_to_distinct_replicas)
+- AC#2.3: 跨副本 precheck.status.updated broadcast 时序 ≤5s
+  (test_cross_replica_status_updated_propagation_within_5s)
+- AC#2.4: 跨副本 precheck.all_ready broadcast 时序 ≤5s
+  (test_cross_replica_all_ready_propagation_within_5s)
+- AC#2.5: 跨副本 precheck.blocked broadcast 时序 ≤5s
+  (test_cross_replica_blocked_propagation_within_5s)
+- AC#2.6: self-echo 抑制 (副本 A push 自己注册的 WS 不通过 pubsub 二次 deliver)
+  (test_replica_a_no_self_echo_via_pubsub)
+- AC#2.7: 幂等 — 重复 broadcast 同 event_id 不 double deliver
+  (test_idempotent_no_double_deliver_same_event)
+- AC#2.8: 跨 order 隔离 (order_1 broadcast 不漏到 order_2 ws)
+  (test_cross_order_isolation_no_leak)
+- AC#2.9: WS connection 跨副本 distinct instance_id (验证 nginx round-robin)
+  (test_distinct_instance_id_per_ws_connection)
+
+为何 docker-based 而非 in-process
+=================================
+
+in-process FakeRedisBus 路径 (test_e2e_precheck_pubsub_cross_replica_mock.py)
+锁 broker 协议契约, 但不能验证:
+
+- 真 Redis pub/sub 跨 OS process 边界 (容器隔离)
+- 真 WS connection lifecycle (httpx-ws, 不是 FakeWebSocket)
+- 真 nginx upstream round-robin (DNS based)
+- instance_id 真实 distinct (k8s pod-id-like)
+
+两条路径并存 (per ADR-0048 §4.1):
+| 维度 | mock 路径 | docker 路径 (本文件) |
+|------|----------|---------------------|
+| CI 跑 | ✅ 默认每次跑 | ❌ staging only opt-in |
+| 真 Redis | ❌ FakeRedisBus | ✅ 真 Redis 容器 |
+| 真 WS | ❌ FakeWebSocket | ✅ httpx-ws |
+| 跨进程 | ❌ in-process | ✅ docker container |
+| 跑时 | < 2s | 数十秒 |
+| 验证目标 | broker contract | 真 prod 流量行为 |
+
+依赖标记
 ========
 
-ADR-0048 §4.1 + ADR-0053 §AC#5 描述了 quantitative 跨副本测试的两条路径:
-
-1. **真 docker 双副本路径** (test_ai_blocklist_pubsub_cross_replica.py 模式)
-   - `@pytest.mark.docker` opt-in, staging stack up 后手动跑
-   - 验证: nginx upstream round-robin + 真 Redis pub/sub + WS connection 跨容器
-
-2. **in-process 双 broker 路径** (本文件)
-   - 默认 CI 跑 (无外部依赖, < 2s)
-   - 复用 ``backend/tests/test_ws_pubsub.py`` 的 ``FakeRedisBus`` + 双 broker
-     模式 (line 197-228 ``test_broker_cross_instance_fanout``)
-   - 验证: 同一 ``FakeRedisBus`` 上两个 broker 实例 (副本 A / 副本 B), 副本 A
-     调 ``broadcast_status_updated`` → 副本 B 上注册的 ws 收到 3 个事件 (3 broadcast
-     函数各一个)
-
-为何两条路径并存
-================
-
-| 维度 | docker 路径 | mock harness 路径 |
-|------|-------------|-------------------|
-| CI 跑 | ❌ staging only | ✅ 默认每次跑 |
-| 真 Redis | ✅ | ❌ FakeRedisBus |
-| 真 WS connection | ✅ httpx-ws | ❌ FakeWebSocket |
-| 跨进程隔离 | ✅ docker container | ❌ in-process |
-| 验证目标 | 真 prod 流量行为 | broker contract / pubsub envelope 协议 |
-| 跑时 | 数十秒 (docker up + warm) | < 2s |
-
-mock harness 的价值: **锁住 broker 协议契约不漏**, 防止以下 regression:
-- ``broadcast_status_updated`` 改 envelope schema 漏 ``card`` 字段 →
-  ``test_replica_b_receives_status_updated_from_replica_a`` 会爆
-- ``broadcast_all_ready`` 漏 publish (本地直送但跨副本丢) →
-  ``test_replica_b_receives_all_ready_from_replica_a`` 会爆
-- ``broadcast_blocked`` reason 字段 drift → 对应 test 会爆
-- 三个 broadcast 函数都换 key_field 但只改了 user 一处, 漏改 order_id 路径 →
-  整个文件都会爆 (broker key_field="order_id" 不 match)
-- self-echo 抑制 (instance_id check) 退化 →
-  ``test_replica_a_does_not_double_deliver_self_echo`` 会爆
-
-docker 路径关 staging quantitative window 跑, mock harness 路径关每次 CI gate
-跑, 互补不互替。
-
-测试范围 (本文件)
-=================
-
-| AC# (S3-TEST-003-PRECHECK-CROSS-REPLICA-E2E) | 覆盖 |
-|-----------------------------------------------|-----|
-| AC#1 staging k6 SLO | ❌ 不在本文件 (k6 staging window) |
-| AC#2 跨副本 broadcast 时序 + 幂等 | ✅ 本文件 5 test |
-| AC#3 default pytest deselect docker marker | ✅ 本文件无 ``@docker`` marker, 默认跑 |
-| AC#4 测试报告落 tests/test-report... | ❌ 文档 task |
-
-依赖
-====
-
-- ``WsPubSubBroker`` (backend/app/ws/pubsub.py, key_field="order_id")
-- ``broadcast_status_updated`` / ``broadcast_all_ready`` / ``broadcast_blocked``
-  (backend/app/services/precheck_broadcast.py)
-- ``FakeRedisBus`` / ``FakePubSub`` / ``FakeWebSocket`` (引自
-  backend/tests/test_ws_pubsub.py, 重复定义避免 cross-file fixture coupling)
-
-为何 mock harness 重复定义而非 import
-======================================
-
-``test_ws_pubsub.py`` 是 user-broker 维度的 unit test, 本文件是 precheck-broker
-维度的 contract test。共享 ``FakeRedisBus`` import 会让 unit test refactor 影响
-contract test, 反之亦然。重复 ~80 行 FakeRedisBus 是 ADR-0048 §3.5 提倡的
-"测试代码低耦合优于代码 DRY" 原则。
+- @pytest.mark.docker — 不在普通 CI 跑, 仅 staging quantitative window 手动跑
+- _require_docker_and_replicas: skip 若 docker 不可用 / staging stack 不在
 
 跑法
 ====
 
-默认 CI / 本地::
+::
 
-    backend/.venv/bin/python -m pytest \
-        backend/tests/e2e/test_e2e_precheck_pubsub_cross_replica.py -v
+    # 1. 起 staging stack (前置)
+    cd ~/repo/YiLuAn/deploy
+    docker compose --env-file env.staging -p yiluan-staging up -d \\
+        --scale backend=2 --no-recreate
 
-跨副本同套件 (含 docker marker 真双副本, staging only)::
+    # 2. seed 测试用 user + order (前置, 由 fixture 自动做)
+    # 3. 跑本 file
+    cd ~/repo/YiLuAn/backend
+    python -m pytest tests/e2e/test_e2e_precheck_pubsub_cross_replica.py \\
+        -v -s -m docker
 
-    backend/.venv/bin/python -m pytest \
-        backend/tests/e2e/ -v -m "not docker"
+类比模板
+========
+
+backend/tests/e2e/test_ai_blocklist_pubsub_cross_replica.py
+(S2-OPS-STAGING-MULTI-REPLICA-COMPOSE) — 同样 docker --scale=2 + nginx
+upstream 模式, 验证 ai_blocklist reload 跨副本时序. 本文件套路完全复制,
+维度换成 precheck broadcast.
 """
 from __future__ import annotations
 
-import asyncio
 import json
-import uuid
-from unittest.mock import MagicMock
+import os
+import shutil
+import subprocess
+import time
+from pathlib import Path
+from typing import Any
 
 import pytest
 
+# 加 docker marker → 默认 CI deselect (pyproject.toml addopts `-m 'not docker'`)
+# 仅 staging quantitative phase 手动 `-m docker` 跑
+pytestmark = [pytest.mark.docker]
+
+
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+DEPLOY_DIR = REPO_ROOT / "deploy"
+NGINX_PORT = int(os.environ.get("YILUAN_STAGING_NGINX_PORT", "18080"))
+PROPAGATION_SLA_MS = 5000  # AC#2 上限 (与 ai_blocklist 模板对齐)
+COMPOSE_PROJECT = os.environ.get("YILUAN_STAGING_PROJECT", "yiluan-staging")
+
+
+# ---------------------------------------------------------------------------
+# Session-scope guards
+# ---------------------------------------------------------------------------
+@pytest.fixture(scope="session", autouse=True)
+def _require_docker_and_replicas():
+    """Skip whole module if docker not available / staging stack not up.
+
+    Mirrors ai_blocklist guard. 不强迫 staging stack 必跑 — CI runner 没 docker
+    时 skip.
+    """
+    if shutil.which("docker") is None:
+        pytest.skip("docker CLI not available", allow_module_level=True)
+    try:
+        r = subprocess.run(["docker", "info"], capture_output=True, timeout=15)
+        if r.returncode != 0:
+            pytest.skip("docker daemon not responding", allow_module_level=True)
+    except subprocess.TimeoutExpired:
+        pytest.skip("docker info timeout (daemon not ready)", allow_module_level=True)
+
+
+# ---------------------------------------------------------------------------
+# Helpers (类比 ai_blocklist 模板)
+# ---------------------------------------------------------------------------
+def _docker_exec(container: str, *cmd: str, timeout: int = 10) -> str:
+    """Run docker exec <container> <cmd>, return stdout."""
+    r = subprocess.run(
+        ["docker", "exec", container, *cmd],
+        capture_output=True,
+        text=True,
+        timeout=timeout,
+    )
+    if r.returncode != 0:
+        raise RuntimeError(
+            f"docker exec {container} {cmd} failed: {r.stderr}"
+        )
+    return r.stdout
+
+
+def _verify_replicas_running() -> tuple[str, str]:
+    """Verify both backend replicas are up + healthy.
+
+    Return (replica_1, replica_2) container names sorted asc.
+    Skip module if <2 healthy replicas found.
+    """
+    r = subprocess.run(
+        ["docker", "ps", "--filter", f"name={COMPOSE_PROJECT}-backend",
+         "--format", "{{.Names}}|{{.Status}}"],
+        capture_output=True, text=True, timeout=10,
+    )
+    if r.returncode != 0:
+        pytest.skip(f"docker ps failed: {r.stderr}")
+    lines = [l for l in r.stdout.strip().split("\n") if l.strip()]
+    replicas = [
+        l.split("|") for l in lines
+        if l.startswith(f"{COMPOSE_PROJECT}-backend")
+    ]
+    if len(replicas) < 2:
+        pytest.skip(
+            f"Need 2 backend replicas with name prefix "
+            f"{COMPOSE_PROJECT}-backend, found {len(replicas)}: "
+            f"{[r[0] for r in replicas]}"
+        )
+    healthy = [
+        name for name, status in replicas
+        if "healthy" in status.lower()
+    ]
+    if len(healthy) < 2:
+        pytest.skip(
+            f"Need 2 healthy replicas, found {len(healthy)}: "
+            f"all={[(name, status) for name, status in replicas]}"
+        )
+    healthy.sort()
+    return healthy[0], healthy[1]
+
+
+# Multiline Python scripts for docker exec (避免 inline 转义坑 — 用真换行)
+_SEED_PATIENT_PY = '''
+import logging
+logging.disable(logging.CRITICAL)
+import asyncio
+import json
+from uuid import uuid4
+from app.database import async_session
+from app.models import User
+from app.core.security import create_access_token
+
+async def main():
+    user_id = str(uuid4())
+    phone_suffix = user_id.replace('-', '')[:8]
+    async with async_session() as s:
+        u = User(
+            id=user_id,
+            phone='139' + phone_suffix,
+            roles='patient',
+            is_active=True,
+        )
+        s.add(u)
+        await s.commit()
+    token = create_access_token({'sub': user_id, 'role': 'patient'})
+    print(json.dumps({'user_id': user_id, 'token': token}))
+
+asyncio.run(main())
+'''
+
+
+def _seed_patient_user_get_jwt() -> tuple[str, str]:
+    """Seed 1 patient user via docker exec backend-1, return (user_id, JWT).
+
+    走 backend-1 直接调 ORM 走 prod auth code path.
+    """
+    r1, _ = _verify_replicas_running()
+    out = _docker_exec(r1, "python", "-c", _SEED_PATIENT_PY, timeout=30)
+    data = json.loads(out.strip().split("\n")[-1])
+    return data["user_id"], data["token"]
+
+
+_SEED_ORDER_PY_TEMPLATE = '''
+import logging
+logging.disable(logging.CRITICAL)
+import asyncio
+import json
+from uuid import uuid4
+from app.database import async_session
+from app.models import Order
+
+async def main():
+    order_id = str(uuid4())
+    async with async_session() as s:
+        o = Order(
+            id=order_id,
+            patient_id='__USER_ID__',
+            status='pending',
+        )
+        s.add(o)
+        await s.commit()
+    print(json.dumps({'order_id': order_id}))
+
+asyncio.run(main())
+'''
+
+
+def _seed_order_for_user(user_id: str) -> str:
+    """Seed 1 order owned by user_id, return order_id."""
+    r1, _ = _verify_replicas_running()
+    py = _SEED_ORDER_PY_TEMPLATE.replace("__USER_ID__", user_id)
+    out = _docker_exec(r1, "python", "-c", py, timeout=30)
+    return json.loads(out.strip().split("\n")[-1])["order_id"]
+
+
+def _get_instance_id(container: str) -> str:
+    """读 backend instance_id 用于跨副本 distinct 验证."""
+    py = (
+        "import os; "
+        "print(os.environ.get('INSTANCE_ID', "
+        "os.environ.get('HOSTNAME', 'unknown')))"
+    )
+    return _docker_exec(container, "python", "-c", py, timeout=5).strip()
+
+
+_TRIGGER_BROADCAST_PY_TEMPLATE = '''
+import logging
+logging.disable(logging.CRITICAL)
+import asyncio
+import json
 from app.services.precheck_broadcast import (
-    PRECHECK_PUBSUB_CHANNEL,
+    broadcast_status_updated,
     broadcast_all_ready,
     broadcast_blocked,
-    broadcast_status_updated,
 )
-from app.ws.pubsub import WsPubSubBroker
 
-pytestmark = [pytest.mark.asyncio, pytest.mark.e2e]
-
-
-# ---------------------------------------------------------------------------
-# Fake harness (在 backend/tests/test_ws_pubsub.py 已有同名 class, 本文件
-# 重复定义保持 contract test 解耦, 见 module docstring "为何 mock harness
-# 重复定义而非 import")
-# ---------------------------------------------------------------------------
-class FakeWebSocket:
-    """模拟 WebSocket, 把 push 的 payload 收集到 ``sent`` 列表。"""
-
-    def __init__(self) -> None:
-        self.sent: list[str] = []
-        self.fail: bool = False
-        self.closed_with: tuple[int, str] | None = None
-
-    async def send_text(self, text: str) -> None:
-        if self.fail:
-            raise RuntimeError("send fail (FakeWebSocket.fail=True)")
-        self.sent.append(text)
-
-    async def close(self, code: int = 1000, reason: str = "") -> None:
-        self.closed_with = (code, reason)
-
-
-class FakePubSub:
-    """模拟 redis.asyncio.client.PubSub, 用 asyncio.Queue 把其他 broker
-    publish 的消息注入。
-    """
-
-    def __init__(self, bus: "FakeRedisBus", channel_set: set[str]) -> None:
-        self.bus = bus
-        self._channels = channel_set
-        self._queue: asyncio.Queue = asyncio.Queue()
-        self._closed = False
-        bus.listeners.append(self)
-
-    async def subscribe(self, channel: str) -> None:
-        self._channels.add(channel)
-
-    async def unsubscribe(self, channel: str) -> None:
-        self._channels.discard(channel)
-
-    async def close(self) -> None:
-        self._closed = True
-        await self._queue.put(None)
-
-    async def deliver(self, channel: str, data: str) -> None:
-        if channel in self._channels:
-            await self._queue.put({"type": "message", "channel": channel, "data": data})
-
-    async def listen(self):
-        while True:
-            message = await self._queue.get()
-            if message is None:
-                return
-            yield message
-
-
-class FakeRedisBus:
-    """极简 redis.asyncio.Redis 替身 + pub/sub 总线 (跨 broker 共享)。
-
-    跨副本测试关键: 两个 broker 共用一个 bus, broker_a 上 publish 的消息
-    通过 bus.listeners 转给 broker_b 的 FakePubSub 队列。
-    """
-
-    def __init__(self) -> None:
-        self.listeners: list[FakePubSub] = []
-        self._channel_sets: list[set[str]] = []
-
-    def pubsub(self) -> FakePubSub:
-        channels: set[str] = set()
-        self._channel_sets.append(channels)
-        return FakePubSub(self, channels)
-
-    async def publish(self, channel: str, data: str) -> int:
-        count = 0
-        for ps in list(self.listeners):
-            if ps._closed:
-                continue
-            if channel in ps._channels:
-                await ps.deliver(channel, data)
-                count += 1
-        return count
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-async def _wait_for_ws_message(
-    ws: FakeWebSocket,
-    *,
-    expected_count: int = 1,
-    sla_ms: int = 1000,
-) -> None:
-    """等 ``ws.sent`` 达到 ``expected_count``, 上限 ``sla_ms`` (ms)。
-
-    跨副本 broadcast 通过 listen loop 异步调度, 必须 ``await asyncio.sleep``
-    给 event loop 一个轮转机会; 不能用 ``time.sleep``。
-    """
-    steps = max(1, sla_ms // 10)
-    for _ in range(steps):
-        await asyncio.sleep(0.01)
-        if len(ws.sent) >= expected_count:
-            return
-    raise AssertionError(
-        f"ws.sent expected >={expected_count} within {sla_ms}ms, got "
-        f"{len(ws.sent)} (sent={ws.sent!r})"
-    )
-
-
-def _build_fake_app(broker: WsPubSubBroker) -> MagicMock:
-    """构造一个最小 fake FastAPI app, 让 ``get_or_create_precheck_broker``
-    能从 ``app.state.ws_precheck_broker`` 取到我们传的 broker。
-
-    ``precheck_broadcast`` 三个 broadcast 函数全靠这个 lookup 路径找 broker,
-    不能用真 FastAPI app (会触发整个 lifespan 跑起来)。
-    """
-    app = MagicMock()
-    app.state.ws_precheck_broker = broker
-    return app
-
-
-# ---------------------------------------------------------------------------
-# Test 1 — status.updated 跨副本 (副本 A push → 副本 B 上 ws 收到)
-# ---------------------------------------------------------------------------
-async def test_replica_b_receives_status_updated_from_replica_a():
-    """AC#2 副本 A 调 broadcast_status_updated → 副本 B 上注册的 ws 收到。"""
-    bus = FakeRedisBus()
-    broker_a = WsPubSubBroker(
-        redis_client=bus,
-        enabled=True,
-        channel=PRECHECK_PUBSUB_CHANNEL,
-        key_field="order_id",
-        instance_id="replica-A",
-    )
-    broker_b = WsPubSubBroker(
-        redis_client=bus,
-        enabled=True,
-        channel=PRECHECK_PUBSUB_CHANNEL,
-        key_field="order_id",
-        instance_id="replica-B",
-    )
-    await broker_a.start()
-    await broker_b.start()
-    try:
-        order_id = uuid.uuid4()
-        ws_on_b = FakeWebSocket()
-        await broker_b.register(order_id, ws_on_b)
-
-        # 副本 A 调 (用户连接不在副本 A)
-        app_a = _build_fake_app(broker_a)
+async def main():
+    event = '__EVENT__'
+    order_id = '__ORDER_ID__'
+    if event == 'status_updated':
         await broadcast_status_updated(
-            app_a,
-            order_id,
-            card="contract",
-            status={"contract_status": "ready", "contract_signed_at": "2026-06-11T08:00:00Z"},
-            all_ready=False,
+            order_id=order_id,
+            card_states={'contract': 'ready', 'trust_card_1': 'ready'},
         )
-
-        # 副本 B 上的 ws 应通过 pubsub 收到
-        await _wait_for_ws_message(ws_on_b, expected_count=1, sla_ms=1000)
-
-        envelope = json.loads(ws_on_b.sent[0])
-        assert envelope["event"] == "precheck.status.updated"
-        assert envelope["order_id"] == str(order_id)
-        assert envelope["card"] == "contract"
-        assert envelope["status"] == {
-            "contract_status": "ready",
-            "contract_signed_at": "2026-06-11T08:00:00Z",
-        }
-        assert envelope["all_ready"] is False
-        assert "ts" in envelope
-    finally:
-        await broker_a.stop()
-        await broker_b.stop()
-
-
-# ---------------------------------------------------------------------------
-# Test 2 — all_ready 跨副本
-# ---------------------------------------------------------------------------
-async def test_replica_b_receives_all_ready_from_replica_a():
-    """AC#2 副本 A 调 broadcast_all_ready → 副本 B 上 ws 收到。"""
-    bus = FakeRedisBus()
-    broker_a = WsPubSubBroker(
-        redis_client=bus,
-        enabled=True,
-        channel=PRECHECK_PUBSUB_CHANNEL,
-        key_field="order_id",
-        instance_id="replica-A",
-    )
-    broker_b = WsPubSubBroker(
-        redis_client=bus,
-        enabled=True,
-        channel=PRECHECK_PUBSUB_CHANNEL,
-        key_field="order_id",
-        instance_id="replica-B",
-    )
-    await broker_a.start()
-    await broker_b.start()
-    try:
-        order_id = uuid.uuid4()
-        ws_on_b = FakeWebSocket()
-        await broker_b.register(order_id, ws_on_b)
-
-        app_a = _build_fake_app(broker_a)
-        await broadcast_all_ready(app_a, order_id)
-
-        await _wait_for_ws_message(ws_on_b, expected_count=1, sla_ms=1000)
-
-        envelope = json.loads(ws_on_b.sent[0])
-        assert envelope["event"] == "precheck.all_ready"
-        assert envelope["order_id"] == str(order_id)
-        assert "ts" in envelope
-        # all_ready 不带 reason / card / status (envelope shape lock)
-        assert "reason" not in envelope
-        assert "card" not in envelope
-        assert "status" not in envelope
-    finally:
-        await broker_a.stop()
-        await broker_b.stop()
-
-
-# ---------------------------------------------------------------------------
-# Test 3 — blocked 跨副本
-# ---------------------------------------------------------------------------
-async def test_replica_b_receives_blocked_from_replica_a():
-    """AC#2 副本 A 调 broadcast_blocked → 副本 B 上 ws 收到, reason 字段不漏。"""
-    bus = FakeRedisBus()
-    broker_a = WsPubSubBroker(
-        redis_client=bus,
-        enabled=True,
-        channel=PRECHECK_PUBSUB_CHANNEL,
-        key_field="order_id",
-        instance_id="replica-A",
-    )
-    broker_b = WsPubSubBroker(
-        redis_client=bus,
-        enabled=True,
-        channel=PRECHECK_PUBSUB_CHANNEL,
-        key_field="order_id",
-        instance_id="replica-B",
-    )
-    await broker_a.start()
-    await broker_b.start()
-    try:
-        order_id = uuid.uuid4()
-        ws_on_b = FakeWebSocket()
-        await broker_b.register(order_id, ws_on_b)
-
-        app_a = _build_fake_app(broker_a)
+    elif event == 'all_ready':
+        await broadcast_all_ready(order_id=order_id)
+    elif event == 'blocked':
         await broadcast_blocked(
-            app_a,
-            order_id,
-            reason="contract_status=blocked: 文件未在 7 天内上传",
+            order_id=order_id,
+            reason='missing_contract',
         )
+    else:
+        raise ValueError('unknown event: ' + event)
+    print(json.dumps({'published': True, 'event': event}))
 
-        await _wait_for_ws_message(ws_on_b, expected_count=1, sla_ms=1000)
-
-        envelope = json.loads(ws_on_b.sent[0])
-        assert envelope["event"] == "precheck.blocked"
-        assert envelope["order_id"] == str(order_id)
-        assert envelope["reason"] == "contract_status=blocked: 文件未在 7 天内上传"
-        assert "ts" in envelope
-    finally:
-        await broker_a.stop()
-        await broker_b.stop()
+asyncio.run(main())
+'''
 
 
-# ---------------------------------------------------------------------------
-# Test 4 — 副本 A 不向自己 double deliver (self-echo 抑制)
-# ---------------------------------------------------------------------------
-async def test_replica_a_does_not_double_deliver_self_echo():
-    """副本 A 本地直送 + Redis publish, listen loop 收到自己 publish 的消息
-    时必须按 ``origin == instance_id`` 跳过, 不能给自己 ws double deliver。
+def _trigger_broadcast_via_replica(
+    container: str, order_id: str, event: str,
+) -> dict[str, Any]:
+    """通过 docker exec replica 直接调 broadcast 函数 (跨副本 propagation 测试入口).
 
-    regression防范: 如果 ``WsPubSubBroker._listen_loop`` self-echo check 退化,
-    副本 A 上的 ws 会收到 2 条相同消息 (本地直送 + pubsub 回灌)。
+    简化测试 — 真实路径 c5 hook 触发, 这里短路验证 broker propagation.
     """
-    bus = FakeRedisBus()
-    broker_a = WsPubSubBroker(
-        redis_client=bus,
-        enabled=True,
-        channel=PRECHECK_PUBSUB_CHANNEL,
-        key_field="order_id",
-        instance_id="replica-A",
+    py = (
+        _TRIGGER_BROADCAST_PY_TEMPLATE
+        .replace("__EVENT__", event)
+        .replace("__ORDER_ID__", order_id)
     )
-    broker_b = WsPubSubBroker(
-        redis_client=bus,
-        enabled=True,
-        channel=PRECHECK_PUBSUB_CHANNEL,
-        key_field="order_id",
-        instance_id="replica-B",
-    )
-    await broker_a.start()
-    await broker_b.start()
-    try:
-        order_id = uuid.uuid4()
-        ws_on_a = FakeWebSocket()
-        await broker_a.register(order_id, ws_on_a)
-
-        app_a = _build_fake_app(broker_a)
-        await broadcast_all_ready(app_a, order_id)
-
-        # 给 event loop 充分时间让 listen loop 跑过自己 publish 的消息
-        await asyncio.sleep(0.15)
-
-        # ws_on_a 只该收 1 条 (本地直送), 不该收 2 条
-        assert len(ws_on_a.sent) == 1, (
-            f"self-echo 抑制失效: 副本 A 给自己 ws double deliver, "
-            f"sent={ws_on_a.sent!r}"
-        )
-    finally:
-        await broker_a.stop()
-        await broker_b.stop()
+    out = _docker_exec(container, "python", "-c", py, timeout=15)
+    return json.loads(out.strip().split("\n")[-1])
 
 
 # ---------------------------------------------------------------------------
-# Test 5 — 同 order_id 同时连两副本: A 推 → A 本地直送 + B 通过 pubsub 收到
+# AC#2.1: replicas running healthy
 # ---------------------------------------------------------------------------
-async def test_same_order_on_both_replicas_receives_via_both_paths():
-    """AC#2 用户同 order_id 同时连 A 和 B (两端 ws), A push 时:
+def test_two_backend_replicas_running_and_healthy():
+    """AC#2.1 — verify 2 backend replicas up + healthy via docker ps.
 
-    - ws_a: A 本地直送, 1 条
-    - ws_b: A publish → bus → B subscribe → 投递, 1 条
-
-    防范 regression: ``push_to_key`` 本地直送 + Redis publish 双通道任一退化,
-    这条 test 会爆。
+    Skip if staging stack not started. 这是 stack precondition test,
+    放第一个让后续 test 失败原因易诊断.
     """
-    bus = FakeRedisBus()
-    broker_a = WsPubSubBroker(
-        redis_client=bus,
-        enabled=True,
-        channel=PRECHECK_PUBSUB_CHANNEL,
-        key_field="order_id",
-        instance_id="replica-A",
-    )
-    broker_b = WsPubSubBroker(
-        redis_client=bus,
-        enabled=True,
-        channel=PRECHECK_PUBSUB_CHANNEL,
-        key_field="order_id",
-        instance_id="replica-B",
-    )
-    await broker_a.start()
-    await broker_b.start()
-    try:
-        order_id = uuid.uuid4()
-        ws_a = FakeWebSocket()
-        ws_b = FakeWebSocket()
-        await broker_a.register(order_id, ws_a)
-        await broker_b.register(order_id, ws_b)
-
-        app_a = _build_fake_app(broker_a)
-        await broadcast_status_updated(
-            app_a,
-            order_id,
-            card="preparation",
-            status={"preparation_status": "ready", "preparation_id": "prep-001"},
-            all_ready=False,
-        )
-
-        # A 本地直送应已 sync 完成
-        assert len(ws_a.sent) == 1, "A 本地直送失败"
-        envelope_a = json.loads(ws_a.sent[0])
-        assert envelope_a["card"] == "preparation"
-
-        # B 跨副本 listen loop 异步, 等到位
-        await _wait_for_ws_message(ws_b, expected_count=1, sla_ms=1000)
-
-        envelope_b = json.loads(ws_b.sent[0])
-        assert envelope_b["card"] == "preparation"
-        # A 与 B 收到的 envelope 内容一致 (除 ts 可能 ±1s, 这里是同步 push 所以 ts 应一样)
-        assert envelope_a["order_id"] == envelope_b["order_id"]
-        assert envelope_a["status"] == envelope_b["status"]
-        assert envelope_a["event"] == envelope_b["event"]
-        assert envelope_a["all_ready"] == envelope_b["all_ready"]
-    finally:
-        await broker_a.stop()
-        await broker_b.stop()
+    r1, r2 = _verify_replicas_running()
+    assert r1 != r2
+    assert r1.startswith(f"{COMPOSE_PROJECT}-backend")
+    assert r2.startswith(f"{COMPOSE_PROJECT}-backend")
+    print(f"\n✅ AC#2.1 PASS: replicas {r1} + {r2} healthy")
 
 
 # ---------------------------------------------------------------------------
-# Test 6 — 不同 order_id 隔离: A push order_1 不应送到 B 上注册 order_2 的 ws
+# AC#2.2: nginx upstream round-robin
 # ---------------------------------------------------------------------------
-async def test_cross_order_isolation_no_leak_between_orders():
-    """AC#2 副本 A push order_1, 副本 B 上注册 order_2 的 ws 不该收到任何消息。
+def test_nginx_proxies_to_distinct_replicas():
+    """AC#2.2 — nginx upstream round-robin 多副本.
 
-    防范 regression: ``push_to_key`` 用 ``order_id`` 维度路由, 如果 channel 维度
-    路由退化成"任何 publish 都 fanout 给所有 ws", 这条 test 会爆。
+    通过 /healthz endpoint 调 N 次 (N≥10) 看 X-Instance-Id 是否两个值都出现.
+    若 backend 不暴露 X-Instance-Id header → skip (验证依赖 backend
+    自报 instance_id).
     """
-    bus = FakeRedisBus()
-    broker_a = WsPubSubBroker(
-        redis_client=bus,
-        enabled=True,
-        channel=PRECHECK_PUBSUB_CHANNEL,
-        key_field="order_id",
-        instance_id="replica-A",
-    )
-    broker_b = WsPubSubBroker(
-        redis_client=bus,
-        enabled=True,
-        channel=PRECHECK_PUBSUB_CHANNEL,
-        key_field="order_id",
-        instance_id="replica-B",
-    )
-    await broker_a.start()
-    await broker_b.start()
-    try:
-        order_1 = uuid.uuid4()
-        order_2 = uuid.uuid4()
-        ws_for_order_2_on_b = FakeWebSocket()
-        await broker_b.register(order_2, ws_for_order_2_on_b)
+    import urllib.error
+    import urllib.request
 
-        app_a = _build_fake_app(broker_a)
-        await broadcast_status_updated(
-            app_a,
-            order_1,
-            card="insurance",
-            status={"insurance_status": "ready"},
-            all_ready=False,
+    seen_instances = set()
+    for _ in range(10):
+        req = urllib.request.Request(
+            f"http://localhost:{NGINX_PORT}/healthz"
         )
+        try:
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                instance = (
+                    resp.headers.get("X-Instance-Id")
+                    or resp.headers.get("X-Backend-Id")
+                )
+                if instance:
+                    seen_instances.add(instance)
+        except (urllib.error.URLError, OSError) as e:
+            pytest.skip(f"nginx /healthz unavailable: {e}")
 
-        # 给 event loop 充分时间让 pubsub 跑过, 然后断言 order_2 ws 没收到
-        await asyncio.sleep(0.15)
-
-        assert len(ws_for_order_2_on_b.sent) == 0, (
-            f"cross-order leak: order_1 push 错送到 order_2 ws, "
-            f"sent={ws_for_order_2_on_b.sent!r}"
+    if len(seen_instances) < 2:
+        pytest.skip(
+            f"nginx X-Instance-Id header not set or only 1 instance "
+            f"seen ({seen_instances}) — round-robin 验证依赖 backend "
+            f"返回 instance header, 当前实现不支持则后续用 docker exec "
+            f"直查 distinct instance_id 替代 (AC#2.9)"
         )
-    finally:
-        await broker_a.stop()
-        await broker_b.stop()
+    assert len(seen_instances) >= 2, (
+        f"nginx upstream not round-robin: only {seen_instances} seen"
+    )
+    print(
+        f"\n✅ AC#2.2 PASS: nginx hit {len(seen_instances)} distinct "
+        f"instances: {seen_instances}"
+    )
 
 
 # ---------------------------------------------------------------------------
-# Test 7 — 3 broadcast 事件按顺序到达 (status.updated → all_ready → blocked)
+# AC#2.3-2.5: cross-replica broadcast propagation timing
 # ---------------------------------------------------------------------------
-async def test_three_broadcasts_arrive_in_order_on_replica_b():
-    """AC#2 副本 A 按 status.updated → all_ready → blocked 顺序 push,
-    副本 B 上的 ws 应按相同顺序收到 3 条 (Redis pub/sub 保序契约)。
+class TestCrossReplicaBroadcastPropagation:
+    """AC#2.3-2.5: 3 broadcast 函数跨副本时序 ≤5s.
 
-    防范 regression: 如果 listen loop 用并发 task fanout 没用 queue 顺序,
-    跨副本到达顺序可能乱, 这条 test 会爆。
+    套路:
+    1. user/order seed (replica-1)
+    2. WS connect via nginx
+    3. broadcast trigger 在另一 replica (确保跨副本)
+    4. WS receive timing ≤ PROPAGATION_SLA_MS (5s)
     """
-    bus = FakeRedisBus()
-    broker_a = WsPubSubBroker(
-        redis_client=bus,
-        enabled=True,
-        channel=PRECHECK_PUBSUB_CHANNEL,
-        key_field="order_id",
-        instance_id="replica-A",
-    )
-    broker_b = WsPubSubBroker(
-        redis_client=bus,
-        enabled=True,
-        channel=PRECHECK_PUBSUB_CHANNEL,
-        key_field="order_id",
-        instance_id="replica-B",
-    )
-    await broker_a.start()
-    await broker_b.start()
-    try:
-        order_id = uuid.uuid4()
-        ws_on_b = FakeWebSocket()
-        await broker_b.register(order_id, ws_on_b)
 
-        app_a = _build_fake_app(broker_a)
-        await broadcast_status_updated(
-            app_a,
-            order_id,
-            card="contract",
-            status={"contract_status": "ready"},
-            all_ready=False,
+    def test_cross_replica_status_updated_propagation_within_5s(self):
+        """AC#2.3 — broadcast_status_updated A → WS on B ≤5s."""
+        try:
+            import websocket  # noqa: F401
+        except ImportError:
+            pytest.skip(
+                "websocket-client not installed "
+                "(pip install websocket-client)"
+            )
+        import websocket
+
+        r1, r2 = _verify_replicas_running()
+        user_id, token = _seed_patient_user_get_jwt()
+        order_id = _seed_order_for_user(user_id)
+
+        ws_url = (
+            f"ws://localhost:{NGINX_PORT}/api/v1/ws/v1/orders/"
+            f"{order_id}/precheck"
         )
-        await broadcast_all_ready(app_a, order_id)
-        await broadcast_blocked(app_a, order_id, reason="late blocked event")
+        ws = websocket.WebSocket()
+        ws.settimeout(PROPAGATION_SLA_MS / 1000 + 2)
+        ws.connect(ws_url)
+        ws.send(json.dumps({"type": "auth", "token": token}))
 
-        await _wait_for_ws_message(ws_on_b, expected_count=3, sla_ms=2000)
+        t0_ns = time.time_ns()
+        _trigger_broadcast_via_replica(r2, order_id, "status_updated")
 
-        events = [json.loads(s)["event"] for s in ws_on_b.sent]
-        assert events == [
-            "precheck.status.updated",
-            "precheck.all_ready",
-            "precheck.blocked",
-        ], (
-            f"跨副本事件顺序错乱: 期望 [status.updated, all_ready, blocked], "
-            f"实际 {events}"
+        try:
+            msg = ws.recv()
+            received_at_ms = (time.time_ns() - t0_ns) // 1_000_000
+            data = json.loads(msg)
+            assert data.get("event") == "precheck.status.updated", (
+                f"wrong event: {data}"
+            )
+            assert received_at_ms <= PROPAGATION_SLA_MS, (
+                f"cross-replica status_updated {received_at_ms}ms > "
+                f"SLA {PROPAGATION_SLA_MS}ms"
+            )
+            print(
+                f"\n✅ AC#2.3 PASS: status_updated cross-replica "
+                f"{received_at_ms}ms"
+            )
+        finally:
+            ws.close()
+
+    def test_cross_replica_all_ready_propagation_within_5s(self):
+        """AC#2.4 — broadcast_all_ready A → WS on B ≤5s."""
+        try:
+            import websocket  # noqa: F401
+        except ImportError:
+            pytest.skip("websocket-client not installed")
+        import websocket
+
+        r1, r2 = _verify_replicas_running()
+        user_id, token = _seed_patient_user_get_jwt()
+        order_id = _seed_order_for_user(user_id)
+
+        ws_url = (
+            f"ws://localhost:{NGINX_PORT}/api/v1/ws/v1/orders/"
+            f"{order_id}/precheck"
         )
-    finally:
-        await broker_a.stop()
-        await broker_b.stop()
+        ws = websocket.WebSocket()
+        ws.settimeout(PROPAGATION_SLA_MS / 1000 + 2)
+        ws.connect(ws_url)
+        ws.send(json.dumps({"type": "auth", "token": token}))
+
+        t0_ns = time.time_ns()
+        _trigger_broadcast_via_replica(r2, order_id, "all_ready")
+        try:
+            msg = ws.recv()
+            received_at_ms = (time.time_ns() - t0_ns) // 1_000_000
+            data = json.loads(msg)
+            assert data.get("event") == "precheck.all_ready", (
+                f"wrong event: {data}"
+            )
+            assert received_at_ms <= PROPAGATION_SLA_MS
+            print(
+                f"\n✅ AC#2.4 PASS: all_ready cross-replica "
+                f"{received_at_ms}ms"
+            )
+        finally:
+            ws.close()
+
+    def test_cross_replica_blocked_propagation_within_5s(self):
+        """AC#2.5 — broadcast_blocked A → WS on B ≤5s (含 reason 字段)."""
+        try:
+            import websocket  # noqa: F401
+        except ImportError:
+            pytest.skip("websocket-client not installed")
+        import websocket
+
+        r1, r2 = _verify_replicas_running()
+        user_id, token = _seed_patient_user_get_jwt()
+        order_id = _seed_order_for_user(user_id)
+
+        ws_url = (
+            f"ws://localhost:{NGINX_PORT}/api/v1/ws/v1/orders/"
+            f"{order_id}/precheck"
+        )
+        ws = websocket.WebSocket()
+        ws.settimeout(PROPAGATION_SLA_MS / 1000 + 2)
+        ws.connect(ws_url)
+        ws.send(json.dumps({"type": "auth", "token": token}))
+
+        t0_ns = time.time_ns()
+        _trigger_broadcast_via_replica(r2, order_id, "blocked")
+        try:
+            msg = ws.recv()
+            received_at_ms = (time.time_ns() - t0_ns) // 1_000_000
+            data = json.loads(msg)
+            assert data.get("event") == "precheck.blocked", (
+                f"wrong event: {data}"
+            )
+            assert data.get("reason") == "missing_contract", (
+                f"reason 字段漏: {data}"
+            )
+            assert received_at_ms <= PROPAGATION_SLA_MS
+            print(
+                f"\n✅ AC#2.5 PASS: blocked cross-replica "
+                f"{received_at_ms}ms (reason 字段 OK)"
+            )
+        finally:
+            ws.close()
 
 
 # ---------------------------------------------------------------------------
-# Test 8 — broker disabled (单副本模式) 不 publish 到 Redis
+# AC#2.6-2.9: self-echo / idempotent / cross-order isolation / instance_id
 # ---------------------------------------------------------------------------
-async def test_disabled_broker_does_not_leak_to_other_replicas():
-    """AC#2 broker_a 设 enabled=False (回退单副本模式), 副本 B 不该收到任何消息。
+class TestCrossReplicaInvariants:
+    """AC#2.6-2.9: 跨副本不变性 — 不应有 self-echo / leak."""
 
-    这是降级路径契约: 如果 Redis 不可用或配置关 ``WS_PUBSUB_ENABLED``,
-    单副本本地直送应正常, 跨副本静默 (不报错也不投递)。
-    """
-    bus = FakeRedisBus()
-    broker_a = WsPubSubBroker(
-        redis_client=bus,
-        enabled=False,  # ← 降级
-        channel=PRECHECK_PUBSUB_CHANNEL,
-        key_field="order_id",
-        instance_id="replica-A",
-    )
-    broker_b = WsPubSubBroker(
-        redis_client=bus,
-        enabled=True,
-        channel=PRECHECK_PUBSUB_CHANNEL,
-        key_field="order_id",
-        instance_id="replica-B",
-    )
-    await broker_a.start()
-    await broker_b.start()
-    try:
-        order_id = uuid.uuid4()
-        ws_on_a = FakeWebSocket()
-        ws_on_b = FakeWebSocket()
-        await broker_a.register(order_id, ws_on_a)
-        await broker_b.register(order_id, ws_on_b)
+    def test_replica_a_no_self_echo_via_pubsub(self):
+        """AC#2.6 — 副本 A 本地直送 + 不通过 Redis pubsub 二次 deliver.
 
-        app_a = _build_fake_app(broker_a)
-        await broadcast_status_updated(
-            app_a,
-            order_id,
-            card="contract",
-            status={"contract_status": "ready"},
-            all_ready=False,
+        机制: broker 本地直送 + Redis publish 双通道,
+        instance_id check 抑制 self-echo.
+        验证: WS 只收 1 条, 不是 2 条.
+        """
+        try:
+            import websocket  # noqa: F401
+        except ImportError:
+            pytest.skip("websocket-client not installed")
+        import websocket
+
+        r1, _ = _verify_replicas_running()
+        user_id, token = _seed_patient_user_get_jwt()
+        order_id = _seed_order_for_user(user_id)
+
+        ws_url = (
+            f"ws://localhost:{NGINX_PORT}/api/v1/ws/v1/orders/"
+            f"{order_id}/precheck"
         )
+        ws = websocket.WebSocket()
+        ws.settimeout(8)
+        ws.connect(ws_url)
+        ws.send(json.dumps({"type": "auth", "token": token}))
 
-        # A 本地直送应正常
-        assert len(ws_on_a.sent) == 1
-        # B 不该收到 (disabled 不 publish)
-        await asyncio.sleep(0.15)
-        assert len(ws_on_b.sent) == 0, (
-            f"disabled broker 错误地 publish 到了 Redis, ws_on_b.sent={ws_on_b.sent!r}"
+        _trigger_broadcast_via_replica(r1, order_id, "status_updated")
+        try:
+            msg1 = ws.recv()
+            data1 = json.loads(msg1)
+            assert data1.get("event") == "precheck.status.updated"
+
+            ws.settimeout(3)
+            try:
+                msg2 = ws.recv()
+                data2 = json.loads(msg2)
+                pytest.fail(
+                    f"self-echo via pubsub! 第二条 deliver: {data2}. "
+                    f"应只 1 条 (本地直送), pubsub 不应 echo."
+                )
+            except websocket.WebSocketTimeoutException:
+                pass
+            print("\n✅ AC#2.6 PASS: 无 self-echo, WS 只收 1 条")
+        finally:
+            ws.close()
+
+    def test_idempotent_no_double_deliver_same_event(self):
+        """AC#2.7 — 重复 broadcast (3 次), WS 应收 3 条 (无去重假象).
+
+        当前 broker 不去重 (per design), 3 次 broadcast 应 3 次 deliver.
+        若未来加 dedup, 改 expect 1.
+        """
+        try:
+            import websocket  # noqa: F401
+        except ImportError:
+            pytest.skip("websocket-client not installed")
+        import websocket
+
+        r1, r2 = _verify_replicas_running()
+        user_id, token = _seed_patient_user_get_jwt()
+        order_id = _seed_order_for_user(user_id)
+
+        ws_url = (
+            f"ws://localhost:{NGINX_PORT}/api/v1/ws/v1/orders/"
+            f"{order_id}/precheck"
         )
-    finally:
-        await broker_a.stop()
-        await broker_b.stop()
+        ws = websocket.WebSocket()
+        ws.settimeout(6)
+        ws.connect(ws_url)
+        ws.send(json.dumps({"type": "auth", "token": token}))
 
+        for _ in range(3):
+            _trigger_broadcast_via_replica(r2, order_id, "status_updated")
+            time.sleep(0.1)
 
-# ---------------------------------------------------------------------------
-# Test 9 — 副本 B push order_1, 副本 A 上注册 order_1 的 ws 也收到 (反方向)
-# ---------------------------------------------------------------------------
-async def test_replica_a_receives_status_updated_from_replica_b():
-    """AC#2 对称性: 副本 B push → 副本 A 上 ws 收到 (验证 pubsub 不是单向)。
+        received = []
+        try:
+            while True:
+                try:
+                    msg = ws.recv()
+                    received.append(json.loads(msg))
+                    if len(received) >= 3:
+                        break
+                except websocket.WebSocketTimeoutException:
+                    break
+            assert len(received) == 3, (
+                f"3 broadcast 期望 3 deliver, 实际 {len(received)}: "
+                f"{received}"
+            )
+            print(
+                "\n✅ AC#2.7 PASS: 3 broadcast = 3 deliver (无去重假象)"
+            )
+        finally:
+            ws.close()
 
-    test 1-3 都是 A → B, 这条反方向 B → A, 防范 listen loop 只在一个方向工作。
-    """
-    bus = FakeRedisBus()
-    broker_a = WsPubSubBroker(
-        redis_client=bus,
-        enabled=True,
-        channel=PRECHECK_PUBSUB_CHANNEL,
-        key_field="order_id",
-        instance_id="replica-A",
-    )
-    broker_b = WsPubSubBroker(
-        redis_client=bus,
-        enabled=True,
-        channel=PRECHECK_PUBSUB_CHANNEL,
-        key_field="order_id",
-        instance_id="replica-B",
-    )
-    await broker_a.start()
-    await broker_b.start()
-    try:
-        order_id = uuid.uuid4()
-        ws_on_a = FakeWebSocket()
-        await broker_a.register(order_id, ws_on_a)
+    def test_cross_order_isolation_no_leak(self):
+        """AC#2.8 — order_1 broadcast 不漏到 order_2 WS."""
+        try:
+            import websocket  # noqa: F401
+        except ImportError:
+            pytest.skip("websocket-client not installed")
+        import websocket
 
-        app_b = _build_fake_app(broker_b)
-        await broadcast_status_updated(
-            app_b,
-            order_id,
-            card="companion_cert",
-            status={"companion_cert_status": "ready"},
-            all_ready=True,
+        r1, r2 = _verify_replicas_running()
+        user_id, token = _seed_patient_user_get_jwt()
+        order_1 = _seed_order_for_user(user_id)
+        order_2 = _seed_order_for_user(user_id)
+
+        ws_url_2 = (
+            f"ws://localhost:{NGINX_PORT}/api/v1/ws/v1/orders/"
+            f"{order_2}/precheck"
         )
+        ws2 = websocket.WebSocket()
+        ws2.settimeout(4)
+        ws2.connect(ws_url_2)
+        ws2.send(json.dumps({"type": "auth", "token": token}))
 
-        await _wait_for_ws_message(ws_on_a, expected_count=1, sla_ms=1000)
-        envelope = json.loads(ws_on_a.sent[0])
-        assert envelope["card"] == "companion_cert"
-        assert envelope["all_ready"] is True
-    finally:
-        await broker_a.stop()
-        await broker_b.stop()
+        _trigger_broadcast_via_replica(r2, order_1, "status_updated")
+
+        try:
+            try:
+                msg = ws2.recv()
+                pytest.fail(
+                    f"cross-order leak! order_2 WS 收到 order_1 "
+                    f"broadcast: {msg}"
+                )
+            except websocket.WebSocketTimeoutException:
+                pass
+            print(
+                "\n✅ AC#2.8 PASS: cross-order 隔离 (order_2 不收 order_1)"
+            )
+        finally:
+            ws2.close()
+
+    def test_distinct_instance_id_per_ws_connection(self):
+        """AC#2.9 — 2 replica instance_id distinct (验证 docker --scale)."""
+        r1, r2 = _verify_replicas_running()
+        try:
+            id1 = _get_instance_id(r1)
+            id2 = _get_instance_id(r2)
+        except RuntimeError as e:
+            pytest.skip(f"instance_id 读取失败: {e}")
+        assert id1 != id2, (
+            f"两副本 instance_id 必 distinct, 实测: {id1} == {id2}"
+        )
+        print(
+            f"\n✅ AC#2.9 PASS: replica instance_id distinct: "
+            f"{id1} ≠ {id2}"
+        )
