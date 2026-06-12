@@ -12,11 +12,13 @@ from app.schemas.companion import (
     CompanionStatsResponse,
     UpdateCompanionProfileRequest,
 )
+from app.schemas.recommendation import RecommendationResponse
 from app.services.companion_profile import (
     CompanionProfileService,
     _to_public_detail_view,
     _to_public_view,
 )
+from app.services.recommendation_service import RecommendationService
 
 router = APIRouter(prefix="/companions", tags=["companions"])
 
@@ -58,6 +60,32 @@ async def list_companions(
     )
     # ABAC layer 2: service-layer masking before response_model serialization
     return [_to_public_view(p) for p in profiles]
+
+
+@router.get(
+    "/recommendations",
+    response_model=RecommendationResponse,
+    summary="陕诊师推荐位 top3",
+    description=(
+        "返回 top3 推荐陕诊师 (默认 N=3, 可通过 top_k 参数调)。\n\n"
+        "**排序规则** (spec v1 final §1.3): verified > pending_supplement > uncertified, "
+        "同 level tie-breaker rating DESC → completed_orders DESC → created_at ASC.\n\n"
+        "**硕约束门** (spec §1.4, PM-005-9 admin override 守门): 未认证 (uncertified) "
+        "陕诊师不进 top3, admin 不可 override (服务层硬编码 filter, 不依赖 admin endpoint).\n\n"
+        "**ABAC** (ADR-0049 §6): 返 ``RecommendationItem`` (no PII), "
+        "使用 ``mask_name`` 脚敏生成 ``pseudonym_name``。严禁返 ``real_name`` / "
+        "``id_number`` / ``certification_no`` / ``certification_image_url``。"
+    ),
+    responses={**err(401, 422, 500)},
+)
+async def get_recommendations(
+    session: DBSession,
+    current_user: CurrentUser,
+    city: str | None = Query(None, description="可选城市过滤 (spec §1.5)"),
+    top_k: int = Query(3, ge=1, le=3, description="推荐位 N (default=3, max=3)"),
+):
+    service = RecommendationService(session)
+    return await service.get_top_recommendations(city=city, top_k=top_k)
 
 
 @router.get(

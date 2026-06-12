@@ -57,6 +57,7 @@
 | `GET` | `/api/v1/companions/me` | 获取我的陪诊师档案 |
 | `PUT` | `/api/v1/companions/me` | 更新我的陪诊师档案 |
 | `GET` | `/api/v1/companions/me/stats` | 获取陪诊师统计概览 |
+| `GET` | `/api/v1/companions/recommendations` | 陕诊师推荐位 top3 |
 | `GET` | `/api/v1/companions/{companion_id}` | 查看陪诊师详情 |
 
 ### [医院数据（hospitals）](./hospitals.md)
