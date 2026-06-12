@@ -1,6 +1,6 @@
 # ADR-0053：已发 token read-only flag 设计（S2-OPS-A 灰度 real 路径）
 
-- **状态**：Draft（2026-06-10，魈）→ r2 amend (2026-06-12，魈) — §5 evidence typo fix
+- **状态**：Draft（2026-06-10，魈）→ r2 amend (2026-06-12，魈) — §5 evidence typo fix → r3 amend (2026-06-12，魈) — §5.1 双列 + §5.2 error_code 拼写
 - **范围**：S2-OPS-A-TOKEN-READONLY-FLAG（design/P2），S2-OPS-A 灰度 real 路径上线前必 close
 - **关联**：ADR-0038（admin h5 token hardening）/ S2-OPS-A 套件 §B.2（回滚演练 / 紧急只读）
 
@@ -155,7 +155,8 @@ S2-OPS-A 灰度 real 路径上线前，必须支持「紧急只读」动作：
 
 ```sql
 ALTER TABLE users ADD COLUMN is_read_only BOOLEAN NOT NULL DEFAULT FALSE;
-ALTER TABLE users ADD COLUMN read_only_reason TEXT;
+ALTER TABLE users ADD COLUMN read_only_reason_category VARCHAR(32);
+ALTER TABLE users ADD COLUMN read_only_reason_detail TEXT;
 ALTER TABLE users ADD COLUMN read_only_set_at TIMESTAMPTZ;
 ALTER TABLE users ADD COLUMN read_only_set_by INT REFERENCES admin_users(id) ON DELETE SET NULL;
 
@@ -176,9 +177,9 @@ async def require_writeable_user(
         raise HTTPException(
             status_code=403,
             detail={
-                "error_code": "USER_READ_ONLY",
+                "error_code": "USER_READONLY",
                 "message": "Account is in read-only mode",
-                "reason": user.read_only_reason,
+                "reason_category": user.read_only_reason_category,  # 不返 reason_detail (PRD-001 §F8 D1 字面禁)
             },
         )
     return user
@@ -202,7 +203,8 @@ async def set_user_read_only(
 ):
     user = await UserRepository(session).get_by_id(user_id)
     user.is_read_only = True
-    user.read_only_reason = payload.reason
+    user.read_only_reason_category = payload.reason_category
+    user.read_only_reason_detail = payload.reason_detail  # admin 内部 audit, 不返 frontend
     user.read_only_set_at = datetime.now(timezone.utc)
     user.read_only_set_by = admin.id
     await session.commit()
@@ -220,7 +222,7 @@ async def set_user_read_only(
 ### 5.4 frontend / iOS 处理 403
 
 iOS / 微信小程序 / admin-h5 三端均需:
-- 检查 response status 403 + `error_code == "USER_READ_ONLY"`
+- 检查 response status 403 + `error_code == "USER_READONLY"`
 - 弹 toast: "账户当前处于只读模式: <reason>. 请联系客服"
 - 不强制跳登录页
 
@@ -235,9 +237,9 @@ iOS / 微信小程序 / admin-h5 三端均需:
 - 复用已有 AdminAuditLog (PR #238 a9a8206)
 
 ### 负面
-- 增 users 表 4 列 + 1 partial index (alembic 不可逆但小)
+- 增 users 表 5 列 + 1 partial index (alembic 不可逆但小)
 - 所有 mutating endpoint 必须改用 `WriteableUser` dependency — 改造工作量约 30-50 endpoint (S2-DEV-016 task 范围)
-- frontend 三端必须 catch 新 error_code `USER_READ_ONLY` — 三端联调 (iOS/wxapp/admin-h5)
+- frontend 三端必须 catch 新 error_code `USER_READONLY` — 三端联调 (iOS/wxapp/admin-h5)
 
 ### 风险与缓解
 - **风险 1**: 漏改 mutating endpoint 导致只读用户仍能写 → **缓解**: lint script grep `CurrentUser` + 人工 review S2-DEV-016 PR
