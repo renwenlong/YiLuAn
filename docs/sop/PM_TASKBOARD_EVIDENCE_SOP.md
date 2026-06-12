@@ -124,7 +124,7 @@ trigger 自检 (PM turn 内开场):
 
 ### 反案 #28 (2026-06-12 本日新, hutao 不等主 PRD merge 起手 = 最佳实践)
 
-**事件**: hutao 在 V15 主 PRD spec doc patch PR (#284) 还没 merge 时, 就并行起 S3-DEV-006 实施 (PR #285 00:21Z merged), 当时 V15 PR 才 00:05Z 我刚 merge.
+**事件**: hutao 在 V15 主 PRD spec doc patch PR (#284) 还没 merge 时, 就并行起 S3-DEV-006 实施 (PR #285 createdAt 2026-06-11 23:42:20Z) **领先于 V15 PR (#284 mergedAt 2026-06-12 00:03:59Z) 22 分钟**, V15 PR 后 16 分钟 impl PR merged (#285 mergedAt 00:21:54Z).
 **判定**: 这是务实最佳实践, 不是协议违反.
 **规则**: 当 spec draft v1 final 已 lock 且通过 review, 实施方可直接吃 draft 起手, 不必等主 PRD 字面 merge. 适用前提:
 - spec draft 已 v1 final lock (字面 reviewer 已点 ratify)

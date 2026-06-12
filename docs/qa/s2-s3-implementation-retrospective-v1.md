@@ -161,9 +161,9 @@ PM 视角复盘 v1。下次帝君问「卡点+继续」时 PM 可拉本文档相
 - **enforce**: ADR-0051 §6.8 PM evidence 顺序硬规则 (待 r3 amend)
 - **SOP**: `docs/sop/PM_TASKBOARD_EVIDENCE_SOP.md` v1.0 (2026-06-12 PM 落)
 
-### 8.2 反案 #28 (hutao 不等主 PRD merge 起手 = 最佳实践, 2026-06-12)
+### 8.2 反案 #28 (spec draft lock + reviewer ratify 后即可起手不必等主 PRD 合 main = 最佳实践, 2026-06-12)
 
-- **事件**: hutao 在 V15 主 PRD spec doc PR (#284) 还没 merge 时, 并行起 S3-DEV-006 实施 (PR #285 00:21Z merged), V15 PR 才 00:05Z merge
+- **事件**: hutao 在 V15 主 PRD spec doc PR (#284 mergedAt 2026-06-12 00:03:59Z) 还没 merge 时, **领先 22 分钟**起 S3-DEV-006 实施 PR (#285 createdAt 2026-06-11 23:42:20Z), V15 PR 合 main 后 16 分钟 impl PR merged (#285 mergedAt 00:21:54Z)
 - **判定**: 务实最佳实践, 不是协议违反
 - **规则**: spec draft v1 final 已 lock + reviewer ratify + 主 PRD patch 只是字面 merge 不会引入新逻辑 → impl 方可直接吃 draft 起手, impl PR 引用 spec draft sha
 - **PM 教训**: 通知前必 verify task 实际状态 (raw API task.status), 不假设 dependency merge 顺序 = 实施 trigger 顺序
