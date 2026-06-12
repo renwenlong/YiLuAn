@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Storage pattern lint — ADR-0046 r4 AC-1 反例哨兵 (S2-OPS-016-PATTERN-LINT).
 
-ADR-0046 §3 + r4 amend 字面: contract / feedback-attachment / cert-image 等
+ADR-0046 §1 + §4 AC-1 字面: contract / feedback-attachment / cert-image 等
 **service-module 模式** 必须不继承 ``StorageBackend`` ABC。只允许
 ``LocalStorageBackend`` + ``AzureBlobStorageBackend`` 两个内置 backend 子类化。
 
@@ -69,7 +69,7 @@ from pathlib import Path
 # Lint A: StorageBackend subclass whitelist
 # ----------------------------------------------------------------------------
 #
-# Whitelist内 = ADR-0046 §3 字面允许子类化 StorageBackend 的两个内置 backend.
+# Whitelist内 = ADR-0046 §1 + §4 AC-1 字面允许子类化 StorageBackend 的两个内置 backend.
 # 新增 backend 必须先 amend ADR-0046 + 本白名单 (强制人工 review path).
 SUBCLASS_WHITELIST: frozenset[str] = frozenset(
     {
@@ -198,7 +198,7 @@ def lint_a_subclass_whitelist(
                 lineno=node.lineno,
                 message=(
                     f"class '{node.name}' subclasses StorageBackend but is "
-                    f"not in the ADR-0046 §3 whitelist {sorted(SUBCLASS_WHITELIST)}. "
+                    f"not in the ADR-0046 §1+§4 AC-1 whitelist {sorted(SUBCLASS_WHITELIST)}. "
                     f"Service-module pattern (contract/feedback-attachment/"
                     f"cert-image) must compose a StorageBackend instance, "
                     f"not subclass it. If this is a legit new backend, amend "
@@ -293,7 +293,7 @@ def lint_b_safe_key_funnel(
                         message=(
                             f"method '{node.name}.{item.name}' does not call "
                             f"self._safe_key(...) in its prelude. Per "
-                            f"ADR-0046 §3 + AC#3, all 5 fs-access methods "
+                            f"ADR-0046 §1+§4 AC-1 + AC#3, all 5 fs-access methods "
                             f"({sorted(SAFE_KEY_REQUIRED_METHODS)}) on "
                             f"LocalStorageBackend must funnel through "
                             f"_safe_key for path-traversal defense. If this "
@@ -390,7 +390,7 @@ def main(argv: list[str] | None = None) -> int:
         print(v.format())
         print()
     print(f"\nSummary: {len(all_violations)} violation(s) across {len(files)} " f"file(s) scanned.")
-    print("ADR ref: docs/architecture/ADR-0046-contract-storage-pattern.md §3")
+    print("ADR ref: docs/adr/ADR-0046-contract-storage-extension.md §1 + §4 AC-1")
     return 1
 
 
