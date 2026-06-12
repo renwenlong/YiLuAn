@@ -1,6 +1,6 @@
 # ADR-0053：已发 token read-only flag 设计（S2-OPS-A 灰度 real 路径）
 
-- **状态**：Draft（2026-06-10，魈）
+- **状态**：Draft（2026-06-10，魈）→ r2 amend (2026-06-12，魈) — §5 evidence typo fix
 - **范围**：S2-OPS-A-TOKEN-READONLY-FLAG（design/P2），S2-OPS-A 灰度 real 路径上线前必 close
 - **关联**：ADR-0038（admin h5 token hardening）/ S2-OPS-A 套件 §B.2（回滚演练 / 紧急只读）
 
@@ -157,7 +157,7 @@ S2-OPS-A 灰度 real 路径上线前，必须支持「紧急只读」动作：
 ALTER TABLE users ADD COLUMN is_read_only BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE users ADD COLUMN read_only_reason TEXT;
 ALTER TABLE users ADD COLUMN read_only_set_at TIMESTAMPTZ;
-ALTER TABLE users ADD COLUMN read_only_set_by UUID REFERENCES admins(id);
+ALTER TABLE users ADD COLUMN read_only_set_by INT REFERENCES admin_users(id) ON DELETE SET NULL;
 
 CREATE INDEX ix_users_is_read_only ON users (is_read_only) WHERE is_read_only = TRUE;
 ```
@@ -250,7 +250,7 @@ iOS / 微信小程序 / admin-h5 三端均需:
 
 - `S2-OPS-A-METRIC-DASHBOARD-READONLY` (**P1**, OPS, **前置于 S2-DEV-016**) - read-only flag 监控指标埋点 (`user_token_revoke_total` / `user_relogin_success_total` / `user_session_dropped_total`), real 上线 T-7 天前必部署完成, 否则 AC#5 quantitative metric guard 跑不起来 (刻晴 PR #246 review 红线拍穿, 本 ADR amend r1)
 - `S2-PRD-016-READONLY-UX-COPY` (P2, PM own) - read-only flag UX 文案 4 场景分级 (mock灰度 / real-灰度异常 / 紧急吊销 / 合规举报, 凝光 PM review 推原则 = UX 不直接暴露后端 reason 原文, frontend 三端 i18n 规范)
-- `S2-DEV-016-READ-ONLY-FLAG-DB` (hutao P2, **depends_on=[S2-OPS-A-METRIC-DASHBOARD-READONLY]**) - alembic + dependency + 403 shape; admin endpoint audit log 同 transaction (刻晴建议) + `read_only_set_by` REFERENCES `admins(id)` **ON DELETE SET NULL** (刻晴建议)
+- `S2-DEV-016-READ-ONLY-FLAG-DB` (hutao P2, **depends_on=[S2-OPS-A-METRIC-DASHBOARD-READONLY]**) - alembic + dependency + 403 shape; admin endpoint audit log 同 transaction (刻晴建议) + `read_only_set_by INT REFERENCES admin_users(id) ON DELETE SET NULL` (r2 amend 2026-06-12: 原 `UUID REFERENCES admins(id)` 双错 — 表名 `admins` 不存在 实物 `admin_users`, 类型 UUID 与 admin_users.id INT autoincrement 不匹, 反案 #N+1 evidence-first 漏 grep model definition; hutao 08:05Z surface 拍 INT REFERENCES admin_users)
 - `S2-OPS-A-READ-ONLY-FLAG-ADMIN-API` (hutao P2) - admin set/unset/batch endpoint
 - `S2-TEST-016-READ-ONLY-FLAG-E2E` (keqing P2) - E2E 覆盖, **刻晴 review 9 条 AC** (E#1 set / E#2 unset / E#3 batch ≤100 / E#4 batch >100 reject / E#5 GET 不受影响 / E#6 admin audit log / E#7 fail-open redis 挂 / E#8 已发 token 标记瞬时性 / E#9 mutating endpoint lint 全量覆盖)
 - `S3-OPS-READ-ONLY-FLAG-REDIS-CACHE` (P3, conditional) - 视 DB 压力上 cache 形态 D
