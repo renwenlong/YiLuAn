@@ -125,10 +125,26 @@ def filter_top3_recommendations(sorted_companions: list[Companion]) -> list[Comp
 ### 1.4 admin override 守门（PM-005-9 第 3 条）
 
 admin-v2 编辑陪诊师页面：
-- `recommended` 字段可被 admin 手动设 `true` / `false`
-- **后端 service 层在推荐 endpoint 调用前再 filter 一次** `cert_status != "uncertified"`
-- admin 设 `recommended=true` 但 `cert_status="uncertified"` → 数据库写入成功（不报错）但**推荐 endpoint 仍不返回**
-- admin-v2 UI 加 warning toast「该陪诊师未认证，无法进入首屏推荐位（业务规则锁定）」
+- 数据库字段：`companion_profiles.admin_recommended_override BOOLEAN NULL`（架构决策 2026-06-12 00:58Z 魈拍、凝光 ratify · 方案 C · 反案 #16 catch-all 命名）
+  - NULL = 未 override，使用 service 默认计算（`cert_status != "uncertified"`）
+  - true / false = admin 显式 override，service 层优先该值
+- 业务规则（service 层伪代码）：
+  ```python
+  final_recommended = (
+      profile.admin_recommended_override
+      if profile.admin_recommended_override is not None
+      else (profile.cert_status != "uncertified")
+  )
+  ```
+- **硬约束（不可绕过）**：即使 `admin_recommended_override=true` 但 `cert_status="uncertified"`，`filter_top3_recommendations` 永远过滤掉该陪诊师。即数据库写入成功（不报错）但**推荐 endpoint 仍不返回**。admin override 不绕过 §1.3 cert_status 守门。
+- admin-v2 UI：
+  - 详情页加 toggle 控件，展示当前 `admin_recommended_override` 值 + 允许 override + 清除 override（设回 NULL）
+  - 当 `cert_status="uncertified"` 且 admin 尝试设 `admin_recommended_override=true` 时，加 warning toast「该陪诊师未认证，无法进入首屏推荐位（业务规则锁定）」（toast 文案与 §F8.5 admin override warning 一致，最终文案待帝君拍板）
+- 审计：复用现有 `AdminAuditLog`（`backend/app/models/admin_audit_log.py`），`action_type="set_admin_recommended_override"`，记录 `before_value` / `after_value` / `admin_user_id` / `target_companion_id`
+
+**ADR 注**：本 1 字段扩展不足以独立 ADR 阈值；与 ADR-0046（contract storage）主题无关，不 amend。后续 admin 字段若累计 ≥ 2 时再 raise refactor task 评估拆 `companion_admin_settings` 表（YAGNI 触发条件）。
+
+**实施 task**：`S3-DEV-006-FOLLOWUP-ADMIN-OVERRIDE`（P2，hutao own，魈 review）
 
 ### 1.5 分页规则
 
