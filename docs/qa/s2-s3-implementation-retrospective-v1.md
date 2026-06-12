@@ -147,3 +147,60 @@ P1 ready 等手起。
 ---
 
 PM 视角复盘 v1。下次帝君问「卡点+继续」时 PM 可拉本文档相关章节回答，不用每次临场盘点。
+
+---
+
+# v2 (S3 追加章节, 2026-06-12)
+
+## 8. S3 阶段新增反案族 (累至 #29)
+
+### 8.1 反案 #15 (PM evidence audit, 2026-06-10)
+
+- **事件**: PM list_tasks 漏读两个真实存在的 dev task (S3-DEV-005-CACHE-INVALIDATE / S3-DEV-003-PRECHECK-BACKEND), 误判协议违反
+- **纠正**: 魈 get_task 单点复核
+- **enforce**: ADR-0051 §6.8 PM evidence 顺序硬规则 (待 r3 amend)
+- **SOP**: `docs/sop/PM_TASKBOARD_EVIDENCE_SOP.md` v1.0 (2026-06-12 PM 落)
+
+### 8.2 反案 #28 (spec draft lock + reviewer ratify 后即可起手不必等主 PRD 合 main = 最佳实践, 2026-06-12)
+
+- **事件**: hutao 在 V15 主 PRD spec doc PR (#284 mergedAt 2026-06-12 00:03:59Z) 还没 merge 时, **领先 22 分钟**起 S3-DEV-006 实施 PR (#285 createdAt 2026-06-11 23:42:20Z), V15 PR 合 main 后 16 分钟 impl PR merged (#285 mergedAt 00:21:54Z)
+- **判定**: 务实最佳实践, 不是协议违反
+- **规则**: spec draft v1 final 已 lock + reviewer ratify + 主 PRD patch 只是字面 merge 不会引入新逻辑 → impl 方可直接吃 draft 起手, impl PR 引用 spec draft sha
+- **PM 教训**: 通知前必 verify task 实际状态 (raw API task.status), 不假设 dependency merge 顺序 = 实施 trigger 顺序
+
+### 8.3 反案 #29 (PM 引用 ADR 必 verify 主题字面, 2026-06-12)
+
+- **事件**: PM 建 S3-DEV-006-FOLLOWUP-ADMIN-OVERRIDE task AC#1 字面引 "ADR-0046 amend", 魈 evidence-first verify 发现 ADR-0046 主题是 contract storage 与 admin override 无关
+- **根因**: PM 复制粘贴前一个 task 的 ADR-0046 reference, 没核 ADR 主题
+- **规则升级** (反案 #14 延伸):
+  - 旧 (#14): PM 引用 ADR 前必 `ls docs/adr/` 核实文件存在
+  - 新 (#29): PM 引用 ADR 前必 `ls docs/adr/` + grep ADR 主题字面 verify 主题相关
+- **enforce**: PM 建 task 时, 任何 ADR-XXXX 引用必同 commit 提供 grep 主题字面 evidence
+
+## 9. S3 整夜闭环 trace (UTC 06-11 23:25Z → 06-12 00:36Z)
+
+| 时间 (UTC) | PR | sha | 描述 | 主导 |
+|---|---|---|---|---|
+| 06-11 23:25Z | #282 | `95df4c1` | ABAC fix /v1/companions list+detail PII 闭漏 (P0 incident SI-2026-06-11-001) | hutao |
+| 06-11 23:30Z | #283 | `4b6214e` | SI-2026-06-11-001 timeline append fix sha + lessons learned | PM |
+| 06-12 00:05Z | #284 | `173aff4` | PRD-001 v1.1→v1.5 §F8 spec 主 PRD 字面落 | PM |
+| 06-12 00:21Z | #285 | `8d7c3f0` | S3-DEV-006 §F8 推荐 endpoint 实装 | hutao |
+| 06-12 00:36Z | #286 | `5bdadd4` | spec v1 final §1.4 amend admin_recommended_override schema | 魈 |
+
+**统计**: 5 PR 1 夜 land main, ABAC P0 修复 6h 暴露窗口控制 (incident SI-2026-06-11-001), §F8 推荐 endpoint spec+impl+amend 全闭环, S3-DEV-006-FOLLOWUP-ADMIN-OVERRIDE 已解锁 hutao 起手.
+
+## 10. PM 自我反思 (S3 阶段更新)
+
+S3 阶段 PM 主要失误:
+1. 反案 #15: list_tasks 漏读误判协议违反 (本 SOP 字面 enforce 修复中)
+2. 反案 #29: 建 task ADR 引用主题不 verify (本 SOP 字面 enforce 修复中)
+3. P0 PII incident SI-2026-06-11-001 PM 决策时序自查发现 hutao 早已并行起手 → 通知滞后 (反案 #28 教训)
+
+S3 阶段 PM 主要做对:
+- ABAC P0 incident 6h 暴露窗口控制 (PM 决定 ABAC fix 优先级 > 主线 5-6h 节省, 推 stop-the-bleed 反案 #25)
+- 跨文档 reference 一致性 (反案 #23) PM 推 spec amend PR #286 闭环
+- 反案族累至 #29 反映团队协作成熟度阶跃 (S2 阶段 7 条 → S3 阶段累至 29 条)
+
+---
+
+PM 视角复盘 v2 (S3 追加). 下次 S4 立项时 PM 拉本文档与 SOP doc 并行使用.
