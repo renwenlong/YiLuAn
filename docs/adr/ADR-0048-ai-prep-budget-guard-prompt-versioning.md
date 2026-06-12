@@ -539,6 +539,44 @@ class CarryItemsSummary(BaseModel):
 
 详细业务字典：`docs/design/companion-carry-items-summary-design.md`。
 
+**Schema 变更兼容性（OpenAPI breaking change disclose，魈 PR #294 review 建议 #1）**：
+
+本 r1 amend 把陪诊师 `prep-package` response 的 `carry_items_summary` 字段类型从 `str | None`（PR #233 临时 placeholder）改为 `CarryItemsSummary | None`（`{total_count: int, categories: list[str]}`）。这是 OpenAPI schema 上的 **breaking change**（type discriminator 从 `string` → `object`），客户端反序列化口径会变。
+
+影响范围（必同步推三端 PR，hutao impl 时一并交付）：
+- **iOS**：`CompanionPrepPackage` model 加 `CarryItemsSummary` struct，旧 `String?` 字段必删；MoshiCodable/JSON Decoder 触发。
+- **wxapp（微信小程序）**：陪诊师订单详情 page data 解构必更，`{{prepPackage.carry_items_summary}}` 由字符串改对象，wxml `<text>` 渲染必拆为 `total_count` + `categories.join('、')`。
+- **admin-h5**：admin 调试视图（若有）同步改。
+
+impl 起手准入条件（PM 守门）：
+- 后端 PR 必同时（同一 sprint）出三端跟进 PR（可分仓但需引用同一 task ID）
+- schemathesis CI gate 跑过（`scripts/qa/openapi_contract_diff.py` 会 diff 出 type 变化并标红，需 PR description 显式 disclose）
+- 三端任一端 PR 未合 → 后端 PR 不解锁灰度开关
+
+**MVP 映射表维护方（魈 PR #294 review 建议 #2）**：
+
+- **初版词条**：凝光（PM）out（v0 已在 `docs/design/companion-carry-items-summary-design.md` §3 + §4 落盘）
+- **后续扩词 / 调整映射**：PM 主导提案 → dev/architect review → PM 双签合并；扩词 PR 不强制 ADR amend
+- **加新分类（第 10 类及以上）/ 改类目排序 / 拆分既有分类**：必走 ADR amend（本 ADR 走 r2、r3…amend，PM + 架构师 + Owner 三签）
+- **删词（缩窄映射）**：PM 单签可推（不影响 ABAC 红线），但需 changelog 标注
+- **denylist 红线（疾病/药名/科室推断）**：PM + 架构师双签，触红线词永久不进映射 value 侧
+
+**映射表实物 location（魈 PR #294 review 建议 #3 反驳）**：
+
+魈建议「hardcode in Python (`carry_items_categorizer.py`)」以拿加载性能 + 单测覆盖 + git 历史。PM 反驳：
+
+- 加载性能：模块级 `_MAPPING: dict = {...}` 单次 import 即 cache，与 hardcode 等价（无 yaml 反复解析问题）
+- 单测覆盖：yaml 同样可 `yaml.safe_load` 进单测 fixture，覆盖率不受存储格式影响
+- git 历史：yaml 改动 diff 比 py dict literal 更易 review，PM 可不依赖 dev 直接提 PR
+- **核心理由**：PM 是维护方，yaml 让 PM 可独立扩词（不动 py 代码 = 不踩越权红线）；hardcode py 则每次扩词都要 dev 改源码，与「初版 PM own」职责矛盾
+
+**结论**：采用 yaml + py loader 双轨：
+- `docs/medical-content/carry-items-category-mapping.yml` —— PM 维护的真源
+- `backend/app/services/carry_items_categorizer.py` —— dev 实装 loader（启动加载到模块级 dict，性能等价 hardcode）+ ABAC denylist 守门 + 单测 fixture 引用同一 yaml
+- yaml asset-presence integration test 必加（防 ADR-0051 反案 #24 Docker COPY 漏 yml 翻车）
+
+详细业务字典：`docs/design/companion-carry-items-summary-design.md`。
+
 ### 7.0.2 单元测断言（ABAC 字段级硬约束）
 
 ```python
