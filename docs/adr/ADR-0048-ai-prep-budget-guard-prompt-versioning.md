@@ -1,7 +1,7 @@
 # ADR-0048 — AI 就诊准备包预算控件 + Prompt 版本化 + 双层关键词过滤
 
-> 状态：**Accepted** · 作者：魈 · 日期：2026-06-05 · Accept 日期：2026-06-06
-> 关联：PRD-003 §4 S3-REQ-002 / ADR-0040 distributed circuit breaker + alertmanager / PRD-003 v0.3 §8 Q3 架构评估 + 刻晴 tester review §1 AC#8 强约束（独立 config）+ §2 AC-4 可测建议（关键词维护方）
+> 状态：**Accepted** · 作者：魈 · 日期：2026-06-05 · Accept 日期：2026-06-06 · r1 amend：2026-06-12 `CarryItemsSummary` 分类字典
+> 关联：PRD-003 §4 S3-REQ-002 / ADR-0040 distributed circuit breaker + alertmanager / PRD-003 v0.3 §8 Q3 架构评估 + 刻晴 tester review §1 AC#8 强约束（独立 config）+ §2 AC-4 可测建议（关键词维护方）+ PRD-003 v0.2 §2.2.1 carry_items_summary 脱敏分类
 > 触发：S3-REQ-002 AI 就诊准备包 / 帝君 2026-06-05 09:52 UTC v0.3 Owner Accept
 > Owner Approval：**Accepted by 帝君 @ 2026-06-06 03:28 UTC**（PR #189 merge `5f7f193`；review 闭环：PM final approve + 胡桃 dev review 4+2 + 刻晴 5 补充全合）
 
@@ -508,6 +508,36 @@ class AdminPrepPackageView(_BasePrepFields):
 - 陪诊师 schema **完全不包含** `pre_visit_notes` / `possible_questions` 字段 → 即使 service 层有 bug 漏过滤，Pydantic 序列化时会**直接 drop** 不在 schema 定义的字段（字段级硬约束）
 - 不是 `Optional[None]`也不是空字符串 — 字段**根本不存在于响应**
 - `carry_items_summary` 替代 `carry_items` 给陪诊师 = 显式 API 不对称设计（一个字段名不在另一个响应内）
+
+**r1 amend（2026-06-12，S3-DEV-002-COMPANION-CARRY-ITEMS-SUMMARY）**：
+
+`CarryItemsSummary` 字面定义如下：
+
+```python
+class CarryItemsSummary(BaseModel):
+    total_count: int
+    categories: list[str]
+```
+
+`categories` 只能使用 PRD-003 v0.2 §2.2.1 的安全展示名，按固定顺序输出：
+
+1. `证件凭证`
+2. `支付材料`
+3. `就医资料`
+4. `药品用品`
+5. `医疗设备`
+6. `日常用品`
+7. `饮食补给`
+8. `出行辅助`
+9. `其他`
+
+补充红线：
+- `total_count = len(carry_items)`；`categories` 去重后按固定顺序输出。
+- 陪诊师 response 禁止出现原始物品名、药名、器械名、疾病/症状/科室推断、单类别计数。
+- 示例：`["胰岛素笔", "血糖仪", "身份证"]` → `{total_count: 3, categories: ["证件凭证", "药品用品", "医疗设备"]}`；不得出现 `糖尿病` / `胰岛素` / `血糖` 字面。
+- MVP 使用确定性映射表，不调用 LLM 做分类，避免模型推断病情。
+
+详细业务字典：`docs/design/companion-carry-items-summary-design.md`。
 
 ### 7.0.2 单元测断言（ABAC 字段级硬约束）
 
