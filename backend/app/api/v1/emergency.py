@@ -10,7 +10,7 @@ from fastapi import APIRouter, status
 
 from app.api.v1.openapi_meta import err
 from app.config import settings
-from app.dependencies import CurrentUser, DBSession
+from app.dependencies import CurrentUser, DBSession, WriteableUser
 from app.schemas.emergency import (
     EmergencyContactCreate,
     EmergencyContactResponse,
@@ -46,7 +46,7 @@ async def list_contacts(current_user: CurrentUser, session: DBSession):
 )
 async def create_contact(
     body: EmergencyContactCreate,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     svc = EmergencyService(session)
@@ -63,7 +63,7 @@ async def create_contact(
 async def update_contact(
     contact_id: UUID,
     body: EmergencyContactUpdate,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     svc = EmergencyService(session)
@@ -79,7 +79,7 @@ async def update_contact(
 )
 async def delete_contact(
     contact_id: UUID,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     svc = EmergencyService(session)
@@ -106,7 +106,7 @@ async def get_hotline():
 )
 async def trigger_event(
     body: EmergencyTriggerRequest,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     svc = EmergencyService(session)
