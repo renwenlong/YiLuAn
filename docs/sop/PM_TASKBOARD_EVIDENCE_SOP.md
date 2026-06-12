@@ -1,11 +1,13 @@
 # PM Taskboard Evidence SOP
 
-**版本**: v1.0 (2026-06-12)
+**版本**: v1.1 (2026-06-12, r1 amend 吃 keqing review M1-M3)
 **作者**: 凝光 (PM)
-**审核**: 魈 (architect, AC#6 review pending)
+**审核**: 魈 (architect, AC#6 review pending) / 刻晴 (tester, 02:46Z approve)
 **关联 task**: S3-OPS-PM-LISTTASKS-EVIDENCE-AUDIT (uuid `a771cc8c-957a-451a-95d7-ac5c7cc093c0`)
 **关联 ADR**: ADR-0051 §6.8 enforce (待 r3 amend)
 **关联反案**: #15 (PM evidence audit), #28 (本日新 hutao 不等主 PRD merge), #29 (本日新 PM 引用 ADR 必 verify 主题字面)
+
+> **适用范围 (r1 amend, 吃 keqing M1 选项 A)**: 虽题为 "PM SOP", 但 §2.1 evidence 顺序 + §2.3 命令模板字面**对所有角色 (PM/dev/tester/architect/coordinator) 同样硬适用**. tester / dev / architect 用 mjs 时同套规则, 无角色特殊化. 后续 r2 amend 可重命名为 `TASKBOARD_EVIDENCE_SOP.md` 去 PM 前缀.
 
 ## 1. 起源 (AC#1 误判链路复盘)
 
@@ -42,6 +44,8 @@ data = json.load(sys.stdin)
 
 **当时正确做法**: 直接 `get_task <id>` 单点查询 (后续 PM 改用 `get_task S3-TEST-007-RECOMMENDATION-API-E2E` 正常拿到状态).
 
+**root cause (r1 amend, 吃 keqing M3)**: PM 起手默认 `list_tasks | python3 json.load` muscle memory, 即使前已有反案 #15 教训, 此 muscle memory 需通过 §3 ADR-0051 §6.8 trigger 自检字面强化. PM turn 内开场必跑 self-audit "我在用 evidence 顺序首选 (get_task) 吗?" 而非凭 muscle memory 起手 list_tasks pipe.
+
 ## 2. AC#2: PM SOP 字面规则
 
 ### 2.1 evidence 顺序 (hard rule)
@@ -60,6 +64,7 @@ PM 查询 task 时**必须按以下优先级**:
 | ❌ `list_tasks --status in-progress` 没结果 → 判无 in-progress | status filter 默认排除 done/awaiting 等 | ✅ `list_tasks` 全量后 client-side filter |
 | ❌ python `json.load(stdin)` 无 try/except, 报错就退出 | JSON truncate 不抛 Python 友好错 | ✅ 用 `jq` 替代, jq 对 truncate 更鲁棒 |
 | ❌ PM 把"基础事实不成立"的判断写入团队反案 | 反案是教材, 错的反案误导团队 | ✅ 反案前先三方 fact check, 错的反案立即撤回 |
+| ❌ tester/PM `set_status("done")` 后不调 `get_handoff_targets`, 直接 stop (r1 amend, 吃 keqing M2) | 流程死链, 下游 agent 不知道接手 | ✅ done 后**本 turn 必须**调 `get_handoff_targets` 并按 `must_act` 通知下游 (multi-agent-dev-workflow skill 已有规则, 合并放此处同源) |
 
 ### 2.3 命令模板 (AC#5 可复制)
 
