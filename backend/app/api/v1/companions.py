@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Query
 
 from app.api.v1.openapi_meta import err
-from app.dependencies import CurrentUser, DBSession
+from app.dependencies import CurrentUser, DBSession, WriteableUser
 from app.schemas.companion import (
     ApplyCompanionRequest,
     CompanionDetailResponse,
@@ -157,7 +157,7 @@ async def get_companion(
 )
 async def apply_companion(
     body: ApplyCompanionRequest,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     service = CompanionProfileService(session)
@@ -173,7 +173,7 @@ async def apply_companion(
 )
 async def update_companion_profile(
     body: UpdateCompanionProfileRequest,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     service = CompanionProfileService(session)

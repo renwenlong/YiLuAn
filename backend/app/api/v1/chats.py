@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Query
 
 from app.api.v1.openapi_meta import err
-from app.dependencies import CurrentUser, DBSession
+from app.dependencies import CurrentUser, DBSession, WriteableUser
 from app.schemas.chat import (
     ChatMessageBackfillResponse,
     ChatMessageListResponse,
@@ -116,7 +116,7 @@ async def backfill_messages(
 async def send_message(
     order_id: UUID,
     body: SendMessageRequest,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     service = ChatService(session)
@@ -137,7 +137,7 @@ async def send_message(
 )
 async def mark_read(
     order_id: UUID,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     service = ChatService(session)

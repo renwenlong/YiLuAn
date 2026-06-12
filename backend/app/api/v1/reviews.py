@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Query
 
 from app.api.v1.openapi_meta import err
-from app.dependencies import CurrentUser, DBSession
+from app.dependencies import CurrentUser, DBSession, WriteableUser
 from app.schemas.review import (
     CreateReviewRequest,
     ReviewListResponse,
@@ -28,7 +28,7 @@ router = APIRouter(tags=["reviews"])
 async def submit_review(
     order_id: UUID,
     body: CreateReviewRequest,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     service = ReviewService(session)

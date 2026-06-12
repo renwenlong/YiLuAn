@@ -1,0 +1,49 @@
+name: WriteableUser Lint
+
+# S2-DEV-016-READ-ONLY-FLAG-DB AC#5 — E#9 lint hard gate (套路 PR #240 schemathesis, 刻晴 r2 amend redline).
+#
+# Enforces: every POST/PUT/PATCH/DELETE endpoint with a user-side identity
+# dependency MUST use `WriteableUser` (gates is_read_only flag) instead of
+# `CurrentUser`. GET endpoints unaffected. `# noqa` markers also banned to
+# prevent silent bypass.
+#
+# Allow-list (managed in lint script ALLOW set):
+#   - auth.logout_all   — read-only user must be able to log out (security)
+#   - auth.bind_phone   — new-device phone bind is auth/recovery
+#
+# Triggers: only when api/v1 endpoints or the lint script itself changes.
+# CI: GitHub Actions required check. Fail PR → blocks merge.
+
+on:
+  pull_request:
+    paths:
+      - "backend/app/api/v1/**"
+      - "backend/app/dependencies.py"
+      - "backend/scripts/lint_writeable_user.py"
+      - ".github/workflows/writeable-user-lint.yml"
+  push:
+    branches: [main]
+    paths:
+      - "backend/app/api/v1/**"
+      - "backend/app/dependencies.py"
+      - "backend/scripts/lint_writeable_user.py"
+      - ".github/workflows/writeable-user-lint.yml"
+
+jobs:
+  writeable-user-lint:
+    name: WriteableUser Lint (S2-DEV-016 AC#5 / ADR-0053 §5.2)
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run WriteableUser lint
+        run: |
+          echo "::group::WriteableUser lint (E#9)"
+          python3 backend/scripts/lint_writeable_user.py
+          echo "::endgroup::"

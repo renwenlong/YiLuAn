@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1.openapi_meta import err
-from app.dependencies import CurrentUser, DBSession
+from app.dependencies import CurrentUser, DBSession, WriteableUser
 from app.schemas.patient import PatientProfileResponse, UpdatePatientProfileRequest
 from app.services.patient_profile import PatientProfileService
 
@@ -29,7 +29,7 @@ async def get_patient_profile(current_user: CurrentUser, session: DBSession):
 )
 async def update_patient_profile(
     body: UpdatePatientProfileRequest,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     service = PatientProfileService(session)
