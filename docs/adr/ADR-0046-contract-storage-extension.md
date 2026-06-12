@@ -447,3 +447,15 @@ python scripts/qa/openapi_contract_diff.py --json-summary
   - 触发: 胡桃 2026-06-08 08:10 UTC fact check (`PatientProfile` 无 id_card / `put_contract` docstring "caller owns generation" 但 ContractService 类不存在 / ContractTemplate 表 ghost 引用)
   - 配套 task: S3-DEV-001-CONTRACT-SERVICE-CORE AC 修订至 5 条 (加 id_card 占位 + PDF stub + settings.CONTRACT_TEMPLATE_VERSION + 原 hash 一次性 + facade pattern), 新立 S3-DEV-001-CONTRACT-PDF-RENDER task
   - **"ghost interface" 反模式记录**: 本次 fact check 暴露 ADR-0046 设计文档存在多处 "docstring/字段引用了一个类/表，但 schema 章节没定义" 的 ghost 引用 (ContractService 类 + ContractTemplate 表)。未来 ADR 写作时，凡 docstring 引用的类型/表/字段，必须在 schema 章节同时定义或明示 "后续 ADR 落地"，避免 implementer 临 implement 时才发现 gap
+- **r6（2026-06-12）**：架构师 (魈) ratify — **share endpoint 不加 cache 层** (S3-ADR-0046-SHARE-CACHE-SPEC-RATIFY 拍 A)
+  - 触发: S3-TEST-006 PR #272 (刻晴) verify `build_share_order_view` 直读 DB (0 cache hit), S3-DEV-005 AC#3 字面 schemathesis CI gate "0 cache" 要求, 但 `test_e2e_share_companion_cert_journey.py` line 575 xfail strict 标 "AC#3 暗含 share 端有 cache 层" 期望 invalidate broadcast=True. **spec drift**
+  - **拍板**: 方案 A (不加 cache) — `build_share_order_view` 保持直读 DB, share endpoint 不挂 redis cache 中间件
+  - 理据 (3 点):
+    1. **traffic 模式**: share 用例是 "下单后分享给 1-2 个家属看 1 单" (sparse), 不在 hotpath, cache hit rate 低
+    2. **数据一致性优先**: 合同/订单数据强一致 (WORM + DB transaction), cache 引入 stale 窗口反而风险大 (家属看到过期数据 = 信任 issue)
+    3. **复杂度成本**: 加 cache 需 RedisShareCache + invalidate broadcast + cache key 设计 (`share:order:{order_id}` vs `share:token:{token}` 选型) + admin /cache/invalidate endpoint, 投入产出比低 (read-light + low traffic)
+  - 后续 action (刻晴 + 胡桃):
+    1. 刻晴: `test_e2e_share_companion_cert_journey.py` line 572 xfail block 删除, 改为正常 `test_cache_invalidate_then_share_re_read_returns_fresh_data` 正向 assert: invalidate endpoint 调用返回 200/501/400 + 不 break flow + share GET re-read 直接命中 DB 返回 fresh data (无 cache 层但 invalidate 调用是 no-op success)
+    2. 胡桃: `backend/app/api/v1/admin/cache.py` (如不存在则建 stub) 加 `POST /api/v1/admin/cache/invalidate` 接受 `cache_key` body + 返回 200 + 当 `cache_key` 是 `share:*` pattern 时直接返回 `{"ok": true, "note": "share endpoint has no cache, no-op"}` (provide forward compat for future cache layer 重启时不破 test contract)
+  - **未来 cache 添加触发条件**: 若 share traffic >100 QPS sustained (Grafana 监控) 或 `build_share_order_view` p99 >200ms, 再独立 ADR (e.g. ADR-0046 r7 或新 ADR) 评估添加 RedisShareCache + invalidate broadcast
+  - **不拆 S3-DEV-007-SHARE-CACHE task** (方案 B 路径), 因为方案 A 拍板已闭 spec drift; 后续触发条件满足时再拆
