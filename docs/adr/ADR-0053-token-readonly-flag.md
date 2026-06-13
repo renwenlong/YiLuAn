@@ -1,6 +1,6 @@
 # ADR-0053：已发 token read-only flag 设计（S2-OPS-A 灰度 real 路径）
 
-- **状态**：Draft（2026-06-10，魈）→ r2 amend (2026-06-12，魈) — §5 evidence typo fix → r3 amend (2026-06-12，魈) — §5.1 双列 + §5.2 error_code 拼写
+- **状态**：Draft（2026-06-10，魈）→ r2 amend (2026-06-12，魈) — §5 evidence typo fix → r3 amend (2026-06-12，魈) — §5.1 双列 + §5.2 error_code 拼写 → r4 amend (2026-06-13，魈) — §5.3 pseudo 改 session.flush() 单事务 + 加 anti-pattern warning (PR #300 037a6d7a reference impl 落地)
 - **范围**：S2-OPS-A-TOKEN-READONLY-FLAG（design/P2），S2-OPS-A 灰度 real 路径上线前必 close
 - **关联**：ADR-0038（admin h5 token hardening）/ S2-OPS-A 套件 §B.2（回滚演练 / 紧急只读）
 
@@ -191,32 +191,70 @@ mutating endpoint (POST/PUT/DELETE) 用 `WriteableUser` 替 `CurrentUser`. GET e
 
 ### 5.3 admin endpoint
 
-```python
-# backend/app/api/v1/admin/users.py
+> **r4 amend 2026-06-13** (PR #300 `037a6d7a` reference impl 落地): 原 pseudo `await session.commit()` 再 `AdminAuditLog.create()` 是 **2 事务 anti-pattern** (PR #250 cache-invalidate 同款问题 — audit log fail 时 user 已改 = data integrity violation). 改 `session.flush()` 单事务 + helper extraction (`_apply_set_read_only` / `_apply_unset_read_only` 防 endpoint 与 batch endpoint drift). 同事务 audit 由 `_audit()` helper 通过 session 注入 + `session.flush()` 一并落 — 失败 (404/422) 回滚 user 与 audit, 不留 orphan audit (§7 已 accept).
 
-@router.post("/users/{user_id}/read-only")
+```python
+# backend/app/api/v1/admin/users.py (PR #300 reference impl)
+
+# Pattern: AC#4 mandates same-transaction audit (PR #238 套路 `view_prep_package`)
+# rather than independent-session audit (PR #250 `cache-invalidate` 套路).
+# Successful 200 writes both ``users.read_only_*`` columns and the
+# ``admin_audit_logs`` row in one ``session.flush()``; failures (404/422/500)
+# rollback both, leaving no orphan audit. ADR-0053 §7 accepts this.
+
+def _apply_set_read_only(
+    user: User,
+    *,
+    body: SetReadOnlyBody,
+    admin_user_id: int | None,
+) -> None:
+    """Mutate user columns for ``is_read_only=True``; helper for batch reuse."""
+    user.is_read_only = True
+    user.read_only_reason_category = body.reason_category
+    user.read_only_reason_detail = body.reason_detail
+    user.read_only_set_at = datetime.now(timezone.utc)
+    # AC#5: read_only_set_by FK only populated under JWT path; legacy
+    # X-Admin-Token has no real AdminUser.id to attribute.
+    user.read_only_set_by = admin_user_id
+
+
+@router.post("/{user_id}/read-only", response_model=ReadOnlyStateResponse)
 async def set_user_read_only(
     user_id: UUID,
-    payload: SetReadOnlyRequest,
-    admin: CurrentAdmin,
-    session: AsyncSession,
+    body: SetReadOnlyBody,
+    session: DBSession,
+    principal=Depends(require_admin),
+    operator: str = Depends(admin_operator_id),
 ):
-    user = await UserRepository(session).get_by_id(user_id)
-    user.is_read_only = True
-    user.read_only_reason_category = payload.reason_category
-    user.read_only_reason_detail = payload.reason_detail  # admin 内部 audit, 不返 frontend
-    user.read_only_set_at = datetime.now(timezone.utc)
-    user.read_only_set_by = admin.id
-    await session.commit()
-    
-    # 写 admin audit log (复用 PR #238 AdminAuditLog 机制)
-    await AdminAuditLog.create(
-        admin_id=admin.id,
-        action="set_user_read_only",
-        target_user_id=user_id,
-        details={"reason": payload.reason},
+    repo = UserRepository(session)
+    user = await repo.get_by_id(user_id)
+    if user is None:
+        raise NotFoundException("User not found")
+
+    admin_user_id = principal.id if isinstance(principal, AdminUser) else None
+    _apply_set_read_only(user, body=body, admin_user_id=admin_user_id)
+    _audit(
+        session,
+        target_type="user",
+        target_id=user_id,
+        action="set_read_only",
+        operator=operator,
+        reason=(f"category={body.reason_category} detail={body.reason_detail or ''}"),
     )
-    return {"ok": True}
+    await session.flush()  # 单事务: user.* + admin_audit_logs.* 同时落或同时回
+    return _read_only_response(user)
+```
+
+**⛔ anti-pattern warning** — 不要抄 PR #250 cache-invalidate 套路:
+```python
+# ❌ 错: 2 事务 — audit fail 时 user 已改 = data integrity violation
+await session.commit()  # user mutation 已落 DB
+await AdminAuditLog.create(...)  # 独立 session, 可能 fail = orphan user without audit
+
+# ✅ 对 (本 ADR §5.3 PR #300 模式): 1 事务 flush, 同时落或同时回
+_apply_set_read_only(user, ...)
+_audit(session, ...)  # 同 session 注入
+await session.flush()  # 失败回滚全部, 无 orphan
 ```
 
 ### 5.4 frontend / iOS 处理 403
@@ -253,7 +291,7 @@ iOS / 微信小程序 / admin-h5 三端均需:
 - `S2-OPS-A-METRIC-DASHBOARD-READONLY` (**P1**, OPS, **前置于 S2-DEV-016**) - read-only flag 监控指标埋点 (`user_token_revoke_total` / `user_relogin_success_total` / `user_session_dropped_total`), real 上线 T-7 天前必部署完成, 否则 AC#5 quantitative metric guard 跑不起来 (刻晴 PR #246 review 红线拍穿, 本 ADR amend r1)
 - `S2-PRD-016-READONLY-UX-COPY` (P2, PM own) - read-only flag UX 文案 4 场景分级 (mock灰度 / real-灰度异常 / 紧急吊销 / 合规举报, 凝光 PM review 推原则 = UX 不直接暴露后端 reason 原文, frontend 三端 i18n 规范)
 - `S2-DEV-016-READ-ONLY-FLAG-DB` (hutao P2, **depends_on=[S2-OPS-A-METRIC-DASHBOARD-READONLY]**) - alembic + dependency + 403 shape; admin endpoint audit log 同 transaction (刻晴建议) + `read_only_set_by INT REFERENCES admin_users(id) ON DELETE SET NULL` (r2 amend 2026-06-12: 原 `UUID REFERENCES admins(id)` 双错 — 表名 `admins` 不存在 实物 `admin_users`, 类型 UUID 与 admin_users.id INT autoincrement 不匹, 反案 #N+1 evidence-first 漏 grep model definition; hutao 08:05Z surface 拍 INT REFERENCES admin_users)
-- `S2-OPS-A-READ-ONLY-FLAG-ADMIN-API` (hutao P2) - admin set/unset/batch endpoint
+- `S2-OPS-A-READ-ONLY-FLAG-ADMIN-API` (hutao P2 ✅ **DONE @ 2026-06-13 PR #300 `037a6d7a`**) - admin set/unset/batch endpoint. 实施超越 §5.3 spec 3 处亮点: (a) same-transaction audit 跟刻晴建议字面对齐而不抄 §5.3 v1 pseudo (避免 PR #250 anti-pattern); (b) helper extraction `_apply_set_read_only`/`_apply_unset_read_only` 防 endpoint/batch drift; (c) 三层 sentinel defense (schema 无 `reason_detail` 字段 + body assert + full-body string scan `SECRET_ADMIN_NOTE_42_DO_NOT_LEAK`)
 - `S2-TEST-016-READ-ONLY-FLAG-E2E` (keqing P2) - E2E 覆盖, **刻晴 review 9 条 AC** (E#1 set / E#2 unset / E#3 batch ≤100 / E#4 batch >100 reject / E#5 GET 不受影响 / E#6 admin audit log / E#7 fail-open redis 挂 / E#8 已发 token 标记瞬时性 / E#9 mutating endpoint lint 全量覆盖)
 - `S3-OPS-READ-ONLY-FLAG-REDIS-CACHE` (P3, conditional) - 视 DB 压力上 cache 形态 D
 
