@@ -248,6 +248,14 @@ class Settings(BaseSettings):
     # 默认 False，指南火度异常时 OPS 手动切 True 冻结新会话。
     readonly_share_sessions: bool = False
 
+    # S2-OPS-A-CANARY-WHITELIST-LAUNCH AC-2 火度门:
+    # 启用后, F2 入口 (POST /orders/{order_id}/shares) 仅对
+    # deploy/canary/whitelist_phones.yaml 内手机号开放; 其他用户 403.
+    # 默认 False —— 未启用时行为与今天一致 (仅
+    # feature_share_f2_enabled + readonly_share_sessions 两道闸).
+    # 配合 canary deploy 切 True 实现 "内部白名单 10% mock 灰度上线".
+    canary_whitelist_enabled: bool = False
+
     # ADR-0032 / D-044 Q3: 资金对账历史豁免 cutoff。
     # 早于该时刻产生的 amount_mismatch diff 视为已豁免，guard 不阻断订单
     # 状态机迁移。默认值 = ADR-0032 Accepted 的 UTC 时刻；生产部署可通过
@@ -270,9 +278,7 @@ class Settings(BaseSettings):
 
         # JWT 密钥不能是开发默认值
         if self.jwt_secret_key == "dev-secret-key-change-in-production":
-            raise ValueError(
-                "生产环境禁止使用默认 JWT 密钥，请设置 JWT_SECRET_KEY"
-            )
+            raise ValueError("生产环境禁止使用默认 JWT 密钥，请设置 JWT_SECRET_KEY")
 
         # 生产环境必须关闭 debug
         if self.debug:
@@ -302,9 +308,7 @@ class Settings(BaseSettings):
                 if not val
             ]
             if missing:
-                raise ValueError(
-                    f"生产环境微信支付缺少凭证: {', '.join(missing)}"
-                )
+                raise ValueError(f"生产环境微信支付缺少凭证: {', '.join(missing)}")
 
         # ADR-0029: PII 加密 / hash 密钥不得使用 dev 默认值
         if self.pii_envelope_key == _DEV_PII_ENVELOPE_KEY:
@@ -313,26 +317,20 @@ class Settings(BaseSettings):
                 "Manager 注入 base64 编码的 32 字节密钥"
             )
         if self.pii_hash_salt == "yiluan-dev-salt-do-not-use-in-prod":
-            raise ValueError(
-                "生产环境禁止使用默认 PII_HASH_SALT，请设置高熵随机串"
-            )
+            raise ValueError("生产环境禁止使用默认 PII_HASH_SALT，请设置高熵随机串")
 
         # W1-S1: 运维管理后台 / 定时任务回调使用的 admin token 不得为开发默认值或空串。
         # `require_admin_token` 拿这个值做常量时间比对；若不强制 override，
         # 任何知道默认值的人都能触发 /orders/check-expired 等运维端点。
         if self.admin_api_token in ("dev-admin-token", "", None):
-            raise ValueError(
-                "生产环境禁止使用默认 ADMIN_API_TOKEN，请设置高熵随机串"
-            )
+            raise ValueError("生产环境禁止使用默认 ADMIN_API_TOKEN，请设置高熵随机串")
 
         # SMS 凭证完整性检查
         # 先拒绝 mock provider：生产环境上 mock = 什么也不发但谎报成功，用户收不到
         # 验证码还以为是运营问题。上古遗留 app/services/sms.py 的 silent
         # fallback 已被移除，这里是 defense-in-depth。
         if self.sms_provider == "mock":
-            raise ValueError(
-                "生产环境禁止 SMS_PROVIDER=mock，请设为 aliyun / tencent"
-            )
+            raise ValueError("生产环境禁止 SMS_PROVIDER=mock，请设为 aliyun / tencent")
         if self.sms_provider != "mock":
             missing = [
                 name
