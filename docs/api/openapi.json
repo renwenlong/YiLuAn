@@ -721,6 +721,129 @@
         "title": "AvatarUploadResponse",
         "type": "object"
       },
+      "BatchReadOnlyBody": {
+        "description": "AC#3 body for POST /batch-read-only. ``user_ids`` capped at\n``BATCH_MAX`` (100) per ADR-0053 §7 to bound transaction size and\noperator blast radius.",
+        "properties": {
+          "is_read_only": {
+            "description": "Set TRUE or FALSE for all targets.",
+            "title": "Is Read Only",
+            "type": "boolean"
+          },
+          "reason_category": {
+            "anyOf": [
+              {
+                "enum": [
+                  "GRAY_REVOKE",
+                  "GRAY_ANOMALY",
+                  "CREDENTIAL_LEAK",
+                  "COMPLIANCE_REPORT"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Category"
+          },
+          "reason_detail": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Detail"
+          },
+          "user_ids": {
+            "description": "Target user UUIDs; 1 ≤ len ≤ BATCH_MAX (100).",
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "User Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "user_ids",
+          "is_read_only"
+        ],
+        "title": "BatchReadOnlyBody",
+        "type": "object"
+      },
+      "BatchReadOnlyResponse": {
+        "description": "AC#3 per-user result; total numbers help operators reconcile spreadsheets.",
+        "properties": {
+          "failed": {
+            "title": "Failed",
+            "type": "integer"
+          },
+          "requested": {
+            "title": "Requested",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/BatchUserResult"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "succeeded": {
+            "title": "Succeeded",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "requested",
+          "succeeded",
+          "failed",
+          "results"
+        ],
+        "title": "BatchReadOnlyResponse",
+        "type": "object"
+      },
+      "BatchUserResult": {
+        "properties": {
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "is_read_only": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Read Only"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "is_read_only"
+        ],
+        "title": "BatchUserResult",
+        "type": "object"
+      },
       "BlocklistCategoryItem": {
         "properties": {
           "category": {
@@ -5868,6 +5991,61 @@
         "title": "PublicServicePackage",
         "type": "object"
       },
+      "ReadOnlyStateResponse": {
+        "description": "AC#1/AC#2 response. ``reason_detail`` is intentionally OMITTED —\nsee ``SetReadOnlyBody`` docstring.",
+        "properties": {
+          "is_read_only": {
+            "title": "Is Read Only",
+            "type": "boolean"
+          },
+          "read_only_set_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read Only Set At"
+          },
+          "read_only_set_by": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read Only Set By"
+          },
+          "reason_category": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Category"
+          },
+          "user_id": {
+            "title": "User Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "user_id",
+          "is_read_only",
+          "reason_category",
+          "read_only_set_at",
+          "read_only_set_by"
+        ],
+        "title": "ReadOnlyStateResponse",
+        "type": "object"
+      },
       "RecommendationItem": {
         "description": "Single companion recommendation item in ``GET /v1/companions/recommendations`` response.\n\nABAC layer 3 — positive list of public fields. NO PII fields.",
         "properties": {
@@ -6683,6 +6861,52 @@
           }
         },
         "title": "ServicePackageUpdateBody",
+        "type": "object"
+      },
+      "SetReadOnlyBody": {
+        "description": "AC#1 body for POST /{user_id}/read-only.\n\n``reason_detail`` is admin-internal audit text — it is **NEVER** returned\nin any response per PRD-001 §F8 D1 (avoid leaking gray-release / credential\n/ compliance details to the affected user). Only the long-form copy in\n``admin_audit_logs.reason`` is the source of truth for retrospective\ninvestigations.",
+        "properties": {
+          "is_read_only": {
+            "description": "目mark; must be TRUE for set endpoint. Provided in body (not path) so the same payload shape can be reused by batch endpoint.",
+            "title": "Is Read Only",
+            "type": "boolean"
+          },
+          "reason_category": {
+            "anyOf": [
+              {
+                "enum": [
+                  "GRAY_REVOKE",
+                  "GRAY_ANOMALY",
+                  "CREDENTIAL_LEAK",
+                  "COMPLIANCE_REPORT"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "PRD-001 §F8 D2 enum mapped to frontend i18n key. NULL allowed when admin omits (legacy / quick freeze). The companion test ``test_reason_category_null_when_admin_did_not_set_one`` covers the NULL branch.",
+            "title": "Reason Category"
+          },
+          "reason_detail": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Admin internal audit text. NEVER returned to frontend; stored in both ``users.read_only_reason_detail`` (short retention) and ``admin_audit_logs.reason`` (long retention).",
+            "title": "Reason Detail"
+          }
+        },
+        "required": [
+          "is_read_only"
+        ],
+        "title": "SetReadOnlyBody",
         "type": "object"
       },
       "ShareOrderResponse": {
@@ -12439,6 +12663,83 @@
         ]
       }
     },
+    "/api/v1/admin/users/batch-read-only": {
+      "post": {
+        "description": "ADR-0053 §7 批量上限 100。每个 user_id 独立成功/失败, 单 user 404 不阻整批; 全批同一事务 commit (要么 100 个 audit + 100 个 user 行 update 同时落, 要么全回滚)。批 >100 → 422 BATCH_TOO_LARGE。",
+        "operationId": "batch_set_read_only_api_v1_admin_users_batch_read_only_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BatchReadOnlyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BatchReadOnlyResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：批量设置/解除只读 (≤100)",
+        "tags": [
+          "admin",
+          "admin-users"
+        ]
+      }
+    },
     "/api/v1/admin/users/{user_id}": {
       "get": {
         "description": "返回单个用户详情；phone 默认脱敏，?reveal=true 返回明文并写 reveal_pii 审计；同时写入 view_user_detail 审计行。",
@@ -12686,6 +12987,168 @@
           }
         },
         "summary": "后台：启用用户",
+        "tags": [
+          "admin",
+          "admin-users"
+        ]
+      }
+    },
+    "/api/v1/admin/users/{user_id}/read-only": {
+      "delete": {
+        "description": "ADR-0053 §7. 清除 is_read_only + 4 列元数据，复用 PR #238 同事务 AdminAuditLog 路径。",
+        "operationId": "unset_user_read_only_api_v1_admin_users__user_id__read_only_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadOnlyStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：解除用户只读 (unset read-only)",
+        "tags": [
+          "admin",
+          "admin-users"
+        ]
+      },
+      "post": {
+        "description": "ADR-0053 §7. 复用 PR #238 同事务 AdminAuditLog 路径 — 成功 200 时写 audit; 失败 404/422 因事务回滚不留 audit。reason_detail 仅 audit 留存, response 永远不返 (PRD-001 §F8 D1)。",
+        "operationId": "set_user_read_only_api_v1_admin_users__user_id__read_only_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "user_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "User Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Admin-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetReadOnlyBody"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadOnlyStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "后台：将用户置为只读 (read-only)",
         "tags": [
           "admin",
           "admin-users"
