@@ -1,0 +1,29 @@
+# S3-OPS-WORKTREE-LIFECYCLE-AUTO-CLEANUP AC#9
+# 反案哨兵: verify AGENTS.md SOP 模板存在且含必要段
+# (workspace AGENTS.md 文件不在 repo, CI 仅 verify repo 内 SOP 模板)
+name: AGENTS.md Lint (worktree lifecycle SOP)
+
+on:
+  pull_request:
+    paths:
+      - 'docs/agents-md/**'
+      - 'scripts/qa/check_agents_md_has_worktree_sop.py'
+      - '.github/workflows/agents-md-lint.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/agents-md/**'
+      - 'scripts/qa/check_agents_md_has_worktree_sop.py'
+
+jobs:
+  agents-md-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Lint AGENTS.md SOP template
+        run: python scripts/qa/check_agents_md_has_worktree_sop.py
