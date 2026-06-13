@@ -68,7 +68,7 @@ from app.api.v1.feedback_ratelimit import (
     feedback_submit_ratelimit,
 )
 from app.api.v1.openapi_meta import err
-from app.dependencies import CurrentUser, DBSession
+from app.dependencies import DBSession, WriteableUser
 from app.models.user_feedback import FeedbackFunctionModule, FeedbackSeverity
 from app.schemas.feedback import UserFeedbackDetailView
 from app.services.feedback_service import (
@@ -126,7 +126,7 @@ async def _read_uploadfiles(
     dependencies=[Depends(feedback_submit_ratelimit)],
 )
 async def submit_user_feedback(
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
     feedback_function_module: Annotated[FeedbackFunctionModule, Form()],
     category: Annotated[str, Form(min_length=1, max_length=64)],
@@ -200,7 +200,7 @@ async def submit_user_feedback(
 )
 async def append_user_feedback(
     parent_id: UUID,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
     raw_content: Annotated[str, Form(min_length=1, max_length=10_000)],
     attachments: Annotated[list[UploadFile] | None, File()] = None,

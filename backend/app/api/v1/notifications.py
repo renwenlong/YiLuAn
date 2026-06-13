@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import APIRouter, Query
 
 from app.api.v1.openapi_meta import err
-from app.dependencies import CurrentUser, DBSession
+from app.dependencies import CurrentUser, DBSession, WriteableUser
 from app.models.device_token import DeviceToken
 from app.repositories.device_token import DeviceTokenRepository
 from app.schemas.device_token import (
@@ -97,7 +97,7 @@ async def unread_count(
 )
 async def mark_notification_read(
     notification_id: UUID,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     service = NotificationService(session)
@@ -123,7 +123,7 @@ async def mark_notification_read(
     },
 )
 async def mark_all_read(
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     service = NotificationService(session)
@@ -143,7 +143,7 @@ async def mark_all_read(
 )
 async def register_device_token(
     data: RegisterDeviceRequest,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     repo = DeviceTokenRepository(session)
@@ -171,7 +171,7 @@ async def register_device_token(
 )
 async def unregister_device_token(
     data: UnregisterDeviceRequest,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     repo = DeviceTokenRepository(session)

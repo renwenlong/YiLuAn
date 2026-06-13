@@ -11,7 +11,7 @@ from uuid import UUID
 from fastapi import APIRouter
 
 from app.api.v1.openapi_meta import err
-from app.dependencies import CurrentUser, DBSession
+from app.dependencies import CurrentUser, DBSession, WriteableUser
 from app.schemas.family_member import (
     CreateFamilyMemberRequest,
     FamilyMemberListResponse,
@@ -49,7 +49,7 @@ async def list_family_members(current_user: CurrentUser, session: DBSession):
 )
 async def create_family_member(
     body: CreateFamilyMemberRequest,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     service = FamilyMemberService(session)
@@ -67,7 +67,7 @@ async def create_family_member(
 async def update_family_member(
     member_id: UUID,
     body: UpdateFamilyMemberRequest,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     service = FamilyMemberService(session)
@@ -84,7 +84,7 @@ async def update_family_member(
 )
 async def delete_family_member(
     member_id: UUID,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     service = FamilyMemberService(session)

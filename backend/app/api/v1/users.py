@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, UploadFile
 from fastapi.responses import JSONResponse
 
 from app.api.v1.openapi_meta import err
-from app.dependencies import CurrentUser, DBSession
+from app.dependencies import CurrentUser, DBSession, WriteableUser
 from app.schemas.auth import TokenResponse, UserResponse
 from app.schemas.user import AvatarUploadResponse, SwitchRoleRequest, UpdateUserRequest
 from app.services.auth import AuthService
@@ -32,7 +32,7 @@ async def get_me(current_user: CurrentUser):
 )
 async def update_me(
     body: UpdateUserRequest,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     service = UserService(session)
@@ -51,7 +51,7 @@ async def update_me(
 )
 async def upload_avatar(
     file: UploadFile,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     upload_service = UploadService()
@@ -75,7 +75,7 @@ async def upload_avatar(
 )
 async def switch_role(
     body: SwitchRoleRequest,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
     request: Request,
 ):

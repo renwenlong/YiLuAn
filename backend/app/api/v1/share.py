@@ -22,7 +22,7 @@ from app.api.v1.openapi_meta import err
 from app.config import settings
 from app.core import error_codes
 from app.core.redis import get_redis
-from app.dependencies import CurrentUser, DBSession
+from app.dependencies import CurrentUser, DBSession, WriteableUser
 from app.exceptions import (
     BadRequestException,
     ForbiddenException,
@@ -127,7 +127,7 @@ def _token_to_response(token) -> ShareTokenResponse:
 async def create_share(
     order_id: UUID,
     body: CreateShareRequest,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     # S2-OPS-011 火度门：FEATURE_SHARE_F2_ENABLED=false 热关 F2 入口
@@ -195,7 +195,7 @@ async def list_shares(
 async def revoke_share(
     order_id: UUID,
     token_id: UUID,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
     session: DBSession,
 ):
     await _ensure_order_owner(

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request
 
 from app.api.v1.openapi_meta import err
-from app.dependencies import CurrentUser, DBSession
+from app.dependencies import CurrentUser, DBSession, WriteableUser
 from app.core.rate_limit import limiter
 from app.schemas.auth import (
     PhoneBindRequest,
@@ -107,7 +107,7 @@ async def bind_phone(
     body: PhoneBindRequest,
     request: Request,
     session: DBSession,
-    current_user: CurrentUser,
+    current_user: WriteableUser,
 ):
     service = AuthService(session, request.app.state.redis)
     user = await service.bind_phone(current_user.id, body.phone, body.code)

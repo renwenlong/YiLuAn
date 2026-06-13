@@ -1,0 +1,177 @@
+# 职业背书禁词清单（admin-v2 + 三端文案 lint 哨兵）
+#
+# 来源：PRD-001 v1.5 §F8 + qa/s3-prd-001-004-pm-business-acceptance-checklist-v1.md PM-005-10
+# 引用 AC：S3-DEV-003-ADMIN-COPY AC#1（10+ 禁词初版）
+# 拥有方：凝光（PM）；新增/删除需 PM + Owner 双签
+# 实施方：胡桃（dev）lint 规则 + CI gate
+#
+# 业务规则：
+# - 平台不就陪诊师职业身份做背书
+# - 资质三态只允许中性表达：已认证 / 临时证明补交中 / 未认证
+# - 禁止任何「已护士 / 已医生 / 资格 / 执业 / 认证医师」类绝对/职业身份口径
+#
+# 命中处理：
+# - admin-v2 编辑保存 + 三端模板/i18n/copy 文件 lint 命中 → reject（不允许 PR 合入）
+# - 客户端运行时文案（i18n + 静态 copy 文件）由 CI gate 在 PR 阶段拦
+# - 灰度文案（D.1 read-only）走 reason_category 映射，不走自由文案，本清单仍兜底
+#
+# 维护规则：
+# - patterns: 严格字面匹配（大小写敏感对中文无影响；英文 case_sensitive=false）
+# - allow_in_explanations: 允许「不就职业身份背书」「不做认证医师替代」这类反向声明（明示否定语义）
+# - lint 实施时需做「反向短语豁免」匹配（按 allow_in_explanations 整段命中则放行）
+#
+# 版本：v0（凝光 PM 2026-06-12 出，待 hutao 接 S3-DEV-003-ADMIN-COPY 实施）
+
+version: 0
+owner: pm
+last_updated: "2026-06-12"
+
+# ─────────────────────────────────────────────
+# 一、职业身份绝对口径（最强禁词，4 大种子，命中必 reject）
+# ─────────────────────────────────────────────
+prohibited_occupational_endorsements:
+  - id: PO-001
+    pattern: "已护士"
+    reason: "把人=职业，违反三态中性原则"
+    severity: block
+
+  - id: PO-002
+    pattern: "已医生"
+    reason: "把人=职业，违反三态中性原则"
+    severity: block
+
+  - id: PO-003
+    pattern: "资格"
+    reason: "暗示平台对执业资格背书；用「资质」中性词替代"
+    severity: block
+    suggest: "资质"
+
+  - id: PO-004
+    pattern: "执业"
+    reason: "执业是卫健委监管口径，平台不应自行承诺"
+    severity: block
+
+# ─────────────────────────────────────────────
+# 二、职业身份扩展词（同语义不同表达，全部 block）
+# ─────────────────────────────────────────────
+prohibited_occupational_endorsements_extended:
+  - id: PO-005
+    pattern: "认证医师"
+    reason: "平台不背书医师身份；陪诊师 ≠ 医师"
+    severity: block
+
+  - id: PO-006
+    pattern: "认证护士"
+    reason: "平台不背书护士身份；陪诊师 ≠ 护士"
+    severity: block
+
+  - id: PO-007
+    pattern: "持证医师"
+    reason: "同 PO-005，规避同义替换"
+    severity: block
+
+  - id: PO-008
+    pattern: "持证护士"
+    reason: "同 PO-006，规避同义替换"
+    severity: block
+
+  - id: PO-009
+    pattern: "在职医生"
+    reason: "暗示在三甲/医院在职身份；超平台业务边界"
+    severity: block
+
+  - id: PO-010
+    pattern: "在职护士"
+    reason: "同 PO-009"
+    severity: block
+
+  - id: PO-011
+    pattern: "执业医师"
+    reason: "卫健委监管口径，平台不承诺"
+    severity: block
+
+  - id: PO-012
+    pattern: "执业护士"
+    reason: "同 PO-011"
+    severity: block
+
+  - id: PO-013
+    pattern: "专业医师"
+    reason: "「专业」前缀 + 医师身份双重背书，超边界"
+    severity: block
+
+  - id: PO-014
+    pattern: "三甲护士"
+    reason: "把医院级别绑陪诊师身份；不真实且违规"
+    severity: block
+
+  - id: PO-015
+    pattern: "三甲医生"
+    reason: "同 PO-014"
+    severity: block
+
+# ─────────────────────────────────────────────
+# 三、效果背书禁词（夸大疗效/承诺，需 warn 或 block）
+# ─────────────────────────────────────────────
+prohibited_efficacy_endorsements:
+  - id: EE-001
+    pattern: "保证治愈"
+    reason: "医疗效果承诺违规"
+    severity: block
+
+  - id: EE-002
+    pattern: "包治"
+    reason: "同 EE-001"
+    severity: block
+
+  - id: EE-003
+    pattern: "专家级"
+    reason: "平台不评定专家级别"
+    severity: warn
+
+  - id: EE-004
+    pattern: "权威"
+    reason: "弱化版背书词，admin-v2 警示但不阻断"
+    severity: warn
+
+# ─────────────────────────────────────────────
+# 四、反向声明豁免（允许命中的中性反义表达）
+# ─────────────────────────────────────────────
+# lint 实施时：若整段文案匹配下列任一短语，则视为「明示否定」语境，不触发上方任何 pattern。
+# 例：合同模板 §3「不就职业身份背书」整段含「资格 / 执业」字眼但属于豁免语境。
+allow_in_explanations:
+  - "不就职业身份背书"
+  - "不做认证医师替代"
+  - "不替代医师诊疗"
+  - "不替代护士护理"
+  - "不就执业资格做承诺"
+  - "陪诊师不等同医师"
+  - "陪诊师不等同护士"
+
+# ─────────────────────────────────────────────
+# 五、lint 实施口径（给 hutao 的实施约束）
+# ─────────────────────────────────────────────
+lint_spec:
+  scan_paths:
+    - "admin-v2/src/**/*.{ts,tsx,vue,json}"          # admin-v2 文案 + i18n
+    - "wxapp/**/*.{js,wxml,json}"                    # 微信小程序
+    - "ios/YiLuAn/**/*.{swift,strings,json}"         # iOS
+    - "backend/app/templates/**/*.{html,txt,md}"     # 后端模板（合同/邮件/短信）
+    - "docs/qa/s3-contract-template-*.md"            # 合同模板纸面也参与 lint
+  scan_exclude:
+    - "**/node_modules/**"
+    - "**/build/**"
+    - "**/dist/**"
+    - "docs/copy-lint/**"                            # 本目录是 lint 配置自身，豁免
+    - "tests/**"                                     # 测试用例需要构造禁词反例
+  match_rule:
+    case_sensitive: false
+    chinese_substring: true                          # 中文做子串匹配
+    english_word_boundary: true                      # 英文用 \\b 匹配
+  output:
+    fail_on: [block]                                 # block 级 → CI exit 1
+    warn_on: [warn]                                  # warn 级 → 日志 + PR 标记，不阻断
+  test_fixtures_required:
+    - "PO-001~PO-015 每条至少 1 命中反例 + 1 豁免正例"
+    - "EE-001~EE-004 每条至少 1 命中反例"
+    - "allow_in_explanations 每条至少 1 豁免正例（确认 lint 不误杀）"
