@@ -10,6 +10,7 @@ changes require updating the frontend dispatchers in:
 - ``wechat/services/request.js``
 - ``ios/YiLuAn/Core/Networking/APIClient.swift``
 """
+
 from __future__ import annotations
 
 # --- Profile / account preconditions ---
@@ -53,6 +54,12 @@ SHARE_SESSIONS_READONLY = "SHARE_SESSIONS_READONLY"
 """share session 被冻结为只读模式（READONLY_SHARE_SESSIONS=true），
 拒生新会话 / 拒 WS。已发会话可继续读视图。"""
 
+# --- S2-OPS-A-CANARY-WHITELIST-LAUNCH 火度门 (AC-2 backend) ---
+SHARE_F2_CANARY_NOT_WHITELISTED = "SHARE_F2_CANARY_NOT_WHITELISTED"
+"""F2 入口灰度门启用 (CANARY_WHITELIST_ENABLED=true) 但调用者手机号
+不在 deploy/canary/whitelist_phones.yaml 白名单内。拒创建新 share_token。用
+于 "内部白名单 10% mock 灰度上线" 场景。"""
+
 
 __all__ = [
     "PHONE_REQUIRED",
@@ -73,4 +80,5 @@ __all__ = [
     "SMS_RATE_LIMITED",
     "SHARE_F2_DISABLED",
     "SHARE_SESSIONS_READONLY",
+    "SHARE_F2_CANARY_NOT_WHITELISTED",
 ]

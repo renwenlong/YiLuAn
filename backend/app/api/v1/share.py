@@ -44,6 +44,7 @@ from app.schemas.share import (
     ShareOrderResponse,
     ShareTokenResponse,
 )
+from app.services import canary_whitelist
 from app.services.providers.sms.base import mask_phone_sms
 from app.services.share import (
     ShareService,
@@ -142,9 +143,18 @@ async def create_share(
             "分享服务临时只读，不允许创建新分享",
             error_code=error_codes.SHARE_SESSIONS_READONLY,
         )
-    order = await _ensure_order_owner(
-        session=session, order_id=order_id, user_id=current_user.id
-    )
+    # S2-OPS-A-CANARY-WHITELIST-LAUNCH AC-2 火度门:
+    # 启用后仅白名单手机号可创建新 share_token, 控制灰度爆炸半径。
+    # 设计点: 严格走 phone == None 拒 (未绑手机号 = 不可能是
+    # 内部成员, 拒是安全 default) —— fail-closed.
+    if settings.canary_whitelist_enabled and not canary_whitelist.is_whitelisted(
+        current_user.phone
+    ):
+        raise ForbiddenException(
+            "F2 分享入口灰度中，当前用户未在灰度白名单",
+            error_code=error_codes.SHARE_F2_CANARY_NOT_WHITELISTED,
+        )
+    order = await _ensure_order_owner(session=session, order_id=order_id, user_id=current_user.id)
     svc = ShareService(session)
     token, active_count = await svc.create_share(
         order_id=order_id,
@@ -173,9 +183,7 @@ async def list_shares(
     current_user: CurrentUser,
     session: DBSession,
 ):
-    await _ensure_order_owner(
-        session=session, order_id=order_id, user_id=current_user.id
-    )
+    await _ensure_order_owner(session=session, order_id=order_id, user_id=current_user.id)
     svc = ShareService(session)
     rows = await svc.list_active(order_id=order_id)
     items = [_token_to_response(r) for r in rows]
@@ -198,13 +206,9 @@ async def revoke_share(
     current_user: WriteableUser,
     session: DBSession,
 ):
-    await _ensure_order_owner(
-        session=session, order_id=order_id, user_id=current_user.id
-    )
+    await _ensure_order_owner(session=session, order_id=order_id, user_id=current_user.id)
     svc = ShareService(session)
-    token_value = await svc.revoke(
-        order_id=order_id, token_id=token_id, revoked_by=current_user.id
-    )
+    token_value = await svc.revoke(order_id=order_id, token_id=token_id, revoked_by=current_user.id)
     await session.commit()
 
     # S2-TEST-006R3 AC#9: revoke 后主动推 close 4013 给该 token 的全部 live WS。
@@ -213,6 +217,7 @@ async def revoke_share(
     if token_value is not None:
         try:
             from app.ws.pubsub import get_current_share_broker
+
             broker = get_current_share_broker()
             if broker is not None:
                 # S2-INT-006-AC9-FOLLOWUP: broadcast 跨 replica (local close + Redis fanout)
@@ -287,9 +292,7 @@ async def exchange_session(
     verified_accessor: str | None = None
     if not body.wx_openid:
         if not (body.phone and body.otp):
-            raise UnauthorizedException(
-                "Share session requires wx_openid or phone+otp"
-            )
+            raise UnauthorizedException("Share session requires wx_openid or phone+otp")
         otp_svc = OtpService(redis)
         try:
             verified_accessor = await otp_svc.verify_otp(
@@ -347,9 +350,7 @@ async def get_share_session_order(
         # S3-DEV-005-SHARE-CONTRACT: 加载陪诊师 profile 资质信息入
         # ``companion.cert_status`` sub-object (PM-005-1~5). profile
         # 为 None 时 (陪诊师未创建 profile) 后续 mapping 落 unverified 态.
-        companion_profile = await CompanionProfileRepository(
-            session
-        ).get_by_user_id(companion_id)
+        companion_profile = await CompanionProfileRepository(session).get_by_user_id(companion_id)
 
     view = ShareService.build_share_order_view(
         order=order,
