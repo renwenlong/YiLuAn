@@ -231,3 +231,58 @@ PR2 splits because lint哨兵 added BEFORE 散点收编完 risks self-blocking P
 - 反案 #11 (单元覆盖 ≠ 生产能跑)
 - 反案 #15 (sentinel 命名规则)
 - 反案 #25 (散点 env check 协议禁止)
+
+---
+
+## AC#8 lint 哨兵 (PR2)
+
+PR2 (`feature/s3-ops-startup-probe-lint-sentinel`) adds a CI-enforced lint that
+prevents the inline-env-check anti-pattern from regressing into `backend/app/`.
+
+### 用法
+
+```bash
+# 本地 lint:
+python backend/scripts/qa/check_no_inline_env_check.py
+# exit 0 = OK, exit 1 = 命中禁止 pattern (附位置 + 重构建议)
+```
+
+CI: `.github/workflows/no-inline-env-check.yml` 在任何 `backend/app/**` 改动的
+PR 上跑 lint, fail-fast 阻止 merge.
+
+### 禁止 pattern
+
+```python
+# ❌ 不允许 (必走 @register_startup_probe 框架):
+if settings.environment == "production": ...
+if settings.environment in {"production", "canary", "staging"}: ...
+if env in {"prod", "canary"}: ...
+```
+
+### 允许 pattern (allowlist)
+
+- ✅ `if env == "development"` — dev-only shortcut 合法
+- ✅ `backend/app/startup_probes.py` — 框架自身
+- ✅ `backend/app/probes/__init__.py` — 注册器
+- ✅ `backend/app/observability/reconciliation_metrics.py` — metric label
+- ✅ `backend/app/services/providers/sms/mock.py` — dev-only mock
+- ✅ `backend/app/config.py` — Settings class validation
+- ✅ `backend/app/services/sms.py` — legacy provider per-call defense-in-depth
+
+### 测试
+
+`backend/tests/qa/test_check_no_inline_env_check.py` (11 sentinel test):
+- lint script 存在 + 含 sentinel string
+- 当前 `backend/app/` 通过 lint (post-PR1 收编后)
+- 故意构造违例 → lint 必报 + 列位置
+- allowlist 路径不被误报
+- dev-only pattern + 注释行不被误报
+
+### 加白名单 SOP
+
+若新增模块**确实**需要 inline env check (罕见):
+1. 提 PR 加路径到 `ALLOWLIST_PATHS` (`backend/scripts/qa/check_no_inline_env_check.py`)
+2. commit message 引架构师 review approval + 写明 dev-mode shortcut 理由
+3. 加 test case 到 `test_check_no_inline_env_check.py` 锁该路径在 allowlist
+
+默认 reject — 大多数 prod-required check 应走 `@register_startup_probe`.
