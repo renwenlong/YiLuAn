@@ -33,13 +33,28 @@ async def lifespan(app: FastAPI):
     # Startup
     setup_logging()
     logger.info("Starting %s v%s", settings.app_name, settings.app_version)
-    # S3-BUG-003 startup fail-loud probe: 运维 env (staging/canary/prod) 下
-    # 缺 yml 拒绝 serve. 避免 silent fail-open 让 ADR-0048 §4.1/§4.3 关键词
-    # 过滤在 prod 默默失效. 默认 strict=False 保留 dev/test fail-open
-    # 以不阻本地启动.
-    from app.services.ai_prep_filter import assert_blocklist_loaded_or_raise
 
-    assert_blocklist_loaded_or_raise(strict=settings.ai_blocklist_strict_load)
+    # S3-OPS-STARTUP-PROBE-FRAMEWORK: 统一 fail-loud probe registry
+    # (ADR-0051 r3 §1.2.2 #7 / §2.3 #25, PR #258 review ask 3).
+    # 详 ``backend/app/probes/__init__.py`` 中各 probe 及其 envs.
+    # 未在 envs 的 probe 跳过; 任何 probe raise → lifespan startup fail →
+    # uvicorn exit code != 0 → prod 拒服, /health 不会返 200.
+    # 收编以下原散点 (AC#5):
+    #   - app/services/ai_prep_filter.py:assert_blocklist_loaded_or_raise (全量迁)
+    #   - app/services/canary_whitelist.py (新增, 反案 #11 复发 PR #304 黑)
+    #   - app/services/sms.py:68/172 (legacy inline env check 迁 sms_provider probe)
+    #   - app/config.py:jwt_secret_key (额外发现 — 安全 hardening)
+    # 注意: 不能用 `import app.probes` — 那会把 local 名 `app` 重绑定到 Python
+    # package object, 后续 `app.state.redis = ...` (line 58) 即 AttributeError
+    # (FastAPI app instance 是函数参数, package 是模块, 名字冲突).
+    # 用 importlib.import_module 显式触发 side-effect 不污染 local scope.
+    import importlib
+
+    importlib.import_module("app.probes")  # side-effect: probe registration
+    from app.startup_probes import run_all_startup_probes
+
+    await run_all_startup_probes(settings.environment)
+
     # Warm the alembic head cache so /readiness probes do not pay the
     # alembic-import cost on every call (TD-OPS-02).
     try:
@@ -67,12 +82,11 @@ async def lifespan(app: FastAPI):
         from app.utils.distributed_circuit_breaker import (
             set_distributed_redis_client,
         )
+
         app.state.redis_sync = init_redis_sync()
         set_distributed_redis_client(app.state.redis_sync)
     except Exception as exc:  # pragma: no cover - never block boot on CB wire-up
-        logger.warning(
-            "distributed CB redis wire-up failed (will degrade to local CB): %s", exc
-        )
+        logger.warning("distributed CB redis wire-up failed (will degrade to local CB): %s", exc)
     # WebSocket Pub/Sub broker (D-019): 多副本通知跨副本 fanout
     try:
         await start_ws_pubsub(
@@ -114,6 +128,7 @@ async def lifespan(app: FastAPI):
         from app.services.prompt_versioning import (
             validate_prompt_versions_on_startup,
         )
+
         async with async_session() as session:
             await validate_prompt_versions_on_startup(
                 session,
@@ -129,6 +144,7 @@ async def lifespan(app: FastAPI):
     from app.services.feedback_startup_healthcheck import (
         FeedbackStartupHealthcheck,
     )
+
     healthcheck = FeedbackStartupHealthcheck(
         engine=db_engine,
         strict=settings.s3_startup_healthcheck_strict,
@@ -257,8 +273,7 @@ def create_app() -> FastAPI:
         "/readiness",
         summary="就绪检查（readiness, root）",
         description=(
-            "根路径就绪探针，等价于 /api/v1/readiness："
-            "检查 DB + Redis。任一失败 → 503。"
+            "根路径就绪探针，等价于 /api/v1/readiness：" "检查 DB + Redis。任一失败 → 503。"
         ),
         tags=["health"],
     )

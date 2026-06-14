@@ -15,6 +15,7 @@ Metric:
 - ``ai_prep_filter_l1_blocked_total{category=...}`` - L1 拦截率
 - ``ai_prep_filter_l2_blocked_total{category=...}`` - L2 拦截率
 """
+
 from __future__ import annotations
 
 import enum
@@ -128,15 +129,11 @@ class _BlocklistCache:
             entries: list[BlocklistEntry] = []
             for category, body in categories_raw.items():
                 if not isinstance(body, dict):
-                    logger.warning(
-                        "ai_prep_filter: category %r body not dict, skip", category
-                    )
+                    logger.warning("ai_prep_filter: category %r body not dict, skip", category)
                     continue
                 patterns_raw = body.get("patterns") or []
                 if not isinstance(patterns_raw, list):
-                    logger.warning(
-                        "ai_prep_filter: category %r patterns not list, skip", category
-                    )
+                    logger.warning("ai_prep_filter: category %r patterns not list, skip", category)
                     continue
                 cleaned = tuple(
                     str(p).strip().lower()
@@ -217,7 +214,14 @@ class BlocklistStartupError(RuntimeError):
 def assert_blocklist_loaded_or_raise(strict: bool) -> None:
     """S3-BUG-003 startup probe: fail loudly when blocklist 未加载.
 
-    在 ``app/main.py`` lifespan startup 调.
+    .. deprecated:: S3-OPS-STARTUP-PROBE-FRAMEWORK (PR1)
+        本函数作为 backward-compat shim 保留 (tests 可能还在用).
+        生产起动路径已迁到 ``app/probes/__init__.py::probe_ai_prep_filter_blocklist``,
+        由 ``run_all_startup_probes(settings.environment)`` 在 lifespan 中调.
+        ``settings.ai_blocklist_strict_load`` 不再起作用 (envs 判定现在由
+        decorator ``envs=("staging", "canary", "production")`` 控制).
+
+    在 ``app/main.py`` lifespan startup 调 (legacy, 已被 probe registry 取代).
 
     Args:
         strict: 仅在 ``True`` 时招错. 需调用方传 ``settings.ai_blocklist_strict_load``
@@ -230,16 +234,12 @@ def assert_blocklist_loaded_or_raise(strict: bool) -> None:
     3. version 非空 (yml 头 version 字段 sanity)
     """
     if not strict:
-        logger.debug(
-            "assert_blocklist_loaded_or_raise: skip probe (strict=False)"
-        )
+        logger.debug("assert_blocklist_loaded_or_raise: skip probe (strict=False)")
         return
 
     errors: list[str] = []
     if not _DEFAULT_YML_PATH.exists():
-        errors.append(
-            f"yml file missing: {_DEFAULT_YML_PATH} (检查 Dockerfile / build context)"
-        )
+        errors.append(f"yml file missing: {_DEFAULT_YML_PATH} (检查 Dockerfile / build context)")
     snapshot = _cache.snapshot  # 未 load 时会 lazy load
     version = _cache.version
     if not snapshot:
@@ -248,9 +248,7 @@ def assert_blocklist_loaded_or_raise(strict: bool) -> None:
             "yml 存在但 parse 失败 / categories 不是 dict / 空 yml."
         )
     if not version:
-        errors.append(
-            "blocklist version is empty string (yml 缺 version 字段或 parse fail)."
-        )
+        errors.append("blocklist version is empty string (yml 缺 version 字段或 parse fail).")
 
     if errors:
         joined = "; ".join(errors)
