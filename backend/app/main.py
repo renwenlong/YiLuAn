@@ -44,7 +44,13 @@ async def lifespan(app: FastAPI):
     #   - app/services/canary_whitelist.py (新增, 反案 #11 复发 PR #304 黑)
     #   - app/services/sms.py:68/172 (legacy inline env check 迁 sms_provider probe)
     #   - app/config.py:jwt_secret_key (额外发现 — 安全 hardening)
-    import app.probes  # noqa: F401 — side-effect: probe registration
+    # 注意: 不能用 `import app.probes` — 那会把 local 名 `app` 重绑定到 Python
+    # package object, 后续 `app.state.redis = ...` (line 58) 即 AttributeError
+    # (FastAPI app instance 是函数参数, package 是模块, 名字冲突).
+    # 用 importlib.import_module 显式触发 side-effect 不污染 local scope.
+    import importlib
+
+    importlib.import_module("app.probes")  # side-effect: probe registration
     from app.startup_probes import run_all_startup_probes
 
     await run_all_startup_probes(settings.environment)
