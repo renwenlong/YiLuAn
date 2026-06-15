@@ -5,8 +5,8 @@ ADR-0048 §7.0.2 companion route. **PRD-003 §2.2 + AC-6 PM P0 red line**:
 
 Defense layers stacking up at this endpoint:
 
-1. ``Depends(get_current_companion)`` — must be a JWT user whose
-   ``role == UserRole.companion`` (or has companion in multi-role).
+1. ``Depends(get_current_companion)`` — must be a JWT user with
+   ``has_role(UserRole.companion)`` (ADR-0055 single SoT).
    Pure ``get_current_user`` is **deliberately not** reused so a
    patient token cannot reach this surface.
 2. service layer ``get_prep_for_companion(order_id, companion_id)`` —
