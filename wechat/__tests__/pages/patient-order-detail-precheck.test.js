@@ -227,4 +227,88 @@ describe('patient/order-detail S3-DEV-003-TRUST-UI-WX', () => {
     page.onUnload()
     expect(precheckWs.disconnect).toHaveBeenCalledTimes(1)
   })
+
+  // -------------------------------------------------------------------------
+  // S3-DEV-003-TRUST-UI-WX-POLLING-FALLBACK: page-level state integration
+  //
+  // 跨端对齐 iOS PrecheckViewModel.isPollingFallback @Published — page setData
+  // 同路径 使 wxml `wx:if="{{isPollingFallback}}"` 企业提示 UI 可现.
+  //
+  // AC#5: page-level state (如 isPollingFallback) 反映 polling 激活,
+  //       UI 可显示 fallback 提示.
+  // -------------------------------------------------------------------------
+
+  test('AC#5 initial state: isPollingFallback = false (data shape)', async function () {
+    precheckService.getOrderPrecheckStatus.mockResolvedValue({
+      companion_cert_status: { ready: false },
+    })
+    var page = createPage()
+    expect(page.data.isPollingFallback).toBe(false)
+  })
+
+  test('AC#5: onConnectionState({isPollingFallback:true}) → page.setData 反映', async function () {
+    precheckService.getOrderPrecheckStatus.mockResolvedValue({
+      companion_cert_status: { ready: false },
+    })
+    var page = createPage()
+    page.onLoad({ id: 'o1' })
+    await new Promise(function (r) { setImmediate(r) })
+
+    var wsArgs = precheckWs.connect.mock.calls[0][0]
+    expect(typeof wsArgs.onConnectionState).toBe('function')
+    expect(typeof wsArgs.onShouldRefresh).toBe('function')
+
+    // Simulate WS 断 → precheckWs 上报 polling started.
+    wsArgs.onConnectionState({
+      isPollingFallback: true,
+      reason: 'ws_closed_code_1006',
+    })
+    expect(page.data.isPollingFallback).toBe(true)
+
+    // Simulate WS 重连成功 → precheckWs 上报 polling stopped.
+    wsArgs.onConnectionState({
+      isPollingFallback: false,
+      reason: 'ws_authenticated',
+    })
+    expect(page.data.isPollingFallback).toBe(false)
+  })
+
+  test('AC#5: permanentFailure (4001) → isPollingFallback 不 设 true (不误提示轮询)', async function () {
+    precheckService.getOrderPrecheckStatus.mockResolvedValue({
+      companion_cert_status: { ready: false },
+    })
+    var page = createPage()
+    page.onLoad({ id: 'o1' })
+    await new Promise(function (r) { setImmediate(r) })
+
+    var wsArgs = precheckWs.connect.mock.calls[0][0]
+
+    // 永久失败 — precheckWs 上报 permanentFailure, page 不 显示 polling 提示.
+    wsArgs.onConnectionState({
+      isPollingFallback: false,
+      permanentFailure: true,
+      code: 4001,
+      reason: 'invalid token',
+    })
+    expect(page.data.isPollingFallback).toBe(false)
+  })
+
+  test('AC#4: onShouldRefresh 回调 = _loadPrecheck (polling tick 复用同路径)', async function () {
+    precheckService.getOrderPrecheckStatus
+      .mockResolvedValueOnce({ companion_cert_status: { ready: false } })
+      .mockResolvedValueOnce({
+        companion_cert_status: { ready: true, companion_cert_work_id: 'PC9999' },
+      })
+    var page = createPage()
+    page.onLoad({ id: 'o1' })
+    await new Promise(function (r) { setImmediate(r) })
+    expect(page.data.certStatus.ready).toBe(false)
+
+    var wsArgs = precheckWs.connect.mock.calls[0][0]
+    // Polling tick 调 onShouldRefresh — 应 trigger 同一 _loadPrecheck HTTP 路径.
+    await wsArgs.onShouldRefresh()
+    expect(page.data.certStatus.ready).toBe(true)
+    expect(page.data.certStatus.companion_cert_work_id).toBe('PC9999')
+    expect(precheckService.getOrderPrecheckStatus).toHaveBeenCalledTimes(2)
+  })
 })

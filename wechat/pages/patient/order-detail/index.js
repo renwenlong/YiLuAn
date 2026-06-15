@@ -49,7 +49,12 @@ Page({
     emergencyHotline: '',
     // S3-DEV-003-TRUST-UI-WX: cert 信任卡 (companion_cert_status sub-object 仅).
     // null = 未拉, 不渲染 <cert-card>; 拉后为 object even when ready=false.
-    certStatus: null
+    certStatus: null,
+    // S3-DEV-003-TRUST-UI-WX-POLLING-FALLBACK: WS 断时 30s 轮询 fallback 状态
+    // (跨端对齐 iOS PrecheckViewModel.isPollingFallback @Published).
+    // true → 显示 "轮询中" indicator (类 iOS "轮询中" orange label).
+    // 永久失败 (4001/4003/4004/4011) 不进入此态, 由 precheckWs logger.warn.
+    isPollingFallback: false
   },
 
   onLoad(options) {
@@ -526,6 +531,11 @@ Page({
   /**
    * 连 precheck WS 推送, 收任何 precheck.* event 后重拉 GET
    * (WS 是触发器, HTTP 是 source of truth — design §3.4).
+   *
+   * S3-DEV-003-TRUST-UI-WX-POLLING-FALLBACK 增量:
+   * - onShouldRefresh: polling tick 触发 _loadPrecheck (HTTP 路径同 WS event)
+   * - onConnectionState: precheckWs 上报 isPollingFallback / permanentFailure,
+   *   page setData 反映到 UI indicator.
    */
   _connectPrecheckWs() {
     if (!this.orderId) return
@@ -543,6 +553,21 @@ Page({
             || ev === 'precheck.blocked') {
           self._loadPrecheck()
         }
+      },
+      // Polling tick 触发 HTTP refresh (同 WS event 复用路径).
+      onShouldRefresh: function () {
+        return self._loadPrecheck()
+      },
+      // WS 状态变化 → 反映 UI fallback indicator (跨端对齐 iOS isPollingFallback).
+      onConnectionState: function (state) {
+        if (!state) return
+        // 永久失败 (4001/4003/4004/4011) 不显示 "轮询中", precheckWs 已 logger.warn,
+        // page 保持 isPollingFallback=false (无 fallback 可言, 报错由 logger 处理).
+        if (state.permanentFailure) {
+          self.setData({ isPollingFallback: false })
+          return
+        }
+        self.setData({ isPollingFallback: !!state.isPollingFallback })
       }
     })
   }

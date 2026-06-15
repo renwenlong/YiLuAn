@@ -82,7 +82,7 @@ function WSBase(options) {
   this._reconnectTimer = null
   this._reconnectCount = 0
   this._stopped = false
-  this._handlers = { open: [], message: [], close: [], error: [], reconnect: [] }
+  this._handlers = { open: [], message: [], close: [], error: [], reconnect: [], authenticated: [] }
 
   // nonce LRU: Map<nonce, expiresAtMs>
   this._sentNonces = new Map()
@@ -156,7 +156,15 @@ WSBase.prototype.connect = function (url) {
       return
     }
     if (data && data.type === 'pong') return // swallow
-    if (data && data.type === 'auth_ok') return // swallow handshake ack
+    if (data && data.type === 'auth_ok') {
+      // swallow handshake ack from upstream consumers, but emit
+      // 'authenticated' event so callers that need a precise auth-success
+      // signal (e.g. precheckWs polling fallback stop, parallel to iOS
+      // PrecheckWebSocket.onAuthOK) can react. Zero-break: callers that
+      // don't listen are unaffected.
+      self._emit('authenticated')
+      return
+    }
     self._emit('message', data)
   })
 

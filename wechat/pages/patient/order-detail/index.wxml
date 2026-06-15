@@ -116,6 +116,14 @@
        仅在 precheck-status 拉到 且 certStatus 非 null 时渲染.
        certStatus null 时隐藏, 不阻订单详情主流程. -->
   <view class="detail-section" wx:if="{{certStatus}}">
+    <!-- S3-DEV-003-TRUST-UI-WX-POLLING-FALLBACK: WS 断时 30s 轮询 fallback 提示
+         (跨端对齐 iOS PrecheckViewModel.isPollingFallback @Published).
+         显示 "轮询中" + orange 颜色, 让用户感知网络不稳但 precheck 状态仍在更新.
+         WS 重连成功后自动隐藏 (precheckWs 'authenticated' event 触发 stopPolling). -->
+    <view wx:if="{{isPollingFallback}}" class="polling-fallback-indicator">
+      <text class="polling-fallback-icon">⟳</text>
+      <text class="polling-fallback-text">网络不稳, 已切换轮询模式 (30s)</text>
+    </view>
     <cert-card cert-status="{{certStatus}}" />
   </view>
 

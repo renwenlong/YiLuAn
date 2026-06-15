@@ -268,4 +268,30 @@ describe('core/ws-base', () => {
     sock._msg({ data: JSON.stringify({ type: 'new_order', id: 1 }) })
     expect(msgs).toEqual([{ type: 'new_order', id: 1 }])
   })
+
+  test('auth_ok server frame ALSO emits \'authenticated\' event to listeners (S3-DEV-003-TRUST-UI-WX-POLLING-FALLBACK)', () => {
+    const sock = makeMockSocket()
+    const authenticatedCalls = []
+    const ws = new WSBase({ socketFactory: () => sock })
+    ws.on('authenticated', () => authenticatedCalls.push(true))
+    ws.connect('ws://x')
+    sock._open()
+    sock._msg({ data: JSON.stringify({ type: 'auth_ok' }) })
+    expect(authenticatedCalls).toEqual([true])
+    // Second auth_ok (e.g. after reconnect) also fires.
+    sock._msg({ data: JSON.stringify({ type: 'auth_ok' }) })
+    expect(authenticatedCalls).toEqual([true, true])
+  })
+
+  test('non-auth_ok messages do NOT emit \'authenticated\' (zero-noise guarantee)', () => {
+    const sock = makeMockSocket()
+    const authenticatedCalls = []
+    const ws = new WSBase({ socketFactory: () => sock })
+    ws.on('authenticated', () => authenticatedCalls.push(true))
+    ws.connect('ws://x')
+    sock._open()
+    sock._msg({ data: JSON.stringify({ type: 'pong' }) })
+    sock._msg({ data: JSON.stringify({ type: 'precheck.status.updated' }) })
+    expect(authenticatedCalls).toEqual([])
+  })
 })

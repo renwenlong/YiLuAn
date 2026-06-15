@@ -524,3 +524,29 @@
   color: #ff9800;
   padding-left: 52rpx;
 }
+
+/* S3-DEV-003-TRUST-UI-WX-POLLING-FALLBACK: WS 断时 30s 轮询 fallback 提示
+   (跨端对齐 iOS PrecheckViewModel.isPollingFallback @Published).
+   显示 "轮询中" + orange 颜色, 让用户感知网络不稳但 precheck 状态仍在更新. */
+.polling-fallback-indicator {
+  display: flex;
+  align-items: center;
+  padding: 12rpx 16rpx;
+  margin-bottom: var(--spacing-sm);
+  background-color: rgba(255, 152, 0, 0.08);
+  border-left: 6rpx solid #ff9800;
+  border-radius: 8rpx;
+}
+
+.polling-fallback-icon {
+  font-size: 28rpx;
+  color: #ff9800;
+  margin-right: 12rpx;
+  font-weight: 700;
+}
+
+.polling-fallback-text {
+  font-size: 24rpx;
+  color: #ff9800;
+  flex: 1;
+}
