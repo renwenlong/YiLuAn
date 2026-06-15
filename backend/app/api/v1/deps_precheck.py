@@ -34,6 +34,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.redis import get_redis
 from app.dependencies import DBSession
 from app.models.order import Order
+from app.observability.precheck_abac_metrics import (
+    ENDPOINT_PRECHECK_STATUS,
+    FILTER_REASON_ABAC_OWNER_MISMATCH,
+    FILTER_REASON_ORDER_NOT_FOUND,
+    PRECHECK_ABAC_FILTERED_TOTAL,
+    USER_ROLE_PATIENT,
+)
 from app.services.order_precheck_aggregator import OrderPrecheckAggregator
 
 logger = logging.getLogger(__name__)
@@ -122,6 +129,11 @@ async def assert_order_owner_or_404(
             "precheck-status 404: order missing",
             extra={"order_id": str(order_id), "user_id": str(user_id)},
         )
+        PRECHECK_ABAC_FILTERED_TOTAL.labels(
+            endpoint=ENDPOINT_PRECHECK_STATUS,
+            user_role=USER_ROLE_PATIENT,
+            filter_reason=FILTER_REASON_ORDER_NOT_FOUND,
+        ).inc()
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="order not found",
@@ -135,6 +147,11 @@ async def assert_order_owner_or_404(
                 "true_owner_id": str(patient_id),
             },
         )
+        PRECHECK_ABAC_FILTERED_TOTAL.labels(
+            endpoint=ENDPOINT_PRECHECK_STATUS,
+            user_role=USER_ROLE_PATIENT,
+            filter_reason=FILTER_REASON_ABAC_OWNER_MISMATCH,
+        ).inc()
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="order not found",
