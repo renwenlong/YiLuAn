@@ -2676,6 +2676,70 @@
         "title": "CompanionStatsResponse",
         "type": "object"
       },
+      "ComplaintRateRequest": {
+        "description": "PM weekly manual POST body.",
+        "properties": {
+          "note": {
+            "anyOf": [
+              {
+                "maxLength": 500,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional PM 注入说明 (来源 / 周期 / 异常分析)",
+            "title": "Note"
+          },
+          "rate": {
+            "description": "Customer complaint rate as percent (0.0~100.0). Example 0.05 = 0.05% (5 complaints per 10000 sessions).",
+            "examples": [
+              0.05
+            ],
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Rate",
+            "type": "number"
+          }
+        },
+        "required": [
+          "rate"
+        ],
+        "title": "ComplaintRateRequest",
+        "type": "object"
+      },
+      "ComplaintRateResponse": {
+        "description": "Response after recording a sample.",
+        "properties": {
+          "rate": {
+            "title": "Rate",
+            "type": "number"
+          },
+          "recorded": {
+            "title": "Recorded",
+            "type": "boolean"
+          },
+          "rolling_average_7d": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Current 7-day rolling average after the new sample is added.",
+            "title": "Rolling Average 7D"
+          }
+        },
+        "required": [
+          "recorded",
+          "rate"
+        ],
+        "title": "ComplaintRateResponse",
+        "type": "object"
+      },
       "ContractAcceptanceRequest": {
         "description": "POST /api/v1/contracts/{contract_id}/accept body.\n\nAC#1 (ADR-0047 §6.3): 用户勾选合同同意 (默认 unchecked).\n\nNo-op body — order_id 与 user 信息从 path + auth 提取。本 schema 保留\n作为未来扩展位 (e.g. acceptance 时回填用户问卷).",
         "properties": {},
@@ -11495,6 +11559,68 @@
         "tags": [
           "admin",
           "admin-prep-package"
+        ]
+      }
+    },
+    "/api/v1/admin/readonly/complaint-rate": {
+      "post": {
+        "description": "PM 每周手动 POST 注入客诉率 sample, redis ZSET 7 天滑动窗口. Cron gate `check_readonly_flag_real_gate` 每日 02:00 UTC 读 rolling average 比 0.1% 阈值. AdminAuditLog 同事务写 (PR #250 反 pattern 已 escape).",
+        "operationId": "post_complaint_rate_api_v1_admin_readonly_complaint_rate_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ComplaintRateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ComplaintRateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "PM weekly manual 注入 customer complaint rate (ADR-0053 §AC#4)",
+        "tags": [
+          "admin",
+          "admin",
+          "readonly-gate"
         ]
       }
     },

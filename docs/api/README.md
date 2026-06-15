@@ -183,6 +183,8 @@
 | `POST` | `/api/v1/admin/orders/{order_id}/refund` | 后台：管理员退款 |
 | `GET` | `/api/v1/admin/orders/{order_id}/timeline` | 后台：订单状态变迁时间轴 |
 | `GET` | `/api/v1/admin/prep-packages/{order_id}` | admin 查看订单的 AI 准备包 (含 ops metadata) |
+| `POST` | `/api/v1/admin/readonly/complaint-rate` | PM weekly manual 注入 customer complaint rate (ADR-0053 §AC#4) |
+| `POST` | `/api/v1/admin/readonly/complaint-rate` | PM weekly manual 注入 customer complaint rate (ADR-0053 §AC#4) |
 | `GET` | `/api/v1/admin/reconciliation/diffs` | List Diffs |
 | `GET` | `/api/v1/admin/reconciliation/diffs/{diff_id}` | 后台：差异详情 |
 | `POST` | `/api/v1/admin/reconciliation/diffs/{diff_id}/close-confirms` | Confirm Close |
@@ -315,6 +317,12 @@ K8s / ACA 探针使用：
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `GET` | `/api/v1/admin/prep-packages/{order_id}` | admin 查看订单的 AI 准备包 (含 ops metadata) |
+
+### [readonly-gate](./readonly-gate.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `POST` | `/api/v1/admin/readonly/complaint-rate` | PM weekly manual 注入 customer complaint rate (ADR-0053 §AC#4) |
 
 ### [admin-reconciliation](./admin-reconciliation.md)
 
