@@ -22,6 +22,16 @@ References:
 依赖:
   - prometheus HTTP API (`/api/v1/query_range`)
   - redis (客诉率 7 天 sliding window 存储 by `POST /admin/readonly/complaint-rate`)
+
+.. WARNING::
+   **prod 必须 redis ON** —— 否则 ``ComplaintRateStore`` 走 in-process
+   list fallback (class var ``_inproc_samples``), 多 uvicorn worker 部署下
+   PM POST 落 worker-A → 本 cron 跑 worker-B 永远拿不到 sample → grace
+   None → design §AC#3 #4 客诉率 threshold 检查永久 grace bypass
+   (设计的 NOGO gate 实质失效). 由 startup probe
+   ``redis_required_for_complaint_rate`` 在 staging/canary/production env
+   兜底 (fail-loud, app 拒启). 见 ``backend/app/probes/__init__.py``.
+   Ref: S3-OPS-COMPLAINT-RATE-REDIS-REQUIRED-PROBE.
 """
 
 from __future__ import annotations
@@ -144,8 +154,12 @@ async def _query_prometheus_instant(
         http_client_factory: optional injection for testing (returns AsyncClient)
     """
     url = f"{prometheus_url.rstrip('/')}/api/v1/query"
+    # B2 fix (魈 PR #308 r1 review): 避免 lambda factory 里 `timeout` shadow alias.
+    # 原写法 `lambda **kw: ...timeout=kw.get("timeout", timeout)` 中 outer-scope
+    # `timeout` 与 kwarg 同名, 反案 #16 (Python scoping shadow) 边缘 case.
+    _default_timeout = timeout  # alias outer-scope to avoid shadow
     factory = http_client_factory or (
-        lambda **kw: httpx.AsyncClient(timeout=kw.get("timeout", timeout))
+        lambda **kw: httpx.AsyncClient(timeout=kw.get("timeout", _default_timeout))
     )
     try:
         async with factory(timeout=timeout) as client:

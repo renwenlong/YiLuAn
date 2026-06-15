@@ -218,3 +218,95 @@ def probe_jwt_secret_key_changed() -> None:
             f"{len(settings.jwt_secret_key)} < 32 chars. 建议 >=64 chars "
             f"(openssl rand -hex 32)."
         )
+
+
+# ============================================================================
+# AC#1: redis_required_for_complaint_rate
+#       (S3-OPS-COMPLAINT-RATE-REDIS-REQUIRED-PROBE — replaces silent inproc
+#       fallback in app/services/readonly_complaint_rate_store.py, ADR-0053
+#       §AC#4 协议层兜底, PR #308 r1 review follow-up)
+# ============================================================================
+
+
+@register_startup_probe(
+    name="redis_required_for_complaint_rate",
+    envs=("staging", "canary", "production"),
+)
+async def probe_redis_required_for_complaint_rate() -> None:
+    """Verify redis 可用且 ZSET op (zadd/zrangebyscore) 实际跑得通.
+
+    背景: ``app/services/readonly_complaint_rate_store.py`` 有 in-process
+    list fallback (class var ``_inproc_samples``). prod multi-uvicorn-worker
+    部署下, PM POST 注入到 worker-A → cron 跑 worker-B → 永远 0 sample
+    → grace None → design §AC#3 #4 客诉率 threshold 检查永久 grace bypass
+    (设计的 NOGO gate 实质失效).
+
+    本 probe 在 startup 强制校验 redis 可用 + ZSET op 实际可调:
+      - redis None / 连不上 → raise (app 拒启)
+      - zadd / zrangebyscore raise → raise (app 拒启)
+      - sentinel key 60s 自清, 不污染业务 key space
+
+    AC#3: fail-loud, 不允许 try/except 吞.
+
+    Refs:
+      - ADR-0053 §AC#4 (complaint rate manual injection)
+      - PR #308 r1 review (silent fail 风险 disclose)
+      - 反案 #25 (协议层强制 env-dependent invariant, 散点 env check 禁止)
+      - app/services/readonly_complaint_rate_store.py:49 (_inproc_samples)
+    """
+    import uuid
+
+    from app.core.redis import init_redis
+
+    # 独立 client (probe 阶段 app.state.redis 还没初始化, 见 main.py 顺序).
+    # 跑完 close, 不污染 lifespan.
+    sentinel_key = "yiluan:probe:complaint_rate:sentinel"
+    sentinel_member = f"probe-{uuid.uuid4().hex}"
+    sentinel_score = 1.0
+
+    redis_client = None
+    try:
+        # init_redis 本身在 try 内, 其 raise 也走 AC#3 fail-loud 路径
+        redis_client = init_redis()
+        # 写: 校验 ZSET zadd 可用
+        await redis_client.zadd(sentinel_key, {sentinel_member: sentinel_score})
+        # 读: 校验 ZSET zrangebyscore 可用 (cron 实际查询路径)
+        members = await redis_client.zrangebyscore(
+            sentinel_key,
+            min=0,
+            max=2.0,
+            withscores=False,
+        )
+        if sentinel_member not in (members or []):
+            raise RuntimeError(
+                f"redis_required_for_complaint_rate probe FAIL: "
+                f"sentinel zadd 写入成功但 zrangebyscore 读不回 "
+                f"(member={sentinel_member!r} not in {members!r}). "
+                f"redis op 异常或 cluster 不一致."
+            )
+        # 清理: TTL 兜底, 不留 trash (60s 即自动 expire, 即使 EXPIRE 失败也容忍)
+        try:
+            await redis_client.expire(sentinel_key, 60)
+        except Exception:  # noqa: BLE001 - cleanup best-effort
+            pass
+    except RuntimeError:
+        # AC#3: re-raise 自己 raise 的 (fail-loud, 不吞)
+        raise
+    except Exception as exc:
+        # 任何 redis op 异常 (ConnectionError / TimeoutError / ResponseError
+        # / AttributeError on inproc fake / etc) → raise RuntimeError
+        # 包一层, 让 traceback 清楚是 probe 失败 (AC#3 fail-loud).
+        raise RuntimeError(
+            f"redis_required_for_complaint_rate probe FAIL: redis op "
+            f"raised {type(exc).__name__}: {exc}. "
+            f"complaint rate store ZSET 不可用, design §AC#3/#4 客诉率"
+            f" gate 在 prod inproc fallback 下永久 grace bypass. "
+            f"必须修 redis 连接."
+        ) from exc
+    finally:
+        # close client (不影响 app.state.redis 后续 init)
+        if redis_client is not None:
+            try:
+                await redis_client.aclose()
+            except Exception:  # noqa: BLE001 - cleanup best-effort
+                pass

@@ -89,6 +89,55 @@ ComplaintRateStoreDep = Annotated[ComplaintRateStore, Depends(_get_complaint_rat
 
 
 # ===========================================================================
+# Helper (B1 魈 PR #308 r1 review suggestion — 拆出 pure logic, 便于
+# 未来 webhook / scheduled inject 复用, 规约 #2 spirit)
+# ===========================================================================
+
+
+async def _apply_complaint_rate_sample(
+    *,
+    session: DBSession,
+    admin_id: int,
+    payload: ComplaintRateRequest,
+    store: ComplaintRateStore,
+) -> tuple[bool, float | None]:
+    """Record sample + write AdminAuditLog 同事务 + return rolling avg.
+
+    Pure logic, 不依 FastAPI Request 、 HTTPException. 未来 webhook /
+    scheduled injector 可复用. 异常向上抛原型 (Endpoint 负责转 HTTP).
+
+    Returns:
+        (recorded, rolling_7d): rolling 取不到时 = None (best-effort)
+    """
+    # 1) record sample to redis (or in-proc fallback)
+    await store.record_rate(payload.rate)
+
+    # 2) AdminAuditLog 同事务写 (red line #1, PR #250 反 pattern escape)
+    audit = AdminAuditLog(
+        target_type="readonly_complaint_rate_sample",
+        target_id=_CONFIG_TARGET,
+        action="record",
+        operator=str(admin_id),
+        reason=(f"rate={payload.rate:.4f}%" + (f"; note={payload.note}" if payload.note else "")),
+    )
+    session.add(audit)
+    await session.flush()
+    await session.commit()
+
+    # 3) read fresh rolling avg post-insert (best-effort, fail = None)
+    rolling: float | None = None
+    try:
+        rolling = await store.get_rolling_average(window_days=7)
+    except Exception:  # noqa: BLE001
+        logger.warning(
+            "[complaint_rate] rolling_avg read failed post-insert, "
+            "returning recorded=True without average"
+        )
+
+    return True, rolling
+
+
+# ===========================================================================
 # Endpoint
 # ===========================================================================
 
@@ -107,45 +156,25 @@ ComplaintRateStoreDep = Annotated[ComplaintRateStore, Depends(_get_complaint_rat
 )
 async def post_complaint_rate(
     payload: ComplaintRateRequest,
-    request: Request,
+    request: Request,  # noqa: ARG001 - reserved for future request-scoped audit hook
     admin: CurrentAdmin,
     session: DBSession,
     store: ComplaintRateStoreDep,
 ) -> ComplaintRateResponse:
-    """ADR-0053 §AC#4 entry."""
-    # 1) record sample to redis (or in-proc fallback)
+    """ADR-0053 §AC#4 entry. 薄 wrapper; pure logic 在 ``_apply_complaint_rate_sample``."""
     try:
-        await store.record_rate(payload.rate)
-    except Exception as exc:  # noqa: BLE001 — redis 不可用时不阻 PM, 报 500
-        logger.exception("[complaint_rate] record fail rate=%s err=%s", payload.rate, exc)
+        recorded, rolling = await _apply_complaint_rate_sample(
+            session=session,
+            admin_id=admin.id,
+            payload=payload,
+            store=store,
+        )
+    except Exception as exc:  # noqa: BLE001 — redis / db 不可用时报 500
+        logger.exception("[complaint_rate] apply fail rate=%s err=%s", payload.rate, exc)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="complaint_rate_record_failed",
         ) from exc
-
-    # 2) AdminAuditLog 同事务写 (red line #1)
-    # placeholder target_id (UUID) — 这里 audit 是 "PM 注入指标" 事件, 没具体 target
-    # 用 admin 自己的 user_id 作 target_id, target_type='readonly_complaint_rate_sample'
-    audit = AdminAuditLog(
-        target_type="readonly_complaint_rate_sample",
-        target_id=_CONFIG_TARGET,
-        action="record",
-        operator=str(admin.id),
-        reason=(f"rate={payload.rate:.4f}%" + (f"; note={payload.note}" if payload.note else "")),
-    )
-    session.add(audit)
-    await session.flush()
-    await session.commit()
-
-    # 3) read fresh rolling avg post-insert (best-effort, fail = None)
-    rolling = None
-    try:
-        rolling = await store.get_rolling_average(window_days=7)
-    except Exception:  # noqa: BLE001
-        logger.warning(
-            "[complaint_rate] rolling_avg read failed post-insert, "
-            "returning recorded=True without average"
-        )
 
     logger.info(
         "[complaint_rate] admin=%s recorded rate=%.4f%% rolling_7d=%s",
@@ -155,7 +184,7 @@ async def post_complaint_rate(
     )
 
     return ComplaintRateResponse(
-        recorded=True,
+        recorded=recorded,
         rate=payload.rate,
         rolling_average_7d=rolling,
     )

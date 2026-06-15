@@ -464,6 +464,12 @@ clamp_min(sum(rate(user_token_revoke_total{source="real"}[7d]) + rate(user_relog
 
 ⚠️ **关键 trade-off**: 客诉率手动 vs 自动 — real 上线第一阶段接受 manual weekly, 后续 S3-OPS 把客服系统 API 化.
 
+**r2 amend (S3-OPS-COMPLAINT-RATE-REDIS-REQUIRED-PROBE, PR #308 r1 follow-up)**:
+- **🔴 Deploy 前置 —— prod 必须 redis ON**: `ComplaintRateStore` (`backend/app/services/readonly_complaint_rate_store.py`) 有 in-process list fallback (class var `_inproc_samples`), 多 uvicorn worker 部署下 PM POST 落 worker-A → cron 跑 worker-B 永远拿不到 sample → grace None → 本 §5.3 检查在 prod inproc fallback 下永久 bypass
+- **兜底**: startup probe `redis_required_for_complaint_rate` (`backend/app/probes/__init__.py`) 在 staging/canary/production env fail-loud, redis 不可用 → app 拒启, 避免 silent grace bypass
+- **责任**: deploy SRE 确认 redis 连接完整 → startup probe 验证为准, 不靠人看 log
+- **反案 ref**: ADR-0051 r3 §2.3 反案 #25 (协议层强制 env-dependent invariant, 禁止散点 env check)
+
 ---
 
 ## 6. Real T-7 Cron Gate (AC#6 实施 hint) — r1 amend
