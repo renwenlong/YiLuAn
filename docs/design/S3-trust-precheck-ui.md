@@ -359,7 +359,9 @@ async def get_precheck_status(
 
 - 复用现有 `Build & Test (iOS Simulator)` GitHub Actions workflow（branch protection required check 之一）。
 - E2E test 覆盖 task acceptance AC#5：3 状态切换（`pending` → `verified` → `rejected` 任 3 组合）UI 正确显示。
-- WS 推送 `cert_status_changed` → UI 刷新（task acceptance AC#3）。
+- WS 推送 `precheck.status.updated{card: companion_cert}` envelope → UI 刷新 cert 4 字段（task acceptance AC#3）。统一 envelope 见 §4.2。
+
+> **r5 amend (2026-06-15)**：原文 `cert_status_changed` 是历史语义命名，与 §4.2 canonical event name `precheck.status.updated` 不一致。canonical 统一: 4 个 after_commit hook (contract / insurance / preparation / companion_cert) emit 同一个 event name `precheck.status.updated`，envelope.card 字段区分牌。backend 实施已对齐 (见 `test_e2e_trust_precheck_ws_cert_status.py::test_precheck_ws_event_name_aligned_with_aggregator` 锁定)。
 - 不需要 macOS runner 新增 job，不需要 WKWebView round-trip 验证（因为没有 WKWebView）。
 
 ### 6.3 跨端字段一致性
