@@ -1,0 +1,43 @@
+# S3-DEV-003-ADMIN-COPY AC#3 反案哨兵
+# 职业背书 / 效果背书禁词 lint (PRD-001 v1.5 §F8)
+# 命中 block 级 → CI exit 1, 阻塞 PR
+# 命中 warn 级 → stderr 日志, 不阻塞
+name: Copy Lint (prohibited occupational endorsements)
+
+on:
+  pull_request:
+    paths:
+      - 'docs/copy-lint/**'
+      - 'scripts/qa/check_prohibited_endorsements.py'
+      - 'tests/scripts/test_check_prohibited_endorsements.py'
+      - '.github/workflows/copy-lint.yml'
+      # 同步触发: 任何 scan_paths 范围内的文件改动都过 gate
+      - 'admin-v2/src/**'
+      - 'wxapp/**'
+      - 'ios/YiLuAn/**'
+      - 'backend/app/templates/**'
+      - 'docs/qa/s3-contract-template-*.md'
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/copy-lint/**'
+      - 'scripts/qa/check_prohibited_endorsements.py'
+      - 'tests/scripts/test_check_prohibited_endorsements.py'
+      - '.github/workflows/copy-lint.yml'
+
+jobs:
+  copy-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pyyaml + pytest
+        run: pip install --quiet pyyaml==6.0.2 pytest
+      - name: Run lint (CI gate, block 级阻塞)
+        run: python scripts/qa/check_prohibited_endorsements.py
+      - name: Run unit tests
+        run: python -m pytest tests/scripts/test_check_prohibited_endorsements.py -v
