@@ -13,6 +13,7 @@ source-of-truth contract for user roles:
 
 Companion to migration ``a07229409127_s3_ops_user_role_model_converge_phase2_``.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -109,3 +110,52 @@ async def test_get_current_patient_companion_uses_has_role_only(
     else:
         with pytest.raises(ForbiddenException):
             await get_current_companion(current_user=user)
+
+
+# ----------------------------------------------------------------------
+# ADR-0055 §3.1.3 amend (r1 魈 13:50Z) — event listener regression
+# ----------------------------------------------------------------------
+@pytest.mark.asyncio
+async def test_user_init_mirrors_role_enum_to_roles_string() -> None:
+    """``User(role=X)`` auto-mirrors enum to ``roles`` CSV via init listener.
+
+    Regression for ADR-0055 §3.1.3 amend: pre-amend, fixtures that built
+    ``User(role=UserRole.patient)`` without explicit ``roles=`` would have
+    ``has_role()`` return False (NULL roles), silently breaking ABAC guards.
+    """
+    user = User(phone="+8613800099001", role=UserRole.patient, is_active=True)
+    assert user.role is UserRole.patient
+    assert user.roles == "patient"
+    assert user.has_role(UserRole.patient) is True
+
+    companion = User(phone="+8613800099002", role=UserRole.companion, is_active=True)
+    assert companion.role is UserRole.companion
+    assert companion.roles == "companion"
+    assert companion.has_role(UserRole.companion) is True
+
+
+@pytest.mark.asyncio
+async def test_user_init_does_not_overwrite_explicit_roles() -> None:
+    """Explicit ``roles=`` wins over the auto-mirror; supports multi-role users.
+
+    The listener only fires when ``roles`` is unset in kwargs, so callers can
+    construct users with multi-role strings like ``"patient,companion"``
+    without the mirror clobbering them.
+    """
+    # Explicit roles overrides enum-based auto-mirror
+    user = User(
+        phone="+8613800099003",
+        role=UserRole.patient,
+        roles="patient,companion",
+        is_active=True,
+    )
+    assert user.role is UserRole.patient
+    assert user.roles == "patient,companion"
+    assert user.has_role(UserRole.patient) is True
+    assert user.has_role(UserRole.companion) is True
+
+    # role=None + roles=None stays both None (no mirror needed)
+    empty = User(phone="+8613800099004", is_active=True)
+    assert empty.role is None
+    assert empty.roles is None
+    assert empty.has_role(UserRole.patient) is False
