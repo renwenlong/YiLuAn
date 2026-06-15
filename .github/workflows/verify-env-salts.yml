@@ -1,0 +1,63 @@
+# S3-OPS-SALT-ENTROPY-GUARD-CI-INTEGRATION
+# 反案 (regression 防御): verify_env_salts.py 加 CI integration.
+#
+# 背景:
+#   PR #310 (S3-OPS-SALT-ENTROPY-GUARD) 加了 backend/scripts/verify_env_salts.py
+#   本地 verify 4 deploy/env.* salt 全 PASS, 但 AC#6 仅 hutao 本地一次性跑.
+#   未来运维改 deploy/env.staging 改成弱 salt (<32 char 或 雷同 PII_HASH_SALT),
+#   CI 不抓 → regression 防御缺口.
+#
+# 触发: 仅当影响 deploy/env.* 文件 + verify_env_salts.py + config.py
+#       (validator 逻辑变) + 本 workflow 时.
+#
+# CI: 非 required check (P3 follow-up, 不阻 main branch protection),
+#     fail 时 PR 仍可合, 但作为 advisory signal.
+#     未来如需提升为 required, 在 branch protection settings 加.
+#
+# Refs:
+#   - PR #310 (S3-OPS-SALT-ENTROPY-GUARD): validator + verify script land
+#   - 魈 r1 review GAP: AC#6 无 CI integration → 立本 task
+#   - 帝君 ratify P3 (raw draft → ratify needed)
+
+name: Verify deploy/env.* salts
+
+on:
+  pull_request:
+    paths:
+      - "deploy/env.*"
+      - "backend/scripts/verify_env_salts.py"
+      - "backend/app/config.py"
+      - ".github/workflows/verify-env-salts.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/env.*"
+      - "backend/scripts/verify_env_salts.py"
+      - "backend/app/config.py"
+      - ".github/workflows/verify-env-salts.yml"
+
+jobs:
+  verify-env-salts:
+    name: Verify deploy/env.* salts (S3-OPS-SALT-ENTROPY-GUARD AC#6)
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install minimal deps (pydantic + pydantic-settings)
+        run: |
+          python3 -m pip install --upgrade pip
+          # verify_env_salts.py 仅依赖 app.config.Settings,
+          # 后者仅依赖 pydantic + pydantic-settings (无 SQLAlchemy/FastAPI 等重依赖)
+          pip install pydantic pydantic-settings
+
+      - name: Run verify_env_salts.py
+        run: |
+          echo "::group::Verify deploy/env.* salts (entropy + collision)"
+          python3 backend/scripts/verify_env_salts.py
+          echo "::endgroup::"
