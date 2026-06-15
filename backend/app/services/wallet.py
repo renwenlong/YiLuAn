@@ -10,7 +10,6 @@ from app.models.wallet_ledger import WalletLedger, WalletLedgerDirection
 from app.repositories.order import OrderRepository
 from app.repositories.payment import PaymentRepository
 
-
 _ZERO = Decimal("0.00")
 
 
@@ -28,7 +27,7 @@ class WalletService:
         self.order_repo = OrderRepository(session)
 
     async def get_summary(self, user: User) -> dict:
-        if user.role != UserRole.companion:
+        if not user.has_role(UserRole.companion):
             return {"balance": _ZERO, "total_income": _ZERO, "withdrawn": _ZERO}
 
         balance = await self._sum_from_ledger(user)

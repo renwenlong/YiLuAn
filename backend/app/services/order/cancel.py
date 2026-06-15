@@ -16,11 +16,11 @@ class _OrderCancelMixin(_OrderServiceBase):
     async def cancel_order(self, order_id: uuid.UUID, user: User) -> Order:
         order = await self._get_order_for_update_or_404(order_id)
 
-        if user.role == UserRole.patient:
+        if user.has_role(UserRole.patient):
             if order.patient_id != user.id:
                 raise ForbiddenException("Not your order")
             new_status = OrderStatus.cancelled_by_patient
-        elif user.role == UserRole.companion:
+        elif user.has_role(UserRole.companion):
             if order.companion_id != user.id:
                 raise ForbiddenException("Not your order")
             new_status = OrderStatus.cancelled_by_companion
@@ -68,16 +68,22 @@ class _OrderCancelMixin(_OrderServiceBase):
                 ) from e
 
         from app.utils.metrics import order_cancelled_total
-        _st = order.service_type.value if hasattr(order.service_type, 'value') else order.service_type
-        _cb = user.role.value if hasattr(user.role, 'value') else user.role
+        _st = (
+            order.service_type.value
+            if hasattr(order.service_type, 'value')
+            else order.service_type
+        )
+        # ADR-0055: derive cancelled_by from new_status (set above per has_role check),
+        # avoiding direct read of deprecated user.role enum field.
+        _cb = "patient" if new_status == OrderStatus.cancelled_by_patient else "companion"
         order_cancelled_total.labels(service_type=_st, cancelled_by=_cb).inc()
 
         # Notify the other party about cancellation
-        if user.role == UserRole.patient and order.companion_id:
+        if user.has_role(UserRole.patient) and order.companion_id:
             await self.notification_svc.notify_order_status_changed(
                 order, new_status.value, order.companion_id
             )
-        elif user.role == UserRole.companion:
+        elif user.has_role(UserRole.companion):
             await self.notification_svc.notify_order_status_changed(
                 order, new_status.value, order.patient_id
             )
@@ -85,7 +91,7 @@ class _OrderCancelMixin(_OrderServiceBase):
 
     async def reject_order(self, order_id: uuid.UUID, user: User) -> Order:
         order = await self._get_order_for_update_or_404(order_id)
-        if user.role != UserRole.companion:
+        if not user.has_role(UserRole.companion):
             raise ForbiddenException("Only companions can reject orders")
 
         if order.status != OrderStatus.created:

@@ -113,7 +113,10 @@ class CompanionProfileService:
         )
         profile = await self.repo.create(profile)
 
-        if user.role is None:
+        if not user.has_role(UserRole.companion):
+            # ADR-0055: write the deprecated enum field for backward compat with
+            # historical admin/metrics paths, but never read it for permission
+            # decisions. New code uses has_role() exclusively.
             await self.user_repo.update(user, {"role": UserRole.companion})
         user.add_role(UserRole.companion)
         await self.user_repo.update(user, {"roles": user.roles})

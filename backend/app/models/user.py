@@ -59,6 +59,14 @@ class User(Base):
     apple_sub: Mapped[str | None] = mapped_column(
         String(128), unique=True, nullable=True, index=True
     )
+    # ------------------------------------------------------------------
+    # role model (ADR-0055: has_role() / roles is single SoT)
+    # ------------------------------------------------------------------
+    # ``role`` enum is **DEPRECATED** as of ADR-0055. Kept for backward
+    # compat with historical data and JWT token serialization
+    # (``auth.py`` includes ``role`` in token claims), but **must not be
+    # read for permission decisions**. New code uses ``has_role()`` and
+    # ``add_role()`` exclusively, which work against ``roles`` only.
     role: Mapped[UserRole | None] = mapped_column(Enum(UserRole), nullable=True)
     roles: Mapped[str | None] = mapped_column(String(50), nullable=True)
     display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)

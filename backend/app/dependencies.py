@@ -162,9 +162,13 @@ WriteableUser = Annotated[User, Depends(require_writeable_user)]
 async def get_current_patient(
     current_user: CurrentUser,
 ) -> User:
-    """Require that the JWT-authenticated user has the ``patient`` role."""
-    if current_user.role == UserRole.patient:
-        return current_user
+    """Require that the JWT-authenticated user has the ``patient`` role.
+
+    ADR-0055: single SoT via ``has_role()``; the deprecated ``user.role``
+    enum field is no longer read. Historical users with ``role=patient``
+    but ``roles=NULL`` are covered by the backfill migration
+    ``<auto>_backfill_roles_from_role.py`` (idempotent UPDATE).
+    """
     if current_user.has_role(UserRole.patient):
         return current_user
     raise ForbiddenException("patient role required")
@@ -179,20 +183,16 @@ async def get_current_companion(
     """Require that the JWT-authenticated user has the ``companion`` role.
 
     Returns the same ``User`` row that ``get_current_user`` returned,
-    after asserting either:
+    after asserting ``user.has_role(UserRole.companion)``.
 
-    - ``user.role == UserRole.companion`` (legacy single-role enum), or
-    - ``user.has_role(UserRole.companion)`` (newer multi-role string).
-
-    Both are checked so we don't get tripped up by ongoing role-model
-    migrations.
+    ADR-0055: single SoT via ``has_role()``; the deprecated ``user.role``
+    enum field is no longer read. Historical users are covered by the
+    backfill migration ``<auto>_backfill_roles_from_role.py`` (idempotent).
 
     Raises ``ForbiddenException`` (403) on role mismatch — not
     ``UnauthorizedException`` (401), because the token IS valid; the
     caller simply isn't permitted at this endpoint.
     """
-    if current_user.role == UserRole.companion:
-        return current_user
     if current_user.has_role(UserRole.companion):
         return current_user
     raise ForbiddenException("companion role required")
