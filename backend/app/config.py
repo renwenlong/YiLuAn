@@ -262,6 +262,11 @@ class Settings(BaseSettings):
     # ``RECONCILIATION_CUTOFF`` 环境变量覆盖（ISO-8601 字符串）。
     reconciliation_cutoff: str = "2026-04-28T00:00:00+00:00"
 
+    # ─────────── S2-OPS-A-READONLY-REAL-GATE-CRON: T-7 cron gate ───────────
+    # Prometheus HTTP API URL for cron gate query (ADR-0053 §AC#6).
+    # Dev/test 走本地 prom (`docker-compose.dev.yml`); prod 走 ops 集群.
+    prometheus_url: str = "http://prometheus:9090"
+
     # F-04 多维度评分权重（守时 / 专业 / 沟通 / 态度），默认等权 0.25。
     # 如需运营调整可通过环境变量覆盖；服务层会按权重重算总评分。
     review_weight_punctuality: float = 0.25

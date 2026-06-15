@@ -106,6 +106,22 @@ class FakeRedis:
             zset.pop(m, None)
         return len(to_remove)
 
+    async def zrangebyscore(
+        self,
+        key: str,
+        min_score: float,
+        max_score: float,
+        withscores: bool = False,
+    ) -> list:
+        zset = self._zsets.get(key)
+        if not zset:
+            return []
+        items = [(m, s) for m, s in zset.items() if min_score <= s <= max_score]
+        items.sort(key=lambda kv: kv[1])
+        if withscores:
+            return items
+        return [m for m, _ in items]
+
     # --- SET commands (refresh-token jti whitelist) ----------------------
     async def sadd(self, key: str, *members: str) -> int:
         s = self._sets.setdefault(key, set())

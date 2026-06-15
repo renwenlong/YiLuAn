@@ -35,6 +35,7 @@ from app.api.v1.admin.notes import (
 )
 from app.api.v1.admin.orders import router as orders_router
 from app.api.v1.admin.prep_packages import router as admin_prep_packages_router
+from app.api.v1.admin.readonly_gate import router as readonly_gate_router
 from app.api.v1.admin.reconciliation import router as reconciliation_router
 from app.api.v1.admin.service_packages import router as service_packages_router
 from app.api.v1.admin.telemetry import router as telemetry_router
@@ -62,3 +63,4 @@ router.include_router(telemetry_router)
 router.include_router(users_router)
 router.include_router(wallet_ledger_router)
 router.include_router(dead_letters_router)
+router.include_router(readonly_gate_router)
