@@ -51,6 +51,8 @@
 | `POST` | `/api/v1/admin/orders/{order_id}/refund` | 后台：管理员退款 |
 | `GET` | `/api/v1/admin/orders/{order_id}/timeline` | 后台：订单状态变迁时间轴 |
 | `GET` | `/api/v1/admin/prep-packages/{order_id}` | admin 查看订单的 AI 准备包 (含 ops metadata) |
+| `POST` | `/api/v1/admin/readonly/complaint-rate` | PM weekly manual 注入 customer complaint rate (ADR-0053 §AC#4) |
+| `POST` | `/api/v1/admin/readonly/complaint-rate` | PM weekly manual 注入 customer complaint rate (ADR-0053 §AC#4) |
 | `GET` | `/api/v1/admin/reconciliation/diffs` | List Diffs |
 | `GET` | `/api/v1/admin/reconciliation/diffs/{diff_id}` | 后台：差异详情 |
 | `POST` | `/api/v1/admin/reconciliation/diffs/{diff_id}/close-confirms` | Confirm Close |
@@ -1065,6 +1067,66 @@ curl -X GET 'https://api.yiluan.example.com/api/v1/admin/orders/{order_id}/timel
 
 ```bash
 curl -X GET 'https://api.yiluan.example.com/api/v1/admin/prep-packages/{order_id}' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `POST /api/v1/admin/readonly/complaint-rate` — PM weekly manual 注入 customer complaint rate (ADR-0053 §AC#4)
+
+PM 每周手动 POST 注入客诉率 sample, redis ZSET 7 天滑动窗口. Cron gate `check_readonly_flag_real_gate` 每日 02:00 UTC 读 rolling average 比 0.1% 阈值. AdminAuditLog 同事务写 (PR #250 反 pattern 已 escape).
+
+**参数：**
+
+- `Authorization` (header, —, required=—) — 
+
+**请求体（JSON）：**
+
+```json
+""
+```
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X POST 'https://api.yiluan.example.com/api/v1/admin/readonly/complaint-rate' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `POST /api/v1/admin/readonly/complaint-rate` — PM weekly manual 注入 customer complaint rate (ADR-0053 §AC#4)
+
+PM 每周手动 POST 注入客诉率 sample, redis ZSET 7 天滑动窗口. Cron gate `check_readonly_flag_real_gate` 每日 02:00 UTC 读 rolling average 比 0.1% 阈值. AdminAuditLog 同事务写 (PR #250 反 pattern 已 escape).
+
+**参数：**
+
+- `Authorization` (header, —, required=—) — 
+
+**请求体（JSON）：**
+
+```json
+""
+```
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X POST 'https://api.yiluan.example.com/api/v1/admin/readonly/complaint-rate' \
   -H 'Authorization: Bearer <access_token>'
 ```
 
