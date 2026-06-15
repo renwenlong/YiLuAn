@@ -156,7 +156,6 @@ async def _apply_complaint_rate_sample(
 )
 async def post_complaint_rate(
     payload: ComplaintRateRequest,
-    request: Request,  # noqa: ARG001 - reserved for future request-scoped audit hook
     admin: CurrentAdmin,
     session: DBSession,
     store: ComplaintRateStoreDep,
