@@ -1,39 +1,39 @@
 """E2E test — Phase D: trust-precheck ABAC counter 灰度 baseline 监控 (AC#9).
 
-Phase D (S3-TEST-003) — 验收 board AC#9 "灰度发布期间 ABAC counter 监控 baseline":
-当 ``precheck_abac_filtered_total`` counter (P2 task ``S3-DEV-003-PRECHECK-ABAC-COUNTER``
-uuid ``c6323053`` hutao) 实施后, 灰度期间 metric 行为:
+S3-TEST-003 Phase D — board AC#9 "灰度发布期间 ABAC counter 监控 baseline".
 
-1. counter 在 ``backend/app/utils/metrics.py`` 注册 (跟随现有 prometheus_client pattern)
-2. ABAC 4 层 filter hit 时 counter ``inc()`` (依赖注入 chain 触发)
-3. label 维度: 至少 ``layer`` (l1/l2/l3/l4) + ``field`` (17 字段之一, 含 2 patterns) 或 aggregate
-4. ``/metrics`` Prometheus endpoint expose 这个 counter (mounted at ``backend/app/main.py:253``)
-5. counter value monotonic increase, scrape format 符合 Prometheus exposition
+依赖 dev task ``S3-DEV-003-PRECHECK-ABAC-COUNTER`` (c6323053 hutao P2 done)
+已实施 ``precheck_abac_filtered_total`` counter (PR #319 f302fdc merged
+06-15 14:54Z), Phase D 转 hard contract (无 forward-compat skip).
 
-# Forward-compat 设计
+# Hutao 实际实施 (与 board AC#2 完全一致)
 
-跟 Phase B
-``test_e2e_trust_precheck_abac_negative_list.py::test_precheck_abac_filtered_counter_gap``
-同模式: counter 未实时 SKIP, 实了自动 PASS. 不阻 Phase D done — counter merged
-后 ci 自动转 PASS.
+- module: ``backend/app/observability/precheck_abac_metrics.py``
+  (新建独立 observability 模块, **不在** business-metrics ``utils/metrics.py``;
+  per-feature observability 子模块是合理设计, 不阻塞)
+- Python 常量: ``PRECHECK_ABAC_FILTERED_TOTAL`` (大写)
+- Prometheus name: ``precheck_abac_filtered_total``
+- labels (AC#2 强制): ``endpoint`` / ``user_role`` / ``filter_reason``
+- 触发点: ``backend/app/api/v1/deps_precheck.py`` L132 + L150
+  (assert_order_owner_or_404 deny 分支 .labels(...).inc())
+- multi-import 防呆: ``_get_or_create_counter`` wrapper (REGISTRY 检查)
 
-# Gray-release baseline (AC#9 灰度监控)
+# Phase D 验收契约 (5 L)
 
-灰度发布期间, 这个 counter 的 baseline 行为:
-- 流量 0 → counter 应为 0 (或 absent)
-- 流量 N (灰度 5%/20%/100%) → counter 应 ~= ABAC filter 命中次数 (无超量/泄漏)
-- 异常 spike (counter 远超流量) → alarm signal: ABAC 误命中或 attack 迹象
+| L | 验收 |
+|---|---|
+| L1 | counter 存在且 module 路径明确 (新 observability 模块亦可) |
+| L2 | label dim ⊇ {endpoint, user_role, filter_reason} (AC#2) |
+| L3 | 触发点存在: deps_precheck.py 有 .labels(...).inc() |
+| L4 | /metrics endpoint expose counter (Prometheus scrape format) |
+| L5 | Counter type (非 Gauge) + design doc audit trail |
 
-本测试覆盖 monotonic + Prometheus exposition 两个 invariant;
-灰度真实 baseline 比对 (mean/p99/SLA) 是 Grafana / Alertmanager 域,
-不在 e2e test scope.
+# Lesson §94 反案 #61 candidate (改回结论)
 
-# 关键约束
-
-- 用 mock Redis (与 polling_fallback test 同 pattern), 不需要真 Redis
-- counter 模块 import 应在 fixture 内, 不在 module top — 否则 forward-compat
-  skip 会被 ImportError 破坏
-- 跟 ``test_e2e_trust_precheck_abac_negative_list.py`` 互补, 不重复 17 字段语义校验
+旧假设 "test 先写硬契约约束 dev" 错 — 当 ADR / board AC 已明,
+dev 实施合理时 test 必须跟随 spec, 不能用 test 内未明的假设
+(L1 module 路径、L2 label 名) 反推 dev. 14:54Z 我犯此错,
+5 个 case 全 FAIL, 改用 AC#2 + ADR-0048 实际 spec 重写.
 """
 
 from __future__ import annotations
@@ -45,124 +45,141 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BACKEND = REPO_ROOT / "backend"
-METRICS_FILE = BACKEND / "app" / "utils" / "metrics.py"
-COUNTER_NAME = "precheck_abac_filtered_total"
+
+# Hutao 实施路径 (AC#5: grep ≥ 5 hits 已验)
+METRICS_MODULE = BACKEND / "app" / "observability" / "precheck_abac_metrics.py"
+TRIGGER_MODULE = BACKEND / "app" / "api" / "v1" / "deps_precheck.py"
+
+PROM_NAME = "precheck_abac_filtered_total"
+PY_CONST = "PRECHECK_ABAC_FILTERED_TOTAL"
+
+# AC#2 强制 label schema
+REQUIRED_LABELS = {"endpoint", "user_role", "filter_reason"}
 
 
 # ──────────────────────────────────────────────────────────────────────────
-# Helper — counter 实施状态 probe (forward-compat 单点)
+# L1 — counter 模块存在
 # ──────────────────────────────────────────────────────────────────────────
 
 
-def _counter_implemented() -> tuple[bool, list[str]]:
-    """grep backend/app 找 counter 名. 返回 (实施了?, hit 文件列表)."""
-    hits: list[str] = []
-    for f in (BACKEND / "app").rglob("*.py"):
-        try:
-            src = f.read_text()
-        except (UnicodeDecodeError, OSError):
-            continue
-        if COUNTER_NAME in src:
-            hits.append(str(f.relative_to(REPO_ROOT)))
-    return bool(hits), hits
+class TestPhaseDCounterModuleExists:
+    """L1 — counter 模块文件存在 + Python 常量 + Prometheus name 都齐."""
+
+    def test_metrics_module_file_exists(self) -> None:
+        """``backend/app/observability/precheck_abac_metrics.py`` 必须存在."""
+        assert METRICS_MODULE.exists(), (
+            f"counter 模块 {METRICS_MODULE} 不存在 — "
+            f"hutao S3-DEV-003-PRECHECK-ABAC-COUNTER 是否回滚?"
+        )
+
+    def test_python_constant_defined(self) -> None:
+        """Python 模块顶层应定义 ``PRECHECK_ABAC_FILTERED_TOTAL`` 常量."""
+        src = METRICS_MODULE.read_text()
+        # 允许多行赋值: 用 regex 找 assignment
+        pattern = rf"\b{re.escape(PY_CONST)}\b\s*[:=]"
+        assert re.search(pattern, src), (
+            f"Python 常量 '{PY_CONST}' 必须在 {METRICS_MODULE.name} 定义"
+        )
+
+    def test_prometheus_metric_name_present(self) -> None:
+        """Prometheus metric name 字符串 ``precheck_abac_filtered_total`` 必须在源码."""
+        src = METRICS_MODULE.read_text()
+        assert PROM_NAME in src, (
+            f"Prometheus name '{PROM_NAME}' 不在 {METRICS_MODULE.name}"
+        )
 
 
 # ──────────────────────────────────────────────────────────────────────────
-# L1 — counter 注册位置 (metrics.py)
+# L2 — labels 维度严格 = AC#2 spec
 # ──────────────────────────────────────────────────────────────────────────
 
 
-class TestPhaseDCounterRegistration:
-    """L1 — counter 必须注册在 ``backend/app/utils/metrics.py``.
+class TestPhaseDCounterLabelsAC2:
+    """L2 — labels schema 必须 ⊇ AC#2 强制集合 {endpoint, user_role, filter_reason}.
 
-    跟现有 ``order_created_total`` / ``ai_blocklist_*`` 同位置;
-    集中注册便于 Prometheus scrape 一次 import.
+    AC#2 原文: "label dimensions {endpoint, user_role, filter_reason} 实施完整"
     """
 
-    def test_counter_lives_in_metrics_module(self) -> None:
-        """counter 注册位置 = ``backend/app/utils/metrics.py``."""
-        implemented, hits = _counter_implemented()
-        if not implemented:
-            pytest.skip(
-                f"⚠️ Phase D forward-compat skip: counter '{COUNTER_NAME}' 未实, "
-                f"等 dev task S3-DEV-003-PRECHECK-ABAC-COUNTER (c6323053 hutao) 完成. "
-                f"现有 Phase B negative_list test 已有同源 forward-compat probe, "
-                f"两边一起转 PASS."
+    def test_all_required_labels_in_source(self) -> None:
+        """3 个 AC#2 label name 字符串必须在 counter 模块出现."""
+        src = METRICS_MODULE.read_text()
+        missing = [lbl for lbl in REQUIRED_LABELS if lbl not in src]
+        assert not missing, (
+            f"AC#2 强制 label 缺失: {missing}; "
+            f"必须在 {METRICS_MODULE.name} 出现 (作为 labelnames 列表 / 常量)"
+        )
+
+    def test_counter_runtime_labels_match_spec(self) -> None:
+        """Runtime import counter, 检查 ._labelnames ⊇ AC#2 集合."""
+        try:
+            from app.observability.precheck_abac_metrics import (  # type: ignore[import-not-found]
+                PRECHECK_ABAC_FILTERED_TOTAL,
             )
-        metrics_src = METRICS_FILE.read_text()
-        assert COUNTER_NAME in metrics_src, (
-            f"counter '{COUNTER_NAME}' 必须注册在 metrics.py 集中位置, "
-            f"实际找到在: {hits} (不在 metrics.py)"
-        )
+        except ImportError as e:
+            pytest.fail(
+                f"counter 模块 import 失败: {e}; "
+                f"AC#3 注册到 Prometheus registry 受阻"
+            )
 
-    def test_counter_uses_prometheus_client_Counter(self) -> None:
-        """counter 必须用 prometheus_client.Counter, 不能自造或用 Gauge/Histogram."""
-        implemented, _ = _counter_implemented()
-        if not implemented:
-            pytest.skip(f"Phase D forward-compat skip: {COUNTER_NAME} 未实")
-        src = METRICS_FILE.read_text()
-        pattern = rf"{re.escape(COUNTER_NAME)}\s*=\s*Counter\s*\("
-        assert re.search(pattern, src), (
-            f"counter '{COUNTER_NAME}' 必须是 prometheus_client.Counter, "
-            f"不能用 Gauge/Histogram/自造类"
+        actual_labels = set(PRECHECK_ABAC_FILTERED_TOTAL._labelnames)  # type: ignore[attr-defined]
+        missing = REQUIRED_LABELS - actual_labels
+        assert not missing, (
+            f"counter runtime labels 缺 AC#2 强制项: {missing}; "
+            f"实际 labels: {actual_labels}"
         )
 
 
 # ──────────────────────────────────────────────────────────────────────────
-# L2 — counter labels 覆盖 ABAC 4 层 + 17 字段维度
+# L3 — 触发点 (deps_precheck.py .labels(...).inc())
 # ──────────────────────────────────────────────────────────────────────────
 
 
-class TestPhaseDCounterLabels:
-    """L2 — counter 必须有可观测维度, 否则灰度无法定位问题源."""
+class TestPhaseDTriggerPoint:
+    """L3 — counter 必须在 ABAC deny 分支被 .labels(...).inc()."""
 
-    def test_counter_has_layer_or_field_label(self) -> None:
-        """counter 至少含 'layer' OR 'field' label, 否则只能看总数, 灰度阶段无定位力.
-
-        ABAC 4 层 (L1 schema / L2 endpoint / L3 SELECT / L4 schemathesis)
-        + 17 字段 (15 named + 2 patterns) 任一维度可标即可.
-        """
-        implemented, _ = _counter_implemented()
-        if not implemented:
-            pytest.skip(f"Phase D forward-compat skip: {COUNTER_NAME} 未实")
-        src = METRICS_FILE.read_text()
-        # 找 counter 定义块 (从 COUNTER_NAME 到下一个 = Counter( 或文件末)
-        idx = src.find(COUNTER_NAME)
-        block = src[idx : idx + 800] if idx >= 0 else ""
-        has_layer = "layer" in block.lower()
-        has_field = "field" in block.lower()
-        assert has_layer or has_field, (
-            f"counter '{COUNTER_NAME}' 应至少标 layer 或 field 一个维度, "
-            f"definition block: {block[:300]}"
+    def test_trigger_module_exists(self) -> None:
+        """``backend/app/api/v1/deps_precheck.py`` 必须存在."""
+        assert TRIGGER_MODULE.exists(), (
+            f"触发模块 {TRIGGER_MODULE} 不存在"
         )
 
-
-# ──────────────────────────────────────────────────────────────────────────
-# L3 — counter 触发点 (ABAC hit 时 .inc())
-# ──────────────────────────────────────────────────────────────────────────
-
-
-class TestPhaseDCounterTriggerPoint:
-    """L3 — counter 必须在 ABAC filter 实际命中点被 .inc(), 不能只注册不触发."""
-
-    def test_counter_is_actually_incremented_in_codebase(self) -> None:
-        """grep ``.inc()`` / ``.labels(...).inc()`` near counter import."""
-        implemented, hits = _counter_implemented()
-        if not implemented:
-            pytest.skip(f"Phase D forward-compat skip: {COUNTER_NAME} 未实")
-        triggered_files: list[str] = []
-        for hit_path in hits:
-            abs_path = REPO_ROOT / hit_path
-            if abs_path == METRICS_FILE:
-                continue
-            src = abs_path.read_text()
-            if ".inc(" in src or ".labels(" in src:
-                triggered_files.append(hit_path)
-        assert triggered_files, (
-            f"counter '{COUNTER_NAME}' 注册了但没找到 .inc() / .labels() 触发点. "
-            f"定义出现在: {hits}, 但都没 .inc(). 灰度上线后 counter 永远为 0, "
-            f"无法实现 AC#9 baseline 监控."
+    def test_import_counter_in_trigger_module(self) -> None:
+        """deps_precheck.py 必须从 observability 模块 import counter."""
+        src = TRIGGER_MODULE.read_text()
+        assert "from app.observability.precheck_abac_metrics import" in src, (
+            "deps_precheck.py 必须 import precheck_abac_metrics 模块"
         )
+        assert PY_CONST in src, (
+            f"deps_precheck.py 必须 import {PY_CONST} 常量"
+        )
+
+    def test_counter_labels_inc_pattern(self) -> None:
+        """deps_precheck.py 必须有 ``.labels(...).inc()`` 链式调用 (>= 1 处)."""
+        src = TRIGGER_MODULE.read_text()
+        # 找 PRECHECK_ABAC_FILTERED_TOTAL.labels( ... pattern
+        pattern = rf"{re.escape(PY_CONST)}\.labels\("
+        matches = re.findall(pattern, src)
+        assert matches, (
+            f"deps_precheck.py 找不到 {PY_CONST}.labels(...) 调用; "
+            f"AC#1 'ABAC filter 出口 increment counter' 未实施"
+        )
+        # 应至少有 2 处 (order_not_found + abac_owner_mismatch 两个分支)
+        assert len(matches) >= 2, (
+            f"AC#2 filter_reason 至少 2 种 (order_not_found / abac_owner_mismatch), "
+            f"应至少 2 处 .labels() 调用, 实际 {len(matches)}"
+        )
+
+    def test_both_filter_reasons_triggered(self) -> None:
+        """两种 filter_reason 都应在 deps_precheck.py 触发."""
+        src = TRIGGER_MODULE.read_text()
+        for reason_const in (
+            "FILTER_REASON_ORDER_NOT_FOUND",
+            "FILTER_REASON_ABAC_OWNER_MISMATCH",
+        ):
+            assert reason_const in src, (
+                f"filter_reason 常量 '{reason_const}' 未在 deps_precheck.py 使用; "
+                f"AC#4 单测 3 场景 (通过/拒绝/降级) coverage 受损"
+            )
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -170,86 +187,117 @@ class TestPhaseDCounterTriggerPoint:
 # ──────────────────────────────────────────────────────────────────────────
 
 
-class TestPhaseDMetricsEndpointExposes:
-    """L4 — counter 必须能被 Prometheus scrape (/metrics endpoint)."""
+class TestPhaseDMetricsEndpointExpose:
+    """L4 — /metrics scrape 必须含 counter (AC#3)."""
 
-    def test_metrics_endpoint_mounted(self) -> None:
-        """``backend/app/main.py`` 须 mount ``/metrics`` (现有 line 253 应保留)."""
+    def test_metrics_endpoint_mounted_in_main(self) -> None:
+        """``backend/app/main.py`` 须 mount /metrics endpoint."""
         main_py = BACKEND / "app" / "main.py"
         src = main_py.read_text()
         assert 'mount("/metrics"' in src or "mount('/metrics'" in src, (
-            "/metrics endpoint 必须 mount 在 backend/app/main.py "
-            "(现 line 253, 不要 break Prometheus scrape 路径)"
+            "/metrics endpoint 必须 mount, AC#3 Prometheus scrape 路径"
         )
 
     def test_counter_appears_in_metrics_scrape(self) -> None:
-        """灰度 baseline 必须能 scrape — TestClient GET /metrics 含 counter HELP/TYPE."""
-        implemented, _ = _counter_implemented()
-        if not implemented:
-            pytest.skip(f"Phase D forward-compat skip: {COUNTER_NAME} 未实")
+        """灰度 baseline 必须能 scrape — TestClient GET /metrics 含 counter."""
         try:
             from fastapi.testclient import TestClient
 
             from app.main import app  # type: ignore[import-not-found]
         except ImportError as e:
-            pytest.skip(f"app import 失败, 跳过 endpoint scrape 验证: {e}")
+            pytest.fail(f"app import 失败: {e}; AC#3 scrape 路径受阻")
 
         client = TestClient(app)
         resp = client.get("/metrics")
         assert resp.status_code == 200, (
-            f"/metrics endpoint 必须 return 200, 实际 {resp.status_code}"
+            f"/metrics 必须 return 200, 实际 {resp.status_code}"
         )
         body = resp.text
-        # Prometheus exposition: HELP + TYPE + sample 任一出现即可证明 counter 注册成功
-        assert (
-            f"# HELP {COUNTER_NAME}" in body
-            or f"# TYPE {COUNTER_NAME}" in body
-            or COUNTER_NAME in body
-        ), (
-            f"/metrics 响应中找不到 '{COUNTER_NAME}'. "
-            f"counter 注册了但未被 Prometheus REGISTRY 收录, 灰度 baseline 监控失效."
+        assert PROM_NAME in body, (
+            f"/metrics scrape 找不到 '{PROM_NAME}'; "
+            f"counter 注册了但未被 Prometheus REGISTRY 收录, "
+            f"AC#9 灰度 baseline 监控失效"
+        )
+
+    def test_metrics_endpoint_has_help_and_type(self) -> None:
+        """Prometheus exposition 格式: HELP + TYPE meta 必须存在 (AC#3 完整 scrape format)."""
+        try:
+            from fastapi.testclient import TestClient
+
+            from app.main import app  # type: ignore[import-not-found]
+        except ImportError as e:
+            pytest.fail(f"app import 失败: {e}")
+
+        client = TestClient(app)
+        body = client.get("/metrics").text
+        assert f"# HELP {PROM_NAME}" in body, (
+            f"/metrics 缺 HELP meta for '{PROM_NAME}', Prometheus format 不完整"
+        )
+        assert f"# TYPE {PROM_NAME} counter" in body, (
+            "/metrics 缺 TYPE meta 或 type 不是 counter; "
+            "AC#5 Counter (非 Gauge/Histogram) 类型不正确"
         )
 
 
 # ──────────────────────────────────────────────────────────────────────────
-# L5 — Gray-release baseline invariants (monotonic + exposition format)
+# L5 — Gray-release baseline invariants (Counter type + audit trail)
 # ──────────────────────────────────────────────────────────────────────────
 
 
 class TestPhaseDBaselineInvariants:
-    """L5 — 灰度发布期 counter 的 baseline 不变式 (不变即 healthy)."""
+    """L5 — 灰度发布期 counter 的 baseline 不变式."""
 
-    def test_counter_value_is_monotonic_non_negative(self) -> None:
-        """Counter 设计上 monotonic 不减 (prometheus_client.Counter 强制).
-
-        本 test 是 sanity probe — 若 hutao 误用 Gauge (允许减) 会被 L1 已捕获,
-        这里再加一道断言确保 type contract.
-        """
-        implemented, _ = _counter_implemented()
-        if not implemented:
-            pytest.skip(f"Phase D forward-compat skip: {COUNTER_NAME} 未实")
+    def test_counter_is_prometheus_counter_not_gauge(self) -> None:
+        """counter 必须是 prometheus_client.Counter (monotonic), 不能 Gauge."""
         try:
-            from app.utils import metrics as metrics_mod  # type: ignore[import-not-found]
+            from app.observability.precheck_abac_metrics import (  # type: ignore[import-not-found]
+                PRECHECK_ABAC_FILTERED_TOTAL,
+            )
         except ImportError as e:
-            pytest.skip(f"metrics module import 失败: {e}")
+            pytest.fail(f"counter import 失败: {e}")
 
-        counter_obj = getattr(metrics_mod, COUNTER_NAME, None)
-        assert counter_obj is not None, (
-            f"metrics 模块中找不到 '{COUNTER_NAME}' 属性"
+        # Counter 没 .dec() (Gauge 才有), 灰度 baseline 要求 monotonic
+        assert not hasattr(PRECHECK_ABAC_FILTERED_TOTAL, "dec"), (
+            f"{PY_CONST} 不能是 Gauge — Gray-release baseline 要求 monotonic "
+            f"non-decreasing, Gauge 会破坏单调性"
         )
-        # prometheus_client.Counter 没有 .dec() 方法 (Gauge 才有)
-        assert not hasattr(counter_obj, "dec"), (
-            f"counter '{COUNTER_NAME}' 不能是 Gauge — Gray-release baseline "
-            f"要求 monotonic non-decreasing, 用 Gauge 会破坏 baseline 单调性"
+
+        # 类型字符串验证
+        type_str = str(type(PRECHECK_ABAC_FILTERED_TOTAL))
+        assert "Counter" in type_str, (
+            f"{PY_CONST} 类型应含 'Counter', 实际 {type_str}"
+        )
+
+    def test_counter_can_increment_with_labels(self) -> None:
+        """smoke test: counter.labels(...).inc() 可调用且数值递增."""
+        try:
+            from app.observability.precheck_abac_metrics import (  # type: ignore[import-not-found]
+                ENDPOINT_PRECHECK_STATUS,
+                FILTER_REASON_ABAC_OWNER_MISMATCH,
+                PRECHECK_ABAC_FILTERED_TOTAL,
+                USER_ROLE_PATIENT,
+            )
+        except ImportError as e:
+            pytest.fail(f"counter / 常量 import 失败: {e}")
+
+        labeled = PRECHECK_ABAC_FILTERED_TOTAL.labels(
+            endpoint=ENDPOINT_PRECHECK_STATUS,
+            user_role=USER_ROLE_PATIENT,
+            filter_reason=FILTER_REASON_ABAC_OWNER_MISMATCH,
+        )
+        before = labeled._value.get()  # type: ignore[attr-defined]
+        labeled.inc()
+        after = labeled._value.get()  # type: ignore[attr-defined]
+        assert after == before + 1, (
+            f"counter inc() 应 +1, 实际 before={before} after={after}"
         )
 
     def test_design_doc_references_counter(self) -> None:
         """design doc §4.3 / §6.3 应 reference counter 名 (audit trail)."""
         design_doc = REPO_ROOT / "docs" / "design" / "S3-trust-precheck-ui.md"
         if not design_doc.exists():
-            pytest.skip(f"design doc 不存在于 {design_doc}")
+            pytest.skip(f"design doc 不存在: {design_doc}")
         src = design_doc.read_text()
-        assert COUNTER_NAME in src, (
-            f"design doc 未 reference counter '{COUNTER_NAME}', "
-            f"灰度 baseline 监控缺 audit trail / 设计依据"
+        assert PROM_NAME in src, (
+            f"design doc 未 reference '{PROM_NAME}'; 缺 audit trail / 设计依据"
         )
