@@ -13,6 +13,7 @@ from sqlalchemy import (
     String,
     Text,
     Uuid,
+    event,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -44,9 +45,7 @@ class User(Base):
         ),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     phone: Mapped[str | None] = mapped_column(String(20), unique=True, nullable=True, index=True)
     wechat_openid: Mapped[str | None] = mapped_column(
         String(128), unique=True, nullable=True, index=True
@@ -59,6 +58,14 @@ class User(Base):
     apple_sub: Mapped[str | None] = mapped_column(
         String(128), unique=True, nullable=True, index=True
     )
+    # ------------------------------------------------------------------
+    # role model (ADR-0055: has_role() / roles is single SoT)
+    # ------------------------------------------------------------------
+    # ``role`` enum is **DEPRECATED** as of ADR-0055. Kept for backward
+    # compat with historical data and JWT token serialization
+    # (``auth.py`` includes ``role`` in token claims), but **must not be
+    # read for permission decisions**. New code uses ``has_role()`` and
+    # ``add_role()`` exclusively, which work against ``roles`` only.
     role: Mapped[UserRole | None] = mapped_column(Enum(UserRole), nullable=True)
     roles: Mapped[str | None] = mapped_column(String(50), nullable=True)
     display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
@@ -171,3 +178,36 @@ class User(Base):
         current = set(self.get_roles())
         current.add(r.value)
         self.roles = ",".join(sorted(current))
+
+
+# ----------------------------------------------------------------------
+# ADR-0055 §3.1.3 amend (r1 魈 13:50Z 推 + r1 PM 凝光 13:5xZ ratify):
+# Auto-mirror enum ``role`` to string ``roles`` on User construction.
+#
+# Backstop for fixture / legacy code paths that still build ``User(role=...)``
+# directly. The phase-2 backfill migration handles historical rows; this
+# listener handles every *new* row produced via the ORM (tests, auth.py
+# token-create, admin create-user). Without this, ``has_role()`` would
+# silently return ``False`` for any code path that doesn't explicitly set
+# both fields, defeating ADR-0055's single-source-of-truth goal.
+#
+# Idempotent: only fires when ``role`` is non-null AND ``roles`` is unset.
+# Does NOT overwrite an explicit ``roles=`` value (callers can still set
+# multi-role users like ``roles="patient,companion"`` directly).
+#
+# Why event listener (not __init__ override): SQLAlchemy declarative ``Base``
+# auto-generates __init__ and overriding it risks breaking the descriptor
+# protocol for column attributes. ``init`` event is the documented hook
+# for exactly this pattern (SA docs: orm/events.html#sqlalchemy.orm.InstanceEvents.init).
+# ----------------------------------------------------------------------
+@event.listens_for(User, "init")
+def _mirror_role_to_roles_on_init(target, args, kwargs):  # noqa: ARG001
+    """Mirror ``role`` enum → ``roles`` CSV string on ORM-level instance creation.
+
+    Triggered by ``User(role=UserRole.X, ...)`` constructor before SA assigns
+    column values. We mutate ``kwargs`` in place so the ``roles`` column gets
+    persisted on the same flush as ``role``.
+    """
+    role_val = kwargs.get("role")
+    if role_val is not None and "roles" not in kwargs:
+        kwargs["roles"] = role_val.value if isinstance(role_val, UserRole) else role_val

@@ -118,7 +118,7 @@ class _OrderLifecycleMixin(_OrderServiceBase):
 
     async def accept_order(self, order_id: uuid.UUID, user: User) -> Order:
         order = await self._get_order_for_update_or_404(order_id)
-        if user.role != UserRole.companion:
+        if not user.has_role(UserRole.companion):
             raise ForbiddenException("Only companions can accept orders")
         # 前置：陪诊师必须已绑定手机号
         if not user.phone:

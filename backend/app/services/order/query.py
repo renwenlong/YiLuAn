@@ -16,10 +16,10 @@ class _OrderQueryMixin(_OrderServiceBase):
         order = await self.order_repo.get_by_id(order_id)
         if order is None:
             raise NotFoundException("Order not found")
-        if user.role == UserRole.patient and order.patient_id != user.id:
+        if user.has_role(UserRole.patient) and order.patient_id != user.id:
             raise ForbiddenException("Not your order")
         if (
-            user.role == UserRole.companion
+            user.has_role(UserRole.companion)
             and order.companion_id is not None
             and order.companion_id != user.id
             and order.status != OrderStatus.created
@@ -68,9 +68,11 @@ class _OrderQueryMixin(_OrderServiceBase):
             order_status = OrderStatus(status) if status else None
             status_list = None
 
-        if user.role == UserRole.companion:
+        if user.has_role(UserRole.companion):
             if order_status == OrderStatus.created:
-                items, total = await self.order_repo.list_available(skip=skip, limit=page_size, date=date, city=city)
+                items, total = await self.order_repo.list_available(
+                    skip=skip, limit=page_size, date=date, city=city,
+                )
             else:
                 items, total = await self.order_repo.list_by_companion(
                     user.id, status=order_status, status_list=status_list,
