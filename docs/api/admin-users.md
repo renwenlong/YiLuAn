@@ -19,9 +19,12 @@
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `GET` | `/api/v1/admin/users` | 后台：用户列表 |
+| `POST` | `/api/v1/admin/users/batch-read-only` | 后台：批量设置/解除只读 (≤100) |
 | `GET` | `/api/v1/admin/users/{user_id}` | 后台：用户详情 |
 | `POST` | `/api/v1/admin/users/{user_id}/disable` | 后台：停用用户 |
 | `POST` | `/api/v1/admin/users/{user_id}/enable` | 后台：启用用户 |
+| `DELETE` | `/api/v1/admin/users/{user_id}/read-only` | 后台：解除用户只读 (unset read-only) |
+| `POST` | `/api/v1/admin/users/{user_id}/read-only` | 后台：将用户置为只读 (read-only) |
 
 ## 端点详情
 
@@ -51,6 +54,37 @@
 
 ```bash
 curl -X GET 'https://api.yiluan.example.com/api/v1/admin/users' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `POST /api/v1/admin/users/batch-read-only` — 后台：批量设置/解除只读 (≤100)
+
+ADR-0053 §7 批量上限 100。每个 user_id 独立成功/失败, 单 user 404 不阻整批; 全批同一事务 commit (要么 100 个 audit + 100 个 user 行 update 同时落, 要么全回滚)。批 >100 → 422 BATCH_TOO_LARGE。
+
+**参数：**
+
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**请求体（JSON）：**
+
+```json
+""
+```
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X POST 'https://api.yiluan.example.com/api/v1/admin/users/batch-read-only' \
   -H 'Authorization: Bearer <access_token>'
 ```
 
@@ -136,6 +170,64 @@ curl -X POST 'https://api.yiluan.example.com/api/v1/admin/users/{user_id}/disabl
 
 ```bash
 curl -X POST 'https://api.yiluan.example.com/api/v1/admin/users/{user_id}/enable' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `DELETE /api/v1/admin/users/{user_id}/read-only` — 后台：解除用户只读 (unset read-only)
+
+ADR-0053 §7. 清除 is_read_only + 4 列元数据，复用 PR #238 同事务 AdminAuditLog 路径。
+
+**参数：**
+
+- `user_id` (path, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X DELETE 'https://api.yiluan.example.com/api/v1/admin/users/{user_id}/read-only' \
+  -H 'Authorization: Bearer <access_token>'
+```
+
+---
+
+### `POST /api/v1/admin/users/{user_id}/read-only` — 后台：将用户置为只读 (read-only)
+
+ADR-0053 §7. 复用 PR #238 同事务 AdminAuditLog 路径 — 成功 200 时写 audit; 失败 404/422 因事务回滚不留 audit。reason_detail 仅 audit 留存, response 永远不返 (PRD-001 §F8 D1)。
+
+**参数：**
+
+- `user_id` (path, string, required=✅) — 
+- `Authorization` (header, —, required=—) — 
+- `X-Admin-Token` (header, —, required=—) — 
+
+**请求体（JSON）：**
+
+```json
+""
+```
+
+**响应：**
+
+| 状态码 | 说明 |
+| --- | --- |
+| `200` | Successful Response |
+| `422` | Validation Error |
+
+**curl 示例：**
+
+```bash
+curl -X POST 'https://api.yiluan.example.com/api/v1/admin/users/{user_id}/read-only' \
   -H 'Authorization: Bearer <access_token>'
 ```
 

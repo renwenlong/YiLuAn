@@ -183,6 +183,8 @@
 | `POST` | `/api/v1/admin/orders/{order_id}/refund` | 后台：管理员退款 |
 | `GET` | `/api/v1/admin/orders/{order_id}/timeline` | 后台：订单状态变迁时间轴 |
 | `GET` | `/api/v1/admin/prep-packages/{order_id}` | admin 查看订单的 AI 准备包 (含 ops metadata) |
+| `POST` | `/api/v1/admin/readonly/complaint-rate` | PM weekly manual 注入 customer complaint rate (ADR-0053 §AC#4) |
+| `POST` | `/api/v1/admin/readonly/complaint-rate` | PM weekly manual 注入 customer complaint rate (ADR-0053 §AC#4) |
 | `GET` | `/api/v1/admin/reconciliation/diffs` | List Diffs |
 | `GET` | `/api/v1/admin/reconciliation/diffs/{diff_id}` | 后台：差异详情 |
 | `POST` | `/api/v1/admin/reconciliation/diffs/{diff_id}/close-confirms` | Confirm Close |
@@ -195,9 +197,12 @@
 | `PATCH` | `/api/v1/admin/service-packages/{pkg_id}` | 后台：更新服务档位 |
 | `GET` | `/api/v1/admin/telemetry/events` | 埋点事件列表（admin） |
 | `GET` | `/api/v1/admin/users` | 后台：用户列表 |
+| `POST` | `/api/v1/admin/users/batch-read-only` | 后台：批量设置/解除只读 (≤100) |
 | `GET` | `/api/v1/admin/users/{user_id}` | 后台：用户详情 |
 | `POST` | `/api/v1/admin/users/{user_id}/disable` | 后台：停用用户 |
 | `POST` | `/api/v1/admin/users/{user_id}/enable` | 后台：启用用户 |
+| `DELETE` | `/api/v1/admin/users/{user_id}/read-only` | 后台：解除用户只读 (unset read-only) |
+| `POST` | `/api/v1/admin/users/{user_id}/read-only` | 后台：将用户置为只读 (read-only) |
 | `POST` | `/api/v1/admin/wallet-ledger/adjustments` | Create Manual Adjustment |
 | `GET` | `/api/v1/admin/wallet-ledger/{user_id}` | List User Ledger |
 
@@ -313,6 +318,12 @@ K8s / ACA 探针使用：
 | --- | --- | --- |
 | `GET` | `/api/v1/admin/prep-packages/{order_id}` | admin 查看订单的 AI 准备包 (含 ops metadata) |
 
+### [readonly-gate](./readonly-gate.md)
+
+| 方法 | 路径 | 说明 |
+| --- | --- | --- |
+| `POST` | `/api/v1/admin/readonly/complaint-rate` | PM weekly manual 注入 customer complaint rate (ADR-0053 §AC#4) |
+
 ### [admin-reconciliation](./admin-reconciliation.md)
 
 | 方法 | 路径 | 说明 |
@@ -344,9 +355,12 @@ K8s / ACA 探针使用：
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
 | `GET` | `/api/v1/admin/users` | 后台：用户列表 |
+| `POST` | `/api/v1/admin/users/batch-read-only` | 后台：批量设置/解除只读 (≤100) |
 | `GET` | `/api/v1/admin/users/{user_id}` | 后台：用户详情 |
 | `POST` | `/api/v1/admin/users/{user_id}/disable` | 后台：停用用户 |
 | `POST` | `/api/v1/admin/users/{user_id}/enable` | 后台：启用用户 |
+| `DELETE` | `/api/v1/admin/users/{user_id}/read-only` | 后台：解除用户只读 (unset read-only) |
+| `POST` | `/api/v1/admin/users/{user_id}/read-only` | 后台：将用户置为只读 (read-only) |
 
 ### [admin-wallet-ledger](./admin-wallet-ledger.md)
 

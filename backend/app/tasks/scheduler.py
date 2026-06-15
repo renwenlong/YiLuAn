@@ -20,6 +20,7 @@
 关键实现点：持锁与业务工作在同一个 AsyncSession 内完成 —— 对 PG advisory lock
 来说必须是同一连接，否则 unlock 无效。
 """
+
 from __future__ import annotations
 
 import logging
@@ -130,6 +131,7 @@ def create_scheduler(app) -> AsyncIOScheduler:
     from app.cron.contract_generate_pickup import contract_generate_pickup_job
     from app.cron.contract_worm_repair import contract_worm_repair_job
     from app.cron.prep_generate import prep_generate_job
+    from app.cron.readonly_flag_real_gate import check_readonly_flag_real_gate
     from app.cron.reconcile_money import reconcile_money_job
     from app.cron.reconciliation_cleanup import reconciliation_cleanup_job
     from app.cron.share_token_scanner import scan_share_token_anomalies_job
@@ -146,8 +148,8 @@ def create_scheduler(app) -> AsyncIOScheduler:
         kwargs={"app": app},
         id="scan_expired_orders",
         name="Scan expired orders and auto-cancel",
-        coalesce=True,          # 多次错过的触发合并成一次
-        max_instances=1,        # 同进程内防并发
+        coalesce=True,  # 多次错过的触发合并成一次
+        max_instances=1,  # 同进程内防并发
         misfire_grace_time=30,  # 容忍 30 秒延迟
         replace_existing=True,
     )
@@ -170,6 +172,17 @@ def create_scheduler(app) -> AsyncIOScheduler:
         kwargs={"app": app},
         id="cleanup_sms_send_log",
         name="Cleanup expired SMS send logs",
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=600,
+        replace_existing=True,
+    )
+    # ADR-0053 §AC#6: read-only flag real T-7 cron gate — 每日 02:00 UTC
+    scheduler.add_job(
+        check_readonly_flag_real_gate,
+        trigger=CronTrigger(hour=2, minute=0),  # UTC — 与 prometheus retention window 一致
+        id="readonly_flag_real_gate_t7",
+        name="Read-only flag real T-7 cron gate (ADR-0053 §AC#6)",
         coalesce=True,
         max_instances=1,
         misfire_grace_time=600,
@@ -266,9 +279,7 @@ def create_scheduler(app) -> AsyncIOScheduler:
     # S3-DEV-001-CONTRACT-WORM-COMPENSATION: WORM policy repair cron (默认每小时)
     scheduler.add_job(
         contract_worm_repair_job,
-        trigger=IntervalTrigger(
-            seconds=settings.contract_worm_repair_interval_seconds
-        ),
+        trigger=IntervalTrigger(seconds=settings.contract_worm_repair_interval_seconds),
         kwargs={"app": app},
         id="contract_worm_repair",
         name="Contract WORM policy repair (S3-DEV-001 WORM-COMPENSATION)",

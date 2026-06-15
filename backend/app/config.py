@@ -248,11 +248,24 @@ class Settings(BaseSettings):
     # 默认 False，指南火度异常时 OPS 手动切 True 冻结新会话。
     readonly_share_sessions: bool = False
 
+    # S2-OPS-A-CANARY-WHITELIST-LAUNCH AC-2 火度门:
+    # 启用后, F2 入口 (POST /orders/{order_id}/shares) 仅对
+    # deploy/canary/whitelist_phones.yaml 内手机号开放; 其他用户 403.
+    # 默认 False —— 未启用时行为与今天一致 (仅
+    # feature_share_f2_enabled + readonly_share_sessions 两道闸).
+    # 配合 canary deploy 切 True 实现 "内部白名单 10% mock 灰度上线".
+    canary_whitelist_enabled: bool = False
+
     # ADR-0032 / D-044 Q3: 资金对账历史豁免 cutoff。
     # 早于该时刻产生的 amount_mismatch diff 视为已豁免，guard 不阻断订单
     # 状态机迁移。默认值 = ADR-0032 Accepted 的 UTC 时刻；生产部署可通过
     # ``RECONCILIATION_CUTOFF`` 环境变量覆盖（ISO-8601 字符串）。
     reconciliation_cutoff: str = "2026-04-28T00:00:00+00:00"
+
+    # ─────────── S2-OPS-A-READONLY-REAL-GATE-CRON: T-7 cron gate ───────────
+    # Prometheus HTTP API URL for cron gate query (ADR-0053 §AC#6).
+    # Dev/test 走本地 prom (`docker-compose.dev.yml`); prod 走 ops 集群.
+    prometheus_url: str = "http://prometheus:9090"
 
     # F-04 多维度评分权重（守时 / 专业 / 沟通 / 态度），默认等权 0.25。
     # 如需运营调整可通过环境变量覆盖；服务层会按权重重算总评分。
@@ -270,9 +283,7 @@ class Settings(BaseSettings):
 
         # JWT 密钥不能是开发默认值
         if self.jwt_secret_key == "dev-secret-key-change-in-production":
-            raise ValueError(
-                "生产环境禁止使用默认 JWT 密钥，请设置 JWT_SECRET_KEY"
-            )
+            raise ValueError("生产环境禁止使用默认 JWT 密钥，请设置 JWT_SECRET_KEY")
 
         # 生产环境必须关闭 debug
         if self.debug:
@@ -302,9 +313,7 @@ class Settings(BaseSettings):
                 if not val
             ]
             if missing:
-                raise ValueError(
-                    f"生产环境微信支付缺少凭证: {', '.join(missing)}"
-                )
+                raise ValueError(f"生产环境微信支付缺少凭证: {', '.join(missing)}")
 
         # ADR-0029: PII 加密 / hash 密钥不得使用 dev 默认值
         if self.pii_envelope_key == _DEV_PII_ENVELOPE_KEY:
@@ -313,26 +322,20 @@ class Settings(BaseSettings):
                 "Manager 注入 base64 编码的 32 字节密钥"
             )
         if self.pii_hash_salt == "yiluan-dev-salt-do-not-use-in-prod":
-            raise ValueError(
-                "生产环境禁止使用默认 PII_HASH_SALT，请设置高熵随机串"
-            )
+            raise ValueError("生产环境禁止使用默认 PII_HASH_SALT，请设置高熵随机串")
 
         # W1-S1: 运维管理后台 / 定时任务回调使用的 admin token 不得为开发默认值或空串。
         # `require_admin_token` 拿这个值做常量时间比对；若不强制 override，
         # 任何知道默认值的人都能触发 /orders/check-expired 等运维端点。
         if self.admin_api_token in ("dev-admin-token", "", None):
-            raise ValueError(
-                "生产环境禁止使用默认 ADMIN_API_TOKEN，请设置高熵随机串"
-            )
+            raise ValueError("生产环境禁止使用默认 ADMIN_API_TOKEN，请设置高熵随机串")
 
         # SMS 凭证完整性检查
         # 先拒绝 mock provider：生产环境上 mock = 什么也不发但谎报成功，用户收不到
         # 验证码还以为是运营问题。上古遗留 app/services/sms.py 的 silent
         # fallback 已被移除，这里是 defense-in-depth。
         if self.sms_provider == "mock":
-            raise ValueError(
-                "生产环境禁止 SMS_PROVIDER=mock，请设为 aliyun / tencent"
-            )
+            raise ValueError("生产环境禁止 SMS_PROVIDER=mock，请设为 aliyun / tencent")
         if self.sms_provider != "mock":
             missing = [
                 name
@@ -349,6 +352,44 @@ class Settings(BaseSettings):
                     f"生产环境 SMS ({self.sms_provider}) 缺少凭证: {', '.join(missing)}"
                 )
 
+        return self
+
+    # ─── S3-OPS-SALT-ENTROPY-GUARD: env-agnostic salt entropy + 雷同性 ───
+    # 触发: PR #217 review (2026-06-08 13:21Z 魈) — CONTRACT_PSEUDONYM_SALT
+    # entropy 当前靠 dev 人工 '>= 32 char' 自查. 缺自动化哨兵.
+    #
+    # 设计: env-agnostic (dev/staging/canary/prod 都 raise), 因为 'aaa' (3
+    # char) 在任何 env 都是 typo, 不是有效配置. 区别 validate_production_config
+    # (后者仅 prod env 检查 dev 默认值禁用).
+    #
+    # AC#4 grace: salt 为空 / None 不 raise — 允许 dev 本地省 env 时 fallback,
+    # 由 ContractService.request_generation runtime 哨兵兜底 (那里 raise
+    # ServiceUnavailable, 调用 accept_order 才暴露).
+    @model_validator(mode="after")
+    def _validate_contract_pseudonym_salt(self) -> "Settings":
+        salt = self.contract_pseudonym_salt
+        # AC#4: empty / None 不 raise (dev 本地兜底走 runtime)
+        if not salt:
+            return self
+        # AC#1: < 32 char raise (env-agnostic)
+        if len(salt) < 32:
+            raise ValueError(
+                f"CONTRACT_PSEUDONYM_SALT entropy 不足 ({len(salt)} char < 32). "
+                "PIPL 反查防御要求 high-entropy random. 用 "
+                'python -c "import secrets; print(secrets.token_urlsafe(64))" 重生.'
+            )
+        # AC#2: 与 PII_HASH_SALT 雷同 raise (ADR-0046 §3.2 PIPL 隔离要求)
+        if salt == self.pii_hash_salt:
+            raise ValueError(
+                "CONTRACT_PSEUDONYM_SALT 与 PII_HASH_SALT 雷同. "
+                "二者必须独立 (ADR-0046 §3.2 PIPL 隔离要求)."
+            )
+        # AC#3: 与 PII_ENVELOPE_KEY 雷同 raise
+        if self.pii_envelope_key and salt == self.pii_envelope_key:
+            raise ValueError(
+                "CONTRACT_PSEUDONYM_SALT 与 PII_ENVELOPE_KEY 雷同, "
+                "必须独立 (ADR-0046 §3.2 PIPL 隔离要求)."
+            )
         return self
 
 
