@@ -15,6 +15,7 @@ export const ROLE_LABELS: Record<AdminRole, string> = {
 /** 每个 feature 路径可见的角色集合（mock 真源） */
 export const MENU_VISIBILITY: Record<string, AdminRole[]> = {
   'companion-review': ['super', 'support'],
+  'ai/blocklist': ['super', 'support'],
   'orders': ['super', 'support', 'finance'],
   'users': ['super', 'support'],
   'audit': ['super'],

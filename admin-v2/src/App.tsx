@@ -12,6 +12,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { LoginPage } from './features/login/LoginPage'
 import { ForbiddenPage } from './shared/components/ForbiddenPage'
 import { CompanionReviewListPage } from './features/companion-review/CompanionReviewListPage'
+import { AiBlocklistPage } from './features/ai-blocklist/AiBlocklistPage'
 import { AppLayout } from './shared/layout/AppLayout'
 import { RequireAuth } from './shared/components/RequireAuth'
 
@@ -30,6 +31,7 @@ export function App() {
       >
         <Route index element={<Navigate to="companion-review" replace />} />
         <Route path="companion-review" element={<CompanionReviewListPage />} />
+        <Route path="ai/blocklist" element={<AiBlocklistPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

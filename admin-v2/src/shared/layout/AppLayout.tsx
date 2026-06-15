@@ -7,6 +7,7 @@ import {
   UserOutlined,
   DollarOutlined,
   LogoutOutlined,
+  FileSearchOutlined,
 } from '@ant-design/icons'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { useState } from 'react'
@@ -27,7 +28,7 @@ const { Header, Sider, Content } = Layout
  */
 
 // v2 已实现的 feature path
-const V2_IMPLEMENTED = new Set(['companion-review'])
+const V2_IMPLEMENTED = new Set(['companion-review', 'ai/blocklist'])
 
 interface MenuItemDef {
   key: string
@@ -37,6 +38,7 @@ interface MenuItemDef {
 
 const MENU_ITEMS: MenuItemDef[] = [
   { key: 'companion-review', label: '陪诊师审核', icon: <AuditOutlined /> },
+  { key: 'ai/blocklist', label: 'AI 关键词黑名单', icon: <FileSearchOutlined /> },
   { key: 'orders', label: '订单管理', icon: <ShoppingOutlined /> },
   { key: 'users', label: '用户管理', icon: <UserOutlined /> },
   { key: 'refund-review', label: '退款审批', icon: <DollarOutlined /> },
@@ -77,7 +79,14 @@ export function AppLayout() {
     })
   }
 
-  const currentKey = loc.pathname.replace(/^\//, '').split('/')[0] || 'companion-review'
+  const currentKey = (() => {
+    const path = loc.pathname.replace(/^\//, '')
+    if (!path) return 'companion-review'
+    // 优先匹配两段 (e.g. ai/blocklist), 否则取首段
+    const twoParts = path.split('/').slice(0, 2).join('/')
+    if (V2_IMPLEMENTED.has(twoParts)) return twoParts
+    return path.split('/')[0]
+  })()
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
