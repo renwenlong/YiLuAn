@@ -99,6 +99,65 @@ class User(Base):
     # ...
 ```
 
+#### 3.1.4 ORM init event listener — 自动 mirror role→roles (反案 #18 amend @ 2026-06-15 14:00Z)
+
+**Edge case (反案 #18 触发)**: PR #317 phase 2 IMPL 首次 push 后 CI 抓 2 ABAC test fail (`tests/test_coverage_boost_w18.py::test_get_order_patient_not_owner_forbidden` + `test_get_order_companion_other_after_accept_forbidden`):
+
+```python
+# 17 处 test fixture (grep verified):
+owner = User(phone="...", role=UserRole.patient, is_active=True)
+# 只设 role enum, roles 字段 NULL
+
+# query.py:19 改后:
+if user.has_role(UserRole.patient):  # 读 roles → NULL → False → skip
+    raise ForbiddenException(...)    # 不 raise → ABAC 失效
+```
+
+**不只 test fail** — production legacy path 同款洞: `auth.py` token issue / admin 创 user / 任何 ORM 层 `User(role=X)` 不带 `roles` 的 path. backfill migration `<rev>_backfill_roles_from_role.py` 只 fix 历史 row (alembic upgrade 时), **不 fix ORM 层新建 user**.
+
+**修法**: SQLAlchemy `init` event listener, 自动 mirror enum role → roles string:
+
+```python
+# backend/app/models/user.py
+from sqlalchemy import event
+
+@event.listens_for(User, 'init')
+def _mirror_role_to_roles_on_init(target, args, kwargs):
+    """ADR-0055 §3.1.4: ORM 创建 user 时自动 mirror enum role 到 roles string.
+    保证 has_role() 在 fixture + production legacy path 都一致.
+    
+    与 backfill migration §3.2 互补:
+    - 历史 row → migration (alembic upgrade 一次性)
+    - 新 row → event listener (每次 ORM 创建自动 mirror)
+    
+    幂等: 显式传 roles 时不覆盖 (caller intent 优先)."""
+    if 'role' in kwargs and kwargs['role'] is not None and 'roles' not in kwargs:
+        kwargs['roles'] = kwargs['role'].value
+```
+
+**Test 增加** (反案 #18 SOP — asset-presence sentinel 模式语义版):
+
+```python
+# backend/tests/models/test_user_role_model_single_sot.py
+
+def test_orm_init_event_listener_mirrors_role_to_roles():
+    """反案 #18 regression: ORM 创建 user 仅传 role enum, roles 自动 mirror."""
+    u = User(phone="13800000001", role=UserRole.patient, is_active=True)
+    assert u.roles == "patient"
+    assert u.has_role(UserRole.patient)
+
+def test_orm_init_event_listener_respects_explicit_roles():
+    """显式 roles 不被 event listener 覆盖."""
+    u = User(phone="...", role=UserRole.patient, roles="patient,companion")
+    assert u.roles == "patient,companion"  # caller intent 优先
+```
+
+**反案 #18 教训** (architect 责任):
+
+1. **r1 APPROVE 不是越快越好** — 11:10Z r1 APPROVE 时 CI Backend Tests 还在跑, 11:15Z CI 跑完抓 fail, 我兜底失败
+2. **ADR-0055 spec 自身漏 §3.1.4** — phase 2 IMPL 按 spec 没错, 我 review 应 mental simulate fixture 状态
+3. **SOP 升级**: r1 APPROVE 必须在 CI 4 required check 全绿之后 (反案 #16 v2)
+
 ### 3.2 P1: backfill migration (hutao, ~10min)
 
 `backend/alembic/versions/<auto>_backfill_roles_from_role.py`:
