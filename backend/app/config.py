@@ -354,5 +354,43 @@ class Settings(BaseSettings):
 
         return self
 
+    # ─── S3-OPS-SALT-ENTROPY-GUARD: env-agnostic salt entropy + 雷同性 ───
+    # 触发: PR #217 review (2026-06-08 13:21Z 魈) — CONTRACT_PSEUDONYM_SALT
+    # entropy 当前靠 dev 人工 '>= 32 char' 自查. 缺自动化哨兵.
+    #
+    # 设计: env-agnostic (dev/staging/canary/prod 都 raise), 因为 'aaa' (3
+    # char) 在任何 env 都是 typo, 不是有效配置. 区别 validate_production_config
+    # (后者仅 prod env 检查 dev 默认值禁用).
+    #
+    # AC#4 grace: salt 为空 / None 不 raise — 允许 dev 本地省 env 时 fallback,
+    # 由 ContractService.request_generation runtime 哨兵兜底 (那里 raise
+    # ServiceUnavailable, 调用 accept_order 才暴露).
+    @model_validator(mode="after")
+    def _validate_contract_pseudonym_salt(self) -> "Settings":
+        salt = self.contract_pseudonym_salt
+        # AC#4: empty / None 不 raise (dev 本地兜底走 runtime)
+        if not salt:
+            return self
+        # AC#1: < 32 char raise (env-agnostic)
+        if len(salt) < 32:
+            raise ValueError(
+                f"CONTRACT_PSEUDONYM_SALT entropy 不足 ({len(salt)} char < 32). "
+                "PIPL 反查防御要求 high-entropy random. 用 "
+                'python -c "import secrets; print(secrets.token_urlsafe(64))" 重生.'
+            )
+        # AC#2: 与 PII_HASH_SALT 雷同 raise (ADR-0046 §3.2 PIPL 隔离要求)
+        if salt == self.pii_hash_salt:
+            raise ValueError(
+                "CONTRACT_PSEUDONYM_SALT 与 PII_HASH_SALT 雷同. "
+                "二者必须独立 (ADR-0046 §3.2 PIPL 隔离要求)."
+            )
+        # AC#3: 与 PII_ENVELOPE_KEY 雷同 raise
+        if self.pii_envelope_key and salt == self.pii_envelope_key:
+            raise ValueError(
+                "CONTRACT_PSEUDONYM_SALT 与 PII_ENVELOPE_KEY 雷同, "
+                "必须独立 (ADR-0046 §3.2 PIPL 隔离要求)."
+            )
+        return self
+
 
 settings = Settings()
