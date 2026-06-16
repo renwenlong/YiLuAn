@@ -1,7 +1,6 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
-import pytest
 import jwt
 
 from app.config import settings
@@ -108,11 +107,11 @@ class TestVerifyOTP:
         assert response.status_code == 400
         assert "expired" in response.json()["detail"].lower()
 
-    async def test_verify_otp_dev_bypass(self, client):
-        # Dev mode: code "000000" always works, no Redis entry needed
+    async def test_verify_otp_requires_stored_code(self, client, fake_redis):
+        await fake_redis.set("otp:13800138000", "123456", ex=300)
         response = await client.post(
             "/api/v1/auth/verify-otp",
-            json={"phone": "13800138000", "code": "000000"},
+            json={"phone": "13800138000", "code": "123456"},
         )
         assert response.status_code == 200
         data = response.json()
@@ -434,8 +433,8 @@ class TestTokenVersionRevocation:
         user = await seed_user(phone="13810138002")
         stale = await self._mint_access_with_v(user, user.token_version)
         # Simulate logout-all from another session: bump in DB.
-        from tests.conftest import test_session_factory
         from app.repositories.user import UserRepository
+        from tests.conftest import test_session_factory
 
         async with test_session_factory() as db:
             repo = UserRepository(db)
@@ -468,7 +467,7 @@ class TestLogoutAll:
         self, client, fake_redis, seed_user
     ):
         """End-to-end: login \u2192 hit /me \u2192 logout-all \u2192 same token now 401."""
-        user = await seed_user(phone="13820138001")
+        await seed_user(phone="13820138001")
         await fake_redis.set("otp:13820138001", "123456", ex=300)
         login = await client.post(
             "/api/v1/auth/verify-otp",
@@ -492,7 +491,7 @@ class TestLogoutAll:
         self, client, fake_redis, seed_user
     ):
         """Refresh tokens issued before logout-all cannot rotate after."""
-        user = await seed_user(phone="13820138002")
+        await seed_user(phone="13820138002")
         await fake_redis.set("otp:13820138002", "123456", ex=300)
         login = await client.post(
             "/api/v1/auth/verify-otp",
@@ -516,7 +515,7 @@ class TestLogoutAll:
         self, client, fake_redis, seed_user
     ):
         """After logout-all, a fresh login mints v=N+1 tokens that work."""
-        user = await seed_user(phone="13820138003")
+        await seed_user(phone="13820138003")
         await fake_redis.set("otp:13820138003", "123456", ex=300)
         login1 = await client.post(
             "/api/v1/auth/verify-otp",

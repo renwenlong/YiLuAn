@@ -12,36 +12,31 @@
 #   作为第二个 --env-file 叠加，后者覆盖前者。
 #
 # 多环境说明：
-#   * 本骨架服务 dev / staging / production（单一 compose + profile 切换）。
-#   * dev profile 提供轻量本地后端（pg+redis+backend-dev，暴露宿主端口、热挂载 ../backend/app），
-#     替代被删的 backend/docker-compose.yaml，用法见 up.sh：`./up.sh dev`。
+#   * 本骨架服务 staging / canary / production（单一 compose + profile 切换）。
 #   * 项目名（name）与宿主端口当前写死为 staging 值（帝君决策 ④：先不参数化）。
 #   * env.production.example 为将来扩 production 时的配置模板预留。
 #
 # profiles:
-#   * pg / redis 是基础服务，属于全部 profile（dev/staging/canary/production）。
+#   * pg / redis 是基础服务，属于全部 profile（staging/canary/production）。
 #   * mock-pay-stub / mock-sms-stub 在 `staging` 和 `canary` profile 下启用；
 #     生产不激活该 profile → 不会起 mock。
-#   * backend-dev：仅 dev profile，热挂载源码 + 暴露宿主 8001（env.dev 的 BACKEND_HOST_PORT，避开 agent-squad 的 8000）；dev 不起 nginx/mock/seed。
 #   * canary profile (S2-OPS-013)：mock 链路完整闭环 (帝君拍板不申请真物料)。
 #     用 --env-file env.staging --env-file env.canary 叠加; up.sh canary 自动 -p yiluan-canary 隔离 volume/container。
 #
 # Network:
 #   * staging/production：仅 nginx 暴露宿主端口；其余只在内部网络可达。
-#   * dev：backend/pg/redis 直接暴露宿主端口（由 env.dev 的 *_HOST_PORT 控制），方便本地 pytest/调试。
 
 name: yiluan-staging
 
 services:
   pg:
     image: postgres:15-alpine
-    profiles: ["dev", "staging", "canary", "production"]
+    profiles: ["staging", "canary", "production"]
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     # 端口绑定由 env.<环境> 的 PG_HOST_PORT/PG_HOST_BIND 控制：
-    #   dev 设 5433 → 暴露到宿主（本地 pytest 连 localhost:5433，避开 agent-squad 占用的 5432）
     #   staging/production 设高位口（15432）→ 实际仅内部网络访问
     ports:
       - "${PG_HOST_BIND:-127.0.0.1}:${PG_HOST_PORT:-15432}:5432"
@@ -57,8 +52,8 @@ services:
 
   redis:
     image: redis:7-alpine
-    profiles: ["dev", "staging", "canary", "production"]
-    # dev 设 6380（避开 agent-squad 占用的 6379）；staging/production 设高位口 16379
+    profiles: ["staging", "canary", "production"]
+    # staging/production 设高位口 16379
     ports:
       - "${REDIS_HOST_BIND:-127.0.0.1}:${REDIS_HOST_PORT:-16379}:6379"
     networks:
@@ -134,63 +129,13 @@ services:
       # 任何 profile (staging/canary/production) 都走同一套 backend image，故三者都需要 passthrough.
       CONTRACT_PSEUDONYM_SALT: ${CONTRACT_PSEUDONYM_SALT:-}
       # S3-OPS-DEPLOY-PII-SECRETS-AUDIT (ADR-0029 §3): emergency PII envelope 加密 + phone hash salt。
-      # 不 passthrough = backend 走 config.py dev default = 与 dev 雷同 → PIPL 反查暴露。
+      # 不 passthrough = backend 走 config.py fallback default → PIPL 反查暴露。
       # config.py validate_secrets_for_environment 在 prod env 会 fail-fast 拒默认值。
       PII_HASH_SALT: ${PII_HASH_SALT:-}
       PII_ENVELOPE_KEY: ${PII_ENVELOPE_KEY:-}
       # S3-BUG-003: AI blocklist startup strict load (运维 env opt-in fail-loud).
       # True 时缺 prohibited-keywords.yml 拒启。env.staging/canary/production 都设 true.
       AI_BLOCKLIST_STRICT_LOAD: ${AI_BLOCKLIST_STRICT_LOAD:-false}
-    depends_on:
-      pg:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - yiluan-net
-    healthcheck:
-      test:
-        - CMD
-        - python
-        - -c
-        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/ping',timeout=3).status==200 else 1)"
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 20s
-
-  # dev profile 专用轻量后端：热挂载 ../backend/app + 暴露宿主 8001（env.dev 的 BACKEND_HOST_PORT，避开 agent-squad 的 8000），
-  # 不走 nginx/mock/seed。替代被删的 backend/docker-compose.yaml。
-  backend-dev:
-    profiles: ["dev"]
-    build:
-      # S3-BUG-003: context 调到 repo 根 (原 ../backend), Dockerfile 路径加 backend/ 前缀.
-      # 需要 COPY docs/medical-content/ 进 image.
-      context: ..
-      dockerfile: backend/Dockerfile
-    ports:
-      - "${BACKEND_HOST_BIND:-127.0.0.1}:${BACKEND_HOST_PORT:-8000}:8000"
-    environment:
-      ENVIRONMENT: ${ENVIRONMENT}
-      DEBUG: ${DEBUG}
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pg:5432/${POSTGRES_DB}
-      REDIS_URL: redis://redis:6379/0
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
-      ADMIN_API_TOKEN: ${ADMIN_API_TOKEN}
-      PAYMENT_PROVIDER: ${PAYMENT_PROVIDER}
-      SMS_PROVIDER: ${SMS_PROVIDER}
-      SCHEDULER_ENABLED: ${SCHEDULER_ENABLED:-false}
-      WS_PUBSUB_ENABLED: ${WS_PUBSUB_ENABLED:-true}
-      # S3-DEV-001 / ADR-0046 §3.2: contract pseudonym salt。dev profile 跳同一 backend image。
-      CONTRACT_PSEUDONYM_SALT: ${CONTRACT_PSEUDONYM_SALT:-}
-      # S3-OPS-DEPLOY-PII-SECRETS-AUDIT (ADR-0029 §3): dev profile 跳同一 backend image。
-      PII_HASH_SALT: ${PII_HASH_SALT:-}
-      PII_ENVELOPE_KEY: ${PII_ENVELOPE_KEY:-}
-      # S3-BUG-003: AI blocklist startup strict load. dev 默认 false 不阻本地启动.
-      AI_BLOCKLIST_STRICT_LOAD: ${AI_BLOCKLIST_STRICT_LOAD:-false}
-    # 热挂载源码，保留被删 dev 栈的开发体验（改代码即生效）
-    volumes:
-      - ../backend/app:/app/app
     depends_on:
       pg:
         condition: service_healthy
@@ -296,7 +241,7 @@ services:
     image: grafana/grafana:11.3.0
     profiles: ["staging", "canary"]
     ports:
-      # avoid 3000 (common dev port; agent-squad / Next.js / Grafana defaults
+      # avoid 3000 (common local port; agent-squad / Next.js / Grafana defaults
       # all bind there). 13000 keeps the "1xxxx staging" convention with 18080.
       # canary 用 13001 错开 staging。
       - "${GRAFANA_HOST_BIND:-127.0.0.1}:${GRAFANA_HOST_PORT:-13000}:3000"

@@ -65,10 +65,21 @@ def wait_backend(base: str, timeout: float = 90.0) -> None:
     raise SystemExit(f"[seed] backend not ready after {timeout}s: {last}")
 
 
-def login_otp(base: str, phone: str) -> dict:
+def _write_seed_otp(compose_project: str, phone: str) -> str:
+    code = "123456"
+    cmd = [
+        "docker", "compose", "-p", compose_project,
+        "exec", "-T", "redis", "redis-cli", "SETEX", f"otp:{phone}", "300", code,
+    ]
+    subprocess.check_call(cmd, stdout=subprocess.DEVNULL)
+    return code
+
+
+def login_otp(base: str, phone: str, compose_project: str = "yiluan-staging") -> dict:
+    otp = _write_seed_otp(compose_project, phone)
     code, body = http(
         "POST", f"{base}/api/v1/auth/verify-otp",
-        body={"phone": phone, "code": "000000"},
+        body={"phone": phone, "code": otp},
     )
     if code != 200:
         raise SystemExit(f"[seed] login failed for {phone}: {code} {body}")
@@ -194,8 +205,6 @@ def seed_companions(base: str, admin_token: str, n: int = 3) -> list[dict]:
             if ap_code not in (200, 201):
                 print(f"[seed] companion approve {phone}: {ap_code} {ap_body}")
 
-        # Re-login so role/roles claim is fresh
-        tok = login_otp(base, phone)
         out.append({"phone": phone, "user": tok["user"], "access_token": tok["access_token"]})
     print(f"[seed] companions: {[c['phone'] for c in out]}")
     return out

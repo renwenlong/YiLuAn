@@ -35,11 +35,11 @@ python -m alembic revision --autogenerate -m "description"
 # Seed hospital data (server must be running)
 curl -X POST http://localhost:8000/api/v1/hospitals/seed
 
-# Seed dev data — 走 API 端点（dev profile 不再附带 seed.sql）
-curl -X POST http://127.0.0.1:8001/api/v1/hospitals/seed
+# Seed staging data — 走 API 端点
+curl -X POST http://127.0.0.1:18080/api/v1/hospitals/seed
 
-# Local dev 栈 = deploy/docker-compose.yml 的 dev profile（pg+redis+backend-dev，端口 5433/6380/8001）
-cd ../deploy && ./up.sh dev
+# Local/staging 栈 = deploy/docker-compose.yml 的 staging profile（nginx 端口 18080）
+cd ../deploy && ./up.sh
 ```
 
 ## Architecture
@@ -79,7 +79,7 @@ CurrentUser = Annotated[User, Depends(get_current_user)]  # extracts JWT → loa
 
 1. WeChat Mini Program: `POST /auth/wechat-login` with `code` → backend calls WeChat `code2session` → returns JWT pair
 2. Phone OTP: `POST /auth/send-otp` → `POST /auth/verify-otp` → JWT pair
-3. Dev mode (`ENVIRONMENT=development`): OTP bypass code is `000000`, WeChat bypass code is `dev_test_code`
+3. Staging mode (`ENVIRONMENT=staging`): no OTP / WeChat bypass; use stored OTP and real WECHAT_APP_ID/SECRET
 
 ### WebSocket
 

@@ -5,7 +5,7 @@ Drives the entire happy-path through the public nginx entrypoint
 (default http://127.0.0.1:18080) so we exercise the same surface a
 real client would hit:
 
-    1. patient OTP login (000000 dev bypass)
+    1. patient OTP login (seeded Redis OTP, default 000000)
     2. fetch a hospital, create an order
     3. /pay returns prepay info
     4. mock-pay-stub /__trigger-callback fires the wechat callback
@@ -71,6 +71,7 @@ class Rehearsal:
     admin_phone: str
     companion_phone: str
     patient_phone: str
+    compose_project: str = "yiluan-staging"
     admin_username: str = "admin"
     admin_password: str = "Admin@2026!"
     steps: list[Step] = field(default_factory=list)
@@ -143,9 +144,25 @@ def _expect(code: int, body: Any, ok: tuple[int, ...] = (200, 201),
 
 # ---------- the journey --------------------------------------------------------
 
-def login(api: API, phone: str) -> dict:
+def _write_rehearsal_otp(compose_project: str, phone: str) -> str:
+    """Seed the OTP that the rehearsal will submit.
+
+    Staging operators may keep using the familiar 000000 value, but it is now
+    a real Redis OTP written by the rehearsal, not a backend dev-bypass path.
+    """
+    code = "000000"
+    cmd = [
+        "docker", "compose", "-p", compose_project,
+        "exec", "-T", "redis", "redis-cli", "SETEX", f"otp:{phone}", "300", code,
+    ]
+    subprocess.check_call(cmd, stdout=subprocess.DEVNULL)
+    return code
+
+
+def login(api: API, phone: str, compose_project: str) -> dict:
+    otp = _write_rehearsal_otp(compose_project, phone)
     code, body = api.post("/api/v1/auth/verify-otp",
-                          {"phone": phone, "code": "000000"})
+                          {"phone": phone, "code": otp})
     _expect(code, body, ctx=f"login {phone}")
     return body  # {access_token, refresh_token, user{...}}
 
@@ -156,7 +173,7 @@ def journey(r: Rehearsal, api: API) -> dict:
 
     # --- 1. patient login (fresh phone keeps reviews unique per run)
     def _patient_login() -> str:
-        tok = login(api, r.patient_phone)
+        tok = login(api, r.patient_phone, r.compose_project)
         atok = tok["access_token"]
         # Fresh users have role=null; assign patient role then re-login so the
         # new JWT carries the role claim used by order/cancel guards.
@@ -167,7 +184,7 @@ def journey(r: Rehearsal, api: API) -> dict:
                                          "content-type": "application/json"})
             if r2.status_code not in (200, 201):
                 raise RuntimeError(f"set patient role: {r2.status_code} {r2.text[:200]}")
-            tok = login(api, r.patient_phone)
+            tok = login(api, r.patient_phone, r.compose_project)
             atok = tok["access_token"]
         art["patient_token"] = atok
         art["patient_id"] = tok["user"]["id"]
@@ -237,7 +254,7 @@ def journey(r: Rehearsal, api: API) -> dict:
 
     # --- 7. companion login (must already be admin-approved by seed)
     def _companion_login() -> str:
-        tok = login(api, r.companion_phone)
+        tok = login(api, r.companion_phone, r.compose_project)
         roles = tok["user"].get("roles") or tok["user"].get("role") or "?"
         art["companion_token"] = tok["access_token"]
         art["companion_user_id"] = tok["user"]["id"]
@@ -385,7 +402,7 @@ def maybe_seed(base: str, admin_token: str, compose_project: str) -> None:
     if not seed.exists():
         print(f"[rehearsal] seed_staging.py missing at {seed}, skipping")
         return
-    print(f"[rehearsal] running seed_staging.py …")
+    print("[rehearsal] running seed_staging.py …")
     res = subprocess.run(
         [sys.executable, str(seed),
          "--base", base,
@@ -430,6 +447,7 @@ def main() -> int:
         companion_phone=args.companion_phone,
         patient_phone=args.patient_phone,
         admin_username=args.admin_username,
+        compose_project=args.compose_project,
         admin_password=args.admin_password,
     )
 

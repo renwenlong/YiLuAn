@@ -86,6 +86,7 @@ async def test_admin_disable_blocks_user_access(
     login_via_otp,
     patient_phone,
     admin_headers,
+    fake_redis,
 ):
     """Closed-loop check that ``POST /admin/users/{id}/disable`` actually
     blocks the affected user from authenticated endpoints, and ``/enable``
@@ -115,14 +116,29 @@ async def test_admin_disable_blocks_user_access(
     )
 
     # 4. Re-login attempt must also fail (verify-otp checks is_active).
+    # Clear rehearsal rate-limit state first so this test uses a real newly
+    # generated OTP, never the old hard-coded dev bypass value.
+    for key in (
+        f"otp:rate:{patient_phone}",
+        f"otp:fail:{patient_phone}",
+        f"otp:{patient_phone}",
+        f"sms:rate:minute:{patient_phone}",
+        f"sms:rate:hour:{patient_phone}",
+    ):
+        await fake_redis.delete(key)
+    from app.services.providers.sms.rate_limit import reset_inproc_store
+
+    reset_inproc_store()
     r = await e2e_client.post(
         "/api/v1/auth/send-otp", json={"phone": patient_phone}
     )
-    # send-otp may succeed, hit rate limit (400), or 403; we don't gate on this step.
-    assert r.status_code in (200, 400, 403)
+    assert r.status_code == 200, r.text
+    code = await fake_redis.get(f"otp:{patient_phone}")
+    code = code.decode() if isinstance(code, bytes) else code
+    assert code is not None, "send-otp must write a real OTP to Redis"
     r = await e2e_client.post(
         "/api/v1/auth/verify-otp",
-        json={"phone": patient_phone, "code": "000000"},
+        json={"phone": patient_phone, "code": code},
     )
     assert r.status_code in (401, 403), (
         f"disabled user should not be able to verify-otp; got {r.status_code} {r.text}"

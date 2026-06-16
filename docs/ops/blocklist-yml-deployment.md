@@ -38,10 +38,10 @@ YML 必须随 backend image 一起 ship 到容器内的 `/docs/medical-content/`
 - `env.staging` / `env.canary` / `env.production` 都设 `AI_BLOCKLIST_STRICT_LOAD=true`
 - 严格模式下: snapshot 空 / version 空 / yml 文件缺失任一条件
   → raise `BlocklistStartupError` → FastAPI 拒启
-- dev/test/local 不设 (默认 false) 跳 probe, 保留原 fail-open 体验
+- test/local 不设 (默认 false) 跳 probe, 保留原 fail-open 体验
 
 **为什么不看 `ENVIRONMENT`**：
-`env.staging` / `env.canary` 都是 `ENVIRONMENT=development` (满足 dev-OTP 演练),
+`env.staging` / `env.canary` 都是 `ENVIRONMENT=staging`，
 用 `settings.environment` 判别 prod-like 会误判. 独立 `AI_BLOCKLIST_STRICT_LOAD`
 使运维意志与 debug 模式解耦, 仁智制宜.
 
@@ -70,7 +70,7 @@ CI 不带 marker exclude, push 时 pre-push gate 必跑。
 - [ ] `git log -1 docs/medical-content/` 看最近一次更新有医疗顾问 review 痕迹
 - [ ] CI test green (含 `test_blocklist_yml_present.py` 7 case + `TestStartupProbe` 4 case)
 - [ ] `backend/Dockerfile` 含 `COPY docs/medical-content/ /docs/medical-content/`
-- [ ] `deploy/docker-compose.yml` backend / backend-dev 都 `context: ..` + `dockerfile: backend/Dockerfile`
+- [ ] `deploy/docker-compose.yml` backend `context: ..` + `dockerfile: backend/Dockerfile`
 
 ### 部署中 (Build)
 

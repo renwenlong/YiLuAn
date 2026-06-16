@@ -186,20 +186,20 @@ class TestLintAllowlistRespected:
         ), f"allowlist 漏 services/sms.py (defense-in-depth). sentinel: {_SECRET_LINT_TEST}"
 
 
-class TestLintDevOnlyPatternNotFlagged:
-    """AC#8 #5: dev-only pattern (``env == "development"``) 不被误报."""
+class TestLintDevelopmentPatternFlagged:
+    """development env checks are no longer allowed in runtime code."""
 
     @pytest.fixture
     def temp_dev_only_file(self):
-        """File with ``if env == "development"`` (合法 dev-mode shortcut)."""
-        fake_file = BACKEND_APP / "_test_dev_only_legal.py"
+        """File with ``if env == "development"`` (legacy shortcut)."""
+        fake_file = BACKEND_APP / "_test_dev_only_legacy.py"
         content = (
-            '"""Temp dev-only file — should NOT be flagged."""\n'
+            '"""Temp legacy env file — should be flagged."""\n'
             "from app.config import settings\n"
             "\n"
-            "def print_dev_warning():\n"
+            "def print_legacy_warning():\n"
             '    if settings.environment == "development":\n'
-            '        print("dev mode")\n'
+            '        print("legacy mode")\n'
             "\n"
             "# sentinel: SECRET_LINT_NO_INLINE_ENV_CHECK_TEST_42_DO_NOT_LEAK\n"
         )
@@ -208,15 +208,14 @@ class TestLintDevOnlyPatternNotFlagged:
         if fake_file.exists():
             fake_file.unlink()
 
-    def test_dev_only_check_not_flagged(self, temp_dev_only_file):
-        """``if env == "development"`` 必须不被 lint catch (dev-only 合法)."""
+    def test_development_check_flagged(self, temp_dev_only_file):
+        """``if env == "development"`` must be caught after staging-only pivot."""
         result = _run_lint()
-        assert result.returncode == 0, (
-            f"lint 误报 dev-only 'env == development' 检查 — "
-            f"该 pattern 是合法 dev-mode shortcut, 不应 catch. "
-            f"exit={result.returncode}, stderr: {result.stderr!r}. "
+        assert result.returncode != 0, (
+            f"lint 未 catch legacy 'env == development' 检查. "
             f"sentinel: {_SECRET_LINT_TEST}"
         )
+        assert "development" in result.stderr
 
 
 class TestLintCommentsLinesIgnored:

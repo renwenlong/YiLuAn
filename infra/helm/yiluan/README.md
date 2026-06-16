@@ -154,7 +154,7 @@ Chart 中的 `secrets.data` 字段仅供本地 dev / staging 临时使用；prod
 | `JWT_REFRESH_TOKEN_EXPIRE_DAYS` | 否 | `7` | refresh token 过期天数 | configmap | 否 |
 | `ADMIN_API_TOKEN` | ✅（生产应替换） | `dev-admin-token` | 管理 API 口令 | **secret** | 是 |
 | `PII_ENVELOPE_KEY` | ✅（生产禁止默认值） | dev `b"x"*32` 的 base64 | ADR-0029 紧急联系人 AES-256-GCM 信封密钥 | **secret**（建议从 KMS 注入） | 是（最高） |
-| `PII_HASH_SALT` | ✅（生产禁止默认值） | `yiluan-dev-salt-do-not-use-in-prod` | 手机号 HMAC-SHA256 hash salt | **secret** | 是 |
+| `PII_HASH_SALT` | ✅（生产禁止默认值） | `yiluan-staging-salt-do-not-use-in-prod` | 手机号 HMAC-SHA256 hash salt | **secret** | 是 |
 
 ### 3. 微信支付（B-01 待解锁）
 

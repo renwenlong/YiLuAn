@@ -3,9 +3,9 @@ import base64
 from pydantic import model_validator
 from pydantic_settings import BaseSettings
 
-# ADR-0029: dev 环境用的 envelope key 默认值（32 字节全 'x'，base64 编码）。
+# ADR-0029: non-production fallback envelope key（32 字节全 'x'，base64 编码）。
 # 生产**必须** override（见 model_validator）。
-_DEV_PII_ENVELOPE_KEY = base64.b64encode(b"x" * 32).decode("ascii")
+_NONPROD_PII_ENVELOPE_KEY = base64.b64encode(b"x" * 32).decode("ascii")
 
 
 class Settings(BaseSettings):
@@ -56,11 +56,9 @@ class Settings(BaseSettings):
 
     # S3-BUG-003: AI blocklist startup probe 严格加载开关.
     # True 时, lifespan startup 检 prohibited-keywords.yml 未加载 → raise
-    # BlocklistStartupError, FastAPI 拒启. 默认 False (dev/test 保 fail-open).
-    # 运维语义: env.staging / env.canary / env.production 都设 True
-    # (不仅依靠 environment 字段—— env.staging/env.canary 现在是
-    # ENVIRONMENT=development 以便 dev-OTP, 不能用 settings.environment
-    # 判别 prod-like). 详见 docs/ops/blocklist-yml-deployment.md.
+    # BlocklistStartupError, FastAPI 拒启. 默认 False (test/local 保 fail-open).
+    # 运维语义: env.staging / env.canary / env.production 都设 True；
+    # 不能只靠 settings.environment 判别 prod-like. 详见 docs/ops/blocklist-yml-deployment.md.
     ai_blocklist_strict_load: bool = False
 
     # S3-DEV-001-CONTRACT-PICKUP-CRON / 魈 EVENT-WIRING 拍板:
@@ -148,7 +146,7 @@ class Settings(BaseSettings):
 
     # ADR-0029: emergency PII 落库加密 envelope key（base64 编码 32 字节 / AES-256）。
     # dev 默认值仅用于本地 / CI；生产环境必须 override，且应来自 KMS / Secret Manager。
-    pii_envelope_key: str = _DEV_PII_ENVELOPE_KEY
+    pii_envelope_key: str = _NONPROD_PII_ENVELOPE_KEY
 
     # CORS
     cors_origins: list[str] = ["*"]
@@ -282,7 +280,10 @@ class Settings(BaseSettings):
             return self
 
         # JWT 密钥不能是开发默认值
-        if self.jwt_secret_key == "dev-secret-key-change-in-production":
+        if self.jwt_secret_key in {
+            "dev-secret-key-change-in-production",
+            "staging-secret-key-change-in-production",
+        }:
             raise ValueError("生产环境禁止使用默认 JWT 密钥，请设置 JWT_SECRET_KEY")
 
         # 生产环境必须关闭 debug
@@ -316,18 +317,21 @@ class Settings(BaseSettings):
                 raise ValueError(f"生产环境微信支付缺少凭证: {', '.join(missing)}")
 
         # ADR-0029: PII 加密 / hash 密钥不得使用 dev 默认值
-        if self.pii_envelope_key == _DEV_PII_ENVELOPE_KEY:
+        if self.pii_envelope_key == _NONPROD_PII_ENVELOPE_KEY:
             raise ValueError(
                 "生产环境禁止使用默认 PII_ENVELOPE_KEY，请从 KMS / Secret "
                 "Manager 注入 base64 编码的 32 字节密钥"
             )
-        if self.pii_hash_salt == "yiluan-dev-salt-do-not-use-in-prod":
+        if self.pii_hash_salt in {
+            "yiluan-dev-salt-do-not-use-in-prod",
+            "yiluan-staging-salt-do-not-use-in-prod",
+        }:
             raise ValueError("生产环境禁止使用默认 PII_HASH_SALT，请设置高熵随机串")
 
         # W1-S1: 运维管理后台 / 定时任务回调使用的 admin token 不得为开发默认值或空串。
         # `require_admin_token` 拿这个值做常量时间比对；若不强制 override，
         # 任何知道默认值的人都能触发 /orders/check-expired 等运维端点。
-        if self.admin_api_token in ("dev-admin-token", "", None):
+        if self.admin_api_token in ("dev-admin-token", "staging-admin-token", "", None):
             raise ValueError("生产环境禁止使用默认 ADMIN_API_TOKEN，请设置高熵随机串")
 
         # SMS 凭证完整性检查

@@ -28,8 +28,8 @@ pip install -r requirements.txt
 # Dev server (hot reload)
 uvicorn app.main:app --reload
 
-# Local dev stack (db + redis only; run backend via uvicorn above)
-cd deploy && ./up.sh dev        # full multi-env stack: deploy/docker-compose.yml
+# Local/staging stack
+cd deploy && ./up.sh            # staging profile via deploy/docker-compose.yml
 
 # Tests (SQLite in-memory + FakeRedis, no external services)
 pytest                                    # all tests
@@ -101,7 +101,7 @@ SwiftUI + MVVM. `Core/Networking/APIClient.swift` for HTTP, `Core/Networking/Web
 - **Order state machine** — `ORDER_TRANSITIONS` dict in `app/models/order.py`: `created → accepted → in_progress → completed → reviewed`, with cancel branches from multiple states.
 - **Denormalization** — `avg_rating`/`total_orders` on companion profiles; `hospital_name`/`patient_name`/`companion_name` on orders. Updated by service-layer triggers.
 - **Mock payments** — Always succeed. No real payment gateway (MVP).
-- **Dev auth bypass** — OTP code `000000` and WeChat code `dev_test_code` accepted in development environment.
+- **Auth** — no local OTP / WeChat bypass; staging uses stored OTP and real WeChat code2session credentials.
 
 ## Cross-Stack Sync Points
 
@@ -132,4 +132,4 @@ Backend test fixtures: `seed_user`, `seed_hospital`, `seed_order`, `authenticate
 
 Backend config via pydantic-settings from `.env`. Key vars: `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET_KEY`, `WECHAT_APP_ID`, `WECHAT_APP_SECRET`, `SMS_PROVIDER` (mock/aliyun), `ENVIRONMENT` (development/production).
 
-Local dev stack = the **dev profile** in `deploy/docker-compose.yml` (project `yiluan-dev`): pg + redis + backend-dev, exposing PostgreSQL 15 on host port 5433, Redis 7 on host port 6380, and backend on 8001 (ports avoid agent-squad's 5432/6379/8000). Start with `cd deploy && ./up.sh dev` (backend-dev hot-mounts ../backend/app). Dev seed data: `POST /api/v1/hospitals/seed`. Full multi-env container stack also lives in `deploy/docker-compose.yml` (switch profile/env with `--env-file`, see `deploy/up.sh`).
+Local/staging stack = `deploy/docker-compose.yml` staging profile (project `yiluan-staging`), exposed through nginx on `127.0.0.1:18080`. Start with `cd deploy && ./up.sh`; `env.staging.local` is auto-loaded for local secret overrides.

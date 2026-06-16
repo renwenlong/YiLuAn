@@ -14,7 +14,6 @@ from __future__ import annotations
 import random
 import string
 import time
-import uuid
 from uuid import UUID
 
 import pytest
@@ -97,13 +96,13 @@ def companion_phone(unique_suffix) -> str:
 
 @pytest.fixture
 async def login_via_otp(client, fake_redis):
-    """Send-OTP -> verify-OTP via dev bypass code 000000.
+    """Send-OTP -> verify-OTP using the OTP stored by the mock SMS path.
 
     Returns ``(access_token, refresh_token, user_dict)``.
     Optional ``role`` ("patient"/"companion") triggers /me/switch-role and
     re-issues a fresh JWT carrying that role claim.
     """
-    async def _do(phone: str, role: str | None = None):
+    async def _request_otp_code(phone: str) -> str:
         for key in (
             f"otp:rate:{phone}",
             f"otp:fail:{phone}",
@@ -123,10 +122,16 @@ async def login_via_otp(client, fake_redis):
 
         r = await client.post("/api/v1/auth/send-otp", json={"phone": phone})
         assert r.status_code == 200, f"send-otp failed: {r.status_code} {r.text}"
+        code = await fake_redis.get(f"otp:{phone}")
+        assert code, "mock SMS path should persist OTP in fake Redis"
+        return code.decode() if isinstance(code, bytes) else code
+
+    async def _do(phone: str, role: str | None = None):
+        code = await _request_otp_code(phone)
 
         r = await client.post(
             "/api/v1/auth/verify-otp",
-            json={"phone": phone, "code": "000000"},
+            json={"phone": phone, "code": code},
         )
         assert r.status_code == 200, f"verify-otp failed: {r.status_code} {r.text}"
         data = r.json()
@@ -146,9 +151,10 @@ async def login_via_otp(client, fake_redis):
                 current.add(role)
                 u.roles = ",".join(sorted(current))
                 await session.commit()
+            code = await _request_otp_code(phone)
             r2 = await client.post(
                 "/api/v1/auth/verify-otp",
-                json={"phone": phone, "code": "000000"},
+                json={"phone": phone, "code": code},
             )
             assert r2.status_code == 200, r2.text
             data = r2.json()
@@ -219,7 +225,6 @@ async def accept_order_as_companion(login_via_otp, assign_role_e2e):
     service_type : str, optional
         Service type on the companion application.
     """
-    from app.config import settings
 
     async def _do(
         e2e_client,

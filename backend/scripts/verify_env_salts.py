@@ -32,7 +32,6 @@ def read_env(path: str) -> dict[str, str]:
 
 def main() -> int:
     files = [
-        _REPO_ROOT / "deploy" / "env.dev.example",
         _REPO_ROOT / "deploy" / "env.staging",
         _REPO_ROOT / "deploy" / "env.canary",
         _REPO_ROOT / "deploy" / "env.production.example",
@@ -50,7 +49,7 @@ def main() -> int:
         print(f"  pii_hash_salt: len={len(salts['pii_hash_salt'])}")
         print(f"  pii_envelope_key: len={len(salts['pii_envelope_key'])}")
         try:
-            Settings(environment="development", **salts)
+            Settings(environment="staging", **salts)
             print("  PASS: validator OK")
         except Exception as exc:
             all_ok = False

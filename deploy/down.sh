@@ -3,7 +3,6 @@
 #
 # 用法：
 #   ./down.sh          # staging（默认）
-#   ./down.sh dev      # dev 栈
 #   ./down.sh canary   # S2-OPS-013 canary 栈
 #
 set -euo pipefail
@@ -12,10 +11,9 @@ cd "$(dirname "$0")"
 ENVNAME="${1:-staging}"
 
 case "$ENVNAME" in
-  dev)     PROJECT="yiluan-dev";     PROFILE="dev" ;;
   staging) PROJECT="yiluan-staging"; PROFILE="staging" ;;
   canary)  PROJECT="yiluan-canary";  PROFILE="canary" ;;
-  *) echo "未知环境: $ENVNAME（支持 dev|staging|canary）" >&2; exit 2 ;;
+  *) echo "未知环境: $ENVNAME（支持 staging|canary）" >&2; exit 2 ;;
 esac
 
 if [ "$ENVNAME" = "canary" ]; then

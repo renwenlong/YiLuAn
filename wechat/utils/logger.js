@@ -129,6 +129,26 @@ function _emitReport(event) {
   }
 }
 
+function errorContext(err) {
+  if (!err) return { err: '' }
+  if (typeof err === 'string') return { err: err }
+
+  const data = err.data || {}
+  const detail = data.detail
+  const detailMessage = detail && typeof detail === 'object'
+    ? (detail.message || detail.error_code || JSON.stringify(detail))
+    : detail
+  const message = err.message || err.errMsg || detailMessage || JSON.stringify(err)
+
+  const ctx = { err: message }
+  if (err.statusCode !== undefined) ctx.statusCode = err.statusCode
+  if (err.requestId) ctx.requestId = err.requestId
+  if (detailMessage && detailMessage !== message) ctx.detail = detailMessage
+  if (detail && typeof detail === 'object' && detail.error_code) ctx.errorCode = detail.error_code
+  if (err.stack) ctx.stack = err.stack
+  return ctx
+}
+
 /**
  * 写一条日志（同步出 console，异步触发上报）。
  * @param {LogLevel} level
@@ -161,7 +181,7 @@ function swallow(fn, tag, extra) {
   try {
     return fn()
   } catch (e) {
-    error(tag, Object.assign({ err: e && (e.message || String(e)), stack: e && e.stack }, extra || {}))
+    error(tag, Object.assign(errorContext(e), extra || {}))
     return undefined
   }
 }
@@ -172,6 +192,7 @@ module.exports = {
   info: info,
   warn: warn,
   error: error,
+  errorContext: errorContext,
   swallow: swallow,
   setReporter: setReporter,
   setMinLevel: setMinLevel,
