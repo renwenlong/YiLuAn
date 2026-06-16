@@ -12,9 +12,8 @@ Test-control:
 * GET  /sms/__sent  历史发送日志，e2e 用
 * GET  /health
 
-Convention: the OTP code passed in is preserved in the log; staging
-backend keeps the dev-style 万能码 `000000` so e2e tests can log in
-without parsing the log.
+Convention: the OTP code passed in is preserved in the log; staging helpers
+read the generated OTP from Redis instead of relying on a万能码.
 """
 from __future__ import annotations
 

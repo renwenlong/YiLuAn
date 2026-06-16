@@ -63,7 +63,7 @@ D+0 我把 `env.staging:30 ADMIN_API_TOKEN=*** 判为「默认 token 泄露 P0�
 
 ### 现状勘察（重读后）
 - `deploy/env.staging:30` → `ADMIN_API_TOKEN=*** 假值，可公开」**
-- `deploy/env.staging:14` → `ENVIRONMENT=development`（注释：为让演练脚本能用 dev-OTP 000000）
+- `deploy/env.staging` → `ENVIRONMENT=staging`（不再启用万能 OTP / 微信登录 bypass）
 - `backend/app/config.py` startup guard 设计上**只在 environment=production 时强校验**
 - `up.sh` / `seed_staging.py` / `run-weekly-rehearsal.py` 硬编码 `staging-admin-token` 是与 env.staging **一致的设计**
 

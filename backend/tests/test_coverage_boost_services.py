@@ -16,10 +16,9 @@ Targets the highest-miss service modules:
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
-import httpx
 import pytest
 
 from app.exceptions import (
@@ -397,9 +396,10 @@ class TestAuthServiceBranches:
                 await svc.refresh_token(tok)
 
     async def test_refresh_token_success(self):
+        import uuid as _uuid
+
         from app.core.security import create_refresh_token
         from app.services.refresh_tokens import RefreshTokenStore
-        import uuid as _uuid
 
         async with test_session_factory() as session:
             user = User(phone="13888880003", role=UserRole.patient, roles="patient")
@@ -415,19 +415,16 @@ class TestAuthServiceBranches:
             assert isinstance(res, RefreshTokenResponse)
             assert res.access_token and res.refresh_token
 
-    async def test_bind_phone_dev_otp_success(self, monkeypatch):
-        from app.services import auth as auth_mod
-
-        monkeypatch.setattr(
-            auth_mod.settings, "environment", "development", raising=False
-        )
+    async def test_bind_phone_stored_otp_success(self):
         async with test_session_factory() as session:
             user = User(wechat_openid="oid_b1")
             session.add(user)
             await session.commit()
             await session.refresh(user)
-            svc = AuthService(session, FakeRedis())
-            updated = await svc.bind_phone(user.id, "13900001111", "000000")
+            redis = FakeRedis()
+            await redis.set("otp:13900001111", "123456")
+            svc = AuthService(session, redis)
+            updated = await svc.bind_phone(user.id, "13900001111", "123456")
             assert updated.phone == "13900001111"
 
     async def test_bind_phone_otp_expired(self, monkeypatch):
@@ -462,58 +459,48 @@ class TestAuthServiceBranches:
             with pytest.raises(BadRequestException):
                 await svc.bind_phone(user.id, "13900003333", "999999")
 
-    async def test_bind_phone_already_bound(self, monkeypatch):
-        from app.services import auth as auth_mod
-
-        monkeypatch.setattr(
-            auth_mod.settings, "environment", "development", raising=False
-        )
+    async def test_bind_phone_already_bound(self):
         async with test_session_factory() as session:
             user = User(phone="13900004444")
             session.add(user)
             await session.commit()
             await session.refresh(user)
-            svc = AuthService(session, FakeRedis())
+            redis = FakeRedis()
+            await redis.set("otp:13900005555", "123456")
+            svc = AuthService(session, redis)
             with pytest.raises(BadRequestException):
-                await svc.bind_phone(user.id, "13900005555", "000000")
+                await svc.bind_phone(user.id, "13900005555", "123456")
 
-    async def test_bind_phone_user_missing(self, monkeypatch):
-        from app.services import auth as auth_mod
-
-        monkeypatch.setattr(
-            auth_mod.settings, "environment", "development", raising=False
-        )
+    async def test_bind_phone_user_missing(self):
         async with test_session_factory() as session:
-            svc = AuthService(session, FakeRedis())
+            redis = FakeRedis()
+            await redis.set("otp:13900007777", "123456")
+            svc = AuthService(session, redis)
             with pytest.raises(UnauthorizedException):
-                await svc.bind_phone(uuid4(), "13900007777", "000000")
+                await svc.bind_phone(uuid4(), "13900007777", "123456")
 
-    async def test_bind_phone_taken_by_other(self, monkeypatch):
-        from app.services import auth as auth_mod
-
-        monkeypatch.setattr(
-            auth_mod.settings, "environment", "development", raising=False
-        )
+    async def test_bind_phone_taken_by_other(self):
         async with test_session_factory() as session:
             other = User(phone="13900008888")
             user = User(wechat_openid="oid_b4")
             session.add_all([other, user])
             await session.commit()
             await session.refresh(user)
-            svc = AuthService(session, FakeRedis())
+            redis = FakeRedis()
+            await redis.set("otp:13900008888", "123456")
+            svc = AuthService(session, redis)
             with pytest.raises(ConflictException):
-                await svc.bind_phone(user.id, "13900008888", "000000")
+                await svc.bind_phone(user.id, "13900008888", "123456")
 
-    async def test_wechat_login_dev_code(self, monkeypatch):
-        from app.services import auth as auth_mod
+    async def test_wechat_login_uses_code2session_in_staging(self):
+        async def fake_code2session(code):
+            return {"openid": "staging_oid_x", "unionid": None, "session_key": "sk"}
 
-        monkeypatch.setattr(
-            auth_mod.settings, "environment", "development", raising=False
-        )
-        async with test_session_factory() as session:
-            svc = AuthService(session, FakeRedis())
-            res = await svc.wechat_login("dev_test_code")
-            assert res.access_token
+        with patch.object(WeChatAPIClient, "code2session", fake_code2session):
+            async with test_session_factory() as session:
+                svc = AuthService(session, FakeRedis())
+                res = await svc.wechat_login("wx_real_code")
+                assert res.access_token
 
     async def test_wechat_login_real_code_path(self, monkeypatch):
         from app.services import auth as auth_mod
@@ -925,6 +912,7 @@ class TestHospitalService:
     async def test_seed_creates_and_updates(self, tmp_path, monkeypatch):
         """seed file: insert new + update existing path."""
         import json as _json
+
         from app.services import hospital as h_mod
 
         # Pre-existing hospital with same name → triggers update branch

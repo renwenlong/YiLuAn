@@ -136,7 +136,7 @@ def probe_canary_whitelist_yml() -> None:
 
 @register_startup_probe(
     name="sms_provider_configured",
-    envs=("staging", "canary", "production"),
+    envs=("production",),
 )
 def probe_sms_provider_configured() -> None:
     """Verify ``settings.sms_provider`` is configured + provider class instantiable.
@@ -145,7 +145,7 @@ def probe_sms_provider_configured() -> None:
     runtime env check). 该 legacy 模块仅 tests 还在 import, 生产路径走
     ``backend/app/services/providers/sms/factory.py::get_sms_provider()``.
 
-    在 prod env 下本 probe 校验:
+    在 production env 下本 probe 校验:
       - ``settings.sms_provider`` not in {"mock", "", "stub"} (启用真 provider)
       - ``get_sms_provider()`` 不抛 (factory 选 path + 实例化 OK + creds present)
       - provider class != MockSMSProvider (cred 缺失时 factory 会 fallback mock,
@@ -165,7 +165,7 @@ def probe_sms_provider_configured() -> None:
     if sms_provider_name in {"mock", "", "stub"}:
         raise RuntimeError(
             f"SMS provider startup probe FAIL: settings.sms_provider="
-            f"{sms_provider_name!r} not allowed in prod-like env. "
+            f"{sms_provider_name!r} not allowed in production env. "
             f"Configure sms_provider=aliyun (or tencent) in deploy env."
         )
 
@@ -175,15 +175,14 @@ def probe_sms_provider_configured() -> None:
     if isinstance(provider, MockSMSProvider):
         raise RuntimeError(
             f"SMS provider startup probe FAIL: get_sms_provider() returned "
-            f"MockSMSProvider in prod-like env (factory fallback triggered, "
+            f"MockSMSProvider in production env (factory fallback triggered, "
             f"creds likely missing). settings.sms_provider="
             f"{sms_provider_name!r}. Verify SMS_ACCESS_KEY/SMS_ACCESS_SECRET."
         )
 
 
 # ============================================================================
-# AC#5 #4: jwt_secret_key (额外发现 — config.py 默认值是
-#          "dev-secret-key-change-in-production", 容易 prod 误用)
+# AC#5 #4: jwt_secret_key (额外发现 — config.py 默认值容易 prod 误用)
 # ============================================================================
 
 
@@ -192,9 +191,9 @@ def probe_sms_provider_configured() -> None:
     envs=("staging", "canary", "production"),
 )
 def probe_jwt_secret_key_changed() -> None:
-    """Verify ``settings.jwt_secret_key`` 已改 (不是默认 dev value).
+    """Verify ``settings.jwt_secret_key`` 已改 (不是默认 staging fallback value).
 
-    config.py 里 ``jwt_secret_key: str = \"dev-secret-key-change-in-production\"``,
+    config.py 里 ``jwt_secret_key`` 默认是已知 fallback；
     若 deploy 时漏改 env, JWT secret 是已知值 → 所有 token 可被攻击者伪造.
     本 probe 在 startup 哨兵, 漏改即 app 拒启.
 
@@ -204,11 +203,14 @@ def probe_jwt_secret_key_changed() -> None:
     """
     from app.config import settings
 
-    DEFAULT_DEV_SECRET = "dev-secret-key-change-in-production"
-    if settings.jwt_secret_key == DEFAULT_DEV_SECRET:
+    DEFAULT_KNOWN_SECRETS = {
+        "dev-secret-key-change-in-production",
+        "staging-secret-key-change-in-production",
+    }
+    if settings.jwt_secret_key in DEFAULT_KNOWN_SECRETS:
         raise RuntimeError(
             "JWT secret key startup probe FAIL: settings.jwt_secret_key 仍是"
-            f" 默认 dev value {DEFAULT_DEV_SECRET!r}. "
+            f" 默认已知值 {settings.jwt_secret_key!r}. "
             f"必须在 deploy env 设 JWT_SECRET_KEY 为强随机值. "
             f"否则所有 JWT token 可被攻击者伪造."
         )

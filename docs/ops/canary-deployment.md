@@ -110,7 +110,7 @@ python -c "import base64,secrets; print(base64.b64encode(secrets.token_bytes(32)
 include env.staging  # 概念，实际是 docker compose --env-file 多次叠加
 
 # 区别
-ENVIRONMENT=development  # 灰度仍 dev 模式便于 OTP 000000 兜底（生产前改 production）
+ENVIRONMENT=staging  # 灰度按 staging 语义；不启用万能 OTP / 微信登录 bypass
 DEBUG=false
 PAYMENT_PROVIDER=wechat
 SMS_PROVIDER=aliyun

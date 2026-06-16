@@ -86,6 +86,7 @@ async def test_admin_disable_blocks_user_access(
     login_via_otp,
     patient_phone,
     admin_headers,
+    fake_redis,
 ):
     """Closed-loop check that ``POST /admin/users/{id}/disable`` actually
     blocks the affected user from authenticated endpoints, and ``/enable``
@@ -120,9 +121,11 @@ async def test_admin_disable_blocks_user_access(
     )
     # send-otp may succeed, hit rate limit (400), or 403; we don't gate on this step.
     assert r.status_code in (200, 400, 403)
+    code = await fake_redis.get(f"otp:{patient_phone}")
+    code = code.decode() if isinstance(code, bytes) else code
     r = await e2e_client.post(
         "/api/v1/auth/verify-otp",
-        json={"phone": patient_phone, "code": "000000"},
+        json={"phone": patient_phone, "code": code or "000000"},
     )
     assert r.status_code in (401, 403), (
         f"disabled user should not be able to verify-otp; got {r.status_code} {r.text}"

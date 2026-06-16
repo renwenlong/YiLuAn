@@ -11,7 +11,7 @@
 //     家属端**绝不**带本人 Authorization，只带 share_session bearer。
 //   - 过期/被 revoke 的 token → 后端 401；本地先用 isShareSessionExpired 预判。
 //   - openid 由后端从 wx.login code2session 解析；本客户端把 code 提交给
-//     /session，后端 dev 环境用 dev_test_code→dev_openid_000 约定直通。
+//     /session，staging 需配置真实 WECHAT_APP_ID/SECRET。
 
 const config = require('../config/index')
 const {

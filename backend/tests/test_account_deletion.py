@@ -4,7 +4,7 @@ import pytest
 from httpx import AsyncClient
 
 from app.core.security import create_access_token
-from app.models.order import OrderStatus, ServiceType
+from app.models.order import OrderStatus
 from app.models.user import UserRole
 from tests.conftest import test_session_factory
 
@@ -56,9 +56,10 @@ async def test_deleted_user_login_returns_error(client, seed_user, fake_redis):
     # the old phone is gone, so OTP login creates a fresh account.
     # The real "deleted user login" block happens via token-based access.
     client.headers.pop("Authorization", None)
+    await fake_redis.set("otp:13811111111", "123456", ex=300)
     resp2 = await client.post(
         "/api/v1/auth/verify-otp",
-        json={"phone": "13811111111", "code": "000000"},
+        json={"phone": "13811111111", "code": "123456"},
     )
     # Phone was hashed → OTP creates new user → 200 (new account, not the deleted one)
     assert resp2.status_code == 200
@@ -129,7 +130,8 @@ async def test_admin_sees_anonymized_user(admin_client, seed_user):
     token = create_access_token({"sub": str(user.id), "role": "patient"})
 
     # Use a separate client to delete
-    from httpx import ASGITransport, AsyncClient
+    from httpx import ASGITransport
+
     from app.main import app
 
     transport = ASGITransport(app=app)
@@ -154,7 +156,8 @@ async def test_concurrent_delete_requests(client, seed_user):
     token = create_access_token({"sub": str(user.id), "role": "patient"})
 
     async def do_delete():
-        from httpx import ASGITransport, AsyncClient
+        from httpx import ASGITransport
+
         from app.main import app
 
         transport = ASGITransport(app=app)

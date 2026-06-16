@@ -86,11 +86,21 @@ def wait_backend(base: str, timeout: float = 90.0) -> None:
     raise SystemExit(f"[canary-seed] backend not ready after {timeout}s: {last}")
 
 
-def login_otp(base: str, phone: str) -> dict:
+def _write_seed_otp(compose_project: str, phone: str) -> str:
+    code = "123456"
+    cmd = [
+        "docker", "compose", "-p", compose_project,
+        "exec", "-T", "redis", "redis-cli", "SETEX", f"otp:{phone}", "300", code,
+    ]
+    subprocess.check_call(cmd, stdout=subprocess.DEVNULL)
+    return code
+
+
+def login_otp(base: str, phone: str, compose_project: str = "yiluan-canary") -> dict:
+    otp = _write_seed_otp(compose_project, phone)
     code, body = http(
-        "POST",
-        f"{base}/api/v1/auth/verify-otp",
-        body={"phone": phone, "code": "000000"},
+        "POST", f"{base}/api/v1/auth/verify-otp",
+        body={"phone": phone, "code": otp},
     )
     if code != 200:
         raise SystemExit(f"[canary-seed] login failed for {phone}: {code} {body}")

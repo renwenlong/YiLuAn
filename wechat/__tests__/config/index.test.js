@@ -1,4 +1,4 @@
-describe('config/index.js DEV_OTP env isolation', () => {
+describe('config/index.js staging defaults', () => {
   const originalEnvVersion = global.__wxConfig.envVersion
 
   afterEach(() => {
@@ -6,33 +6,27 @@ describe('config/index.js DEV_OTP env isolation', () => {
     jest.resetModules()
   })
 
-  test('DEV_OTP is "000000" in develop environment', () => {
+  test('develop build maps to staging backend', () => {
     global.__wxConfig.envVersion = 'develop'
     jest.resetModules()
     const config = require('../../config/index')
-    expect(config.DEV_OTP).toBe('000000')
+    expect(config.API_BASE_URL).toBe('http://localhost:18080/api/v1')
+    expect(config.WS_BASE_URL).toBe('ws://localhost:18080')
   })
 
-  test('DEV_OTP is "000000" in trial environment', () => {
+  test('trial build maps to staging backend', () => {
     global.__wxConfig.envVersion = 'trial'
     jest.resetModules()
     const config = require('../../config/index')
-    expect(config.DEV_OTP).toBe('000000')
+    expect(config.API_BASE_URL).toBe('http://localhost:18080/api/v1')
+    expect(config.WS_BASE_URL).toBe('ws://localhost:18080')
   })
 
-  test('DEV_OTP is null in release (production) environment', () => {
+  test('release build maps to production backend', () => {
     global.__wxConfig.envVersion = 'release'
     jest.resetModules()
     const config = require('../../config/index')
-    expect(config.DEV_OTP).toBeNull()
-  })
-
-  test('login flow must not bypass OTP verification when DEV_OTP is null', () => {
-    global.__wxConfig.envVersion = 'release'
-    jest.resetModules()
-    const config = require('../../config/index')
-    const userInputCode = '000000'
-    const shouldBypass = config.DEV_OTP && userInputCode === config.DEV_OTP
-    expect(shouldBypass).toBeFalsy()
+    expect(config.API_BASE_URL).toBe('https://api.yiluan.app/api/v1')
+    expect(config.WS_BASE_URL).toBe('wss://api.yiluan.app')
   })
 })

@@ -237,7 +237,7 @@ backend/
 └── alembic.ini
 ```
 
-> 📦 **本地 dev 栈 = `deploy/docker-compose.yml` 的 dev profile**（pg + redis + backend-dev），一键：`cd deploy && ./up.sh dev`。医院种子数据走 `POST /api/v1/hospitals/seed`。
+> 📦 **本地联调栈 = `deploy/docker-compose.yml` 的 staging profile**，一键：`cd deploy && ./up.sh`。医院种子数据走 `POST /api/v1/hospitals/seed`。
 
 ### 微信小程序 `wechat/`
 
@@ -744,7 +744,7 @@ created ──→ accepted ──→ in_progress ──→ completed ──→ r
 | POST | `/auth/bind-phone` | Bearer | — | `{phone, code}` | `UserResponse` |
 | POST | `/auth/apple/login` | 无 | — | `{identity_token, ...}` | `TokenResponse` (Apple Sign-In) |
 
-> **开发便利**: OTP `000000` 始终有效; 微信 code `dev_test_code` 绕过微信服务器。
+> **登录约束**: OTP 不再有万能码；微信登录使用真实 `wx.login` code + staging `WECHAT_APP_ID/SECRET`。
 
 ### 用户 Users — `/api/v1/users/*`
 
@@ -1059,18 +1059,18 @@ Request → API Route → Service → Repository → Database
 | 微信开发者工具 | latest | 小程序调试/预览 |
 
 > ℹ️ **部署编排统一在 `deploy/` 目录**：通用骨架 `deploy/docker-compose.yml` + `env.<环境>` 配置，切环境只改 `--env-file`。
-> - **本地 dev**：`deploy/docker-compose.yml` 的 **dev profile**（pg + redis + backend-dev 一栈，后端容器热挂载源码）→ 见「方式一」（推荐日常迭代）。
+> - **本地 staging**：`deploy/docker-compose.yml` 的 **staging profile**（nginx 暴露 `127.0.0.1:18080`）→ 见「方式一」（推荐日常联调）。
 > - **全栈 staging**（api + nginx + mock stub）：`deploy/up.sh` → 见下文 [§部署](#部署)。
 
 ### 方式一：dev profile 一键起本地后端栈 (推荐, 开发调试)
 
-`deploy/docker-compose.yml` 的 **dev profile** 一键起 pg + redis + backend-dev 三容器，backend-dev 热挂载 `../backend/app`（改代码即生效）。
+`deploy/docker-compose.yml` 的 **staging profile** 一键起完整联调栈，nginx 暴露 `127.0.0.1:18080`。
 **后端暴露宿主 `8001`、db/redis 暴露 `5433` / `6380`**（避开本机 agent-squad 占用的 8000/5432/6379）。
 
 ```bash
-# 1. 一键起 dev 栈 (pg + redis + backend-dev), 端口 8001 / 5433 / 6380
+# 1. 一键起 staging 栈，端口 18080
 cd deploy
-./up.sh dev             # 自动 cp env.dev.example -> env.dev, --profile dev 起三容器 + alembic upgrade head
+./up.sh                 # 自动叠加 env.staging.local（若存在）并 alembic upgrade head
 
 # 2. 访问 (后端已在容器里跑, 热挂载源码)
 #    API:         http://127.0.0.1:8001/api/v1/ping
@@ -1086,15 +1086,15 @@ curl -X POST http://127.0.0.1:8001/api/v1/hospitals/seed
 cd ../deploy && ./down.sh dev      # 停并清数据
 ```
 
-> 💡 想要**本地 uvicorn 裸跑**（不走容器、热重载更快）：先 `./up.sh dev` 起 pg+redis（backend-dev 可用 `docker compose ... stop backend-dev` 停掉），再在 `backend/` 下用 venv 跑 `uvicorn app.main:app --reload --port 8000`，`.env` 连 `127.0.0.1:5433/6380` 即可。
+> 💡 想要**本地 uvicorn 裸跑**：仍使用 staging 配置与 `env.staging.local` 真值，避免另起 dev 语义。
 
-`deploy/docker-compose.yml` dev profile 包含的服务（project 名 `yiluan-dev`）：
+`deploy/docker-compose.yml` staging profile 包含的服务（project 名 `yiluan-staging`）：
 
 | 服务 | 镜像 | 宿主端口 | 说明 |
 |------|------|---------|------|
 | `pg` | postgres:15-alpine | `127.0.0.1:5433` | 用户 postgres, 库 yiluan |
 | `redis` | redis:7-alpine | `127.0.0.1:6380` | 内存缓存 |
-| `backend-dev` | 本地 Dockerfile + 热挂载 ../backend/app | `127.0.0.1:8001` | FastAPI, 改代码即生效 |
+| `backend` | 本地 Dockerfile | nginx → `127.0.0.1:18080` | FastAPI staging backend |
 
 ### 方式二：全栈容器化 (deploy 骨架, 贴近 staging / 一键起干净环境)
 
@@ -1167,7 +1167,7 @@ npm install
 #    - 不校验合法域名 (本地开发需勾选)
 
 # 4. 测试登录
-#    - 微信登录: 使用 code "dev_test_code" 绕过微信服务器
+#    - 微信登录: 使用真实 wx.login code，经 staging WECHAT_APP_ID/SECRET 兑换
 #    - OTP 登录: 使用验证码 "000000"
 ```
 
@@ -1252,7 +1252,7 @@ alembic history
 | `WECHAT_APP_ID` | str | `""` | 小程序 AppID |
 | `WECHAT_APP_SECRET` | str | `""` | 小程序 AppSecret |
 
-> 开发模式下 code 为 `dev_test_code` 时跳过微信服务器调用。
+> staging 下不再跳过微信服务器；需配置真实 `WECHAT_APP_ID/SECRET`。
 
 ### Azure 存储
 
@@ -1342,7 +1342,7 @@ SMS_PROVIDER=aliyun
 | Repository 泛型模式 `BaseRepository[T]` | 隔离数据访问, 便于单元测试 mock |
 | Phone nullable + UNIQUE | 微信用户可后续绑定手机, PG UNIQUE 允许多 NULL |
 | OTP 开发 bypass `000000` | 开发/测试环境无需真实短信 |
-| 微信登录 dev bypass `dev_test_code` | 测试环境无需微信授权服务器 |
+| 微信登录真实 code2session | staging 使用真实 `WECHAT_APP_ID/SECRET`，不再 bypass |
 | SQLite aiosqlite 用于测试 | 测试无需外部 PG 实例, CI 友好 |
 | 小程序 Observer 状态管理 | 轻量级, 无框架依赖, 适合小程序体量 |
 | 401 队列刷新 (小程序 api.js) | 并发请求遇 401 时只刷新一次, 其余排队等待 |

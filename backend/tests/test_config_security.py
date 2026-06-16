@@ -17,7 +17,7 @@ def _prod(**overrides) -> dict:
     base = dict(
         environment="production",
         debug=False,
-        jwt_secret_key="a-real-secret-not-the-dev-default-x" * 2,
+        jwt_secret_key="a-real-secret-not-the-staging-default-x" * 2,
         payment_provider="mock",  # avoid wechat-cred branch
         pii_envelope_key=_PROD_PII_KEY,
         pii_hash_salt="a-very-long-random-prod-salt-not-the-default-value",
@@ -64,8 +64,8 @@ def test_production_accepts_explicit_origins():
 
 
 def test_non_production_allows_wildcard():
-    """Local / staging are unrestricted (developer ergonomics)."""
-    s = Settings(environment="development", cors_origins=["*"])
+    """Staging / test are unrestricted (local ergonomics)."""
+    s = Settings(environment="staging", cors_origins=["*"])
     assert s.cors_origins == ["*"]
 
 
@@ -103,8 +103,8 @@ def test_production_accepts_custom_admin_token():
 
 
 def test_non_production_keeps_default_admin_token():
-    s = Settings(environment="development")
-    assert s.admin_api_token == "dev-admin-token"
+    s = Settings(environment="staging")
+    assert s.admin_api_token == "staging-admin-token"
 
 
 # --- S3-OPS-SALT-ENTROPY-GUARD: contract_pseudonym_salt validator -------------
@@ -115,9 +115,9 @@ def test_non_production_keeps_default_admin_token():
 # 3) salt == PII_HASH_SALT -> ValueError mentioning "PII_HASH_SALT"
 # 4) salt == PII_ENVELOPE_KEY -> ValueError mentioning "PII_ENVELOPE_KEY"
 #
-# The validator is env-agnostic: dev/staging/canary/prod all enforced (since
-# 'aaa' in dev is a typo too, not valid config). AC#4 grace = empty/None salt
-# (dev local fallback) goes to ContractService runtime guard, not Settings.
+# The validator is env-agnostic: staging/canary/prod all enforced (since
+# 'aaa' in staging is a typo too, not valid config). AC#4 grace = empty/None salt
+# (staging/test fallback) goes to ContractService runtime guard, not Settings.
 
 
 _COMPLIANT_CONTRACT_SALT = "a-real-contract-salt-distinct-from-pii-salts-1234567890"
@@ -128,7 +128,7 @@ _COMPLIANT_ENVELOPE_KEY = base64.b64encode(b"q" * 32).decode("ascii")
 def test_contract_pseudonym_salt_compliant_passes():
     """AC#5 case 1 / AC#6: 32+ char distinct salt instantiates Settings."""
     s = Settings(
-        environment="development",
+        environment="staging",
         contract_pseudonym_salt=_COMPLIANT_CONTRACT_SALT,
         pii_hash_salt=_COMPLIANT_PII_HASH_SALT,
         pii_envelope_key=_COMPLIANT_ENVELOPE_KEY,
@@ -140,7 +140,7 @@ def test_contract_pseudonym_salt_too_short_raises():
     """AC#5 case 2 / AC#1: salt with len < 32 raises."""
     with pytest.raises(ValueError, match="entropy"):
         Settings(
-            environment="development",
+            environment="staging",
             contract_pseudonym_salt="aaa",  # 3 char
         )
 
@@ -150,7 +150,7 @@ def test_contract_pseudonym_salt_same_as_pii_hash_salt_raises():
     shared = "shared-salt-that-is-long-enough-to-pass-length-check-1234"
     with pytest.raises(ValueError, match="PII_HASH_SALT"):
         Settings(
-            environment="development",
+            environment="staging",
             contract_pseudonym_salt=shared,
             pii_hash_salt=shared,
         )
@@ -163,7 +163,7 @@ def test_contract_pseudonym_salt_same_as_envelope_key_raises():
     assert len(shared_key) >= 32
     with pytest.raises(ValueError, match="PII_ENVELOPE_KEY"):
         Settings(
-            environment="development",
+            environment="staging",
             contract_pseudonym_salt=shared_key,
             pii_envelope_key=shared_key,
             pii_hash_salt=_COMPLIANT_PII_HASH_SALT,
@@ -171,9 +171,9 @@ def test_contract_pseudonym_salt_same_as_envelope_key_raises():
 
 
 def test_contract_pseudonym_salt_empty_grace_skips_validator():
-    """AC#4: empty salt allowed (dev local fallback -> runtime guard tier)."""
+    """AC#4: empty salt allowed (staging/test fallback -> runtime guard tier)."""
     s = Settings(
-        environment="development",
+        environment="staging",
         contract_pseudonym_salt="",
     )
     assert s.contract_pseudonym_salt == ""

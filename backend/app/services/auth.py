@@ -27,7 +27,6 @@ from app.services.wechat import WeChatAPIClient
 
 OTP_TTL = 300
 OTP_RATE_LIMIT = 60  # legacy 60s key, kept for backward-compat
-DEV_OTP = "000000"
 OTP_FAIL_MAX = 5
 OTP_FAIL_LOCK_SECONDS = 900  # 15 minutes
 
@@ -111,18 +110,14 @@ class AuthService:
 
         otp_key = f"otp:{phone}"
 
-        is_dev = settings.environment == "development"
-        if is_dev and code == DEV_OTP:
-            pass
-        else:
-            stored_code = await self.redis.get(otp_key)
-            if stored_code is None:
-                await self._record_otp_failure(fail_key)
-                raise BadRequestException("OTP code expired or not found")
-            if stored_code != code:
-                await self._record_otp_failure(fail_key)
-                raise BadRequestException("Invalid OTP code")
-            await self.redis.delete(otp_key)
+        stored_code = await self.redis.get(otp_key)
+        if stored_code is None:
+            await self._record_otp_failure(fail_key)
+            raise BadRequestException("OTP code expired or not found")
+        if stored_code != code:
+            await self._record_otp_failure(fail_key)
+            raise BadRequestException("Invalid OTP code")
+        await self.redis.delete(otp_key)
 
         # Success — clear fail counter
         await self.redis.delete(fail_key)
@@ -233,17 +228,9 @@ class AuthService:
         return await self.refresh_store.revoke_all(str(user_id))
 
     async def wechat_login(self, code: str) -> TokenResponse:
-        DEV_WX_CODE = "dev_test_code"
-        DEV_WX_OPENID = "dev_openid_000"
-
-        is_dev = settings.environment == "development"
-        if is_dev and code == DEV_WX_CODE:
-            openid = DEV_WX_OPENID
-            unionid = None
-        else:
-            result = await WeChatAPIClient.code2session(code)
-            openid = result["openid"]
-            unionid = result.get("unionid")
+        result = await WeChatAPIClient.code2session(code)
+        openid = result["openid"]
+        unionid = result.get("unionid")
 
         user = await self.user_repo.get_by_wechat_openid(openid)
         if user is None:
@@ -301,16 +288,12 @@ class AuthService:
     async def bind_phone(self, user_id: UUID, phone: str, code: str) -> User:
         otp_key = f"otp:{phone}"
 
-        is_dev = settings.environment == "development"
-        if is_dev and code == DEV_OTP:
-            pass
-        else:
-            stored_code = await self.redis.get(otp_key)
-            if stored_code is None:
-                raise BadRequestException("OTP code expired or not found")
-            if stored_code != code:
-                raise BadRequestException("Invalid OTP code")
-            await self.redis.delete(otp_key)
+        stored_code = await self.redis.get(otp_key)
+        if stored_code is None:
+            raise BadRequestException("OTP code expired or not found")
+        if stored_code != code:
+            raise BadRequestException("Invalid OTP code")
+        await self.redis.delete(otp_key)
 
         user = await self.user_repo.get_by_id(user_id)
         if user is None:

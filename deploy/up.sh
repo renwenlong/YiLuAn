@@ -4,7 +4,6 @@
 #
 # 用法：
 #   ./up.sh            # staging（默认，自动叠加 env.staging.local 若存在）
-#   ./up.sh dev        # dev 轻量本地后端（pg+redis+backend-dev，暴露 8001/5433/6380，避开 agent-squad 占用的 8000/5432/6379）
 #   ./up.sh staging    # 同默认
 #   ./up.sh canary     # S2-OPS-013: canary mock 通道独立一套容器 (错开 host port + 独立 db yiluan_canary)
 #                     # 与 staging 同时运行互不干扰，需 env.canary[.local]。
@@ -15,10 +14,6 @@ cd "$(dirname "$0")"
 ENVNAME="${1:-staging}"
 
 case "$ENVNAME" in
-  dev)
-    PROJECT="yiluan-dev"
-    PROFILE="dev"
-    ;;
   staging)
     PROJECT="yiluan-staging"
     PROFILE="staging"
@@ -34,20 +29,15 @@ case "$ENVNAME" in
     exit 2
     ;;
   *)
-    echo "未知环境: $ENVNAME（支持 dev|staging|canary）" >&2
+    echo "未知环境: $ENVNAME（支持 staging|canary）" >&2
     exit 2
     ;;
 esac
 
 # 解析 env 文件：env.<环境> + 可选 env.<环境>.local 叠加
 if [ ! -f "env.${ENVNAME}" ]; then
-  if [ "$ENVNAME" = "dev" ] && [ -f env.dev.example ]; then
-    echo "未找到 env.dev，从 env.dev.example 复制一份默认值。" >&2
-    cp env.dev.example env.dev
-  else
-    echo "缺少 env.${ENVNAME}，请先从 env.${ENVNAME}.example 复制。" >&2
-    exit 2
-  fi
+  echo "缺少 env.${ENVNAME}，请先从 env.${ENVNAME}.example 复制。" >&2
+  exit 2
 fi
 
 # S2-OPS-013 canary: env.canary 依赖 env.staging 提供公共变量 (POSTGRES_USER/JWT_SECRET_KEY 等)
@@ -74,30 +64,6 @@ COMPOSE=( docker compose -p "$PROJECT" "${ENV_FILES[@]}" --profile "$PROFILE" -f
 
 echo "==> docker compose up -d --build (env=${ENVNAME}, profile=${PROFILE})"
 "${COMPOSE[@]}" up -d --build
-
-if [ "$ENVNAME" = "dev" ]; then
-  echo "==> waiting for backend-dev healthcheck..."
-  deadline=$(( $(date +%s) + 180 ))
-  while [ "$(date +%s)" -lt "$deadline" ]; do
-    if curl -fsS --max-time 3 http://127.0.0.1:8001/api/v1/ping >/dev/null 2>&1; then
-      echo "backend-dev ready"
-      break
-    fi
-    sleep 3
-  done
-
-  echo "==> running alembic upgrade head"
-  "${COMPOSE[@]}" exec -T backend-dev alembic upgrade head
-
-  echo "==> dev is up"
-  echo "   Backend  : http://127.0.0.1:8001/api/v1/ping"
-  echo "   Health   : http://127.0.0.1:8001/health"
-  echo "   Postgres : 127.0.0.1:5433 (本地 pytest 直连)"
-  echo "   Redis    : 127.0.0.1:6380"
-  echo ""
-  echo "Tear down : ./down.sh dev"
-  exit 0
-fi
 
 # ---- staging / canary 流程 ----
 if [ "$ENVNAME" = "canary" ]; then

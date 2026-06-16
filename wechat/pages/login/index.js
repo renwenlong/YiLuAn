@@ -51,7 +51,7 @@ Page({
         this._navigateAfterLogin(user)
       })
       .catch(err => {
-        logger.error('登录失败', { err: err && (err.message || String(err)) })
+        logger.error('登录失败', logger.errorContext(err))
         wx.showToast({ title: '登录失败，请重试', icon: 'none' })
       })
       .finally(() => {
@@ -126,7 +126,7 @@ Page({
         self._navigateAfterLogin(user)
       })
       .catch(function (err) {
-        logger.error('登录失败', { err: err && (err.message || String(err)), phase: 'verifyOTP' })
+        logger.error('登录失败', Object.assign(logger.errorContext(err), { phase: 'verifyOTP' }))
         wx.showToast({ title: '验证码错误或已过期', icon: 'none' })
       })
       .finally(function () {

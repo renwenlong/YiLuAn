@@ -7,7 +7,7 @@ beforeEach(() => {
 
 describe('services/auth', () => {
   // Test 7: wechatLogin calls wx.login then POST /wechat-login
-  test('wechatLogin calls wx.login and posts code to backend', async () => {
+  test('wechatLogin posts wx.login code to backend', async () => {
     wx.login.mockImplementation((opts) => {
       opts.success({ code: 'wx_code_123' })
     })
@@ -24,6 +24,7 @@ describe('services/auth', () => {
 
     const user = await wechatLogin()
     expect(wx.login).toHaveBeenCalledTimes(1)
+    expect(wx.request.mock.calls[0][0].data).toEqual({ code: 'wx_code_123' })
     expect(user).toEqual({ id: 'u1', phone: null, role: null })
   })
 

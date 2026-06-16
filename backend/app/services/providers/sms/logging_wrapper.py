@@ -160,7 +160,7 @@ class LoggingSMSProviderWrapper(SMSProvider):
         from app.models.sms_send_log import SmsSendLog
 
         salt = getattr(
-            settings, "pii_hash_salt", "yiluan-dev-salt-do-not-use-in-prod"
+            settings, "pii_hash_salt", "yiluan-staging-salt-do-not-use-in-prod"
         )
         now = datetime.now(timezone.utc)
         row = SmsSendLog(

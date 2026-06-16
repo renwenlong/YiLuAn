@@ -100,6 +100,19 @@ describe('utils/logger', () => {
     expect(reported[0].context.orderId).toBe('o1')
   })
 
+  test('errorContext 展开请求失败对象，避免 [object Object]', () => {
+    const ctx = logger.errorContext({
+      statusCode: 400,
+      requestId: 'req-1',
+      data: { detail: 'WeChat login failed: appid missing' },
+    })
+    expect(ctx).toMatchObject({
+      err: 'WeChat login failed: appid missing',
+      statusCode: 400,
+      requestId: 'req-1',
+    })
+  })
+
   test('swallow 正常返回值透传', () => {
     expect(logger.swallow(() => 42, 'tag')).toBe(42)
   })

@@ -12,13 +12,10 @@ Lint: 禁止 ``backend/app/`` 内 inline env check pattern 复活 — 必走
     if environment in {...}: ...
 
 允许 pattern (allowlist):
-    - dev-mode shortcuts (``if env == "development"``) — 配置 dev-only 行为合理
     - probe 模块自己 (``backend/app/startup_probes.py``, ``backend/app/probes/*.py``)
       — 框架 + probes 自身需要 env 判断
     - observability 模块 (``backend/app/observability/``) — metric label 用 env
       区分, 不是 "is prod-required" 判断
-    - dev-mode auth/services shortcuts (``backend/app/services/auth.py``,
-      ``backend/app/services/providers/sms/mock.py``) — 合法 dev-only 短路
 
 scope:
     - 扫 ``backend/app/`` 下所有 ``.py`` 文件
@@ -55,14 +52,14 @@ PATTERN_IN_SET = re.compile(
     r"['\"](?:production|prod|canary|staging|stage)['\"]"
 )
 
-# 2. ``env == "production"`` / ``env != "production"`` (含 canary/staging)
+# 2. ``env == "production"`` / ``env != "production"`` (含 canary/staging/development)
 PATTERN_EQ_PROD = re.compile(
     r"\b(?:env(?:ironment)?|settings\.environment)\s*[=!]=\s*"
-    r"['\"](?:production|prod|canary|staging|stage)['\"]"
+    r"['\"](?:production|prod|canary|staging|stage|development)['\"]"
 )
 
 # ---------------------------------------------------------------------------
-# Allowlist — 合法 dev-mode shortcuts / framework self / observability labels
+# Allowlist — framework self / observability labels
 # ---------------------------------------------------------------------------
 # 路径相对 backend/app/ (e.g. "startup_probes.py", "probes/__init__.py")
 ALLOWLIST_PATHS: frozenset[str] = frozenset(
@@ -73,7 +70,7 @@ ALLOWLIST_PATHS: frozenset[str] = frozenset(
         "probes/__init__.py",
         # Observability — metric label 用 env 区分 (非 prod-required 决策)
         "observability/reconciliation_metrics.py",
-        # Mock SMS provider — dev-only 行为合法
+        # Mock SMS provider — non-production behavior is allowed here
         "services/providers/sms/mock.py",
         # config.py 自身 — Settings class 内 env validation (启动期一次性 config check)
         "config.py",
@@ -86,10 +83,8 @@ ALLOWLIST_PATHS: frozenset[str] = frozenset(
     }
 )
 
-# 允许 ``settings.environment == "development"`` (dev-only 行为, 非 prod-required)
-PATTERN_DEV_ONLY = re.compile(
-    r"\b(?:env(?:ironment)?|settings\.environment)\s*==\s*['\"]development['\"]"
-)
+# Historical compatibility: no runtime code should depend on development env now.
+PATTERN_DEV_ONLY = re.compile(r"a^\b")
 
 
 # ---------------------------------------------------------------------------
@@ -99,7 +94,7 @@ _SECRET_LINT_NO_INLINE_ENV_CHECK = "SECRET_LINT_NO_INLINE_ENV_CHECK_42_DO_NOT_LE
 
 
 def _is_dev_only_line(line: str) -> bool:
-    """Lines that ONLY check `== 'development'` (不命中 prod env 决策)."""
+    """No-op compatibility hook; development env checks are no longer allowed."""
     return bool(PATTERN_DEV_ONLY.search(line))
 
 
@@ -116,10 +111,6 @@ def _scan_file(path: Path) -> list[tuple[int, str]]:
         # cite 反案 example pattern 是合法的)
         stripped = raw_line.strip()
         if stripped.startswith("#"):
-            continue
-
-        # dev-only 短路: ``if env == "development"`` 合法, 不报
-        if _is_dev_only_line(raw_line):
             continue
 
         # 命中任一禁止 pattern → 记录

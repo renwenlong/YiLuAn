@@ -1,10 +1,7 @@
 from unittest.mock import AsyncMock, patch
 
-import pytest
-
 from app.core.security import create_access_token, decode_token
 from app.exceptions import BadRequestException
-
 
 MOCK_CODE2SESSION = {
     "openid": "mock_openid_12345",
@@ -72,15 +69,6 @@ class TestWeChatLogin:
             )
         assert response.status_code == 401
         assert "disabled" in response.json()["detail"].lower()
-
-    async def test_wechat_login_dev_bypass(self, client):
-        response = await client.post(
-            "/api/v1/auth/wechat-login", json={"code": "dev_test_code"}
-        )
-        assert response.status_code == 200
-        data = response.json()
-        assert "access_token" in data
-        assert data["user"]["phone"] is None
 
     async def test_wechat_login_returns_valid_tokens(self, client):
         with patch(
