@@ -225,7 +225,10 @@ UI 不弹"连接失败"错（用户感知差），全程视觉无感。
 2. `aggregator.evaluate(order_id)`：读 4 表重算 summary；**禁止 GET-OR-COMPUTE 复用旧 cache**。
 3. `redis SET precheck:order:{order_id} <new_summary_json> EX 300`：覆盖写最新 summary，TTL 5min；这是主一致性机制。
 4. WS broadcast 推送给订阅该 `order_id` 的 connection。
-5. 记录 `precheck_abac_filtered_total{card,field}` / `precheck_status_updated_total{card}` prometheus metrics。
+5. 记录 prometheus metrics：
+   - v1.0 已实施：`precheck_abac_filtered_total{endpoint,user_role,filter_reason}`（ADR-0056；PR #319 `f302fdc`；owner-gate deny path）。
+   - v2.0 deferred：`precheck_abac_filtered_total{card,field}`（业务字段级过滤；**UI 4 张牌 trust/precheck dashboard 立项时**再实现）。
+   - `precheck_status_updated_total{card}`。
 
 **一致性口径（胡桃 r3 amend）**：cache 更新采用「DEL 防御 + SET 覆盖写」；实现上必须以 SET overwrite 为准，不允许 hook 内先读旧 cache 再 merge。若 WS broadcast 失败，cache 仍已覆盖最新值，polling 5s 路径可自愈。不写 DB（4 张牌状态已在各自表，aggregator 只读）。
 
@@ -376,7 +379,7 @@ async def get_precheck_status(
 | 字段同步 | 三端各自从 OpenAPI schema 对齐字段名 / 类型（WX TypeScript 手写或 openapi-typescript 生成，iOS Swift 手写或 OpenAPI Generator Swift 生成，admin-v2 TypeScript 同 WX） |
 | 字段漂移 CI | backend `OpenAPI drift` CI 闸（已有，PR #255 / PR #237 复用）— `docs/api/openapi.json` 修改必须 commit 一致，否则 CI FAIL |
 | ABAC 17 字段 negative list | backend `test_view_schema_excludes_15_named_negative_list_fields` schema-level test（PR #253 c2 已实，每 PR 跑）+ E2E layer（PR #262 `test_e2e_openapi_schema_excludes_negative_list_fields`）双管 |
-| ABAC counter | backend `precheck_abac_filtered_total` Prometheus counter（不强求三端各自上报，client-side ABAC 不是设计 trust boundary） |
+| ABAC counter | backend `precheck_abac_filtered_total` Prometheus counter；ADR-0056 明确双 scope：v1.0 `{endpoint,user_role,filter_reason}` owner-gate 已实施（PR #319），v2.0 `{card,field}` 字段级业务 dashboard deferred（触发条件：**UI 4 张牌 trust/precheck dashboard 立项时**）。不强求三端各自上报，client-side ABAC 不是设计 trust boundary。 |
 | 文案一致性 | 文案由 `admin-v2 S3-DEV-003-ADMIN-COPY` 维护，backend `blocked_reason` 等字段下发；三端**直读 backend 字符串**，不做 client-side 文案 lint |
 
 ---
@@ -436,7 +439,7 @@ async def get_precheck_status(
   - screen reader：VoiceOver/NVDA 能读出 4 张牌状态 + blocked_reason
   - 键盘焦点：Tab 顺序为 4 张牌 → 4 个详情链接 → 付款 CTA；disabled CTA 不吞焦点
   - 图标不能只靠颜色表达状态，必须有文字/aria-label
-- [ ] AC#8 ABAC 4 层防御全过：schema / endpoint / service / 测试哨兵 + `precheck_abac_filtered_total` counter 可观测
+- [ ] AC#8 ABAC 4 层防御全过：schema / endpoint / service / 测试哨兵 + `precheck_abac_filtered_total` v1.0 `{endpoint,user_role,filter_reason}` owner-gate counter 可观测；v2.0 `{card,field}` 字段级 counter deferred，触发条件为 **UI 4 张牌 trust/precheck dashboard 立项时**（ADR-0056）
 - [ ] AC#9 PRECHECK-BACKEND task 存在且 UI task depends_on 指向 `S3-DEV-003-PRECHECK-BACKEND`，不能再依赖 `S3-DEV-001-CONTRACT-API`
 - [ ] AC#10 cache invalidation：4 个 after_commit hook 均执行 `redis DEL precheck:order:{order_id}` 防御性 pre-invalidation，随后 evaluate 并 `redis SET ... EX 300` 覆盖写最新 summary，再 WS broadcast；禁止 GET-OR-COMPUTE 复用旧 cache，polling 5s 不读 stale 数据
 - [ ] AC#11 signed URL TTL：合同/保险 PDF + 陪诊师资质图 TTL ≤15min，响应含 `signed_url_expires_at`，TTL 超限 CI fail
@@ -511,7 +514,7 @@ async def get_precheck_status(
 | 胡桃 C5 negative list 附录 | §5.3 17 字段表格化 |
 | 刻晴 D signed URL TTL | §5.3 补 TTL ≤15min + `signed_url_expires_at` CI 断言 |
 | 刻晴 D field-mapping CI | §6.3 补 OpenAPI schema ↔ 三端映射 CI |
-| 刻晴 D ABAC counter | §4.3 / §6.3 补 `precheck_abac_filtered_total` |
+| 刻晴 D ABAC counter | §4.3 / §6.3 补 `precheck_abac_filtered_total`；ADR-0056 正名双 scope：v1.0 `{endpoint,user_role,filter_reason}` owner-gate 已实施，v2.0 `{card,field}` 字段级 dashboard deferred，触发条件为 **UI 4 张牌 trust/precheck dashboard 立项时** |
 | 刻晴 D 转化率基线 | §8 补 7/14 天 baseline 口径 |
 
 ### 13.4 r4 amend（魈 architect 04:00 UTC 重造 §6.2 + §6.3）
