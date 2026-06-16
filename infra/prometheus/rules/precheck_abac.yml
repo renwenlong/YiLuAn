@@ -1,0 +1,35 @@
+groups:
+  - name: precheck_abac
+    interval: 30s
+    rules:
+      - alert: PrecheckABACOwnerMismatchHighRate
+        expr: |
+          sum by (endpoint, user_role, filter_reason) (
+            rate(precheck_abac_filtered_total{filter_reason="abac_owner_mismatch"}[5m])
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "ABAC owner mismatch 速率异常 (越权枚举可能)"
+          description: |
+            过去 5min 平均每秒 {{ $value }} 次 abac_owner_mismatch deny。
+            阈值 0.5/s；baseline 期预期 < 0.1/s（少量用户误操作或 API 集成 bug）。
+            若 > 0.5/s 持续 5min，怀疑越权枚举攻击或客户端错误批量请求。
+
+      - alert: PrecheckABACOrderNotFoundHighRate
+        expr: |
+          sum by (endpoint, user_role, filter_reason) (
+            rate(precheck_abac_filtered_total{filter_reason="order_not_found"}[5m])
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "Precheck order 404 速率异常"
+          description: |
+            过去 5min 平均每秒 {{ $value }} 次 order_not_found deny。
+            阈值 1.0/s；baseline 期预期 < 0.2/s（客户端缓存陈旧 order_id 或用户刷新重试）。
+            若 > 1.0/s 持续 5min，怀疑客户端 sync bug、越权扫描或异常重放请求。
