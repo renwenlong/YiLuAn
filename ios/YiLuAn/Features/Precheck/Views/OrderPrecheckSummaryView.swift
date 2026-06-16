@@ -226,6 +226,10 @@ enum PrecheckAccessibilityText {
         return "资质尚未就绪, 请等待核验完成或重新选择陪诊师; 当前状态不只依赖颜色提示。"
     }
 
+    static func cardDefaultAccessibilityHint(hasDetailLink: Bool) -> String {
+        hasDetailLink ? "包含可查看详情链接。" : "状态卡片, 不需要额外操作。"
+    }
+
     private static func nonEmpty(_ text: String?) -> String? {
         guard let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else {
             return nil
@@ -293,7 +297,9 @@ struct PrecheckCardView: View {
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .accessibilityElement(children: .combine)
         .accessibilityLabel(accessibilityLabel ?? "\(title): \(PrecheckAccessibilityText.cardStatusText(ready)), \(summaryLine)")
-        .accessibilityHint(accessibilityHint ?? "状态卡片, 不需要额外操作。")
+        .accessibilityHint(
+            accessibilityHint ?? PrecheckAccessibilityText.cardDefaultAccessibilityHint(hasDetailLink: detailLink != nil)
+        )
     }
 
     @ViewBuilder

@@ -291,6 +291,17 @@ final class OrderPrecheckTests: XCTestCase {
         XCTAssertNotEqual(pendingLine, verifiedLine)
     }
 
+    func testPrecheckCardDefaultA11yHintReflectsDetailLinkAction() {
+        // Act
+        let noLinkHint = PrecheckAccessibilityText.cardDefaultAccessibilityHint(hasDetailLink: false)
+        let withLinkHint = PrecheckAccessibilityText.cardDefaultAccessibilityHint(hasDetailLink: true)
+
+        // Assert
+        XCTAssertTrue(noLinkHint.contains("不需要额外操作"))
+        XCTAssertTrue(withLinkHint.contains("可查看详情链接"))
+        XCTAssertFalse(withLinkHint.contains("不需要额外操作"))
+    }
+
     // MARK: - Helpers
 
     private func makeSummary(
