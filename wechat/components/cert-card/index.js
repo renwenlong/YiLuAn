@@ -46,6 +46,36 @@ function _formatVerifiedAt(iso) {
   }
 }
 
+function _stateLabel(state) {
+  if (state === STATE_VERIFIED) return '已认证'
+  if (state === STATE_PENDING_RESUBMIT) return '临时证明补交中'
+  return '未认证'
+}
+
+function _joinQualifications(cs) {
+  if (!cs || !Array.isArray(cs.companion_cert_qualifications) || cs.companion_cert_qualifications.length === 0) {
+    return ''
+  }
+  return cs.companion_cert_qualifications.filter(Boolean).join('、')
+}
+
+function _a11ySummary(cs) {
+  var state = _deriveState(cs)
+  var parts = [
+    '状态：' + _stateLabel(state),
+    cs && cs.companion_cert_pseudonym_name ? '姓名：' + cs.companion_cert_pseudonym_name : '姓名未提供',
+    cs && cs.companion_cert_work_id ? '工号：' + cs.companion_cert_work_id : '工号未提供',
+    _joinQualifications(cs) ? '资质：' + _joinQualifications(cs) : '资质未提供',
+  ]
+  var verifiedAt = _formatVerifiedAt(cs && cs.companion_cert_verified_at)
+  parts.push(verifiedAt ? '认证时间：' + verifiedAt : (state === STATE_VERIFIED ? '认证时间未提供' : '认证时间待核验'))
+  return parts.join('；')
+}
+
+function _a11yLabel(cs) {
+  return '陪诊师资质；' + _a11ySummary(cs) + '；证件原图不会在用户端展示。'
+}
+
 // Wechat runtime registers component via global Component({...}).
 // In jest (node) env, `Component` is undefined; we guard with typeof so that
 // the same file is safely require()-able from a test for unit-testing the
@@ -64,9 +94,14 @@ if (typeof Component !== 'undefined') {
         type: Object,
         value: null,
         observer: function (newVal) {
+          var state = _deriveState(newVal)
           this.setData({
-            derivedState: _deriveState(newVal),
+            derivedState: state,
             verifiedAtDisplay: _formatVerifiedAt(newVal && newVal.companion_cert_verified_at),
+            a11yStateLabel: _stateLabel(state),
+            a11yQualifications: _joinQualifications(newVal),
+            a11ySummary: _a11ySummary(newVal),
+            a11yLabel: _a11yLabel(newVal),
           })
         },
       },
@@ -75,6 +110,10 @@ if (typeof Component !== 'undefined') {
     data: {
       derivedState: STATE_UNVERIFIED,
       verifiedAtDisplay: '',
+      a11yStateLabel: _stateLabel(STATE_UNVERIFIED),
+      a11yQualifications: '',
+      a11ySummary: _a11ySummary(null),
+      a11yLabel: _a11yLabel(null),
       // 状态字面常量给 wxml wx:if 用
       STATE_VERIFIED: STATE_VERIFIED,
       STATE_PENDING_RESUBMIT: STATE_PENDING_RESUBMIT,
@@ -88,6 +127,10 @@ if (typeof Component !== 'undefined') {
 module.exports = {
   _deriveState: _deriveState,
   _formatVerifiedAt: _formatVerifiedAt,
+  _stateLabel: _stateLabel,
+  _joinQualifications: _joinQualifications,
+  _a11ySummary: _a11ySummary,
+  _a11yLabel: _a11yLabel,
   STATE_VERIFIED: STATE_VERIFIED,
   STATE_PENDING_RESUBMIT: STATE_PENDING_RESUBMIT,
   STATE_UNVERIFIED: STATE_UNVERIFIED,
