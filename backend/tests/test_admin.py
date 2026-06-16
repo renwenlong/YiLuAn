@@ -4,8 +4,8 @@ Admin API tests - covers the new token-auth /admin/* endpoints (B4).
 Auth model
 ----------
 All admin routes now require the ``X-Admin-Token`` header; the legacy
-JWT/role-based dependency was removed. Tests inject the dev token
-(``dev-admin-token``, configured via ``settings.admin_api_token``).
+JWT/role-based dependency was removed. Tests inject the configured staging token
+(``settings.admin_api_token``).
 
 Scopes covered:
   - Auth guard: missing / wrong token
@@ -20,12 +20,13 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 
+from app.config import settings
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.order import OrderStatus
 from app.models.user import User, UserRole
 from tests.conftest import test_session_factory
 
-ADMIN_TOKEN = "dev-admin-token"
+ADMIN_TOKEN = settings.admin_api_token
 HEADERS = {"X-Admin-Token": ADMIN_TOKEN}
 
 
