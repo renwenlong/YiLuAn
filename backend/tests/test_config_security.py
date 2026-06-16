@@ -102,8 +102,15 @@ def test_production_accepts_custom_admin_token():
     assert s.admin_api_token == "a-real-high-entropy-admin-token-xyz"
 
 
-def test_non_production_keeps_default_admin_token():
-    s = Settings(environment="staging")
+def test_local_defaults_keep_dev_admin_token_for_legacy_tests():
+    s = Settings()
+    assert s.environment == "development"
+    assert s.admin_api_token == "dev-admin-token"
+    assert s.jwt_secret_key == "dev-secret-key-change-in-production"
+
+
+def test_staging_can_override_admin_token_from_deploy_env():
+    s = Settings(environment="staging", admin_api_token="staging-admin-token")
     assert s.admin_api_token == "staging-admin-token"
 
 

@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     app_name: str = "YiLuAn API"
     app_version: str = "0.1.0"
     debug: bool = True
-    environment: str = "staging"
+    environment: str = "development"
 
     # Database
     database_url: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/yiluan"
@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     # JWT
-    jwt_secret_key: str = "staging-secret-key-change-in-production"
+    jwt_secret_key: str = "dev-secret-key-change-in-production"
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 30
     jwt_refresh_token_expire_days: int = 7
@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     storage_backend: str = "local"
     # Azure cert image container (used when storage_backend=azure).
     azure_storage_account_name: str = ""
-    azure_storage_container_cert: str = "yiluan-cert-staging"
+    azure_storage_container_cert: str = "yiluan-cert-dev"
 
     # S3-DEV-001 / ADR-0046 §3.3: Contract storage WORM policy switch.
     # prod=true (Azure Blob immutability Locked 7y), staging=false (避免测试数据 7y 占用).
@@ -135,17 +135,17 @@ class Settings(BaseSettings):
     wechat_pay_platform_cert_path: str = ""  # 微信平台证书路径（用于验签）
 
     # Admin
-    admin_api_token: str = "staging-admin-token"
+    admin_api_token: str = "dev-admin-token"
 
     # PII (A21-02b / D-033)
     # 用于 hash_phone() 等 PII 字段的 salt。
     # ⚠️ 生产必须覆盖此值（通过 PII_HASH_SALT 环境变量）。
-    # 默认值仅供 staging / 测试，**绝不可在生产环境使用**。
+    # 默认值仅供开发 / 测试，**绝不可在生产环境使用**。
     # 如需未来轮换，请保留旧 salt 兼容历史 hash 数据。
-    pii_hash_salt: str = "yiluan-staging-salt-do-not-use-in-prod"
+    pii_hash_salt: str = "yiluan-dev-salt-do-not-use-in-prod"
 
     # ADR-0029: emergency PII 落库加密 envelope key（base64 编码 32 字节 / AES-256）。
-    # staging 默认值仅用于本地 / CI；生产环境必须 override，且应来自 KMS / Secret Manager。
+    # dev 默认值仅用于本地 / CI；生产环境必须 override，且应来自 KMS / Secret Manager。
     pii_envelope_key: str = _NONPROD_PII_ENVELOPE_KEY
 
     # CORS
