@@ -1,0 +1,17 @@
+name: QA
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  promtool-check:
+    name: promtool-check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Prometheus alert rules
+        run: bash infra/prometheus/promtool-check.sh
