@@ -146,3 +146,69 @@ describe('components/cert-card AC#3 文案 lint (defense-in-depth)', () => {
     expect(renderRefs).toBeNull()
   })
 })
+
+describe('components/cert-card a11y labels', () => {
+  test('verified state a11y label includes semantic status and every cert field', () => {
+    // Arrange
+    const certStatus = {
+      ready: true,
+      companion_cert_pseudonym_name: '陈师傅',
+      companion_cert_work_id: 'PC0042',
+      companion_cert_qualifications: ['康复治疗师', '健康管理师'],
+      companion_cert_verified_at: '2026-05-10T12:00:00Z',
+    }
+
+    // Act
+    const label = certCard._a11yLabel(certStatus)
+
+    // Assert
+    expect(label).toContain('陪诊师资质')
+    expect(label).toContain('状态：已认证')
+    expect(label).toContain('姓名：陈师傅')
+    expect(label).toContain('工号：PC0042')
+    expect(label).toContain('资质：康复治疗师、健康管理师')
+    expect(label).toMatch(/认证时间：\d{4}-\d{2}-\d{2}/u)
+    expect(label).toContain('证件原图不会在用户端展示')
+  })
+
+  test('pending / unverified a11y summaries are distinguishable without color', () => {
+    // Arrange
+    const pending = {
+      ready: false,
+      companion_cert_pseudonym_name: '陈师傅',
+      companion_cert_work_id: 'PC0042',
+    }
+    const unverified = { ready: false }
+
+    // Act
+    const pendingSummary = certCard._a11ySummary(pending)
+    const unverifiedSummary = certCard._a11ySummary(unverified)
+
+    // Assert
+    expect(pendingSummary).toContain('状态：临时证明补交中')
+    expect(unverifiedSummary).toContain('状态：未认证')
+    expect(pendingSummary).not.toBe(unverifiedSummary)
+  })
+
+  test('wxml declares screen-reader labels for card, rows, status and hints', () => {
+    // Arrange
+    const fs = require('fs')
+    const path = require('path')
+
+    // Act
+    const wxmlText = fs.readFileSync(
+      path.resolve(__dirname, '../../components/cert-card/index.wxml'),
+      'utf8'
+    )
+
+    // Assert
+    expect(wxmlText).toContain('aria-label="{{a11yLabel}}"')
+    expect(wxmlText).toContain('aria-label="陪诊师资质状态：已认证"')
+    expect(wxmlText).toContain('aria-label="陪诊师资质状态：临时证明补交中"')
+    expect(wxmlText).toContain('aria-label="陪诊师资质状态：未认证"')
+    expect(wxmlText).toContain('aria-label="陪诊师化名：{{certStatus.companion_cert_pseudonym_name}}"')
+    expect(wxmlText).toContain('aria-label="陪诊师工号：{{certStatus.companion_cert_work_id}}"')
+    expect(wxmlText).toContain('aria-label="陪诊师资质：{{a11yQualifications}}"')
+    expect(wxmlText).toContain('aria-label="认证时间：{{verifiedAtDisplay}}"')
+  })
+})

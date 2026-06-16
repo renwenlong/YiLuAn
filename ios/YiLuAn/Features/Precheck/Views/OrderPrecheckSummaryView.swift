@@ -123,8 +123,10 @@ struct OrderPrecheckSummaryView: View {
             PrecheckCardView(
                 title: "陪诊师资质",
                 ready: summary.companionCertStatus.ready,
-                summaryLine: companionCertSummaryLine(summary.companionCertStatus),
-                detailLink: nil  // 资质证明图通过 NavigationLink 单开页, 不在卡片直接展开
+                summaryLine: PrecheckAccessibilityText.companionCertSummaryLine(summary.companionCertStatus),
+                detailLink: nil,  // 资质证明图通过 NavigationLink 单开页, 不在卡片直接展开
+                accessibilityLabel: PrecheckAccessibilityText.companionCertAccessibilityLabel(summary.companionCertStatus),
+                accessibilityHint: PrecheckAccessibilityText.companionCertAccessibilityHint(summary.companionCertStatus)
             )
         }
     }
@@ -189,14 +191,60 @@ struct OrderPrecheckSummaryView: View {
         return "生成中"
     }
 
-    private func companionCertSummaryLine(_ card: CompanionCertStatusCard) -> String {
+}
+
+// MARK: - Accessibility text helpers
+
+/// Precheck card accessibility copy — kept as pure helpers so unit tests can
+/// lock VoiceOver / screen-reader semantics without snapshotting SwiftUI.
+enum PrecheckAccessibilityText {
+    static func cardStatusText(_ ready: Bool) -> String {
+        ready ? "已就绪" : "未就绪"
+    }
+
+    static func companionCertSummaryLine(_ card: CompanionCertStatusCard) -> String {
+        let status = "状态: \(cardStatusText(card.ready))"
+        let name = nonEmpty(card.companionCertPseudonymName).map { "姓名: \($0)" } ?? "姓名未提供"
+        let workId = nonEmpty(card.companionCertWorkId).map { "工号: \($0)" } ?? "工号未提供"
+        let qualifications = nonEmpty(card.companionCertQualifications?.joined(separator: "、"))
+            .map { "资质: \($0)" } ?? "资质未提供"
+        let verifiedAt = formatDate(card.companionCertVerifiedAt)
+            .map { "认证时间: \($0)" }
+            ?? (card.ready ? "认证时间未提供" : "认证时间待核验")
+
+        return [status, name, workId, qualifications, verifiedAt].joined(separator: "; ")
+    }
+
+    static func companionCertAccessibilityLabel(_ card: CompanionCertStatusCard) -> String {
+        "陪诊师资质: \(companionCertSummaryLine(card))"
+    }
+
+    static func companionCertAccessibilityHint(_ card: CompanionCertStatusCard) -> String {
         if card.ready {
-            let name = card.companionCertPseudonymName ?? "陪诊师"
-            let workId = card.companionCertWorkId.map { " (\($0))" } ?? ""
-            let quals = (card.companionCertQualifications ?? []).joined(separator: " · ")
-            return "\(name)\(workId)  \(quals)"
+            return "资质已通过核验, 可继续付款; 证件原图不会在用户端展示。"
         }
-        return "资质审核中"
+        return "资质尚未就绪, 请等待核验完成或重新选择陪诊师; 当前状态不只依赖颜色提示。"
+    }
+
+    static func cardDefaultAccessibilityHint(hasDetailLink: Bool) -> String {
+        hasDetailLink ? "包含可查看详情链接。" : "状态卡片, 不需要额外操作。"
+    }
+
+    private static func nonEmpty(_ text: String?) -> String? {
+        guard let text = text?.trimmingCharacters(in: .whitespacesAndNewlines), !text.isEmpty else {
+            return nil
+        }
+        return text
+    }
+
+    private static func formatDate(_ date: Date?) -> String? {
+        guard let date else { return nil }
+        let calendar = Calendar(identifier: .gregorian)
+        let components = calendar.dateComponents(in: TimeZone(secondsFromGMT: 0)!, from: date)
+        guard let year = components.year, let month = components.month, let day = components.day else {
+            return nil
+        }
+        return String(format: "%04d-%02d-%02d", year, month, day)
     }
 }
 
@@ -208,6 +256,24 @@ struct PrecheckCardView: View {
     let ready: Bool
     let summaryLine: String
     let detailLink: PrecheckDetailLink?
+    let accessibilityLabel: String?
+    let accessibilityHint: String?
+
+    init(
+        title: String,
+        ready: Bool,
+        summaryLine: String,
+        detailLink: PrecheckDetailLink?,
+        accessibilityLabel: String? = nil,
+        accessibilityHint: String? = nil
+    ) {
+        self.title = title
+        self.ready = ready
+        self.summaryLine = summaryLine
+        self.detailLink = detailLink
+        self.accessibilityLabel = accessibilityLabel
+        self.accessibilityHint = accessibilityHint
+    }
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -230,19 +296,34 @@ struct PrecheckCardView: View {
         .background(Color.gray.opacity(0.06))
         .clipShape(RoundedRectangle(cornerRadius: 8))
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(title): \(ready ? "已就绪" : "未就绪"), \(summaryLine)")
+        .accessibilityLabel(accessibilityLabel ?? "\(title): \(PrecheckAccessibilityText.cardStatusText(ready)), \(summaryLine)")
+        .accessibilityHint(
+            accessibilityHint ?? PrecheckAccessibilityText.cardDefaultAccessibilityHint(hasDetailLink: detailLink != nil)
+        )
     }
 
     @ViewBuilder
     private var statusIcon: some View {
         if ready {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-                .font(.title3)
+            VStack(spacing: 2) {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(.green)
+                    .font(.title3)
+                Text("已就绪")
+                    .font(.caption2)
+                    .foregroundStyle(.green)
+            }
+            .accessibilityHidden(true)
         } else {
-            Image(systemName: "clock.fill")
-                .foregroundStyle(.orange)
-                .font(.title3)
+            VStack(spacing: 2) {
+                Image(systemName: "clock.fill")
+                    .foregroundStyle(.orange)
+                    .font(.title3)
+                Text("未就绪")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+            }
+            .accessibilityHidden(true)
         }
     }
 

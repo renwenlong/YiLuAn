@@ -233,6 +233,75 @@ final class OrderPrecheckTests: XCTestCase {
         )
     }
 
+    // MARK: - A11y copy
+
+    func testCompanionCertA11yLabelIncludesSemanticStatusAndFields() {
+        // Arrange
+        let verifiedAt = Date(timeIntervalSince1970: 1_778_371_200) // 2026-05-10T00:00:00Z
+        let cert = CompanionCertStatusCard(
+            ready: true,
+            companionCertPseudonymName: "陈师傅",
+            companionCertWorkId: "PC0042",
+            companionCertQualifications: ["康复治疗师", "健康管理师"],
+            companionCertProofImageUrls: ["https://r2.example.com/signed/cert?ttl=900"],
+            companionCertVerifiedAt: verifiedAt
+        )
+
+        // Act
+        let label = PrecheckAccessibilityText.companionCertAccessibilityLabel(cert)
+        let hint = PrecheckAccessibilityText.companionCertAccessibilityHint(cert)
+
+        // Assert
+        XCTAssertTrue(label.contains("陪诊师资质"))
+        XCTAssertTrue(label.contains("状态: 已就绪"))
+        XCTAssertTrue(label.contains("姓名: 陈师傅"))
+        XCTAssertTrue(label.contains("工号: PC0042"))
+        XCTAssertTrue(label.contains("资质: 康复治疗师、健康管理师"))
+        XCTAssertTrue(label.contains("认证时间: 2026-05-10"))
+        XCTAssertTrue(hint.contains("证件原图不会在用户端展示"))
+    }
+
+    func testCompanionCertA11yPendingAndVerifiedStatesAreDistinctWithoutColor() {
+        // Arrange
+        let pending = CompanionCertStatusCard(
+            ready: false,
+            companionCertPseudonymName: "陈师傅",
+            companionCertWorkId: "PC0042",
+            companionCertQualifications: nil,
+            companionCertProofImageUrls: nil,
+            companionCertVerifiedAt: nil
+        )
+        let verified = CompanionCertStatusCard(
+            ready: true,
+            companionCertPseudonymName: "陈师傅",
+            companionCertWorkId: "PC0042",
+            companionCertQualifications: ["康复治疗师"],
+            companionCertProofImageUrls: nil,
+            companionCertVerifiedAt: nil
+        )
+
+        // Act
+        let pendingLine = PrecheckAccessibilityText.companionCertSummaryLine(pending)
+        let verifiedLine = PrecheckAccessibilityText.companionCertSummaryLine(verified)
+
+        // Assert
+        XCTAssertTrue(pendingLine.contains("状态: 未就绪"))
+        XCTAssertTrue(pendingLine.contains("认证时间待核验"))
+        XCTAssertTrue(verifiedLine.contains("状态: 已就绪"))
+        XCTAssertNotEqual(pendingLine, verifiedLine)
+    }
+
+    func testPrecheckCardDefaultA11yHintReflectsDetailLinkAction() {
+        // Act
+        let noLinkHint = PrecheckAccessibilityText.cardDefaultAccessibilityHint(hasDetailLink: false)
+        let withLinkHint = PrecheckAccessibilityText.cardDefaultAccessibilityHint(hasDetailLink: true)
+
+        // Assert
+        XCTAssertTrue(noLinkHint.contains("不需要额外操作"))
+        XCTAssertTrue(withLinkHint.contains("可查看详情链接"))
+        XCTAssertFalse(withLinkHint.contains("不需要额外操作"))
+    }
+
     // MARK: - Helpers
 
     private func makeSummary(
