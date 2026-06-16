@@ -8,4 +8,4 @@ exec docker run --rm \
   -w /work \
   --entrypoint /bin/promtool \
   prom/prometheus:v2.51.0 \
-  check rules infra/prometheus/rules/precheck_abac.yml
+  check rules deploy/prometheus/alerts.yml
