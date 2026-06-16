@@ -376,7 +376,7 @@ async def get_precheck_status(
 | 字段同步 | 三端各自从 OpenAPI schema 对齐字段名 / 类型（WX TypeScript 手写或 openapi-typescript 生成，iOS Swift 手写或 OpenAPI Generator Swift 生成，admin-v2 TypeScript 同 WX） |
 | 字段漂移 CI | backend `OpenAPI drift` CI 闸（已有，PR #255 / PR #237 复用）— `docs/api/openapi.json` 修改必须 commit 一致，否则 CI FAIL |
 | ABAC 17 字段 negative list | backend `test_view_schema_excludes_15_named_negative_list_fields` schema-level test（PR #253 c2 已实，每 PR 跑）+ E2E layer（PR #262 `test_e2e_openapi_schema_excludes_negative_list_fields`）双管 |
-| ABAC counter | backend `precheck_abac_filtered_total` Prometheus counter（不强求三端各自上报，client-side ABAC 不是设计 trust boundary） |
+| ABAC counter | backend `precheck_abac_filtered_total` Prometheus counter（不强求三端各自上报，client-side ABAC 不是设计 trust boundary）；灰度告警规则见 `infra/prometheus/rules/precheck_abac.yml` |
 | 文案一致性 | 文案由 `admin-v2 S3-DEV-003-ADMIN-COPY` 维护，backend `blocked_reason` 等字段下发；三端**直读 backend 字符串**，不做 client-side 文案 lint |
 
 ---
