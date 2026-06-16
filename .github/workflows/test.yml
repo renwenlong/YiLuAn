@@ -180,6 +180,10 @@ jobs:
         if: ${{ needs.changes.outputs.wechat == 'true' }}
         run: cd wechat && npm test
 
+      - name: Run cert-card a11y contract gate
+        if: ${{ needs.changes.outputs.wechat == 'true' }}
+        run: cd wechat && npm run test:a11y:cert
+
       - name: Bundle size report
         if: ${{ needs.changes.outputs.wechat == 'true' }}
         run: cd wechat && npm run bundle-size:ci

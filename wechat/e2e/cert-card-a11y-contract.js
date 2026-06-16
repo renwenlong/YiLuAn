@@ -41,6 +41,24 @@ function failIfMatch(text, regex, label) {
   assert(!regex.test(text), `${label} forbidden pattern matched: ${regex}`)
 }
 
+function expectThrows(fn, label) {
+  let thrown = false
+  try {
+    fn()
+  } catch (_) {
+    thrown = true
+  }
+  assert(thrown, `${label} should fail but passed`)
+}
+
+function assertNoProofImageActiveReference(activeText, label) {
+  failIfMatch(
+    activeText,
+    /\b(?:companion_cert_)?proof_image_urls\b/u,
+    label
+  )
+}
+
 const wxml = read(wxmlPath)
 const js = read(jsPath)
 const swift = read(swiftPath)
@@ -88,9 +106,27 @@ for (const visibleState of ['已认证', '临时证明补交中', '未认证']) 
 mustContain(js, '证件原图不会在用户端展示', 'wechat proof image non-display hint')
 
 // 微信：不得把 proof image URL 渲染进模板或 computed label。
-failIfMatch(wxmlNoComments, /companion_cert_proof_image_urls/u, 'wechat WXML proof image url render')
-const jsActive = jsNoComments.replace(/companion_cert_proof_image_urls/g, '')
-failIfMatch(jsActive, /proof_image_urls/u, 'wechat active proof image url reference')
+// Important: do not sanitize the forbidden field before matching. A previous
+// version removed `companion_cert_proof_image_urls` first, which let an active
+// helper leak pass undetected. The mutation self-tests below lock fail-closed
+// behavior for both exact and suffix forms.
+assertNoProofImageActiveReference(wxmlNoComments, 'wechat WXML proof image url render')
+assertNoProofImageActiveReference(jsNoComments, 'wechat active proof image url reference')
+
+expectThrows(
+  () => assertNoProofImageActiveReference(
+    'function leak(cs) { var leakedProof = cs && cs.companion_cert_proof_image_urls }',
+    'mutation exact proof image field'
+  ),
+  'mutation self-test: active companion_cert_proof_image_urls reference'
+)
+expectThrows(
+  () => assertNoProofImageActiveReference(
+    'function leak(cs) { var leakedProof = cs && cs.proof_image_urls }',
+    'mutation suffix proof image field'
+  ),
+  'mutation self-test: active proof_image_urls reference'
+)
 
 // iOS：VoiceOver label/hint must combine card and include cert fields / non-color state.
 mustContain(swift, 'PrecheckAccessibilityText.companionCertAccessibilityLabel', 'iOS cert accessibility label hook')

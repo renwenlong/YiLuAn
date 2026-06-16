@@ -4,6 +4,7 @@
   "description": "医路安微信小程序",
   "scripts": {
     "test": "jest --verbose",
+    "test:a11y:cert": "node e2e/cert-card-a11y-contract.js",
     "test:coverage": "jest --coverage",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "bundle-size": "node scripts/bundle-size.js",
