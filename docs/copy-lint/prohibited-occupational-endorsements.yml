@@ -45,6 +45,16 @@ prohibited_occupational_endorsements:
     reason: "暗示平台对执业资格背书；用「资质」中性词替代"
     severity: block
     suggest: "资质"
+    # 中性流程词豁免：以下短语含「资格」但属中性业务/流程语义，不触发 PO-003。
+    # 仅豁免短语自身出现位置；「护士资格 / 医生资格」不在清单 → 仍 block（AC#3）。
+    context_exempt:
+      - "资格证"
+      - "资格审核"
+      - "资格审查"
+      - "考试资格"
+      - "报名资格"
+      - "参赛资格"
+      - "资格预审"
 
   - id: PO-004
     pattern: "执业"
