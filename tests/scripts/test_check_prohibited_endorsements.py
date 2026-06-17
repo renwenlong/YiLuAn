@@ -333,6 +333,58 @@ class TestPathFormatting:
         assert lint_module._relative_or_absolute(outside, tmp_path) == str(outside)
 
 
+class TestPO009PO010Regression:
+    """S3-DEV-003-COPY-LINT-P3-PO-009-WORD-BOUNDARY 回归锁定 (方案 a).
+
+    PO-009/010 在 merged yml 是全短语 '在职医生'/'在职护士' (word-anchored),
+    本来就不误杀 '在职状态'/'不在职' 等正常词。本类锁住当前安全行为,
+    防未来被改回裸 '在职' 而造成误杀回归。
+    """
+
+    @pytest.fixture(scope="class")
+    def real_yml_loaded(self, lint_module):
+        yml = REPO_ROOT / "docs" / "copy-lint" / "prohibited-occupational-endorsements.yml"
+        return lint_module.load_yml(yml)
+
+    def _ids_for(self, lint_module, loaded, text):
+        import tempfile
+
+        patterns, allow, spec = loaded
+        d = Path(tempfile.mkdtemp())
+        f = d / "a.md"
+        f.write_text(text, encoding="utf-8")
+        return sorted({h.pattern.id for h in lint_module.scan_file(f, patterns, allow, spec.case_sensitive)})
+
+    def test_po009_010_are_full_phrase_patterns(self, lint_module, real_yml_loaded):
+        """AC#3: pattern 本体仍是全短语 (不是裸 '在职'), 防放宽回退."""
+        patterns, _, _ = real_yml_loaded
+        by_id = {p.id: p.pattern for p in patterns}
+        assert by_id.get("PO-009") == "在职医生"
+        assert by_id.get("PO-010") == "在职护士"
+
+    @pytest.mark.parametrize(
+        "neutral", ["在职状态", "在职期间", "不在职", "在职员工", "在职证明"]
+    )
+    def test_po009_010_no_false_positive(self, lint_module, real_yml_loaded, neutral):
+        """AC#1: 正常用词 0 命中 PO-009/PO-010."""
+        ids = self._ids_for(lint_module, real_yml_loaded, neutral)
+        assert "PO-009" not in ids and "PO-010" not in ids, f"{neutral!r} should not hit PO-009/010, got {ids}"
+
+    @pytest.mark.parametrize(
+        "text,expected",
+        [
+            ("在职医生", "PO-009"),
+            ("三甲在职医生", "PO-009"),
+            ("在职护士", "PO-010"),
+            ("聘请在职护士", "PO-010"),
+        ],
+    )
+    def test_po009_010_original_intent_still_blocks(self, lint_module, real_yml_loaded, text, expected):
+        """AC#2: 原意职业身份背书仍命中对应 pattern."""
+        ids = self._ids_for(lint_module, real_yml_loaded, text)
+        assert expected in ids, f"{text!r} should hit {expected}, got {ids}"
+
+
 class TestRunLint:
     def test_block_hit_exit_1(self, lint_module, tmp_path, capsys):
         yml = _write_yml(tmp_path)
