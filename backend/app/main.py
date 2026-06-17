@@ -42,7 +42,8 @@ async def lifespan(app: FastAPI):
     # 收编以下原散点 (AC#5):
     #   - app/services/ai_prep_filter.py:assert_blocklist_loaded_or_raise (全量迁)
     #   - app/services/canary_whitelist.py (新增, 反案 #11 复发 PR #304 黑)
-    #   - app/services/sms.py:68/172 (legacy inline env check 迁 sms_provider probe)
+    #   - app/services/sms.py:68/172 (legacy inline env check 迁 sms_provider probe;
+    #     legacy 模块已于 PR #333 删除)
     #   - app/config.py:jwt_secret_key (额外发现 — 安全 hardening)
     # 注意: 不能用 `import app.probes` — 那会把 local 名 `app` 重绑定到 Python
     # package object, 后续 `app.state.redis = ...` (line 58) 即 AttributeError
