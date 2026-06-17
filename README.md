@@ -1150,6 +1150,21 @@ pre-commit install
 
 过程会 fail 时 指示 `cd backend && python scripts/dump_openapi.py && python scripts/build_api_md.py` + `git add docs/api/` + `git commit --amend --no-edit`. CI `.github/workflows/api-docs-check.yml` 兑底检查同逻辑.
 
+### worktree git identity 隔离 (多 agent)
+
+多个 agent 各开一个 worktree (`~/repo/YiLuAn-<agent>`) 共享同一 base `.git/config`,
+`user.name/email` 是共享字段 — 必须 per-worktree 隔离, 否则 commit author 会被别的
+agent 污染 (反案 #16, 实测 PR #310 commit author=刻晴 非本人)。每个 worktree 启动 /
+首次 commit 前跑:
+
+```bash
+cd ~/repo/YiLuAn-<agent>
+bash scripts/setup-agent-worktree.sh        # 自动从目录名推断 agent 并配 worktree-scoped identity
+make verify-worktree-identity               # 自检 (无 make 时: bash scripts/setup-agent-worktree.sh --verify)
+```
+
+原理、agent→身份映射表、config 优先级详见 `docs/agent-worktree-setup.md`。
+
 ### 微信小程序开发
 
 ```bash
