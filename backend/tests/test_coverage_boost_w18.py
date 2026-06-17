@@ -28,17 +28,15 @@ from app.exceptions import (
     BadRequestException,
     ForbiddenException,
     NotFoundException,
-    UnauthorizedException,
 )
-from app.utils.outbound import NonRetryableError, RetryableError
 from app.models.hospital import Hospital
 from app.models.notification import NotificationType
 from app.models.order import Order, OrderStatus, ServiceType
 from app.models.payment import Payment
 from app.models.user import User, UserRole
+from app.utils.outbound import NonRetryableError, RetryableError
 
 from .conftest import test_session_factory
-
 
 pytestmark = pytest.mark.asyncio
 
@@ -152,7 +150,8 @@ class TestPaymentCallbackAutoRefundBranches:
             return order_no
 
     async def test_auto_refund_bad_request_logged(self, client):
-        """Late callback on expired order: create_refund raises BadRequest -> error logged, callback OK."""
+        """Late callback on expired order: create_refund raises BadRequest ->
+        error logged, callback OK."""
         from app.services.payment_service import PaymentService
 
         order_no = await self._seed_paid_expired_order("TXNAR1")
@@ -330,6 +329,7 @@ class TestDependenciesAuth:
     async def test_token_malformed_subject(self, client):
         """Token with non-UUID 'sub' -> 'malformed subject'."""
         import jwt
+
         from app.config import settings
 
         payload = {
@@ -371,8 +371,9 @@ class TestWechatProviderCredentialedPaths:
 
     async def test_create_order_http_path_success(self, monkeypatch, tmp_path):
         """Credentialed create_order -> httpx POST mocked 200 -> sign_params returned."""
-        from app.services.providers.payment.base import OrderDTO
         import httpx
+
+        from app.services.providers.payment.base import OrderDTO
 
         prov = self._make_with_creds(monkeypatch, tmp_path)
 
@@ -405,8 +406,9 @@ class TestWechatProviderCredentialedPaths:
 
     async def test_create_order_http_path_failure(self, monkeypatch, tmp_path):
         """Credentialed create_order -> httpx 400 -> NonRetryableError."""
-        from app.services.providers.payment.base import OrderDTO
         import httpx
+
+        from app.services.providers.payment.base import OrderDTO
 
         prov = self._make_with_creds(monkeypatch, tmp_path)
 
@@ -438,8 +440,9 @@ class TestWechatProviderCredentialedPaths:
                 )
 
     async def test_refund_http_path_success(self, monkeypatch, tmp_path):
-        from app.services.providers.payment.base import RefundDTO
         import httpx
+
+        from app.services.providers.payment.base import RefundDTO
 
         prov = self._make_with_creds(monkeypatch, tmp_path)
 
@@ -473,8 +476,9 @@ class TestWechatProviderCredentialedPaths:
         assert res["status"] == "success"
 
     async def test_refund_http_path_failure(self, monkeypatch, tmp_path):
-        from app.services.providers.payment.base import RefundDTO
         import httpx
+
+        from app.services.providers.payment.base import RefundDTO
 
         prov = self._make_with_creds(monkeypatch, tmp_path)
 
@@ -507,11 +511,11 @@ class TestWechatProviderCredentialedPaths:
 
     async def test_load_platform_cert_load_failure(self, monkeypatch, tmp_path):
         """Bad cert file -> BadRequestException 'load failed' branch."""
-        from app.services.providers.payment.wechat import (
-            _platform_cert_cache,
-            WechatPaymentProvider,
-        )
         from app.config import settings as s
+        from app.services.providers.payment.wechat import (
+            WechatPaymentProvider,
+            _platform_cert_cache,
+        )
 
         bad = tmp_path / "bad.pem"
         bad.write_bytes(b"this is not a real pem certificate")
@@ -528,8 +532,8 @@ class TestWechatProviderCredentialedPaths:
         self, monkeypatch, tmp_path
     ):
         """Invalid PEM file -> _rsa_sign returns 'sign_error'."""
-        from app.services.providers.payment.wechat import WechatPaymentProvider
         from app.config import settings as s
+        from app.services.providers.payment.wechat import WechatPaymentProvider
 
         bad = tmp_path / "bad-key.pem"
         bad.write_bytes(b"not-a-key")
@@ -546,6 +550,7 @@ class TestDatabaseGetDb:
     async def test_get_db_yields_session(self, monkeypatch):
         """get_db() yields a session and closes cleanly."""
         import app.database as db_mod
+
         from .conftest import test_session_factory
 
         monkeypatch.setattr(db_mod, "async_session", test_session_factory)
@@ -561,6 +566,7 @@ class TestDatabaseGetDb:
     async def test_get_db_rollback_on_exception(self, monkeypatch):
         """Exception inside the with-block -> rollback path."""
         import app.database as db_mod
+
         from .conftest import test_session_factory
 
         monkeypatch.setattr(db_mod, "async_session", test_session_factory)
@@ -639,9 +645,9 @@ class TestLogRetentionSkipOnLock:
 # ============================================================================
 class TestConfigProductionValidator:
     def _build(self, **overrides):
-        from app.config import Settings
-
         import base64
+
+        from app.config import Settings
         base = dict(
             environment="production",
             debug=False,
@@ -696,8 +702,7 @@ class TestConfigProductionValidator:
 
     async def test_sms_provider_mock_in_production_rejected(self):
         """2026-05-13: production must NEVER select the mock SMS provider —
-        users wouldn't receive OTPs and the legacy ``app.services.sms`` mock
-        used to print PII to stdout.
+        users wouldn't receive OTPs, and a mock provider must never run in prod.
         """
         with pytest.raises(ValueError, match="mock"):
             self._build(sms_provider="mock")

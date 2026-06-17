@@ -128,9 +128,10 @@ def probe_canary_whitelist_yml() -> None:
 
 
 # ============================================================================
-# AC#5 #3: SMS provider (替代 services/sms.py:68/172 legacy inline env check;
-#          实际 prod 路径走 providers/sms/factory.py, 本 probe 在 startup
-#          一次性验证 configured provider 可实例化)
+# AC#5 #3: SMS provider (替代 legacy 的 per-send inline env check;
+#          legacy services/sms.py 已于 PR #333 删除。实际 prod 路径走
+#          providers/sms/factory.py, 本 probe 在 startup 一次性验证
+#          configured provider 可实例化)
 # ============================================================================
 
 
@@ -141,8 +142,8 @@ def probe_canary_whitelist_yml() -> None:
 def probe_sms_provider_configured() -> None:
     """Verify ``settings.sms_provider`` is configured + provider class instantiable.
 
-    替代 ``backend/app/services/sms.py:68/172`` (legacy module 中 per-send
-    runtime env check). 该 legacy 模块仅 tests 还在 import, 生产路径走
+    替代早期 legacy module 中的 per-send runtime env check (该 module
+    已于 PR #333 删除)。生产路径走
     ``backend/app/services/providers/sms/factory.py::get_sms_provider()``.
 
     在 production env 下本 probe 校验:
@@ -154,7 +155,7 @@ def probe_sms_provider_configured() -> None:
     Fail-loud → app 拒启 → 不会发生 \"prod 开起来但 OTP 永远不到\" 哑火.
 
     Refs:
-      - 旧散点 ``settings.environment == 'production'`` (services/sms.py:68/172)
+      - 旧散点 ``settings.environment == 'production'`` (legacy module, 已于 PR #333 删除)
       - factory: services/providers/sms/factory.py
     """
     from app.config import settings
