@@ -319,6 +319,20 @@ class TestScanFile:
 # ----------------------------------------------------------------------------
 
 
+class TestPathFormatting:
+    def test_relative_or_absolute_under_root(self, lint_module, tmp_path):
+        path = tmp_path / "src" / "a.md"
+        path.parent.mkdir(parents=True)
+        path.write_text("", encoding="utf-8")
+
+        assert lint_module._relative_or_absolute(path, tmp_path) == "src/a.md"
+
+    def test_relative_or_absolute_outside_root(self, lint_module, tmp_path):
+        outside = tmp_path.parent / "outside.md"
+
+        assert lint_module._relative_or_absolute(outside, tmp_path) == str(outside)
+
+
 class TestRunLint:
     def test_block_hit_exit_1(self, lint_module, tmp_path, capsys):
         yml = _write_yml(tmp_path)

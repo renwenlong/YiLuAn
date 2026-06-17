@@ -240,8 +240,16 @@ def scan_file(
 # ---------- 主流程 ----------
 
 
+def _relative_or_absolute(path: Path, root: Path) -> str:
+    """Return ``path`` relative to ``root`` when possible, without Py3.9-only APIs."""
+    try:
+        return path.relative_to(root).as_posix()
+    except ValueError:
+        return str(path)
+
+
 def _format_hit(hit: Hit, root: Path) -> str:
-    rel = hit.file.relative_to(root).as_posix()
+    rel = _relative_or_absolute(hit.file, root)
     txt = hit.line_text[:160] + ("..." if len(hit.line_text) > 160 else "")
     return (
         f"  [{hit.pattern.severity.upper()}] {hit.pattern.id} '{hit.pattern.pattern}'"
@@ -257,7 +265,7 @@ def run_lint(yml_path: Path, root: Path) -> int:
     files = enumerate_files(root, spec)
 
     print(
-        f"[lint:info] yml={yml_path.relative_to(root) if yml_path.is_relative_to(root) else yml_path}"
+        f"[lint:info] yml={_relative_or_absolute(yml_path, root)}"
         f" 禁词={len(patterns)} 豁免短语={len(allow)} 扫描文件={len(files)}"
     )
 
