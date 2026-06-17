@@ -67,12 +67,12 @@ team:
     added_by: "hutao"
 # 帝君指派同事位 (5-10 人), PM 收齐后填
 colleagues:
-  - phone: "__PENDING_COLLEAGUE_01__"
-    note: "帝君指派 #1, 等清单"
-  - phone: "__PENDING_COLLEAGUE_02__"
-    note: "帝君指派 #2, 等清单"
-  - phone: "__PENDING_COLLEAGUE_03__"
-    note: "帝君指派 #3, 等清单"
+  - phone: "13800000001"
+    note: "帝君指派 #1 (2026-06-17 13:01Z 下发, 魈转单); hutao 填号 S2-OPS-A-CANARY-WHITELIST-LAUNCH"
+  - phone: "13800000002"
+    note: "帝君指派 #2 (2026-06-17 13:01Z 下发, 魈转单); hutao 填号"
+  - phone: "13800000003"
+    note: "帝君指派 #3 (2026-06-17 13:01Z 下发, 魈转单); hutao 填号"
   - phone: "__PENDING_COLLEAGUE_04__"
     note: "帝君指派 #4, 等清单"
   - phone: "__PENDING_COLLEAGUE_05__"
