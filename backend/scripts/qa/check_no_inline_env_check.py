@@ -22,6 +22,14 @@ scope:
     - 排除 ``backend/tests/``, ``backend/alembic/``, ``backend/scripts/``
     - 排除 allowlist (见上面)
 
+检测方式 (S3-OPS-LINT-INLINE-ENV-CHECK-AST-UPGRADE):
+    用 ``ast`` 解析源码, 只对真实的比较表达式 (``ast.Compare`` 节点:
+    ``==`` / ``!=`` / ``in``) 跑禁止 pattern. 这样 **天然排除** docstring /
+    注释 / 字符串字面量内 cite 的 example pattern (它们是 ``ast.Constant`` /
+    根本不进 AST, 不是 ``Compare`` 节点), 根治旧 line-based regex +
+    ``startswith('#')`` heuristic 对 docstring 内 cite 会误报的长期风险.
+    解析失败 (语法错误文件) 时保守回退到 line-based 扫描.
+
 usage:
     python backend/scripts/qa/check_no_inline_env_check.py
 exit 0 = OK, exit 1 = 命中禁止 pattern (附位置 + 重构建议).
@@ -31,10 +39,12 @@ Refs:
     - PR #306 (S3-OPS-STARTUP-PROBE-FRAMEWORK PR1): @register_startup_probe 落
     - PR #258 review comment 4676805533 (ask 3): hutao raised
     - AC#8 (S3-OPS-STARTUP-PROBE-FRAMEWORK): 本 lint
+    - S3-OPS-LINT-INLINE-ENV-CHECK-AST-UPGRADE: line-heuristic → AST 升级
 """
 
 from __future__ import annotations
 
+import ast
 import re
 import sys
 from pathlib import Path
@@ -92,26 +102,95 @@ def _is_dev_only_line(line: str) -> bool:
     return bool(PATTERN_DEV_ONLY.search(line))
 
 
-def _scan_file(path: Path) -> list[tuple[int, str]]:
-    """Return list of (lineno, offending_line) for prod env checks in file."""
-    hits: list[tuple[int, str]] = []
-    try:
-        text = path.read_text(encoding="utf-8")
-    except (UnicodeDecodeError, OSError):
-        return hits
+def _line_matches(line: str) -> bool:
+    """Return True if a single source line hits any prohibited pattern."""
+    return bool(PATTERN_IN_SET.search(line) or PATTERN_EQ_PROD.search(line))
 
+
+def _scan_source_segment(segment: str) -> bool:
+    """Return True if an AST source segment hits any prohibited pattern.
+
+    Segment 可能跨多行 (e.g. 跨行的 ``in {...}``), 任一物理行命中即算命中.
+    """
+    if _line_matches(segment):
+        return True
+    # 跨行比较表达式: 逐行再查一遍 (regex 不跨 newline 匹配 set 字面量时兜底)
+    return any(_line_matches(part) for part in segment.splitlines())
+
+
+def _scan_via_ast(text: str) -> list[tuple[int, str]]:
+    """AST-based scan: 只对真实比较表达式跑禁止 pattern.
+
+    天然排除 docstring / 注释 / 字符串字面量内 cite 的 example pattern —
+    它们不是 ``ast.Compare`` 节点. 返回 (lineno, offending_segment) 列表.
+    解析失败时抛 SyntaxError, 由调用方回退到 line-based 扫描.
+    """
+    tree = ast.parse(text)
+    hits: list[tuple[int, str]] = []
+    seen: set[tuple[int, int]] = set()
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Compare):
+            continue
+        segment = ast.get_source_segment(text, node)
+        if segment is None:
+            # 拿不到源码片段 (极少数情况) — 用该行原文兜底
+            lineno = getattr(node, "lineno", 0)
+            line = text.splitlines()[lineno - 1] if 0 < lineno <= len(text.splitlines()) else ""
+            segment = line
+        if not _scan_source_segment(segment):
+            continue
+        lineno = getattr(node, "lineno", 0)
+        col = getattr(node, "col_offset", 0)
+        key = (lineno, col)
+        if key in seen:
+            continue
+        seen.add(key)
+        # 报告该比较所在行的整行原文 (便于人工定位), 退化时报 segment 首行
+        all_lines = text.splitlines()
+        offending = (
+            all_lines[lineno - 1].rstrip()
+            if 0 < lineno <= len(all_lines)
+            else segment.splitlines()[0].rstrip()
+        )
+        hits.append((lineno, offending))
+
+    hits.sort(key=lambda h: h[0])
+    return hits
+
+
+def _scan_via_lines(text: str) -> list[tuple[int, str]]:
+    """Fallback line-based scan (语法错误文件无法 AST 解析时用).
+
+    保留旧 ``startswith('#')`` 整行注释 heuristic — 仅作为 AST 不可用时的
+    保守兜底, 不再是主路径.
+    """
+    hits: list[tuple[int, str]] = []
     for lineno, raw_line in enumerate(text.splitlines(), start=1):
-        # 跳过注释 / docstring 文本 (粗略 heuristic; 不解析 AST 因为 docstring 内
-        # cite 反案 example pattern 是合法的)
         stripped = raw_line.strip()
         if stripped.startswith("#"):
             continue
-
-        # 命中任一禁止 pattern → 记录
-        if PATTERN_IN_SET.search(raw_line) or PATTERN_EQ_PROD.search(raw_line):
+        if _line_matches(raw_line):
             hits.append((lineno, raw_line.rstrip()))
-
     return hits
+
+
+def _scan_file(path: Path) -> list[tuple[int, str]]:
+    """Return list of (lineno, offending_line) for prod env checks in file.
+
+    优先 AST 扫描 (排除 docstring/comment/string literal 内 cite);
+    文件无法解析时回退 line-based 扫描.
+    """
+    try:
+        text = path.read_text(encoding="utf-8")
+    except (UnicodeDecodeError, OSError):
+        return []
+
+    try:
+        return _scan_via_ast(text)
+    except SyntaxError:
+        # 语法错误文件 — AST 不可用, 保守回退 line-based.
+        return _scan_via_lines(text)
 
 
 def main() -> int:

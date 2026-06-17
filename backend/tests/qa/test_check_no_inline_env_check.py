@@ -241,3 +241,151 @@ class TestLintCommentsLinesIgnored:
             f"不应 catch. exit={result.returncode}, stderr: {result.stderr!r}. "
             f"sentinel: {_SECRET_LINT_TEST}"
         )
+
+
+class TestLintAstExcludesNonCode:
+    """S3-OPS-LINT-INLINE-ENV-CHECK-AST-UPGRADE: AST 排除 docstring /
+    string literal / 行尾注释 内 cite pattern (旧 line-heuristic 会误报).
+    """
+
+    @pytest.fixture
+    def temp_docstring_cite_file(self):
+        """Pattern 仅出现在 docstring (三引号字符串) 内 — 不应 flag.
+
+        这是旧 ``startswith('#')`` heuristic **会误报** 的核心场景:
+        docstring 不以 ``#`` 开头, 旧逻辑跳不过, AST 能正确排除.
+        """
+        fake_file = BACKEND_APP / "_test_ast_docstring_cite.py"
+        content = (
+            '"""Demo module docstring.\n'
+            "\n"
+            "反案 #25 example (在 docstring 里 cite, 非真 code):\n"
+            '    if settings.environment == "production":\n'
+            "        do_prod_thing()\n"
+            '    if settings.environment in {"production", "canary"}:\n'
+            "        pass\n"
+            '"""\n'
+            "\n"
+            "def real_code():\n"
+            "    return True\n"
+            "\n"
+            "# sentinel: SECRET_LINT_NO_INLINE_ENV_CHECK_TEST_42_DO_NOT_LEAK\n"
+        )
+        fake_file.write_text(content, encoding="utf-8")
+        yield fake_file
+        if fake_file.exists():
+            fake_file.unlink()
+
+    def test_pattern_in_docstring_not_flagged(self, temp_docstring_cite_file):
+        """Docstring 内 cite pattern 不被 flag (AST 排除, 旧 heuristic 会误报)."""
+        result = _run_lint()
+        assert result.returncode == 0, (
+            f"lint 误报 docstring 内 cite pattern — AST 应排除 docstring. "
+            f"exit={result.returncode}, stderr: {result.stderr!r}. "
+            f"sentinel: {_SECRET_LINT_TEST}"
+        )
+        assert (
+            "_test_ast_docstring_cite.py" not in result.stderr
+        ), f"docstring cite 被误报. stderr: {result.stderr!r}"
+
+    @pytest.fixture
+    def temp_string_literal_file(self):
+        """Pattern 仅出现在普通字符串字面量 (不是比较表达式) — 不应 flag."""
+        fake_file = BACKEND_APP / "_test_ast_string_literal.py"
+        content = (
+            '"""String literal cite test."""\n'
+            "\n"
+            "def hint():\n"
+            "    msg = \"不要写 if settings.environment == 'production' 这种散点\"\n"
+            "    return msg\n"
+            "\n"
+            "# sentinel: SECRET_LINT_NO_INLINE_ENV_CHECK_TEST_42_DO_NOT_LEAK\n"
+        )
+        fake_file.write_text(content, encoding="utf-8")
+        yield fake_file
+        if fake_file.exists():
+            fake_file.unlink()
+
+    def test_pattern_in_string_literal_not_flagged(self, temp_string_literal_file):
+        """普通字符串字面量内 cite pattern 不被 flag (是 Constant 不是 Compare)."""
+        result = _run_lint()
+        assert result.returncode == 0, (
+            f"lint 误报 string literal 内 cite pattern. "
+            f"exit={result.returncode}, stderr: {result.stderr!r}. "
+            f"sentinel: {_SECRET_LINT_TEST}"
+        )
+        assert (
+            "_test_ast_string_literal.py" not in result.stderr
+        ), f"string literal cite 被误报. stderr: {result.stderr!r}"
+
+    @pytest.fixture
+    def temp_inline_comment_file(self):
+        """Pattern 出现在行尾注释 (不是整行注释) — 不应 flag.
+
+        旧 ``startswith('#')`` 只跳整行注释, 行尾注释跳不过;
+        AST 只看 Compare 节点, 行尾注释内文本不进 AST.
+        """
+        fake_file = BACKEND_APP / "_test_ast_inline_comment.py"
+        content = (
+            '"""Inline comment cite test."""\n'
+            "\n"
+            "def real():\n"
+            '    x = 1  # 反案 example: if settings.environment == "production": ...\n'
+            "    return x\n"
+            "\n"
+            "# sentinel: SECRET_LINT_NO_INLINE_ENV_CHECK_TEST_42_DO_NOT_LEAK\n"
+        )
+        fake_file.write_text(content, encoding="utf-8")
+        yield fake_file
+        if fake_file.exists():
+            fake_file.unlink()
+
+    def test_pattern_in_inline_comment_not_flagged(self, temp_inline_comment_file):
+        """行尾注释内 cite pattern 不被 flag (旧 heuristic 只跳整行注释)."""
+        result = _run_lint()
+        assert result.returncode == 0, (
+            f"lint 误报行尾注释内 cite pattern. "
+            f"exit={result.returncode}, stderr: {result.stderr!r}. "
+            f"sentinel: {_SECRET_LINT_TEST}"
+        )
+        assert (
+            "_test_ast_inline_comment.py" not in result.stderr
+        ), f"行尾注释 cite 被误报. stderr: {result.stderr!r}"
+
+    def test_ast_still_catches_real_code_after_docstring(self):
+        """同一文件 docstring 内 cite (放过) + 真 code 内违例 (报) 共存时,
+        AST 只 catch 真 code 那一处 — 证明不是粗暴整文件跳过.
+        """
+        fake_file = BACKEND_APP / "_test_ast_mixed.py"
+        content = (
+            '"""Mixed file.\n'
+            "\n"
+            '    docstring cite: if settings.environment == "production": ...\n'
+            '"""\n'
+            "from app.config import settings\n"
+            "\n"
+            "def is_prod():\n"
+            '    if settings.environment == "production":\n'
+            "        return True\n"
+            "    return False\n"
+            "\n"
+            "# sentinel: SECRET_LINT_NO_INLINE_ENV_CHECK_TEST_42_DO_NOT_LEAK\n"
+        )
+        fake_file.write_text(content, encoding="utf-8")
+        try:
+            result = _run_lint()
+            assert result.returncode == 1, (
+                f"真 code 内违例未被 catch. exit={result.returncode}, "
+                f"stderr: {result.stderr!r}. sentinel: {_SECRET_LINT_TEST}"
+            )
+            assert "_test_ast_mixed.py" in result.stderr
+            # 只报真 code 那行 (L8), 不报 docstring 那行 (L3)
+            assert "L8:" in result.stderr, (
+                f"未报真 code 行 L8. stderr: {result.stderr!r}"
+            )
+            assert "L3:" not in result.stderr, (
+                f"误报了 docstring 行 L3. stderr: {result.stderr!r}"
+            )
+        finally:
+            if fake_file.exists():
+                fake_file.unlink()
