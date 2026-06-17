@@ -85,11 +85,39 @@ Page({
           }
         }, 1500)
       })
-      .catch(function () {
-        wx.showToast({ title: '绑定失败', icon: 'none' })
+      .catch(function (err) {
+        wx.showToast({ title: _bindErrorMessage(err), icon: 'none', duration: 2500 })
       })
       .finally(function () {
         self.setData({ binding: false })
       })
   }
 })
+
+// 将后端 400/409 的真实原因透出为中文提示，不再笼统“绑定失败”。
+// 后端 detail 可能是纯 string（无 error_code）或 { message } 对象。
+function _bindErrorMessage(err) {
+  var detail = err && err.data && err.data.detail
+  var raw = ''
+  if (typeof detail === 'string') {
+    raw = detail
+  } else if (detail && typeof detail === 'object') {
+    raw = detail.message || ''
+  }
+  var map = {
+    'OTP code expired or not found': '验证码已过期或未发送，请重新获取',
+    'Invalid OTP code': '验证码错误，请检查后重试',
+    'User already has a phone number bound': '该账号已绑定手机号',
+    'Phone number already registered to another account': '该手机号已被其他账号注册'
+  }
+  if (raw && map[raw]) {
+    return map[raw]
+  }
+  // 未命中映射：有后端文案就显示后端文案，否则兑底。
+  return raw || '绑定失败，请稍后重试'
+}
+
+// 仅供单测 require（小程序运行时 module 存在，不影响 Page 注册）。
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { _bindErrorMessage: _bindErrorMessage }
+}
