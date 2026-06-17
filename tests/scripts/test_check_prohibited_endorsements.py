@@ -385,6 +385,85 @@ class TestPO009PO010Regression:
         assert expected in ids, f"{text!r} should hit {expected}, got {ids}"
 
 
+class TestContextExempt:
+    """PO-003 短词误杀防御: context_exempt 只豁免中性短语出现, 不豁免职业资格."""
+
+    def _yml_with_context_exempt(self, tmp_path):
+        yml = tmp_path / "ctx.yml"
+        yml.write_text(
+            dedent(
+                """\
+                version: 0
+                prohibited_occupational_endorsements:
+                  - id: PO-003
+                    pattern: "资格"
+                    reason: "职业资格背书"
+                    severity: block
+                    context_exempt:
+                      - "资格证"
+                      - "资格审核"
+                      - "考试资格"
+                lint_spec:
+                  scan_paths:
+                    - "src/**/*.md"
+                  scan_exclude: []
+                  match_rule:
+                    case_sensitive: false
+                  output:
+                    fail_on: [block]
+                    warn_on: [warn]
+                """
+            ),
+            encoding="utf-8",
+        )
+        return yml
+
+    def test_load_context_exempt(self, lint_module, tmp_path):
+        patterns, _, _ = lint_module.load_yml(self._yml_with_context_exempt(tmp_path))
+        po003 = next(p for p in patterns if p.id == "PO-003")
+        assert po003.context_exempt == ("资格证", "资格审核", "考试资格")
+
+    @pytest.mark.parametrize("neutral", ["资格证", "资格审核", "考试资格", "报名考试资格中"])
+    def test_neutral_phrase_not_blocked(self, lint_module, tmp_path, neutral):
+        patterns, allow, spec = lint_module.load_yml(self._yml_with_context_exempt(tmp_path))
+        f = _mkfile(tmp_path, "src/a.md", neutral + "\n")
+        hits = lint_module.scan_file(f, patterns, allow, spec.case_sensitive)
+        assert hits == [], f"{neutral!r} should not trigger PO-003"
+
+    @pytest.mark.parametrize("occupational", ["护士资格", "医生资格", "本平台护士资格认证"])
+    def test_occupational_still_blocked(self, lint_module, tmp_path, occupational):
+        patterns, allow, spec = lint_module.load_yml(self._yml_with_context_exempt(tmp_path))
+        f = _mkfile(tmp_path, "src/a.md", occupational + "\n")
+        hits = lint_module.scan_file(f, patterns, allow, spec.case_sensitive)
+        ids = [h.pattern.id for h in hits]
+        assert ids == ["PO-003"], f"{occupational!r} should still trigger PO-003"
+
+    def test_mask_is_per_occurrence_not_whole_line(self, lint_module, tmp_path):
+        """同行既有中性 '资格证' 又有职业 '护士资格': 中性被豁免, 职业仍命中."""
+        patterns, allow, spec = lint_module.load_yml(self._yml_with_context_exempt(tmp_path))
+        f = _mkfile(tmp_path, "src/a.md", "上传资格证后平台不就护士资格背书\n")
+        hits = lint_module.scan_file(f, patterns, allow, spec.case_sensitive)
+        # '资格证' 被掩, 但 '护士资格' 中 '资格' 仍命中 (未被豁免短语覆盖)
+        assert [h.pattern.id for h in hits] == ["PO-003"]
+
+    def test_real_yml_po003_short_word_defense(self, lint_module):
+        """真实 repo yml: 资格证/资格审核/考试资格 不误杀, 护士资格/医生资格 仍 block."""
+        yml = REPO_ROOT / "docs" / "copy-lint" / "prohibited-occupational-endorsements.yml"
+        patterns, allow, spec = lint_module.load_yml(yml)
+        import tempfile
+
+        def ids_for(text):
+            d = Path(tempfile.mkdtemp())
+            f = d / "a.md"
+            f.write_text(text, encoding="utf-8")
+            return sorted({h.pattern.id for h in lint_module.scan_file(f, patterns, allow, spec.case_sensitive)})
+
+        for neutral in ("资格证", "资格审核", "考试资格"):
+            assert "PO-003" not in ids_for(neutral), f"{neutral!r} should not hit PO-003"
+        for occ in ("护士资格", "医生资格"):
+            assert "PO-003" in ids_for(occ), f"{occ!r} should still hit PO-003"
+
+
 class TestRunLint:
     def test_block_hit_exit_1(self, lint_module, tmp_path, capsys):
         yml = _write_yml(tmp_path)

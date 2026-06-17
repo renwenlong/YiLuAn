@@ -66,6 +66,9 @@ class Pattern:
     pattern: str
     reason: str
     severity: str  # "block" | "warn"
+    # 中文上下文豁免: 包含本 pattern 的中性短语 (如 PO-003 '资格' 的 '资格证'/'资格审核'/'考试资格').
+    # 命中位落在这些中性短语内时不计作命中 (实现上用掩码, 只豁免该出现, 不豁免整行).
+    context_exempt: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -117,6 +120,9 @@ def load_yml(path: Path) -> tuple[list[Pattern], list[str], LintSpec]:
                     pattern=str(item["pattern"]),
                     reason=str(item.get("reason", "")),
                     severity=str(item.get("severity", "block")).lower(),
+                    context_exempt=tuple(
+                        str(s) for s in (item.get("context_exempt") or [])
+                    ),
                 )
             )
 
@@ -211,6 +217,24 @@ def _line_is_exempt(line: str, allow_in_explanations: Sequence[str], case_sensit
     return False
 
 
+def _mask_context_exempt(norm_line: str, pat: Pattern, case_sensitive: bool) -> str:
+    """把含本 pattern 的中性短语 (context_exempt) 在行内掩掉, 避免该 pattern 误杀.
+
+    只掩中性短语的出现位置, 不影响同行其他子串; 掩后仅用于本 pattern 匹配.
+    例: PO-003 '资格' + context_exempt=['资格证','资格审核','考试资格'] ->
+        '护士资格证' 中 '资格证' 被掩, 余下 '护士' 不含 '资格' -> 不误杀;
+        '护士资格' 不含任何中性短语 -> '资格' 仍命中 (AC#3).
+    """
+    if not pat.context_exempt:
+        return norm_line
+    masked = norm_line
+    for phrase in pat.context_exempt:
+        norm_phrase = _normalize(phrase, case_sensitive)
+        if norm_phrase:
+            masked = masked.replace(norm_phrase, "\u3000" * len(norm_phrase))
+    return masked
+
+
 def scan_file(
     file: Path,
     patterns: Sequence[Pattern],
@@ -232,7 +256,8 @@ def scan_file(
             needle = _normalize(pat.pattern, case_sensitive)
             if not needle:
                 continue
-            if needle in norm_line:
+            haystack = _mask_context_exempt(norm_line, pat, case_sensitive)
+            if needle in haystack:
                 hits.append(Hit(file=file, line_no=line_no, line_text=raw_line.rstrip(), pattern=pat))
     return hits
 
