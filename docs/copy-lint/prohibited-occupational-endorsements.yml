@@ -158,6 +158,25 @@ allow_in_explanations:
   - "陪诊师不等同医师"
   - "陪诊师不等同护士"
 
+# reason_category 正面 fixture（灰度文案 D.1 read-only 只读原因映射）
+# 来源：S3-DEV-003-ADMIN-COPY review follow-up #1（魈 2026-06-12 16:44Z）。
+# 背景：灰度只读（D.1）路径的 403 不走自由文案，而是用后端固定的
+# reason_category 枚举（GRAY_REVOKE / GRAY_ANOMALY / CREDENTIAL_LEAK /
+# COMPLIANCE_REPORT；见 backend/app/api/v1/admin/users.py ReasonCategory）映射
+# 到用户可见文案。原清单只有反向声明豁免（allow_in_explanations），缺
+# 「正向 fixture」保护这批中性映射文案不被任何 PO/EE pattern 误杀。
+# 用途：下列短语是「应该 0 命中」的中性基准，单测逐条断言不触发 block
+# （回归保护，AC#2）。未来前端落 reason_category→文案时须与此基准同调。
+# ⚠ 具体用户可见文案终稿措辞归 PM（凝光）+ Owner 双签；本 section 仅锁 lint 安全基准。
+positive_fixtures:
+  reason_category_readonly:
+    - "账号当前为只读状态"
+    - "账号处于只读模式，部分操作暂不可用"
+    - "如有疑问请联系客服"
+    - "资质临时证明补交中"
+    - "资质审核中，请稍后重试"
+    - "账号信息异常，请重新提交资料"
+
 # ─────────────────────────────────────────────
 # 五、lint 实施口径（给 hutao 的实施约束）
 # ─────────────────────────────────────────────

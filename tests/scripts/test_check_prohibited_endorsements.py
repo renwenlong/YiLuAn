@@ -464,6 +464,48 @@ class TestContextExempt:
             assert "PO-003" in ids_for(occ), f"{occ!r} should still hit PO-003"
 
 
+class TestReasonCategoryPositiveFixtures:
+    """S3-DEV-003-COPY-LINT-P3-REASON-CATEGORY-FIXTURE (follow-up #1 正向 fixture).
+
+    灰度只读 (D.1) 走 reason_category 映射文案, 不走自由文案。原清单只有
+    allow_in_explanations (反向声明豁免), 缺「正向 fixture」保护这批中性
+    映射文案不被任何 PO/EE pattern 误杀。本类读真 repo yml 的
+    positive_fixtures.reason_category_readonly 逐条断言 0 命中 (回归保护)。
+    """
+
+    @pytest.fixture(scope="class")
+    def real_yml(self):
+        return REPO_ROOT / "docs" / "copy-lint" / "prohibited-occupational-endorsements.yml"
+
+    @pytest.fixture(scope="class")
+    def positive_fixtures(self, real_yml):
+        import yaml
+
+        raw = yaml.safe_load(real_yml.read_text(encoding="utf-8"))
+        return (raw or {}).get("positive_fixtures", {}) or {}
+
+    def test_section_present_and_nonempty(self, positive_fixtures):
+        """AC#1: yml 加 reason_category 正面 fixture (1+ 短语)."""
+        phrases = positive_fixtures.get("reason_category_readonly")
+        assert phrases, "positive_fixtures.reason_category_readonly 缺失或为空"
+        assert isinstance(phrases, list) and len(phrases) >= 1
+        assert all(isinstance(p, str) and p.strip() for p in phrases)
+
+    def test_positive_fixtures_do_not_block(self, lint_module, real_yml, positive_fixtures):
+        """AC#2: 每条正向 fixture 0 命中 (不触发任何 PO/EE pattern)."""
+        import tempfile
+
+        patterns, allow, spec = lint_module.load_yml(real_yml)
+        phrases = positive_fixtures["reason_category_readonly"]
+        for phrase in phrases:
+            d = Path(tempfile.mkdtemp())
+            f = d / "a.md"
+            f.write_text(phrase + "\n", encoding="utf-8")
+            hits = lint_module.scan_file(f, patterns, allow, spec.case_sensitive)
+            ids = [h.pattern.id for h in hits]
+            assert ids == [], f"positive fixture {phrase!r} should not hit any pattern, got {ids}"
+
+
 class TestRunLint:
     def test_block_hit_exit_1(self, lint_module, tmp_path, capsys):
         yml = _write_yml(tmp_path)
