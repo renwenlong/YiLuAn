@@ -15,6 +15,7 @@ bash scripts/setup-hooks.sh
 
 1. **ruff lint** —— 仅 lint 本次推送新/改的 backend Python 文件（不被历史 lint 欠债拖累）。
 2. **marker gate** —— `pytest -m "money_safety or share_security"`（~12s），守资金/分享安全两条最高危线，本地即时拦。
+3. **doc-only 白名单短路** —— 纯 `docs/`、`README*`、`CHANGELOG*`、`.gitignore`、`.github/ISSUE_TEMPLATE/`、`.github/PULL_REQUEST_TEMPLATE.md` 改动跳过 marker gate；backend / frontend / CI / QA 脚本 / Makefile 等非白名单 diff 会显式 fallthrough 跑 marker gate。
 
 **全量测试**（1349 pytest + e2e + 全部 release gate + 369 wechat jest）由 **GitHub Actions CI**
 （`.github/workflows/test.yml`）跑，且是 main branch protection 的 **required status checks**
