@@ -178,13 +178,6 @@ class TestLintAllowlistRespected:
             '"services/providers/sms/mock.py"' in text
         ), f"allowlist 漏 mock SMS provider. sentinel: {_SECRET_LINT_TEST}"
 
-    def test_allowlist_includes_legacy_sms(self):
-        """services/sms.py legacy provider per-call check 是 defense-in-depth, allowlist 接受."""
-        text = LINT_SCRIPT.read_text(encoding="utf-8")
-        assert (
-            '"services/sms.py"' in text
-        ), f"allowlist 漏 services/sms.py (defense-in-depth). sentinel: {_SECRET_LINT_TEST}"
-
 
 class TestLintDevelopmentPatternFlagged:
     """development env checks are no longer allowed in runtime code."""

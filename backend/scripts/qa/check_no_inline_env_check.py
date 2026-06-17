@@ -74,12 +74,6 @@ ALLOWLIST_PATHS: frozenset[str] = frozenset(
         "services/providers/sms/mock.py",
         # config.py 自身 — Settings class 内 env validation (启动期一次性 config check)
         "config.py",
-        # SMS legacy provider (Aliyun/Tencent .send() 里的 prod missing-creds
-        # check) — startup_probe 是主防线, 这里是 defense-in-depth: 若
-        # 某代码路径绕过 get_sms_provider() factory 直接实例化 provider,
-        # 进又缺 creds, 调 .send() 时仍会 fail-loud (反案 #11 起航检 +
-        # per-call 检双保险).
-        "services/sms.py",
     }
 )
 
