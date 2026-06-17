@@ -15,6 +15,8 @@
 #   - 本地 pre-push 不裸奔：① ruff lint（仅本次改动的 backend py 文件，秒级）
 #     ② marker gate `pytest -m "money_safety or share_security"`（~12s，守资金/
 #     分享两条最高危线本地即时拦）。全量丢给 CI。
+#   - 反案 #46：纯文档 diff 用白名单短路 marker gate，避免无 backend/.venv 的
+#     doc-only PR 被迫 --no-verify；非白名单 diff 显式 fallthrough 跑 marker gate。
 #
 # 启用（每个 clone 一次性）：git config core.hooksPath .githooks
 # 紧急跳过（极少用）：git push --no-verify
@@ -24,7 +26,67 @@
 
 set -e
 
+pre_push_changed_files() {
+  local repo_root="$1"
+  local base=""
+
+  if git -C "$repo_root" rev-parse --verify -q origin/main >/dev/null; then
+    base="origin/main"
+  elif git -C "$repo_root" rev-parse --verify -q main >/dev/null; then
+    base="main"
+  fi
+
+  if [ -n "$base" ]; then
+    git -C "$repo_root" diff --name-only --diff-filter=ACM "$base"...HEAD 2>/dev/null || true
+  else
+    git -C "$repo_root" diff --name-only --diff-filter=ACM HEAD 2>/dev/null || true
+  fi
+}
+
+pre_push_diff_requires_marker_gate() {
+  local diff_files="$1"
+  local non_allowlisted=""
+
+  if [ -z "$diff_files" ]; then
+    echo "[pre-push] skip: no diff files detected"
+    return 1
+  fi
+
+  if echo "$diff_files" | grep -q "^backend/"; then
+    echo "[pre-push] run: backend diff"
+    return 0
+  fi
+
+  if echo "$diff_files" | grep -qE "^(admin-v2|admin-h5|wechat|ios)/"; then
+    echo "[pre-push] run: frontend / client diff"
+    return 0
+  fi
+
+  if echo "$diff_files" | grep -qE "^(scripts/qa|backend/scripts/qa|\.github/workflows)/"; then
+    echo "[pre-push] run: CI workflow / QA script diff"
+    return 0
+  fi
+
+  # Allowlist, not blocklist: unknown roots (Makefile, pyproject.toml, env examples,
+  # scripts outside QA, etc.) must fall through to marker gate instead of silently
+  # skipping the highest-risk local check.
+  non_allowlisted=$(echo "$diff_files" | grep -vE "^(docs/|README([^/]*)(\.md)?$|CHANGELOG([^/]*)(\.md)?$|\.gitignore$|\.github/ISSUE_TEMPLATE/|\.github/PULL_REQUEST_TEMPLATE(\.md)?$)" | head -5 || true)
+  if [ -z "$non_allowlisted" ]; then
+    echo "[pre-push] skip: doc-only diff"
+    return 1
+  fi
+
+  echo "[pre-push] run: non-allowlisted diff"
+  echo "$non_allowlisted"
+  return 0
+}
+
+if [ "${PRE_PUSH_UNIT_TESTING:-}" = "1" ]; then
+  return 0 2>/dev/null || exit 0
+fi
+
 REPO_ROOT="$(git rev-parse --show-toplevel)"
+DIFF_FILES="$(pre_push_changed_files "$REPO_ROOT")"
 
 RUFF=""
 if [ -x "$REPO_ROOT/backend/.venv/bin/ruff" ]; then
@@ -42,18 +104,7 @@ fi
 
 # ── 1) 快速 lint：仅 lint 本次推送新/改的 backend Python 文件 ─────────────────
 #    （不全量 lint，避免被历史 lint 欠债拖累、误挡无关 push）
-BASE=""
-if git rev-parse --verify -q origin/main >/dev/null; then
-  BASE="origin/main"
-elif git rev-parse --verify -q main >/dev/null; then
-  BASE="main"
-fi
-
-if [ -n "$BASE" ]; then
-  CHANGED=$(git diff --name-only --diff-filter=ACM "$BASE"...HEAD -- 'backend/**/*.py' 2>/dev/null || true)
-else
-  CHANGED=$(git diff --name-only --diff-filter=ACM HEAD -- 'backend/**/*.py' 2>/dev/null || true)
-fi
+CHANGED=$(echo "$DIFF_FILES" | grep -E '^backend/.*\.py$' || true)
 
 if [ -z "$RUFF" ]; then
   echo "[pre-push] ruff 不可用 — 跳过快速 lint（建议 pip install ruff）" >&2
@@ -72,6 +123,13 @@ else
 fi
 
 # ── 2) marker gate：资金/分享安全两条最高危线（~12s 本地即时拦）─────────────
+if ! marker_reason=$(pre_push_diff_requires_marker_gate "$DIFF_FILES"); then
+  echo "$marker_reason" >&2
+  echo "[pre-push] ✅ doc-only 快速 gate 通过 — marker gate 由非文档 diff / CI 兜底触发。" >&2
+  exit 0
+fi
+
+echo "$marker_reason" >&2
 if [ -z "$PYTEST" ]; then
   echo "[pre-push] pytest 不可用 — 跳过 marker gate（建议在 backend/.venv 装 pytest）" >&2
 else
