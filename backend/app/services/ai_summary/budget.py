@@ -30,19 +30,22 @@ Float drift note (IEEE 754)
 需要精确审计请走每日跑批从 ``ai_summary_cost_cny_total`` Prom 抽样
 汇总（那条是 ``inc(float(Decimal))``，无累加漂移）。
 """
+
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime
 from decimal import Decimal
 from typing import Final
 
 from app.config import settings
+from app.services import _budget_core
 
 logger = logging.getLogger("app.services.ai_summary.budget")
 
 _DAILY_KEY_PREFIX: Final[str] = "ai:summary:daily_cost"
-_DAILY_TTL_SECONDS: Final[int] = 36 * 3600  # 36h, 跨日 + 复盘缓冲
+# 36h TTL 现由 _budget_core.DEFAULT_DAILY_TTL_SECONDS 提供 (S2/S3 一致)。
+_DAILY_TTL_SECONDS: Final[int] = _budget_core.DEFAULT_DAILY_TTL_SECONDS
 
 
 class BudgetExhausted(Exception):
@@ -68,11 +71,12 @@ class BudgetExhausted(Exception):
 
 
 def _daily_key(now: datetime | None = None) -> str:
-    now = now or datetime.now(timezone.utc)
-    return f"{_DAILY_KEY_PREFIX}:{now.strftime('%Y%m%d')}"
+    return _budget_core.daily_key(_DAILY_KEY_PREFIX, now)
 
 
-async def check_and_reserve(redis, estimated_cost_yuan: Decimal, *, now: datetime | None = None) -> Decimal:
+async def check_and_reserve(
+    redis, estimated_cost_yuan: Decimal, *, now: datetime | None = None
+) -> Decimal:
     """Optimistically reserve ``estimated_cost_yuan`` against today's budget.
 
     Returns the post-increment cumulative spend on success. Raises
@@ -93,36 +97,28 @@ async def check_and_reserve(redis, estimated_cost_yuan: Decimal, *, now: datetim
     key = _daily_key(now)
 
     if redis is None:
-        raise BudgetExhausted(
-            spent_yuan=Decimal("0"), limit_yuan=limit, reason="redis_unavailable"
-        )
+        raise BudgetExhausted(spent_yuan=Decimal("0"), limit_yuan=limit, reason="redis_unavailable")
 
     try:
-        new_total_raw = await redis.incrbyfloat(key, float(estimated_cost_yuan))
-        # Best-effort TTL refresh; EXPIRE on every call is cheap and means
-        # the key always has at least 36h horizon.
-        await redis.expire(key, _DAILY_TTL_SECONDS)
-    except Exception as exc:
-        logger.error("AI budget redis error on incrbyfloat: %s", exc)
+        outcome = await _budget_core.check_and_reserve_impl(
+            redis, key, estimated_cost_yuan, limit, ttl_seconds=_DAILY_TTL_SECONDS
+        )
+    except _budget_core.BudgetCoreRedisError as exc:
+        # fail-closed: 一次 redis 故障不让日预算被几千并发打爆。
         raise BudgetExhausted(
             spent_yuan=Decimal("0"), limit_yuan=limit, reason="redis_unavailable"
         ) from exc
 
-    new_total = Decimal(str(new_total_raw))
-    if new_total > limit:
-        # Roll back the reservation so concurrent callers see a truthful
-        # total (and so a single overshoot doesn't permanently lock the
-        # rest of the day at +cost-yuan above limit).
-        try:
-            await redis.incrbyfloat(key, float(-estimated_cost_yuan))
-        except Exception as exc:
-            logger.warning("AI budget rollback failed: %s", exc)
-        raise BudgetExhausted(spent_yuan=new_total, limit_yuan=limit)
+    if outcome.exceeded:
+        # impl 已回滚预扣; new_total 是越界前总额 (供调用方看真实超出多少)。
+        raise BudgetExhausted(spent_yuan=outcome.new_total, limit_yuan=limit)
 
-    return new_total
+    return outcome.new_total
 
 
-async def commit(redis, actual_cost_yuan: Decimal, reserved_cost_yuan: Decimal, *, now: datetime | None = None) -> None:
+async def commit(
+    redis, actual_cost_yuan: Decimal, reserved_cost_yuan: Decimal, *, now: datetime | None = None
+) -> None:
     """Reconcile reservation vs actual spend (delta = actual - reserved).
 
     If the LLM truncated and we ended up spending *less*, refund the
@@ -130,38 +126,20 @@ async def commit(redis, actual_cost_yuan: Decimal, reserved_cost_yuan: Decimal, 
     """
     if redis is None:
         return
-    delta = actual_cost_yuan - reserved_cost_yuan
-    if delta == 0:
-        return
-    try:
-        await redis.incrbyfloat(_daily_key(now), float(delta))
-    except Exception as exc:
-        logger.warning("AI budget commit delta failed: %s", exc)
+    await _budget_core.commit_impl(redis, _daily_key(now), actual_cost_yuan, reserved_cost_yuan)
 
 
 async def release(redis, reserved_cost_yuan: Decimal, *, now: datetime | None = None) -> None:
     """Refund a previously-reserved amount (call after LLM failure)."""
     if redis is None or reserved_cost_yuan == 0:
         return
-    try:
-        await redis.incrbyfloat(_daily_key(now), float(-reserved_cost_yuan))
-    except Exception as exc:
-        logger.warning("AI budget release failed: %s", exc)
+    await _budget_core.release_impl(redis, _daily_key(now), reserved_cost_yuan)
 
 
 async def get_today_spent(redis, *, now: datetime | None = None) -> Decimal:
     if redis is None:
         return Decimal("0")
-    try:
-        raw = await redis.get(_daily_key(now))
-    except Exception as exc:
-        logger.warning("AI budget get_today_spent failed: %s", exc)
-        return Decimal("0")
-    if raw is None:
-        return Decimal("0")
-    if isinstance(raw, bytes):
-        raw = raw.decode("utf-8")
-    return Decimal(str(raw))
+    return await _budget_core.get_today_spent_impl(redis, _daily_key(now))
 
 
 __all__ = [
