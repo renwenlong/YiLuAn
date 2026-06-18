@@ -47,7 +47,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 from typing import Optional
@@ -60,6 +60,7 @@ from app.observability.ai_budget_metrics import (
     AI_BUDGET_RESERVED_CNY_TOTAL,
     AI_BUDGET_THRESHOLD_ALERTS_TOTAL,
 )
+from app.services import _budget_core
 
 logger = logging.getLogger("app.services.ai_budget_guard")
 
@@ -154,7 +155,7 @@ class BudgetGuardConfigError(Exception):
     """settings 配置非法 (如 cost > daily budget)."""
 
 
-_DAILY_TTL_SECONDS = 36 * 3600  # 36h, 跨日 + 复盘窗口 (同 S2)
+_DAILY_TTL_SECONDS = _budget_core.DEFAULT_DAILY_TTL_SECONDS  # 36h, S2/S3 一致
 
 
 # ─────────────────────────── AIBudgetGuard ───────────────────────────
@@ -195,8 +196,7 @@ class AIBudgetGuard:
     # ----- helper -----
 
     def _daily_key(self, now: datetime | None = None) -> str:
-        now = now or datetime.now(timezone.utc)
-        return f"{self._cfg.redis_key_prefix}:{now.strftime('%Y%m%d')}"
+        return _budget_core.daily_key(self._cfg.redis_key_prefix, now)
 
     def _record_check(self, result: BudgetDecision) -> None:
         AI_BUDGET_CHECK_TOTAL.labels(axis=self.axis.value, result=result.value).inc()
@@ -268,12 +268,14 @@ class AIBudgetGuard:
                 reason="redis_unavailable",
             )
 
-        # 3. 日预算门限 — 原子预扣 (incrbyfloat)
+        # 3. 日预算门限 — 原子预扣 (委托 _budget_core, reserve + 超限回滚)
         key = self._daily_key(now)
         try:
-            new_total_raw = await redis.incrbyfloat(key, float(estimated_cost_yuan))
-            await redis.expire(key, _DAILY_TTL_SECONDS)
-        except Exception as exc:
+            outcome = await _budget_core.check_and_reserve_impl(
+                redis, key, estimated_cost_yuan,
+                self._cfg.daily_budget_yuan, ttl_seconds=_DAILY_TTL_SECONDS,
+            )
+        except _budget_core.BudgetCoreRedisError as exc:
             logger.error("AI budget redis incrbyfloat failed axis=%s: %s",
                          self.axis.value, exc)
             self._record_check(BudgetDecision.REJECT)
@@ -284,16 +286,11 @@ class AIBudgetGuard:
                 reason=f"redis_unavailable: {exc}",
             )
 
-        new_total = Decimal(str(new_total_raw))
+        new_total = outcome.new_total
         usage_pct = float(new_total / self._cfg.daily_budget_yuan * 100)
 
-        # 100%+ → 回滚 + EXHAUSTED reject + warning alert
-        if new_total > self._cfg.daily_budget_yuan:
-            try:
-                await redis.incrbyfloat(key, float(-estimated_cost_yuan))
-            except Exception as exc:
-                logger.warning("AI budget rollback failed axis=%s: %s",
-                               self.axis.value, exc)
+        # 100%+ → EXHAUSTED reject + warning alert (core 已回滚预扣)
+        if outcome.exceeded:
             self._fire_alert("warning")
             self._record_check(BudgetDecision.REJECT)
             return BudgetCheckResult(
@@ -360,19 +357,12 @@ class AIBudgetGuard:
         """
         if redis is None:
             return
-        delta = actual_cost_yuan - estimated_cost_yuan
         AI_BUDGET_COMMITTED_CNY_TOTAL.labels(axis=self.axis.value).inc(
             float(actual_cost_yuan)
         )
-        if delta == 0:
-            return
-        try:
-            await redis.incrbyfloat(self._daily_key(now), float(delta))
-        except Exception as exc:
-            logger.warning(
-                "AI budget report_actual_cost delta failed axis=%s: %s",
-                self.axis.value, exc,
-            )
+        await _budget_core.commit_impl(
+            redis, self._daily_key(now), actual_cost_yuan, estimated_cost_yuan
+        )
 
     async def release(
         self,
@@ -385,11 +375,9 @@ class AIBudgetGuard:
         """LLM 调用失败后退款已预扣的 ``reserved_cost_yuan``."""
         if redis is None or reserved_cost_yuan == 0:
             return
-        try:
-            await redis.incrbyfloat(self._daily_key(now), float(-reserved_cost_yuan))
-        except Exception as exc:
-            logger.warning("AI budget release failed axis=%s: %s",
-                           self.axis.value, exc)
+        await _budget_core.release_impl(
+            redis, self._daily_key(now), reserved_cost_yuan
+        )
 
     async def get_today_spent(
         self, redis, *, now: datetime | None = None
@@ -397,17 +385,7 @@ class AIBudgetGuard:
         """查询本 axis 今日已累计花费 (含未 commit 的 reserve)."""
         if redis is None:
             return Decimal("0")
-        try:
-            raw = await redis.get(self._daily_key(now))
-        except Exception as exc:
-            logger.warning("AI budget get_today_spent failed axis=%s: %s",
-                           self.axis.value, exc)
-            return Decimal("0")
-        if raw is None:
-            return Decimal("0")
-        if isinstance(raw, bytes):
-            raw = raw.decode("utf-8")
-        return Decimal(str(raw))
+        return await _budget_core.get_today_spent_impl(redis, self._daily_key(now))
 
     @property
     def daily_budget_yuan(self) -> Decimal:

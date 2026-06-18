@@ -136,6 +136,10 @@ services:
       # S3-BUG-003: AI blocklist startup strict load (运维 env opt-in fail-loud).
       # True 时缺 prohibited-keywords.yml 拒启。env.staging/canary/production 都设 true.
       AI_BLOCKLIST_STRICT_LOAD: ${AI_BLOCKLIST_STRICT_LOAD:-false}
+      # S2-OPS-A-CANARY-WHITELIST-LAUNCH: canary 灰度白名单 gate 总开关。
+      # config.py canary_whitelist_enabled default False—不 passthrough = 容器读不到 env.canary.local 的 true。
+      # :-false 兑底：staging/dev/production 不设此变量时 gate 仍关，不破坏其他 profile 基线。
+      CANARY_WHITELIST_ENABLED: ${CANARY_WHITELIST_ENABLED:-false}
     depends_on:
       pg:
         condition: service_healthy
