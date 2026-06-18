@@ -195,7 +195,8 @@ POST /api/v1/auth/send-otp {phone: "138XXXXXXXX"}  # 真手机
 ```bash
 # 真起栈下测试 feature flag 热切
 echo "FEATURE_SHARE_F2_ENABLED=false" >> env.canary.local
-docker compose --env-file env.staging --env-file env.canary --env-file env.canary.local restart backend
+# ✅ up -d 重新插值 env + recreate 容器换值；restart 只重启进程不读新 env，改了不生效（见 canary-rollback-runbook.md B.0）
+docker compose --env-file env.staging --env-file env.canary --env-file env.canary.local up -d backend
 
 # 验证 503
 curl -X POST -H "Authorization: Bearer <token>" -d '{"share_scope":"full"}' \
@@ -204,7 +205,7 @@ curl -X POST -H "Authorization: Bearer <token>" -d '{"share_scope":"full"}' \
 
 # 回滚开关
 sed -i '/^FEATURE_SHARE_F2_ENABLED/d' env.canary.local
-docker compose --env-file env.staging --env-file env.canary --env-file env.canary.local restart backend
+docker compose --env-file env.staging --env-file env.canary --env-file env.canary.local up -d backend
 ```
 
 ### 4.5 撤栈

@@ -80,13 +80,29 @@ Alert 触发即经 Alertmanager `canary-rollback-ops-pm` receiver fan-out：
 > 配套：S2-OPS-011 灰度通道（接真 wxpay/aliyun_sms）+ `backend/app/config.py` feature flags
 > 适用：灰度通道上 share/F2 链路异常但不需要整体回滚 backend 时的细粒度回滚
 
+### ⚠️ B.0 回滚命令选型（必读 — 两条路径用不同命令，用错静默失败）
+
+灰度回滚有两条物理路径，**改的东西来源不同，正确命令也不同**。用错命令（尤其 `restart`）会**静默失败**：运维以为关了 flag，实际容器内仍是旧值，灰度未真正回滚。
+
+| 回滚动作 | 改的来源 | 正确命令 | 为什么 |
+|---------|---------|---------|--------|
+| **关 flag**（`CANARY_WHITELIST_ENABLED=false` / `FEATURE_SHARE_F2_ENABLED=false` / `READONLY_SHARE_SESSIONS=true`） | compose `environment:` 段对 `env.canary.local` 的 `${VAR}` 插值（passthrough PR #340 L142） | **`up -d`**（recreate 换 env，**不需** `--build`） | 改 env 文件值后，必须让 compose 重新插值 + recreate 容器才进容器 |
+| **改白名单名单**（canary whitelist yaml 内容） | Dockerfile `COPY` 进镜像（#304 / #302 follow-up，`deploy/canary/`） | **`up -d --build`** | yaml 烤进镜像，`restart` / `up -d` 都只读旧镜像，必须 rebuild |
+
+**❌ 绝不要用 `docker compose ... restart backend` 关 flag**：`restart` 只发 SIGTERM/SIGKILL 重启进程，**不读取新 config、不重新插值 `environment:` 段** → `env.canary.local` 改了根本不进容器。
+
+> **实测来源**：刻晴 S2-OPS-A canary 灰度 e2e 回滚彩排实测（2026-06-18）证明 `restart` 不生效——只有 `up -d`（recreate）才会重新插值 env 换值。三方 evidence-first 实证（restart 行为 / flag 插值来源 / up -d 正确性）见 S2-OPS-A-ROLLBACK-RUNBOOK-RESTART-BUG。
+
+> 注：`./up.sh canary` 内部是 `up -d --build`（`deploy/up.sh` L76），是 rebuild superset——跑回滚演练用它绝对安全（关 flag 也会一并生效），但全量 rebuild 慢；**紧急回滚关 flag 用 `up -d` 即可，快很多**。
+
 ### B.1 关 F2 入口（CanaryShareAbuseRateHigh 触发推荐）
 
 ```bash
 echo "FEATURE_SHARE_F2_ENABLED=false" >> ~/repo/YiLuAn/deploy/env.canary.local
 cd ~/repo/YiLuAn/deploy
+# ✅ up -d 才会重新插值 env + recreate 容器换值；restart 不生效（见 B.0）
 docker compose --env-file env.staging --env-file env.canary \
-  --env-file env.canary.local restart backend
+  --env-file env.canary.local up -d backend
 
 # 验证 503 + SHARE_F2_DISABLED
 curl -X POST -H "Authorization: Bearer <token>" -d '{"share_scope":"full"}' \
@@ -99,8 +115,9 @@ curl -X POST -H "Authorization: Bearer <token>" -d '{"share_scope":"full"}' \
 
 ```bash
 echo "READONLY_SHARE_SESSIONS=true" >> ~/repo/YiLuAn/deploy/env.canary.local
+# ✅ up -d 才会重新插值 env + recreate 容器换值；restart 不生效（见 B.0）
 docker compose --env-file env.staging --env-file env.canary \
-  --env-file env.canary.local restart backend
+  --env-file env.canary.local up -d backend
 ```
 
 效果：
@@ -115,8 +132,9 @@ docker compose --env-file env.staging --env-file env.canary \
 ```bash
 sed -i '/^FEATURE_SHARE_F2_ENABLED/d' ~/repo/YiLuAn/deploy/env.canary.local
 sed -i '/^READONLY_SHARE_SESSIONS/d' ~/repo/YiLuAn/deploy/env.canary.local
+# ✅ up -d 才会重新插值 env + recreate 容器换值；restart 不生效（见 B.0）
 docker compose --env-file env.staging --env-file env.canary \
-  --env-file env.canary.local restart backend
+  --env-file env.canary.local up -d backend
 ```
 
 ### B.4 反向引用
