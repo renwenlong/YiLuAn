@@ -20,11 +20,26 @@ docs/dev/DRAFT_PR_PROTOCOL.md 了解为什么需要 "Ready Status" section.
 
 ## Severity
 
-<!-- 选一个, 不夸大. 见 docs/dev/PR_SEVERITY_LEXICON.md 词汇表 (when exists). -->
+<!-- 选一个, 不夸大. 见 docs/dev/PR_SEVERITY_LEXICON.md 词汇表. -->
 
 - [ ] security fix (真 attack path 且 exploitable, 必须附 attack chain 5 项)
 - [ ] defense-in-depth hardening (无真 attack path 但加层防御)
 - [ ] feat / refactor / cleanup / docs (无 security 含义)
+
+<!--
+⬇ 仅当勾选 security fix 时填下面 Attack Chain (缺任一项 = 举证不足, reviewer 应拒 approve).
+判定口诀: 改之前 attack path 是否真能走通? 走不通(已有防御挡住)=defense-in-depth, 不是 security fix.
+-->
+
+### Attack Chain (仅 security fix 必填)
+
+<!-- 非 security fix 可删掉本 section. -->
+
+1. **Attacker 起点**: <!-- 匿名外网 / 已登录普通用户 / 越权 admin / 内部网络 -->
+2. **控制点**: <!-- attacker 能控制哪个输入 (URL param / body / header / 上传文件名) -->
+3. **攻击 payload**: <!-- 贴出真实 payload 示例, 如 ../../etc/passwd -->
+4. **真实访问入口**: <!-- payload 经哪条代码路径真正触达受保护资源; 链路上无既有防御阻断 -->
+5. **受影响数据/权限**: <!-- 成功后 attacker 拿到什么 (读任意文件 / 越权改单 / 提权) -->
 
 ## Test evidence
 
