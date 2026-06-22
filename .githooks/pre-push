@@ -67,10 +67,23 @@ pre_push_diff_requires_marker_gate() {
     return 0
   fi
 
+  # AI prompt content (docs/ai-prompts/<axis>/<version>/system_prompt.md) is loaded
+  # at runtime by backend/app/services/prompt_versioning/startup_validator.py (see
+  # _expected_prompt_path, line ~87). Editing a prompt = editing AI behaviour, so it
+  # must NOT take the doc-only short-circuit below — fall through to marker gate.
+  # (反案 #46 双向精确化：^docs/ 太宽会把 prompt 也静默放行，收窄排除 ai-prompts。)
+  if echo "$diff_files" | grep -qE "^docs/ai-prompts/.*\.md$"; then
+    echo "[pre-push] run: AI prompt diff (docs/ai-prompts)"
+    return 0
+  fi
+
   # Allowlist, not blocklist: unknown roots (Makefile, pyproject.toml, env examples,
   # scripts outside QA, etc.) must fall through to marker gate instead of silently
   # skipping the highest-risk local check.
-  non_allowlisted=$(echo "$diff_files" | grep -vE "^(docs/|README([^/]*)(\.md)?$|CHANGELOG([^/]*)(\.md)?$|\.gitignore$|\.github/ISSUE_TEMPLATE/|\.github/PULL_REQUEST_TEMPLATE(\.md)?$)" | head -5 || true)
+  # tests/*.md (pure test reports, e.g. tests/test-report-s3-*.md) are doc-only and
+  # should skip the marker gate; tests/*.py stays out of the allowlist so test code
+  # changes still fall through (反案 #46 双向精确化：补 tests/*.md 豁免).
+  non_allowlisted=$(echo "$diff_files" | grep -vE "^(docs/|tests/.*\.md$|README([^/]*)(\.md)?$|CHANGELOG([^/]*)(\.md)?$|\.gitignore$|\.github/ISSUE_TEMPLATE/|\.github/PULL_REQUEST_TEMPLATE(\.md)?$)" | head -5 || true)
   if [ -z "$non_allowlisted" ]; then
     echo "[pre-push] skip: doc-only diff"
     return 1
