@@ -209,6 +209,54 @@ az containerapp secret set \
 | `ENVIRONMENT` | 明文 | `production` / `staging` |
 | `SMS_PROVIDER` | 明文 | `aliyun` (生产) |
 
+### 为何 `.example` 文件要带 `__CHANGE_ME__` placeholder + 部署 SOP
+
+仓库里的 `deploy/env.*.example`（如 `deploy/env.production.example`）是**配置模板**，
+敏感值统一用 `__CHANGE_ME__` 前缀的 placeholder 占位，例如：
+
+```bash
+POSTGRES_PASSWORD=__CHANGE_ME__strong_db_password
+JWT_SECRET_KEY=__CHANGE_ME__
+CONTRACT_PSEUDONYM_SALT=__CHANGE_ME__contract_pseudonym_salt_distinct_from_PII_HASH_SALT__
+```
+
+**为何这样设计**：
+
+- `.example` 入库、真值文件（`env.production`）**不入库**。placeholder 让运维一眼看出
+  「这些位置必须替换真实值」，避免误用模板默认值部署。
+- placeholder 故意做得够长（满足 salt 的 `>=32` char + 互不雷同），所以
+  **salt entropy 哨兵**（`verify_env_salts.py`）不会误报它——它本身是合法占位，
+  不是弱 salt。这就留下一个风险窗：运维若忘记替换直接部署，entropy 哨兵抓不到。
+- 为补这个窗，CI 有一个 **warn-only** 的 hygiene 哨兵
+  （`backend/scripts/lint_config_example_placeholders.py` /
+  `.github/workflows/config-example-placeholder-lint.yml`）扫描 `.example` 中残留的
+  `__CHANGE_ME__`，以 advisory 形式提示，但**不 block merge**（因为 example 带
+  placeholder 是正确的）。这与 entropy 哨兵的 hard-fail 互补：
+
+  | 哨兵 | 目标 | CI 行为 |
+  |------|------|---------|
+  | `verify_env_salts.py` | 真 `env.*` 的弱/雷同 salt | hard fail（阻塞） |
+  | `lint_config_example_placeholders.py` | `.example` 未替换的 placeholder | soft warn（不阻塞） |
+
+**部署 SOP（生产前必做）**：
+
+```bash
+# 1. 从模板复制出真值文件（不入库）
+cp deploy/env.production.example deploy/env.production
+
+# 2. 逐项替换所有 __CHANGE_ME__ 为真实值
+#    - DB / Redis 连接、JWT / ADMIN token、微信 AppID/Secret/支付密钥
+#    - CONTRACT_PSEUDONYM_SALT 与 PII_HASH_SALT 必须**互不相同**且 >=32 char
+#    - PII_ENVELOPE_KEY 必须是 base64 编码的 32 字节 AES-256 密钥
+
+# 3. 本地自检：确认没有残留 placeholder + salt 强度达标
+python3 backend/scripts/lint_config_example_placeholders.py --root .   # 仅查 .example 模板
+python3 backend/scripts/verify_env_salts.py                           # 查真 env.* salt 强度
+
+# 4. 生产环境通过 Azure Key Vault 注入这些值（见上方第 6 节），
+#    不要把真值文件提交进仓库。
+```
+
 ## 7. 蓝绿部署 / 滚动更新
 
 ### 策略：Container Apps Revision 模式
