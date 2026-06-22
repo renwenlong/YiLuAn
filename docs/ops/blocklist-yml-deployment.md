@@ -128,6 +128,37 @@ YML 内容改动后:
 热 reload 失败 / 部分副本未 reload → admin-v2 关键词页会出现版本号不一致,
 on-call 用 `debug-version` endpoint per-replica 排查.
 
+### Subscriber Watchdog (S3-OPS-AI-BLOCKLIST-SUBSCRIBER-WATCHDOG)
+
+**问题**: `AIBlocklistReloadSubscriber._loop()` 若抛未捕获异常退出 (如 redis 连接
+中断 / pubsub 协议异常), 该副本的 subscriber task 会进入 done 状态, **永久 lose
+reload** —— 直到 backend 进程重启。多副本灰度场景下表现为「某副本 hot-reload 不生效,
+版本号长期落后」。
+
+**机制**: subscriber 启动时同时拉起一个独立的 watchdog task, 周期 (默认 30s) 检查
+`_loop` task 是否死亡:
+
+- 检查条件: `_stop_event` **未设** (非主动 stop) 且 `_task is None or _task.done()`
+- 命中 → 清空死 task + 旧 pubsub → 调 `start()` 重新订阅 → 写 metric
+  `ai_blocklist_subscriber_restart_total{instance, reason}`
+  - `reason=task_crashed`: `_task.done()` (loop 抛异常退出)
+  - `reason=task_missing`: `_task is None` (start 未拉起 / 被清空)
+- watchdog 自身异常被吞 + sleep 后继续, **不会让 watchdog 自己挂掉**
+- 主动 `stop()` 会先 cancel watchdog 再 cancel `_loop`, 避免误判 crash 又重启
+
+**监控**: alertmanager rule `AIBlocklistSubscriberRestartHighRate`
+(`deploy/prometheus/alerts.yml`) —— 单 instance 重启速率 > 1 次/小时 持续 10min → warning。
+偶次重启是正常自愈; 持续高频重启表明 subscriber 反复 crash (redis 不稳 / 代码 bug)。
+
+**故障排查**:
+
+1. 收到 `AIBlocklistSubscriberRestartHighRate` warning → 看对应 `instance` 的 backend 日志
+2. grep `AIBlocklistReloadSubscriber loop crashed` 看根因异常 (redis timeout / 解码错等)
+3. grep `watchdog: _loop task dead .* restarting` 确认 watchdog 在工作 (每次重启一条)
+4. 若 redis 持续不可用: watchdog 会反复重启失败 (start early-return), 此时
+   cold fallback = rolling deploy 重启 backend; 同时排查 redis 连通性
+5. 验证恢复: `debug-version` endpoint per-replica 版本号回到一致
+
 ## 相关 reference
 
 - ADR-0048 §4 双层 AI 关键词过滤设计
