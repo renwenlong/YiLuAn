@@ -209,7 +209,7 @@ admin (仅 super) 手动触发某订单 precheck:order:{order_id} 缓存失效 +
 * OrderPrecheckAggregator.evaluate 重算 4 卡 + redis SET (TTL 5min);
 * AdminAuditLog 已写 (admin_id / order_id / cards / timestamp)。
 
-rate limit: 5/min per admin (按 Authorization token 分桶)。
+rate limit: 5/min per admin (按 decoded admin_id 分桶 — S3-OPS-RATE-LIMIT-PER-ADMIN-ID 消除 PR #250 'admin re-login 重置 bucket' trade-off)。
 
 **参数：**
 
