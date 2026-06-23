@@ -74,9 +74,11 @@ class TestImmutableFieldsSentinel:
     4. This sentinel test
     """
 
-    def test_immutable_fields_pinned_8(self):
-        # AC#2 字面 (魈 08:25): 8 immutable 字段。不包含 ``id`` — PK 由 DB
+    def test_immutable_fields_pinned_9(self):
+        # AC#2 字面 (魈 08:25): 原 8 immutable 字段。不包含 ``id`` — PK 由 DB
         # 物理 immutable 兜底，不在应用层 trigger 重复 guard。
+        # S3-OPS-CONTRACT-SALT-ROTATE-PATH / ADR-0046 r8 (方案 D): 加
+        # salt_version → 9 字段 (创建后 immutable, 防篡改取证溯源)。
         assert IMMUTABLE_FIELDS == frozenset(
             {
                 "order_id",
@@ -87,9 +89,10 @@ class TestImmutableFieldsSentinel:
                 "generated_at",
                 "is_immutable",
                 "created_at",
+                "salt_version",
             }
         )
-        assert len(IMMUTABLE_FIELDS) == 8
+        assert len(IMMUTABLE_FIELDS) == 9
 
     def test_mutable_fields_pinned_10(self):
         # AC#2 字面 "5 mutable" 是数错 — 原始 7 mutable:

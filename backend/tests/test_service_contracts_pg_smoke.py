@@ -334,7 +334,7 @@ async def _seed_contract(
     # 仅取 hex 第 1 字符 (16 选 1) 填整 64 字符, 17 test 撞概率 ~95%, 撞了 INSERT 走
     # unique_contract_hash 索引 ROLLBACK 后续 UPDATE 落错 row → trigger 不报 → DID NOT RAISE.
     # 用 full uuid.hex (32 char) + 第二 uuid.hex (32 char) = 64 char 全 random hex,
-    # 碰撞概率 1/16^64. 显式 contract_hash kwarg 保留 (test_contract_hash_update_rejected 需 deterministic).
+    # 碰撞概率 1/16^64. 显式 contract_hash kwarg 保留 (test_contract_hash_update_rejected 需 deterministic).  # noqa: E501
     chash = contract_hash or (uuid.uuid4().hex + uuid.uuid4().hex)[:64]
     # Pad to 64 chars deterministically (only kicks in if caller passes shorter explicit chash)
     chash = (chash + "0" * 64)[:64]
@@ -549,6 +549,50 @@ class TestImmutableTrigger:
             )
             await session.commit()
         await session.rollback()
+
+    # ----- S3-OPS-CONTRACT-SALT-ROTATE-PATH / ADR-0046 r8 (方案 D) -----
+
+    async def test_salt_version_update_rejected(self, session):
+        """AC#4: salt_version 创建后 immutable — UPDATE 触发 trigger RAISE。
+
+        这是给 salt_version 列 *加* WORM 守护 (防篡改 salt 取证溯源),
+        不是给 pseudonym_hash 加豁免 (已废方案 A)。
+        """
+        await _seed_service_packages(session)
+        user_id = await _seed_user(session)
+        order_id = await _seed_order(session, user_id=user_id)
+        contract_id = await _seed_contract(session, order_id=order_id)
+        with pytest.raises((DBAPIError, InternalError, ProgrammingError)) as exc:
+            await session.execute(
+                text(
+                    "UPDATE service_contracts SET salt_version = 2 "
+                    "WHERE id = :id"
+                ),
+                {"id": contract_id},
+            )
+            await session.commit()
+        assert (
+            "salt_version" in str(exc.value).lower()
+            or "immutable" in str(exc.value).lower()
+        )
+        await session.rollback()
+
+    async def test_existing_row_gets_default_salt_version_no_update(self, session):
+        """AC#2/#3: 存量行靠 server_default 1 自动填值, 零 UPDATE。
+
+        方案 D 核心: 存量不动 (保 WORM)。_seed_contract 的 INSERT 不写
+        salt_version 列 — 靠 DEFAULT 1 填值, 不需任何 UPDATE (若需 UPDATE
+        才能填值就会撞上刚加的 immutable_guard)。
+        """
+        await _seed_service_packages(session)
+        user_id = await _seed_user(session)
+        order_id = await _seed_order(session, user_id=user_id)
+        contract_id = await _seed_contract(session, order_id=order_id)
+        res = await session.execute(
+            text("SELECT salt_version FROM service_contracts WHERE id = :id"),
+            {"id": contract_id},
+        )
+        assert res.scalar_one() == 1
 
     # ----- 7 mutable PASS -----
 
