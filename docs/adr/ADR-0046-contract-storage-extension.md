@@ -457,5 +457,20 @@ python scripts/qa/openapi_contract_diff.py --json-summary
   - 后续 action (刻晴 + 胡桃):
     1. 刻晴: `test_e2e_share_companion_cert_journey.py` line 572 xfail block 删除, 改为正常 `test_cache_invalidate_then_share_re_read_returns_fresh_data` 正向 assert: invalidate endpoint 调用返回 200/501/400 + 不 break flow + share GET re-read 直接命中 DB 返回 fresh data (无 cache 层但 invalidate 调用是 no-op success)
     2. 胡桃: `backend/app/api/v1/admin/cache.py` (如不存在则建 stub) 加 `POST /api/v1/admin/cache/invalidate` 接受 `cache_key` body + 返回 200 + 当 `cache_key` 是 `share:*` pattern 时直接返回 `{"ok": true, "note": "share endpoint has no cache, no-op"}` (provide forward compat for future cache layer 重启时不破 test contract)
-  - **未来 cache 添加触发条件**: 若 share traffic >100 QPS sustained (Grafana 监控) 或 `build_share_order_view` p99 >200ms, 再独立 ADR (e.g. ADR-0046 r7 或新 ADR) 评估添加 RedisShareCache + invalidate broadcast
+  - **未来 cache 添加触发条件**: 若 share traffic >100 QPS sustained (Grafana 监控) 或 `build_share_order_view` p99 >200ms, 再独立 ADR (新 ADR, 不复用 r 号) 评估添加 RedisShareCache + invalidate broadcast
   - **不拆 S3-DEV-007-SHARE-CACHE task** (方案 B 路径), 因为方案 A 拍板已闭 spec drift; 后续触发条件满足时再拆
+- **r7（2026-06-23）**：架构师 (魈) 落 — **`patient_pseudonym_hash` salt 轮换路径拍板, 帝君裁决采方案 A (WORM 豁免 + 可背填重 hash)** (配套 task: S3-OPS-CONTRACT-SALT-ROTATE-PATH)
+  - 触发: §3.2 定义 `patient_pseudonym_hash = SHA-256(姓名+id_card_last4+CONTRACT_PSEUDONYM_SALT)`, salt 一旦泄露/需轮换时, 历史 `service_contracts` 行的 hash 如何重算 = 设计空白。原 §4 WORM hash_inputs immutable (line 197 区) 会让 UPDATE trigger 拒绝任何 hash 列改动, 与 salt 轮换冲突
+  - **决策点 (业务/合规, 非技术单方)**: `patient_pseudonym_hash` 是否 WORM 合同的实质条款? 若是 → 不可改 → salt 永不能轮换 (或永久双 salt); 若否 → 可豁免 → 轮换时背填
+  - **帝君 2026-06-23 裁决 (业务+法务权威, ratify trail = SALT-ROTATE task board comment `2081e73e`)**: `patient_pseudonym_hash` **不算** WORM 实质条款 —— 它是 **PII 派生 hash (用于跨表关联防撞, 非合同金额/签名/合同号/签署时间等实质条款)**, 故**从 WORM immutable 白名单豁免**, 允许 salt 轮换时背填重算
+  - **采方案 A** (三方案对比):
+    | 方案 | 内容 | 裁决 |
+    |---|---|---|
+    | **A 豁免背填** | pseudonym_hash 从 WORM 豁免, salt 轮换时一次性 offline 背填重算, deprecated salt 过渡态背填完即下 | ✅ 采纳 (帝君裁 pseudonym 非实质条款 + 技术最干净, hash 可重算无信息损失) |
+    | B 永久双 salt | PRIMARY+DEPRECATED 永久共存, 老行永走 deprecated 算法不背填 | ❌ 否决 (salt 永不退休 + 审计 N 倍复杂 + 技术债累积) |
+    | C 新行作废老行 | 轮换时给患者新建 contract 行作废老行 | ❌ 否决 (违反 PIPL 'one patient one contract' 业务约束, 凝光 raise) |
+  - **§4 WORM 白名单豁免规则 (r7 落)**: `service_contracts` 的 UPDATE trigger / immutable 字段白名单 **显式排除 `patient_pseudonym_hash` 列** — 该列允许被背填 UPDATE; 其余实质字段 (合同金额 / 数字签名 / 合同号 / 签署时间 / PDF blob_path) 仍全 immutable。豁免边界必须单测覆盖 (改 pseudonym_hash 放行 + 改实质字段仍 raise)
+  - **轮换机制 (r7 落)**: 双 salt 过渡态 (`CONTRACT_PSEUDONYM_SALT_PRIMARY` + `_DEPRECATED`) + `service_contracts.salt_version` 列 (默认 1, 标记每行用哪版 salt) + 一次性 offline backfill batch (`scripts/backfill_contract_salt.py`, dry-run + commit + 幂等) + 背填完下掉 deprecated 收尾。**deprecated 是过渡态非永久** (区别于已否决的方案 B)
+  - **审计读 salt_version** 仅作'该行 hash 用哪版 salt 重算'依据 (背填后恒 primary), 不引入'老版本永久走 deprecated 审计路径'
+  - ⚠️ **可审计性 note**: 帝君 ratify trail board comment (`2081e73e`) 的 content 字段经 evidence-first API 核实为**空** (AgentSquad 后端 comment content 写入丢失 bug, 全 4 条 comment 同症状, 已上报)。**本 r7 ADR 段落是帝君 A 裁决的可审计 source of truth**, 替代空壳 board comment 留痕
+  - 后续 action: 胡桃 impl S3-OPS-CONTRACT-SALT-ROTATE-PATH (AC 9 条已按 A 落 board), 魈 review。AC 齐, 合并走 CI + ratify 闸
