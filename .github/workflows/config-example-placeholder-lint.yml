@@ -1,0 +1,77 @@
+# S3-OPS-CONFIG-EXAMPLE-PLACEHOLDER-LINT
+# docs hygiene 哨兵 (warn-only): 扫 deploy/env.*.example 中未替换的 __CHANGE_ME__ placeholder.
+#
+# 背景:
+#   PR #310 (S3-OPS-SALT-ENTROPY-GUARD) r1 review 魈 surface #1:
+#   production.example 的 salt 是 67 char placeholder (__CHANGE_ME__...), entropy
+#   哨兵不抓 (满足 >=32 + 不雷同) → 运维若没替换 .example 直接 deploy 是 latent prod bug.
+#   hutao 拒 AC#7 (validator 加 placeholder 特判, 耦合 prod runtime), 提替代方案:
+#   在 docs/example hygiene 层 soft-warn lint, 跟 entropy CI hard-fail 互补.
+#
+# CI 策略 (AC#4 — warn-only, 不 block merge):
+#   lint 脚本命中 placeholder 时 exit 1, 但本 job 用 continue-on-error: true 降级为
+#   advisory 提示 (annotation), PR 仍可正常合. 不是 required check.
+#   理由: __CHANGE_ME__ 出现在 *.example 是**正确**设计 (example 就该带提示);
+#         真 env.production 不入库 + 运维替换 + ContractService runtime 哨兵兜底.
+#
+# 跟 verify-env-salts.yml 的关系 (AC#5 — 互补):
+#   - verify-env-salts.yml: 抓真 env.* 的弱 salt (entropy/雷同), hard fail
+#   - 本 workflow:          抓 example 的未替换 placeholder, soft warn
+#
+# Refs:
+#   - PR #310 r1 surface #1 → hutao 拒 AC#7 → 提替代方案 → 魈 (architect) 立 task
+#   - backend/scripts/lint_config_example_placeholders.py
+#   - tests/scripts/test_lint_config_example_placeholders.py
+#   - docs/deployment.md ('为何 .example 带 __CHANGE_ME__ placeholder' section)
+
+name: Config Example Placeholder Lint (warn-only)
+
+on:
+  pull_request:
+    paths:
+      - "deploy/env.*.example"
+      - "backend/scripts/lint_config_example_placeholders.py"
+      - "tests/scripts/test_lint_config_example_placeholders.py"
+      - ".github/workflows/config-example-placeholder-lint.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deploy/env.*.example"
+      - "backend/scripts/lint_config_example_placeholders.py"
+      - "tests/scripts/test_lint_config_example_placeholders.py"
+      - ".github/workflows/config-example-placeholder-lint.yml"
+
+jobs:
+  config-example-placeholder-lint:
+    name: Config example placeholder hygiene (warn-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # 纯文本扫描, 无第三方依赖 (仅标准库 argparse/pathlib).
+      - name: Run placeholder lint (warn-only, exit 1 不 block merge)
+        id: lint
+        continue-on-error: true
+        run: |
+          echo "::group::Scan deploy/env.*.example for unreplaced __CHANGE_ME__ placeholders"
+          python3 backend/scripts/lint_config_example_placeholders.py
+          echo "::endgroup::"
+
+      # 把 lint 结果转成 GitHub annotation (warning 级, 不 fail job).
+      - name: Surface as advisory warning
+        if: steps.lint.outcome == 'failure'
+        run: |
+          echo "::warning title=Config example placeholders::deploy/env.*.example 含未替换的 __CHANGE_ME__ placeholder (docs hygiene advisory, 不 block merge). 部署前运维必须替换真实值, 详见 docs/deployment.md."
+
+      # 跑配套单测 (这步是真 gate — 脚本逻辑本身必须正确).
+      - name: Run lint unit tests
+        run: |
+          python3 -m pip install --upgrade pip --quiet
+          pip install --quiet pytest
+          python3 -m pytest tests/scripts/test_lint_config_example_placeholders.py -v
