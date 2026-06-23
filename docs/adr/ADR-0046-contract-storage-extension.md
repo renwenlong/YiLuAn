@@ -472,5 +472,32 @@ python scripts/qa/openapi_contract_diff.py --json-summary
   - **§4 WORM 白名单豁免规则 (r7 落)**: `service_contracts` 的 UPDATE trigger / immutable 字段白名单 **显式排除 `patient_pseudonym_hash` 列** — 该列允许被背填 UPDATE; 其余实质字段 (合同金额 / 数字签名 / 合同号 / 签署时间 / PDF blob_path) 仍全 immutable。豁免边界必须单测覆盖 (改 pseudonym_hash 放行 + 改实质字段仍 raise)
   - **轮换机制 (r7 落)**: 双 salt 过渡态 (`CONTRACT_PSEUDONYM_SALT_PRIMARY` + `_DEPRECATED`) + `service_contracts.salt_version` 列 (默认 1, 标记每行用哪版 salt) + 一次性 offline backfill batch (`scripts/backfill_contract_salt.py`, dry-run + commit + 幂等) + 背填完下掉 deprecated 收尾。**deprecated 是过渡态非永久** (区别于已否决的方案 B)
   - **审计读 salt_version** 仅作'该行 hash 用哪版 salt 重算'依据 (背填后恒 primary), 不引入'老版本永久走 deprecated 审计路径'
-  - ⚠️ **可审计性 note**: 帝君 ratify trail board comment (`2081e73e`) 的 content 字段经 evidence-first API 核实为**空** (AgentSquad 后端 comment content 写入丢失 bug, 全 4 条 comment 同症状, 已上报)。**本 r7 ADR 段落是帝君 A 裁决的可审计 source of truth**, 替代空壳 board comment 留痕
+  - ℹ️ **可审计性 note (r8 修正)**: 帝君 ratify trail board comment (`2081e73e`) 的 content **已持久化** (凝光后端 REST 直查实证, grep 命中「采用方案 A」, 6376 字节)。原 r7 描述「content 核实为空 / 写入丢失 bug」**事实错误已在 r8 更正**: 真相是 mjs `list_comments` 不回显 content 字段 (读取层已知限制), **非后端写入丢失**。查正文走后端 API / add_comment 返回体。**ADR 与 board comment 互为冗余 audit** (两者都有 content, 非「ADR 替代空壳 comment」)
   - 后续 action: 胡桃 impl S3-OPS-CONTRACT-SALT-ROTATE-PATH (AC 9 条已按 A 落 board), 魈 review。AC 齐, 合并走 CI + ratify 闸
+
+- **r8（2026-06-23）**：架构师 (魈) 落 — **🔴 修正 r7 错误技术前提: 方案 A「豁免背填」与现有 WORM 架构根本冲突, 实际不可行; 改采「存量不动 + 仅新合同轮换」方案 D。配套 task: S3-OPS-CONTRACT-SALT-ROTATE-PATH (AC 重写)**
+  - **触发 (evidence-first 实证, 责任在架构师本人)**: 落 r7 时假设 `patient_pseudonym_hash` 是 service_contracts 的「独立可背填派生列」, **未 grep `contract_hash.py` 实现核实**。实读 main HEAD `701c2ea` 代码发现致命矛盾:
+    1. `patient_pseudonym_hash` **不是 service_contracts 独立列** — 它在 `backend/app/services/contract_hash.py` 是 `_HASH_INPUTS_REQUIRED_KEYS` 之一 (line 95 区)
+    2. 它**进入 contract_hash 计算**: `build_hash_inputs_snapshot()` 放进 snapshot → `_hash_from_snapshot()` 做 `SHA256(template_version|canonical_json(snapshot))` → 得 `contract_hash`
+    3. `contract_hash` 被 `service_contracts_immutable_guard` PL/pgSQL trigger **WORM 锁死** (`d5e6f7a8b9c1` migration: `IF OLD.contract_hash IS DISTINCT FROM NEW.contract_hash THEN RAISE EXCEPTION`)
+  - **矛盾链**: salt 轮换 → pseudonym_hash 变 (SHA256 含 salt) → 它是 contract_hash 输入 → contract_hash 变 → 撞 WORM trigger RAISE EXCEPTION。**方案 A「豁免 pseudonym_hash 列可背填」在当前架构不成立** — `patient_pseudonym_hash` **本就不在 immutable_guard 8 字段守护列表** (守的是 order_id/template_version/contract_hash/hash_inputs/storage_blob_path/generated_at/is_immutable/created_at), 真正被锁的是 `contract_hash` + `hash_inputs` (JSONB, pseudonym_hash 嵌其中)。背填 pseudonym_hash = 必须改 contract_hash + hash_inputs = 直接违 WORM 核心
+  - **更深一层 (r7 逻辑自相矛盾)**: r7 既说「背填重算 pseudonym_hash」(要改 contract_hash) 又说「salt_version 标记每行 salt 版本供重算」 — 但 `recompute_contract_hash(snapshot, template_version)` **从 snapshot 重组, 根本不碰 salt** (snapshot 里存的是 pseudonym_hash 结果值, 验证时直接复用)。**存量合同验证不需要 salt** → salt_version 列对验证无用
+  - **威胁模型重新厘清**: `patient_pseudonym_hash` 作用 = 防跨患者撞库 (同名同 id_card_last4 → 同 hash 可关联检测) + 防篡改。salt 泄露的真实风险 = 攻击者拿旧 salt + 暴力枚举 (姓名+id_card_last4) → 反查某 hash 对应谁 (彩虹表攻击)。**轮换 salt 目的 = 让泄露的旧 salt 对新合同失效**
+  - **关键推论 (背填无意义)**: 存量合同 pseudonym_hash 用旧 salt 算的值已烧进**不可变** contract_hash。攻击者拿旧 salt 仍能反查旧合同 = **既成历史风险, 背填消除不了** (背填要改 contract_hash 违 WORM, 且改了攻击者用旧 salt 仍可反查旧值)。背填既违 WORM **又达不到安全目的**
+  - **改采方案 D (存量不动 + 仅新合同轮换)** (修正后四方案对比):
+    | 方案 | 内容 | 裁决 |
+    |---|---|---|
+    | ~~A 豁免背填~~ | ~~pseudonym_hash 从 WORM 豁免, 背填重算~~ | ❌ **r8 否决 (技术不可行: pseudonym_hash 进 contract_hash, 背填撞 WORM; 且背填消除不了既成反查风险, 无安全收益)** |
+    | ~~B 永久双 salt~~ | ~~PRIMARY+DEPRECATED 永久共存~~ | ❌ 否决 (r7 已否, salt 永不退休 + 审计复杂) |
+    | ~~C 新行作废老行~~ | ~~给患者新建 contract 作废老行~~ | ❌ 否决 (r7 已否, 违 PIPL one-patient-one-contract) |
+    | **D 存量不动+新合同轮换** | 存量 contract_hash/pseudonym_hash **完全不动** (保 WORM 铁律), salt 轮换后**仅新合同**用 new salt 算 pseudonym_hash; 加 `salt_version` 列**只标记该行创建时用哪版 salt** (审计/取证溯源用, 非验证用); 旧 salt 轮换后从生产 env 撤下 (不再用于新合同), 但**不背填存量** | ✅ **r8 采纳 (不违 WORM + 技术可行 + 符合威胁模型: 让泄露旧 salt 对未来新合同失效, 既成历史风险本就不可逆)** |
+  - **方案 D 实施要点 (重写 AC 依据)**:
+    1. **存量零改动**: `service_contracts` 现有行 contract_hash / hash_inputs / pseudonym_hash **一律不 UPDATE**, immutable_guard trigger **不改** (无需豁免任何列)
+    2. **salt_version 列 (新增, 仅溯源)**: `ALTER TABLE service_contracts ADD COLUMN salt_version SMALLINT NOT NULL DEFAULT 1`。新合同生成时写当前 salt 版本号。**纯审计/取证元数据** (回答「这行当年用第几版 salt」), 不参与 contract_hash 计算 (否则又烧进 WORM), 不参与验证 (recompute 用 snapshot)。⚠️ 该列本身**不入** `_HASH_INPUTS_REQUIRED_KEYS` (不进 hash), 但需加入 immutable_guard (创建后不可改, 防篡改溯源记录)
+    3. **双 salt env 仅轮换窗口**: 轮换期 `CONTRACT_PSEUDONYM_SALT_PRIMARY` (新, 算新合同) 短暂与旧并存仅为灰度部署平滑; 轮换完旧 salt 直接撤 env (不留 DEPRECATED 永久态)。**无 backfill 脚本** (`scripts/backfill_contract_salt.py` 不需要 — 存量不背填)
+    4. **`compute_patient_pseudonym_hash` + `_get_pseudonym_salt` 改**: 读 `CONTRACT_PSEUDONYM_SALT_PRIMARY` (向后兼容 fallback 旧 `CONTRACT_PSEUDONYM_SALT`); 新合同 snapshot 多记 `salt_version`
+    5. **单测边界 (回答胡桃「怎么证最稳」)**: ① 新合同用 new salt → pseudonym_hash 与旧 salt 算的不同 (轮换生效) ② 存量合同 recompute_contract_hash 仍 pass (snapshot 复用, 不受 salt 轮换影响) ③ immutable_guard 对 contract_hash/salt_version 的 UPDATE 仍 RAISE (WORM 不破) ④ salt_version 列默认 1 + 新合同写当前版本
+  - **§4 WORM 规则 (r8 修正 r7)**: r7 的「UPDATE trigger 排除 pseudonym_hash 列」**作废** (该列本就不在守护表, 且不应被改)。r8 规则: immutable_guard **维持原 8 字段不变** + **新增 `salt_version` 进 immutable 守护** (创建后不可篡改溯源记录)。存量行零 UPDATE
+  - **需重新上报帝君**: r7 上报给帝君的「方案 A 豁免背填」基于我**错误的技术前提** (以为 pseudonym_hash 是独立可背填列)。帝君 2026-06-23 基于错误前提裁了 A。**方案 D 不需要「pseudonym 是否 WORM 实质条款」这个业务/合规裁决** (D 根本不动存量, 无豁免问题) — 纯技术修正, 待帝君 ack 方案 D 替代即可。凝光协助重新上报
+  - ⚠️ **#352 (r7 PR) 已 merged 不回滚** (doc-only 无害), r8 在同文件追加修正, r7 段保留作「错误决策 + 修正」的完整审计链 (evidence-first 文化: 错误也留痕, 不抹除)
+  - **反案归责**: 架构师本人 (魈)。落 ADR 设计决策时未 grep 实现核实「字段是否独立列 / 是否进 hash」, 是 evidence-first SOP 触发点「决定文件/函数/字段是否存在/性质前必 grep」的漏用 (反案 #12 同族)。已入 MEMORY
