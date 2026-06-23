@@ -6,8 +6,11 @@ with real evaluate + cache SET):
 
 * AC#1: ``AdminAuditLog`` row is written (target_type / action /
   operator / cards in ``reason``).
-* AC#2: rate limit ``5/minute per admin`` — 6th call within the
-  same window returns 429.
+* AC#2: rate limit ``5/minute per admin`` keyed by **decoded admin_id**
+  (S3-OPS-RATE-LIMIT-PER-ADMIN-ID) — 6th call within the same window
+  returns 429; a single admin's re-login (new JWT, same ``sub``) keeps
+  the same bucket; distinct admins stay isolated; decode failure falls
+  back to the client IP without raising.
 * AC#3: per-card audit tag — ``cards`` list ends up verbatim in
   the audit row's ``reason`` column (sorted, comma-joined).
 * AC#4: cache key shape — defensive ``redis DEL`` targets the single
@@ -23,6 +26,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import AsyncGenerator
+from datetime import timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -30,7 +34,7 @@ import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 
-from app.core.admin_jwt import create_admin_access_token
+from app.core.admin_jwt import create_admin_access_token, decode_admin_token
 from app.core.rate_limit import limiter as _rate_limiter
 from app.models.admin_audit_log import AdminAuditLog
 from app.models.admin_user import AdminRole, AdminUser
@@ -458,11 +462,11 @@ async def test_rate_limit_blocks_sixth_request_per_admin(
 ) -> None:
     """Per-admin 5/min bucket; the 6th call within the window = 429.
 
-    Buckets are keyed by Authorization token (see
-    ``_admin_rate_limit_key``), so two distinct admins share no
-    quota. We only verify the same-token saturation here; the
-    per-admin partitioning is covered by the unit test on
-    ``_admin_rate_limit_key`` below.
+    Buckets are keyed by decoded ``admin_id`` (see
+    ``_admin_rate_limit_key``), so two distinct admins share no quota.
+    This case verifies same-token saturation; re-login (same admin,
+    new JWT) and cross-admin isolation are covered by the dedicated
+    AC#2/#3 tests below.
     """
     headers = {"Authorization": f"Bearer {super_token}"}
     for i in range(5):
@@ -483,11 +487,14 @@ async def test_rate_limit_blocks_sixth_request_per_admin(
     assert r.status_code == 429, f"6th call should be rate-limited; got {r.status_code}: {r.text}"
 
 
-def test_rate_limit_key_partitions_per_token() -> None:
-    """``_admin_rate_limit_key`` returns distinct buckets per token.
+def test_rate_limit_key_buckets_by_admin_id() -> None:
+    """``_admin_rate_limit_key`` buckets by decoded ``sub`` (admin_id).
 
-    The fastapi.Request stub here uses a thin namespace; we don't need
-    a real ASGI scope because the function only reads
+    S3-OPS-RATE-LIMIT-PER-ADMIN-ID: a malformed/garbage bearer value no
+    longer becomes its own bucket (the old token-keyed behavior) — it now
+    fails to decode and falls back to the client IP (AC#5). Only a real
+    admin JWT yields an ``admin:<id>`` bucket. The fastapi.Request stub
+    here uses a thin namespace because the function only reads
     ``headers.get("authorization")`` and ``client.host``.
     """
     from app.api.v1.admin.cache_invalidate import _admin_rate_limit_key
@@ -497,11 +504,162 @@ def test_rate_limit_key_partitions_per_token() -> None:
             self.headers = {"authorization": auth} if auth else {}
             self.client = type("_C", (), {"host": host})()
 
-    key_a = _admin_rate_limit_key(_StubRequest("Bearer aaa.bbb.ccc"))
-    key_b = _admin_rate_limit_key(_StubRequest("Bearer xxx.yyy.zzz"))
-    key_anon = _admin_rate_limit_key(_StubRequest(None, host="9.9.9.9"))
+    # A real admin JWT -> admin:<sub> bucket.
+    admin = AdminUser(
+        id=4242,
+        username="key_unit_admin",
+        password_hash="x",
+        role=AdminRole.super_,
+        is_active=True,
+    )
+    token = create_admin_access_token(admin)
+    key_admin = _admin_rate_limit_key(_StubRequest(f"Bearer {token}"))
+    assert key_admin == "admin:4242", key_admin
 
-    assert key_a == "admin:aaa.bbb.ccc"
-    assert key_b == "admin:xxx.yyy.zzz"
+    # Garbage / non-JWT bearer -> decode fails -> IP fallback (AC#5),
+    # NOT a per-token bucket (old behavior would have returned
+    # "admin:aaa.bbb.ccc").
+    key_garbage = _admin_rate_limit_key(_StubRequest("Bearer aaa.bbb.ccc", host="5.5.5.5"))
+    assert key_garbage == "ip:5.5.5.5", key_garbage
+
+    # No Authorization header at all -> IP fallback, never raises.
+    key_anon = _admin_rate_limit_key(_StubRequest(None, host="9.9.9.9"))
+    assert key_anon == "ip:9.9.9.9", key_anon
+
+
+def test_rate_limit_key_relogin_same_admin_same_bucket() -> None:
+    """AC#2 (unit): same admin, two *different* JWTs -> identical bucket.
+
+    Simulates a re-login / refresh-token rotation by minting two tokens
+    for the same ``AdminUser`` with different expiries (so the encoded
+    strings differ byte-for-byte). Because both carry the same ``sub``,
+    the key_func must collapse them onto one bucket — this is exactly the
+    PR #250 trade-off this task removes.
+    """
+    from app.api.v1.admin.cache_invalidate import _admin_rate_limit_key
+
+    class _StubRequest:
+        def __init__(self, auth: str) -> None:
+            self.headers = {"authorization": auth}
+            self.client = type("_C", (), {"host": "1.1.1.1"})()
+
+    admin = AdminUser(
+        id=777,
+        username="relogin_admin",
+        password_hash="x",
+        role=AdminRole.super_,
+        is_active=True,
+    )
+    token_1 = create_admin_access_token(admin, expires_in=timedelta(minutes=30))
+    token_2 = create_admin_access_token(admin, expires_in=timedelta(minutes=60))
+    assert token_1 != token_2, "precondition: two distinct JWT strings"
+    # Same sub on both tokens -> same decoded admin_id.
+    assert decode_admin_token(token_1)["sub"] == decode_admin_token(token_2)["sub"]
+
+    key_1 = _admin_rate_limit_key(_StubRequest(f"Bearer {token_1}"))
+    key_2 = _admin_rate_limit_key(_StubRequest(f"Bearer {token_2}"))
+    assert key_1 == key_2 == "admin:777", (key_1, key_2)
+
+
+def test_rate_limit_key_distinct_admins_isolated() -> None:
+    """AC#3 (unit): different admins -> different buckets."""
+    from app.api.v1.admin.cache_invalidate import _admin_rate_limit_key
+
+    class _StubRequest:
+        def __init__(self, auth: str) -> None:
+            self.headers = {"authorization": auth}
+            self.client = type("_C", (), {"host": "1.1.1.1"})()
+
+    admin_a = AdminUser(
+        id=100, username="adm_a", password_hash="x", role=AdminRole.super_, is_active=True
+    )
+    admin_b = AdminUser(
+        id=200, username="adm_b", password_hash="x", role=AdminRole.super_, is_active=True
+    )
+    key_a = _admin_rate_limit_key(_StubRequest(f"Bearer {create_admin_access_token(admin_a)}"))
+    key_b = _admin_rate_limit_key(_StubRequest(f"Bearer {create_admin_access_token(admin_b)}"))
+    assert key_a == "admin:100"
+    assert key_b == "admin:200"
     assert key_a != key_b
-    assert key_anon == "ip:9.9.9.9"
+
+
+async def test_relogin_does_not_reset_bucket_e2e(
+    client: AsyncClient,
+    enable_real_rate_limit: None,  # noqa: ARG001 — fixture
+) -> None:
+    """AC#2 (integration): re-login mid-window does NOT refill the budget.
+
+    Seed one super admin, mint two distinct JWTs for it (different exp),
+    spend the 5/min budget across *both* tokens (3 calls on token A, 2 on
+    token B), then assert the 6th call — on either token — is 429. Under
+    the old token-keyed behavior the switch to token B would have reset
+    the bucket and the 6th call would have 200'd.
+    """
+    async with _session_factory() as session:
+        admin = AdminUser(
+            username="relogin_e2e_super",
+            password_hash="test-not-used",
+            role=AdminRole.super_,
+            is_active=True,
+        )
+        session.add(admin)
+        await session.commit()
+        await session.refresh(admin)
+        token_a = create_admin_access_token(admin, expires_in=timedelta(minutes=30))
+        token_b = create_admin_access_token(admin, expires_in=timedelta(minutes=60))
+    assert token_a != token_b
+
+    headers_a = {"Authorization": f"Bearer {token_a}"}
+    headers_b = {"Authorization": f"Bearer {token_b}"}
+    # 5 successful calls split across the two tokens (3 + 2).
+    for i, hdr in enumerate([headers_a, headers_a, headers_a, headers_b, headers_b]):
+        r = await client.post(INVALIDATE_URL, json={"order_id": str(uuid4())}, headers=hdr)
+        assert r.status_code == 200, f"call #{i + 1}: expected 200, got {r.status_code} — {r.text}"
+    # 6th call on the *re-logged-in* token must still be throttled.
+    r = await client.post(INVALIDATE_URL, json={"order_id": str(uuid4())}, headers=headers_b)
+    assert r.status_code == 429, (
+        f"re-login must not reset bucket; 6th call should be 429, got {r.status_code}: {r.text}"
+    )
+
+
+async def test_distinct_admins_isolated_buckets_e2e(
+    client: AsyncClient,
+    enable_real_rate_limit: None,  # noqa: ARG001 — fixture
+) -> None:
+    """AC#3 (integration): admin_A saturating 5/min does not block admin_B."""
+    async with _session_factory() as session:
+        admin_a = AdminUser(
+            username="iso_super_a",
+            password_hash="x",
+            role=AdminRole.super_,
+            is_active=True,
+        )
+        admin_b = AdminUser(
+            username="iso_super_b",
+            password_hash="x",
+            role=AdminRole.super_,
+            is_active=True,
+        )
+        session.add_all([admin_a, admin_b])
+        await session.commit()
+        await session.refresh(admin_a)
+        await session.refresh(admin_b)
+        token_a = create_admin_access_token(admin_a)
+        token_b = create_admin_access_token(admin_b)
+
+    headers_a = {"Authorization": f"Bearer {token_a}"}
+    # admin_A spends its full 5/min budget + gets thrtottled on the 6th.
+    for _ in range(5):
+        r = await client.post(INVALIDATE_URL, json={"order_id": str(uuid4())}, headers=headers_a)
+        assert r.status_code == 200
+    r = await client.post(INVALIDATE_URL, json={"order_id": str(uuid4())}, headers=headers_a)
+    assert r.status_code == 429, "admin_A 6th call should be throttled"
+    # admin_B is unaffected by admin_A's spent bucket.
+    r = await client.post(
+        INVALIDATE_URL,
+        json={"order_id": str(uuid4())},
+        headers={"Authorization": f"Bearer {token_b}"},
+    )
+    assert r.status_code == 200, (
+        f"admin_B must not inherit admin_A's bucket; got {r.status_code}: {r.text}"
+    )

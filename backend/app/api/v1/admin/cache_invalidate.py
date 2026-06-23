@@ -9,8 +9,11 @@ PRD-001 v1.4 §F8. 4 硬要求 per 魈 task comment ``79ce3e34``:
    timestamp / source IP follow ``view_prep_package`` pattern in
    ``app/api/v1/admin/prep_packages.py``).
 2. Rate limit ``5/minute per admin`` via slowapi ``@limiter.limit``
-   with a key_func that extracts the Authorization token so two admins
-   on the same NAT do not share a bucket.
+   with a key_func that decodes the bearer JWT and buckets by its
+   ``sub`` (admin_id) claim, so two admins on the same NAT do not
+   share a bucket **and** a single admin's re-login does not reset
+   the bucket (S3-OPS-RATE-LIMIT-PER-ADMIN-ID removed the PR #250
+   token-keyed trade-off; the limit value stays 5/min).
 3. Per-card audit tag — the request's ``cards`` list is stored
    verbatim in :attr:`AdminAuditLog.reason` so per-card remediation
    drives are reconstructable from the audit table alone.
@@ -38,6 +41,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.openapi_meta import err
+from app.core.admin_jwt import decode_admin_token
 from app.core.rate_limit import limiter
 from app.database import get_db
 from app.dependencies import CurrentAdmin, DBSession
@@ -91,31 +95,42 @@ the audit row is durable even when the request session rolls back
 
 
 def _admin_rate_limit_key(request: Request) -> str:
-    """slowapi key_func that buckets by admin token (魈 hard req #2).
+    """slowapi key_func that buckets by decoded ``admin_id`` (S3-OPS-RATE-LIMIT-PER-ADMIN-ID).
 
-    slowapi's ``key_func`` runs before FastAPI deps resolve, so we
-    cannot use a decoded ``AdminUser`` here. We bucket by the raw
-    ``Authorization`` header value instead — since each admin has a
-    distinct JWT, this produces the same per-admin partitioning
-    without needing to decode the token.
+    slowapi's ``key_func`` runs before FastAPI deps resolve, so we cannot
+    read a resolved ``AdminUser`` here. We instead decode the bearer JWT
+    *in-place* via :func:`decode_admin_token` and bucket by its ``sub``
+    claim (the AdminUser PK, identical across re-logins). This removes the
+    PR #250 trade-off where an admin re-login minted a new JWT and thus a
+    fresh 5/min bucket: ``sub`` is stable, so re-login now hits the **same**
+    bucket (AC#1/#2). Distinct admins carry distinct ``sub`` claims and stay
+    isolated (AC#3).
 
-    Falls back to the request client IP if Authorization is missing
-    (e.g. preflight). The endpoint itself will 401 in that case, so
-    the rate-limit bucket choice is moot, but we still want a
-    deterministic key to keep slowapi happy.
+    Fallback (AC#5): if Authorization is missing/malformed, the token fails
+    to decode (expired / wrong type / bad signature), or ``sub`` is absent,
+    we fall back to the client IP and **never** raise — ``decode_admin_token``
+    raises :class:`UnauthorizedException` on failure, which we swallow here
+    so the rate-limit layer cannot 500. The endpoint's own auth dependency
+    will still 401/403 the request, so the bucket choice for an unauthorized
+    caller is moot; the IP fallback only keeps slowapi's key deterministic.
 
-    **Known trade-off**: an admin who re-logs-in (logout + login or
-    refresh-token rotation) gets a *new* JWT and therefore a fresh
-    rate-limit bucket — the 5/min budget effectively resets. We
-    accept this because the login endpoint is itself throttled, so
-    a real attacker who steals or guesses ``super_admin`` credentials
-    still cannot re-mint tokens fast enough to evade the cache-invalidate
-    limit in practice (token mint < 1/min). The trade-off is a known
-    limitation, not a bypass; see PRD-001 v1.4 §F8 for the threat model.
+    Note: the limit value (5/min) is unchanged from PR #250 — this task only
+    re-keys the bucket dimension, not the threshold (AC#4).
     """
     auth = request.headers.get("authorization") or ""
     if auth.lower().startswith("bearer "):
-        return f"admin:{auth[7:]}"
+        token = auth[7:].strip()
+        if token:
+            try:
+                payload = decode_admin_token(token)
+                sub = payload.get("sub")
+                if sub:
+                    return f"admin:{sub}"
+            except Exception:
+                # decode failure (expired / invalid / non-admin type) — do
+                # not raise from a key_func; fall through to IP so the
+                # endpoint's auth dep handles the 401/403 (AC#5).
+                pass
     return f"ip:{request.client.host if request.client else 'unknown'}"
 
 
@@ -137,7 +152,8 @@ def _admin_rate_limit_key(request: Request) -> str:
         "* defensive Redis DEL precheck:order:{order_id} 已执行;\n"
         "* OrderPrecheckAggregator.evaluate 重算 4 卡 + redis SET (TTL 5min);\n"
         "* AdminAuditLog 已写 (admin_id / order_id / cards / timestamp)。\n\n"
-        "rate limit: 5/min per admin (按 Authorization token 分桶)。"
+        "rate limit: 5/min per admin (按 decoded admin_id 分桶 — "
+        "S3-OPS-RATE-LIMIT-PER-ADMIN-ID 消除 PR #250 'admin re-login 重置 bucket' trade-off)。"
     ),
     responses=err(401, 403, 404, 422, 429, 500),
 )

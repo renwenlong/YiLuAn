@@ -8742,7 +8742,7 @@
     },
     "/api/v1/admin/cache/invalidate": {
       "post": {
-        "description": "admin (仅 super) 手动触发某订单 precheck:order:{order_id} 缓存失效 + OrderPrecheckAggregator 重算 + WS broadcast。\n\n**S3-DEV-003 c2 evaluate 已落**: 本 endpoint 返 200 + invalidated_keys + broadcast (broadcast=False 直到 c4 WS infra 落)。\n\n保证 (200 响应)：\n* defensive Redis DEL precheck:order:{order_id} 已执行;\n* OrderPrecheckAggregator.evaluate 重算 4 卡 + redis SET (TTL 5min);\n* AdminAuditLog 已写 (admin_id / order_id / cards / timestamp)。\n\nrate limit: 5/min per admin (按 Authorization token 分桶)。",
+        "description": "admin (仅 super) 手动触发某订单 precheck:order:{order_id} 缓存失效 + OrderPrecheckAggregator 重算 + WS broadcast。\n\n**S3-DEV-003 c2 evaluate 已落**: 本 endpoint 返 200 + invalidated_keys + broadcast (broadcast=False 直到 c4 WS infra 落)。\n\n保证 (200 响应)：\n* defensive Redis DEL precheck:order:{order_id} 已执行;\n* OrderPrecheckAggregator.evaluate 重算 4 卡 + redis SET (TTL 5min);\n* AdminAuditLog 已写 (admin_id / order_id / cards / timestamp)。\n\nrate limit: 5/min per admin (按 decoded admin_id 分桶 — S3-OPS-RATE-LIMIT-PER-ADMIN-ID 消除 PR #250 'admin re-login 重置 bucket' trade-off)。",
         "operationId": "invalidate_cache_api_v1_admin_cache_invalidate_post",
         "parameters": [
           {
