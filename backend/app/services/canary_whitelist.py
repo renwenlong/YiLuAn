@@ -1,10 +1,18 @@
 """Canary whitelist service — S2-OPS-A-CANARY-WHITELIST-LAUNCH AC-2.
 
-Loads `deploy/canary/whitelist_phones.yaml` once at module import (or via
-explicit reload) and exposes :func:`is_whitelisted(phone)` returning a
-boolean. Gated by ``settings.canary_whitelist_enabled``: when False the
+Loads the canary whitelist yaml lazily on first access (or via explicit
+reload) and exposes :func:`is_whitelisted(phone)` returning a boolean.
+Gated by ``settings.canary_whitelist_enabled``: when False the
 service short-circuits to ``True`` (all phones pass) so the gate is a
 no-op by default and existing behaviour is preserved.
+
+Yaml path injection (S3-OPS-CANARY-REAL-YAML-PATH-ENV, 魈 2026-06-23 方案 b):
+the effective path is resolved per-load from ``settings.canary_whitelist_path``
+(env ``CANARY_WHITELIST_PATH``, default ``whitelist_phones.yaml``). Production
+canary containers set it to ``whitelist_phones.real.yaml`` so the real list
+lives in its own file — honouring whitelist_phones.yaml §20 (mock/real 物理
+隔离, 避免串). Before this, load() always read the hard-coded mock yaml and
+the real list (約定另起 .real.yaml) could not be switched in at deploy time.
 
 Design:
 - thread-safe module cache (lock + immutable frozenset snapshot)
@@ -28,20 +36,45 @@ from pathlib import Path
 
 import yaml
 
+from app.config import settings
+
 logger = logging.getLogger(__name__)
 
-# Default yml path: repo_root/deploy/canary/whitelist_phones.yaml
+# Canary yaml directory: repo_root/deploy/canary/
 # Resolved from this file: backend/app/services/canary_whitelist.py
 #   -> .parent = services/
 #   -> .parent = app/
 #   -> .parent = backend/
 #   -> .parent = repo_root/
-_DEFAULT_YML_PATH: Path = (
-    Path(__file__).resolve().parent.parent.parent.parent
-    / "deploy"
-    / "canary"
-    / "whitelist_phones.yaml"
-)
+_CANARY_DIR: Path = Path(__file__).resolve().parent.parent.parent.parent / "deploy" / "canary"
+
+# Default yml path (mock list). Kept as the import-time fallback / back-compat
+# constant; the effective path is resolved per-load via _resolve_yml_path()
+# so CANARY_WHITELIST_PATH can switch the canary container to a real list.
+_DEFAULT_YML_PATH: Path = _CANARY_DIR / "whitelist_phones.yaml"
+
+
+def _resolve_yml_path() -> Path:
+    """Resolve the active whitelist yaml path from settings.
+
+    S3-OPS-CANARY-REAL-YAML-PATH-ENV (魈 2026-06-23 方案 b): reads
+    ``settings.canary_whitelist_path`` (env ``CANARY_WHITELIST_PATH``) so the
+    production canary container can switch to an independent real list
+    (``whitelist_phones.real.yaml``) without overwriting the mock yaml --
+    honouring whitelist_phones.yaml §20 (mock/real 物理隔离, 避免串).
+
+    A bare filename is joined under deploy/canary/; an absolute path (or any
+    value containing a path separator) is honoured as-is. Falls back to the
+    mock default when the env value is empty.
+    """
+    raw = (settings.canary_whitelist_path or "").strip()
+    if not raw:
+        return _DEFAULT_YML_PATH
+    candidate = Path(raw)
+    if candidate.is_absolute() or candidate.parent != Path("."):
+        return candidate
+    return _CANARY_DIR / raw
+
 
 # Placeholder prefixes — entries with these are not loaded as real numbers.
 _PLACEHOLDER_PREFIXES: tuple[str, ...] = ("__PENDING_", "__PLACEHOLDER_")
@@ -74,7 +107,7 @@ class _WhitelistCache:
         self._loaded: bool = False
 
     def load(self, yml_path: Path | None = None) -> None:
-        path = yml_path or _DEFAULT_YML_PATH
+        path = yml_path or _resolve_yml_path()
         with self._lock:
             if not path.exists():
                 logger.warning(
