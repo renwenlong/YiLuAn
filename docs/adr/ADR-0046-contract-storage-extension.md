@@ -472,7 +472,7 @@ python scripts/qa/openapi_contract_diff.py --json-summary
   - **§4 WORM 白名单豁免规则 (r7 落)**: `service_contracts` 的 UPDATE trigger / immutable 字段白名单 **显式排除 `patient_pseudonym_hash` 列** — 该列允许被背填 UPDATE; 其余实质字段 (合同金额 / 数字签名 / 合同号 / 签署时间 / PDF blob_path) 仍全 immutable。豁免边界必须单测覆盖 (改 pseudonym_hash 放行 + 改实质字段仍 raise)
   - **轮换机制 (r7 落)**: 双 salt 过渡态 (`CONTRACT_PSEUDONYM_SALT_PRIMARY` + `_DEPRECATED`) + `service_contracts.salt_version` 列 (默认 1, 标记每行用哪版 salt) + 一次性 offline backfill batch (`scripts/backfill_contract_salt.py`, dry-run + commit + 幂等) + 背填完下掉 deprecated 收尾。**deprecated 是过渡态非永久** (区别于已否决的方案 B)
   - **审计读 salt_version** 仅作'该行 hash 用哪版 salt 重算'依据 (背填后恒 primary), 不引入'老版本永久走 deprecated 审计路径'
-  - ⚠️ **可审计性 note**: 帝君 ratify trail board comment (`2081e73e`) 的 content 字段经 evidence-first API 核实为**空** (AgentSquad 后端 comment content 写入丢失 bug, 全 4 条 comment 同症状, 已上报)。**本 r7 ADR 段落是帝君 A 裁决的可审计 source of truth**, 替代空壳 board comment 留痕
+  - ℹ️ **可审计性 note (r8 修正)**: 帝君 ratify trail board comment (`2081e73e`) 的 content **已持久化** (凝光后端 REST 直查实证, grep 命中「采用方案 A」, 6376 字节)。原 r7 描述「content 核实为空 / 写入丢失 bug」**事实错误已在 r8 更正**: 真相是 mjs `list_comments` 不回显 content 字段 (读取层已知限制), **非后端写入丢失**。查正文走后端 API / add_comment 返回体。**ADR 与 board comment 互为冗余 audit** (两者都有 content, 非「ADR 替代空壳 comment」)
   - 后续 action: 胡桃 impl S3-OPS-CONTRACT-SALT-ROTATE-PATH (AC 9 条已按 A 落 board), 魈 review。AC 齐, 合并走 CI + ratify 闸
 
 - **r8（2026-06-23）**：架构师 (魈) 落 — **🔴 修正 r7 错误技术前提: 方案 A「豁免背填」与现有 WORM 架构根本冲突, 实际不可行; 改采「存量不动 + 仅新合同轮换」方案 D。配套 task: S3-OPS-CONTRACT-SALT-ROTATE-PATH (AC 重写)**
