@@ -127,11 +127,14 @@ class AIBlocklistReloadSubscriber:
     Idempotent: 重复 start 不重复订阅 (检 ``_task`` 是否 active).
     """
 
-    def __init__(self, redis_client: Any = None) -> None:
+    def __init__(self, redis_client: Any = None, watchdog_interval: float = 30.0) -> None:
         self._redis = redis_client
         self._task: Optional[asyncio.Task] = None
         self._pubsub: Any = None
         self._stop_event: asyncio.Event = asyncio.Event()
+        # S3-OPS-AI-BLOCKLIST-SUBSCRIBER-WATCHDOG: watchdog 周期检 _loop task 是否死亡。
+        self._watchdog_task: Optional[asyncio.Task] = None
+        self._watchdog_interval: float = watchdog_interval
 
     async def start(self) -> None:
         if self._task is not None and not self._task.done():
@@ -164,6 +167,80 @@ class AIBlocklistReloadSubscriber:
             AI_BLOCKLIST_RELOAD_CHANNEL,
             get_instance_id(),
         )
+        # 启动 watchdog (idempotent): 守护 _loop task, crash 后自动重启。
+        self._ensure_watchdog()
+
+    def _ensure_watchdog(self) -> None:
+        """启动 watchdog task (idempotent)。
+
+        watchdog 独立于 _loop task: 即便 _loop crash, watchdog 仍存活并负责重启它。
+        仅当 watchdog 未运行时才创建, 避免重复。
+        """
+        if self._watchdog_task is not None and not self._watchdog_task.done():
+            return
+        self._watchdog_task = asyncio.create_task(self._watchdog_loop())
+        logger.debug(
+            "AIBlocklistReloadSubscriber watchdog started: interval=%ss",
+            self._watchdog_interval,
+        )
+
+    async def _watchdog_loop(self) -> None:
+        """周期检 _loop task 是否死亡, 死了就重启 (AC#1)。
+
+        重启条件: ``_stop_event`` 未设 (非主动 stop) 且 ``_task`` 缺失/done。
+        区分两种死因写 metric (AC#2):
+            - task_missing : _task is None (start 未拉起 / 被清空)
+            - task_crashed : _task.done() (loop 抛未捕获异常退出)
+        watchdog 自身异常被吞 + sleep 后继续, 不让 watchdog 自己挂掉。
+        """
+        while not self._stop_event.is_set():
+            try:
+                await asyncio.sleep(self._watchdog_interval)
+            except asyncio.CancelledError:
+                raise
+            if self._stop_event.is_set():
+                break
+            try:
+                # _task 缺失或已结束 = 需要重启 (排除主动 stop, 上面已 break)。
+                task_dead = self._task is None or self._task.done()
+                if not task_dead:
+                    continue
+                reason = "task_missing" if self._task is None else "task_crashed"
+                logger.warning(
+                    "AIBlocklistReloadSubscriber watchdog: _loop task dead "
+                    "(reason=%s), restarting; instance=%s",
+                    reason,
+                    get_instance_id(),
+                )
+                # 清空死 task + 旧 pubsub, 让 start() 重新 subscribe。
+                self._task = None
+                if self._pubsub is not None:
+                    try:
+                        await self._pubsub.close()
+                    except Exception:  # pragma: no cover
+                        pass
+                    self._pubsub = None
+                await self.start()
+                # 重启成功 (拉起新 _task) 才计数。
+                if self._task is not None and not self._task.done():
+                    try:
+                        from app.utils.metrics import (
+                            ai_blocklist_subscriber_restart_total,
+                        )
+
+                        ai_blocklist_subscriber_restart_total.labels(
+                            instance=get_instance_id(), reason=reason
+                        ).inc()
+                    except Exception:  # pragma: no cover
+                        logger.exception(
+                            "ai_blocklist_subscriber_restart_total inc failed"
+                        )
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:  # pragma: no cover - watchdog 自身必须存活
+                logger.exception(
+                    "AIBlocklistReloadSubscriber watchdog iteration error: %s", exc
+                )
 
     async def _loop(self) -> None:
         if self._pubsub is None:
@@ -211,8 +288,20 @@ class AIBlocklistReloadSubscriber:
 
     async def stop(self) -> None:
         self._stop_event.set()
-        if self._task is not None and not self._task.done():
-            self._task.cancel()
+        # 先停 watchdog, 避免它在我们 cancel _loop 时误判 crash 又重启。
+        if self._watchdog_task is not None:
+            if not self._watchdog_task.done():
+                self._watchdog_task.cancel()
+            try:
+                await self._watchdog_task
+            except (asyncio.CancelledError, Exception):  # pragma: no cover
+                pass
+            self._watchdog_task = None
+        # 无条件清理 _task: stop 语义 = 彻底停。注意 _loop 可能因 _stop_event
+        # 已自然退出 (done), 也可能仍 running 需 cancel; 两种都要置 None。
+        if self._task is not None:
+            if not self._task.done():
+                self._task.cancel()
             try:
                 await self._task
             except (asyncio.CancelledError, Exception):  # pragma: no cover

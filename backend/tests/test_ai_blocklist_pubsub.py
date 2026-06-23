@@ -275,3 +275,149 @@ class TestInstanceID:
         result = get_instance_id()
         assert result != "unknown"  # 真机有 hostname
         assert len(result) > 0
+
+
+# ---------------------------------------------------------------------------
+# S3-OPS-AI-BLOCKLIST-SUBSCRIBER-WATCHDOG
+# AC#1/#2/#3: watchdog 检 _loop task 死亡 → restart + metric
+# ---------------------------------------------------------------------------
+
+
+def _make_mock_redis():
+    """构造一个 mock redis, 其 pubsub.get_message 永远返 None (loop 空转不退出)。"""
+    mock_pubsub = MagicMock()
+    mock_pubsub.subscribe = AsyncMock()
+    mock_pubsub.get_message = AsyncMock(return_value=None)
+    mock_pubsub.unsubscribe = AsyncMock()
+    mock_pubsub.close = AsyncMock()
+    mock_redis = MagicMock()
+    mock_redis.pubsub = MagicMock(return_value=mock_pubsub)
+    return mock_redis, mock_pubsub
+
+
+class TestSubscriberWatchdog:
+    """S3-OPS-AI-BLOCKLIST-SUBSCRIBER-WATCHDOG: crash detect + restart."""
+
+    @pytest.mark.asyncio
+    async def test_watchdog_task_starts_with_subscriber(self):
+        """AC#1: start() 同时拉起 watchdog task。"""
+        mock_redis, _ = _make_mock_redis()
+        sub = AIBlocklistReloadSubscriber(redis_client=mock_redis, watchdog_interval=0.05)
+        await sub.start()
+        try:
+            assert sub._watchdog_task is not None
+            assert not sub._watchdog_task.done()
+        finally:
+            await sub.stop()
+        # stop 后 watchdog 也清理
+        assert sub._watchdog_task is None
+
+    @pytest.mark.asyncio
+    async def test_watchdog_restarts_crashed_loop(self):
+        """AC#3 核心: _loop task 被强制 crash → watchdog detect + restart + 新 task 活。"""
+        mock_redis, _ = _make_mock_redis()
+        sub = AIBlocklistReloadSubscriber(redis_client=mock_redis, watchdog_interval=0.05)
+        await sub.start()
+        try:
+            original_task = sub._task
+            assert original_task is not None and not original_task.done()
+
+            # 模拟 crash: 直接 cancel _loop task (绕过 stop, 不设 _stop_event)。
+            # watchdog 应检到 _task.done() 且 _stop_event 未设 → 重启。
+            sub._task.cancel()
+            await asyncio.sleep(0)  # 让 cancel 生效
+            assert sub._task.done()
+
+            # 等 watchdog 跑至少一轮 (interval 0.05s) + restart。
+            for _ in range(40):  # 最多 ~2s
+                await asyncio.sleep(0.05)
+                if (
+                    sub._task is not None
+                    and not sub._task.done()
+                    and sub._task is not original_task
+                ):
+                    break
+
+            # 验证: 新 _task 被拉起, 不是原来那个 (已 crash 的)。
+            assert sub._task is not None, "watchdog 未重启 _task"
+            assert not sub._task.done(), "重启的 _task 不该立刻 done"
+            assert sub._task is not original_task, "应是新 task 而非原 crashed task"
+            # subscribe 被再次调用 (restart 重新订阅)。
+            assert mock_redis.pubsub.call_count >= 2
+        finally:
+            await sub.stop()
+
+    @pytest.mark.asyncio
+    async def test_watchdog_restart_increments_metric(self, monkeypatch):
+        """AC#2: restart 写 ai_blocklist_subscriber_restart_total metric。"""
+        from app.utils import metrics as metrics_mod
+
+        inc_calls = []
+
+        class _FakeMetric:
+            def labels(self, **kwargs):
+                inc_calls.append(kwargs)
+                return self
+
+            def inc(self):
+                pass
+
+        monkeypatch.setattr(
+            metrics_mod, "ai_blocklist_subscriber_restart_total", _FakeMetric()
+        )
+
+        mock_redis, _ = _make_mock_redis()
+        sub = AIBlocklistReloadSubscriber(redis_client=mock_redis, watchdog_interval=0.05)
+        await sub.start()
+        try:
+            original_task = sub._task
+            sub._task.cancel()
+            await asyncio.sleep(0)
+
+            for _ in range(40):
+                await asyncio.sleep(0.05)
+                if (
+                    sub._task is not None
+                    and not sub._task.done()
+                    and sub._task is not original_task
+                ):
+                    break
+
+            # metric 至少被 inc 一次, reason=task_crashed (cancel 导致 done)。
+            assert len(inc_calls) >= 1, "restart metric 未 inc"
+            reasons = {c.get("reason") for c in inc_calls}
+            assert "task_crashed" in reasons, f"reason 应含 task_crashed, got {reasons}"
+        finally:
+            await sub.stop()
+
+    @pytest.mark.asyncio
+    async def test_watchdog_does_not_restart_after_stop(self):
+        """AC#1 边界: stop() 后 watchdog 不该再重启 (主动停止 != crash)。"""
+        mock_redis, _ = _make_mock_redis()
+        sub = AIBlocklistReloadSubscriber(redis_client=mock_redis, watchdog_interval=0.05)
+        await sub.start()
+        await sub.stop()
+
+        # stop 后 _task / watchdog 都应清理为 None。
+        assert sub._task is None
+        assert sub._watchdog_task is None
+
+        # 再等几个 interval, 确认没有任何 task 被偷偷重启。
+        await asyncio.sleep(0.2)
+        assert sub._task is None, "stop 后 watchdog 不该重启 _task"
+        assert sub._watchdog_task is None
+
+    @pytest.mark.asyncio
+    async def test_watchdog_idempotent_ensure(self):
+        """AC#1: 重复调 start() 不重复创建 watchdog (idempotent)。"""
+        mock_redis, _ = _make_mock_redis()
+        sub = AIBlocklistReloadSubscriber(redis_client=mock_redis, watchdog_interval=0.05)
+        await sub.start()
+        try:
+            wd1 = sub._watchdog_task
+            await sub.start()  # 第二次 start (idempotent)
+            wd2 = sub._watchdog_task
+            # watchdog task 应是同一个 (没被重复创建)。
+            assert wd1 is wd2
+        finally:
+            await sub.stop()

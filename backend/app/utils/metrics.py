@@ -123,6 +123,17 @@ ai_blocklist_reload_failed_total = Counter(
     ["instance", "reason"],
 )
 
+# S3-OPS-AI-BLOCKLIST-SUBSCRIBER-WATCHDOG: subscriber _loop crash 后 watchdog 重启计数。
+# reason 区分重启诱因：
+#   - task_crashed : _task.done() 且非主动 stop (loop 抛未捕获异常后退出)
+#   - task_missing : _task is None (start 未成功拉起或被清空)
+# rate > 1/h 是持续 crash 信号 → alertmanager warning。
+ai_blocklist_subscriber_restart_total = Counter(
+    "ai_blocklist_subscriber_restart_total",
+    "AIBlocklistReloadSubscriber watchdog 检测到 task 死亡后重启计数",
+    ["instance", "reason"],  # reason: "task_crashed" | "task_missing"
+)
+
 # WebSocket auth handshake outcome (PR: WS auth via first frame).
 # Replaces the legacy `?token=***` query-string auth path.
 # `result` values:

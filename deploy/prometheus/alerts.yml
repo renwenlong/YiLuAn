@@ -142,3 +142,23 @@ groups:
             过去 5min 平均每秒 {{ $value }} 次 order_not_found deny。
             阈值 1.0/s；baseline 期预期 < 0.2/s（客户端缓存陈旧 order_id 或用户刷新重试）。
             若 > 1.0/s 持续 5min，怀疑客户端 sync bug、越权扫描或异常重放请求。
+
+      # 11. AI blocklist subscriber 持续 crash-restart (S3-OPS-AI-BLOCKLIST-SUBSCRIBER-WATCHDOG AC#4)
+      - alert: AIBlocklistSubscriberRestartHighRate
+        expr: |
+          sum by (instance, reason) (
+            rate(ai_blocklist_subscriber_restart_total[1h])
+          ) * 3600 > 1
+        for: 10m
+        labels:
+          severity: warning
+          team: backend
+        annotations:
+          summary: "AI blocklist subscriber 持续 crash-restart (instance {{ $labels.instance }})"
+          description: |
+            过去 1h 内 ai_blocklist_subscriber_restart_total 重启速率 > 1 次/小时
+            (instance={{ $labels.instance }}, reason={{ $labels.reason }})。
+            watchdog 在周期 (30s) detect _loop task 死亡后会自动重启, 偏次重启是正常自愈;
+            但持续 > 1/h 表明 subscriber 反复 crash (如 redis 连接不稳 / pubsub 异常 / 代码 bug),
+            可能造成灰度场景 AI blocklist hot reload 间歇丢失。
+            排查: 看对应 instance 的 backend 日志 "loop crashed" / "watchdog ... restarting" 上下文。
