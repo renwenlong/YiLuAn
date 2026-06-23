@@ -270,6 +270,11 @@ class ContractService:
             template_version=template_version,
             contract_hash=hash_result.contract_hash,
             hash_inputs=hash_result.hash_inputs_snapshot,
+            # S3-OPS-CONTRACT-SALT-ROTATE-PATH / ADR-0046 r8 (方案 D):
+            # 新合同记当前 salt 版本号 (纯取证溯源, 不进 contract_hash).
+            # pseudonym_hash 已由 _get_pseudonym_salt 用 PRIMARY salt 算入
+            # hash_inputs_snapshot; 该列仅标记"这行用第几版 salt"。
+            salt_version=settings.contract_pseudonym_salt_version,
             status=ContractStatus.pending_generation,
             retry_count=0,
         )

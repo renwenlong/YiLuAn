@@ -474,3 +474,53 @@ class TestAmountCnyFromYuan:
     def test_bad_type_rejected(self):
         with pytest.raises(ContractHashGenerationError):
             amount_cny_from_yuan(None)  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# AC#3 — salt_version 不进 contract_hash 计算 (S3-OPS-CONTRACT-SALT-ROTATE-PATH
+# / ADR-0046 r8 方案 D)
+#
+# salt_version 是 service_contracts 的纯审计/取证列 (标记该行用第几版 salt),
+# 绝不能进 contract_hash 计算 —— 否则又会被烧进 WORM 不可变字段, 且让同一
+# 份合同内容因 salt 版本不同算出不同 hash (破坏一单一合同 UNIQUE 语义)。
+# 方案 A 失败的根因正是 pseudonym_hash 进了 contract_hash; salt_version 必须
+# 与 _HASH_INPUTS_REQUIRED_KEYS 完全解耦。
+# ---------------------------------------------------------------------------
+
+
+class TestSaltVersionNotInContractHash:
+    def test_salt_version_not_in_required_keys(self):
+        # 结构断言: salt_version 绝不在 hash 输入必需 key 集合里。
+        assert "salt_version" not in contract_hash._HASH_INPUTS_REQUIRED_KEYS
+
+    def test_snapshot_has_no_salt_version_key(self):
+        # build_hash_inputs_snapshot 不接受也不产出 salt_version。
+        snap = build_hash_inputs_snapshot(
+            order_id=ORDER_ID,
+            amount_cny=19999,
+            service_package_id=SERVICE_PKG_ID,
+            scheduled_at=SCHEDULED_AT,
+            patient_pseudonym_hash="a" * SHA256_HEX_LEN,
+            companion_id=COMPANION_ID,
+            template_version=TPL_V1,
+        )
+        assert "salt_version" not in snap
+
+    def test_hash_identical_regardless_of_salt_version(self):
+        # salt_version 不是 hash 输入参数 — 两次相同 hash 输入必得相同
+        # contract_hash, 与"该行将来记第几版 salt"无关。
+        common = dict(
+            order_id=ORDER_ID,
+            amount_cny=19999,
+            service_package_id=SERVICE_PKG_ID,
+            scheduled_at=SCHEDULED_AT,
+            patient_name=PATIENT_NAME,
+            patient_id_card_last4=ID_CARD_LAST4,
+            companion_id=COMPANION_ID,
+            template_version=TPL_V1,
+        )
+        a = generate_contract_hash_at_commit_time(**common)
+        b = generate_contract_hash_at_commit_time(**common)
+        assert a.contract_hash == b.contract_hash
+        assert "salt_version" not in a.hash_inputs_snapshot
+        assert "salt_version" not in b.hash_inputs_snapshot

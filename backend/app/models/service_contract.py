@@ -58,6 +58,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    SmallInteger,
     String,
     Text,
     Uuid,
@@ -305,6 +306,22 @@ class ServiceContract(Base):
         comment="最近一次 WORM compensation cron 尝试时间; 用于退避策略与告警.",
     )
 
+    # ----- Salt rotation audit (S3-OPS-CONTRACT-SALT-ROTATE-PATH / ADR-0046 r8 方案 D) -----
+
+    salt_version: Mapped[int] = mapped_column(
+        SmallInteger,
+        nullable=False,
+        default=1,
+        server_default="1",
+        comment=(
+            "patient_pseudonym_hash 生成时用的 salt 版本号 (ADR-0046 r8 方案 D). "
+            "纯审计/取证溯源 — 回答'这行当年用第几版 salt'。 "
+            "不进 contract_hash 计算 (不入 hash_inputs), 不参与 recompute 验证。 "
+            "创建后 immutable (加入 IMMUTABLE_FIELDS + trigger 守护, 防篡改溯源)。 "
+            "存量行靠 DEFAULT 1 自动填值, 无需 UPDATE (方案 D 存量不动)。"
+        ),
+    )
+
     # ----- Audit timestamps -----
 
     created_at: Mapped[datetime] = mapped_column(
@@ -335,6 +352,10 @@ class ServiceContract(Base):
 # 按 list 内容走 (status / retry_count / last_error_trace /
 # invalidation_reason / invalidated_by_admin_id / invalidated_at /
 # updated_at)。
+#
+# S3-OPS-CONTRACT-SALT-ROTATE-PATH / ADR-0046 r8 (方案 D): salt_version 加入
+# immutable — 创建后不可改 (防篡改取证溯源记录)。注意这是给 salt_version 列
+# *加* WORM 守护, 不是给 pseudonym_hash 加豁免 (方案 A 已废)。现共 9 字段。
 IMMUTABLE_FIELDS: frozenset[str] = frozenset(
     {
         "order_id",
@@ -345,6 +366,7 @@ IMMUTABLE_FIELDS: frozenset[str] = frozenset(
         "generated_at",
         "is_immutable",
         "created_at",
+        "salt_version",
     }
 )
 

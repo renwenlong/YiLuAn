@@ -41,21 +41,37 @@
 - [ ] **`PII_HASH_SALT` + `PII_ENVELOPE_KEY` 首次 prod 曝光前入 secrets vault 不入 git**（详见 §2.5）
 - [ ] **S3 prod 上线 gate**: 三 secrets 全部与 dev default 不同且互不雷同 — 可用 `docker exec backend python -c "from app.config import settings; print(settings.contract_pseudonym_salt[:8], settings.pii_hash_salt[:8], settings.pii_envelope_key[:8])"` 验
 
-### 2.4 contract pseudonym salt rotate (S3-DEV-001 / ADR-0046 §3.2)
+### 2.4 contract pseudonym salt rotate (S3-DEV-001 / ADR-0046 §3.2 + r8 方案 D)
 
-`service_contracts.patient_pseudonym = SHA-256(name||last4||CONTRACT_PSEUDONYM_SALT)` 是
-**长期存储 + WORM 7y** 不可 retroactive rotate 的 PII derivative。Salt 一旦在 prod 曝光后换，
-旧 hash 全部失效（同一患者同一 last4 的下一份合同算出的 hash 与老合同不一致，
-无法识别同一人）。所以：
+`service_contracts.patient_pseudonym_hash = SHA-256(name||last4||CONTRACT_PSEUDONYM_SALT)` 是
+**长期存储 + WORM 7y** 的 PII derivative。它被烧进 `contract_hash` 计算 (进 hash_inputs
+snapshot), 而 `contract_hash` 被 immutable_guard trigger 锁死 —— 所以存量合同的
+hash **不可背填重算** (已废方案 A 的根本矛盾, 详 ADR-0046 r8)。
+
+**方案 D (已实现): 存量不动 + 仅新合同轮换。**
+
+轮换目的 = 让泄露的旧 salt 对**未来新合同**失效。存量旧合同的反查风险是既成
+历史事实 (旧 hash 已冻进不可变 contract_hash), 背填改不了也消除不了 —— 故方案 D
+不背填。
 
 1. **首次 prod 曝光前必须**：在 `env.production` 用
    `python -c "import secrets; print(secrets.token_urlsafe(64))"` 生成高熵 random。
    - 不可与 `PII_HASH_SALT` / `JWT_SECRET_KEY` / `pii_envelope_key` 雷同。
    - 生成后入 secrets vault（商户部署环境同步），**不要 commit 进 git**。
-2. **后续 rotate**（如不得不发生部分曝光）：需走“双写 + retroactive 背填”路径 ——
-   该能力未实现，临时需 freeze contract.generate 后手动重生 patient_pseudonym。
-   未走该路径前不要随便换 salt。
-3. **发现 salt 泄露**：立即走 INCIDENT_PLAYBOOK §6。
+   - 首次可直接用 `CONTRACT_PSEUDONYM_SALT` (legacy) 或 `CONTRACT_PSEUDONYM_SALT_PRIMARY`;
+     `_get_pseudonym_salt` 优先读 PRIMARY, 空则 fallback legacy (向后兼容)。
+2. **后续 rotate (方案 D 步骤, 已实现)**：
+   1. 把 `CONTRACT_PSEUDONYM_SALT_PRIMARY` 换成新高熵 random + 递增
+      `CONTRACT_PSEUDONYM_SALT_VERSION` (1 → 2 → ...)。
+   2. 重启 backend (灯量窗口可短暂双 salt env 并存仅为部署平滑, 非永久态)。
+   3. 新合同自动用新 salt 算 pseudonym_hash + 写新 `salt_version`。
+   4. **存量合同零改动** —— contract_hash / hash_inputs / patient_pseudonym_hash 全不动,
+      WORM 保持; 存量 `recompute_contract_hash` 用 snapshot 冻值仍 pass (不受轮换影响)。
+   5. 轮换完旧 salt 直接撤 env (不留 DEPRECATED 永久态)。
+   6. **无 backfill 脚本** —— 存量不背填 (既成历史风险不可逆 + WORM 铁律, ADR-0046 r8)。
+   - 取证溯源: 查 `service_contracts.salt_version` 可知某行当年用第几版 salt。
+3. **发现 salt 泄露**：立即走 INCIDENT_PLAYBOOK §6 + 按上述方案 D 轮换新 PRIMARY salt
+   (新合同立即用新 salt; 存量旧合同反查风险是既成事实, 不可通过换 salt 消除)。
 
 ### 2.5 PII_HASH_SALT / PII_ENVELOPE_KEY rotate (S3-OPS-DEPLOY-PII-SECRETS-AUDIT / ADR-0029 §3)
 

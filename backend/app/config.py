@@ -48,6 +48,16 @@ class Settings(BaseSettings):
     # S3-DEV-001 / ADR-0046 §3.2: Contract patient pseudonym salt (与 cert image salt 独立).
     contract_pseudonym_salt: str = ""  # 必须在 prod env 显式设置
 
+    # S3-OPS-CONTRACT-SALT-ROTATE-PATH / ADR-0046 r8 (方案 D): salt 轮换路径.
+    # PRIMARY = 当前生效 salt, 新合同 pseudonym_hash 用它算 (_get_pseudonym_salt 优先读).
+    # 留空时 fallback 旧 contract_pseudonym_salt (向后兼容, 现有部署/测试零改动).
+    # 轮换 = 把 PRIMARY 换成新 salt 值 + 递增 contract_pseudonym_salt_version;
+    # 旧合同存量不动 (保 WORM), 仅新合同用新 salt (方案 D 存量不背填).
+    contract_pseudonym_salt_primary: str = ""
+    # 当前 salt 版本号, 新合同行写入 service_contracts.salt_version 作取证溯源.
+    # 轮换 PRIMARY 时手动递增 (1 → 2 → ...). 纯审计元数据, 不进 contract_hash.
+    contract_pseudonym_salt_version: int = 1
+
     # S3-DEV-001-CONTRACT-SERVICE-CORE / ADR-0046 r5 §3 amend (gap 3):
     # Contract template version, MVP 阶段写死 v1.0.0 (ContractTemplate 表
     # 不立, 后续 admin 多模板需求出现时立独立 ADR + 表). hash 公式 +

@@ -189,11 +189,18 @@ def _assert_snapshot_shape(snapshot: Mapping[str, Any]) -> None:
 
 
 def _get_pseudonym_salt() -> str:
-    salt = (settings.contract_pseudonym_salt or "").strip()
+    # S3-OPS-CONTRACT-SALT-ROTATE-PATH / ADR-0046 r8 (方案 D): 优先读
+    # PRIMARY (轮换后生效的当前 salt), fallback 旧 contract_pseudonym_salt
+    # (向后兼容 — 未设 PRIMARY 的现有部署/测试零改动)。
+    # 轮换只影响新合同; 存量合同 contract_hash 已冻 (WORM), 不重算。
+    salt = (settings.contract_pseudonym_salt_primary or "").strip()
+    if not salt:
+        salt = (settings.contract_pseudonym_salt or "").strip()
     if not salt:
         raise ContractPseudonymSaltMissingError(
-            "CONTRACT_PSEUDONYM_SALT is unset; production must set a "
-            "high-entropy random string distinct from PII_HASH_SALT."
+            "CONTRACT_PSEUDONYM_SALT_PRIMARY (or legacy CONTRACT_PSEUDONYM_SALT) "
+            "is unset; production must set a high-entropy random string "
+            "distinct from PII_HASH_SALT."
         )
     return salt
 
