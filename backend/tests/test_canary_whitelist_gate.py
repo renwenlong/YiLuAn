@@ -281,3 +281,102 @@ async def test_ac2_f2_disabled_takes_precedence_over_whitelist(whitelist_yaml):
                 session=fake_session,
             )
     assert exc_info.value.status_code == 503
+
+
+# ---------------------------------------------------------------------------
+# Layer 3: S3-OPS-CANARY-REAL-YAML-PATH-ENV — yaml path env injection
+#
+# Before this task load() always read the hard-coded mock yaml; the real
+# list (約定另起 .real.yaml, §20) could not be switched in. These tests
+# pin _resolve_yml_path() reading settings.canary_whitelist_path and the
+# end-to-end injection through a no-arg load().
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_yml_path_default_is_mock_yaml():
+    """Default setting (whitelist_phones.yaml) resolves under deploy/canary/."""
+    with patch.object(settings, "canary_whitelist_path", "whitelist_phones.yaml"):
+        resolved = canary_whitelist._resolve_yml_path()
+    assert resolved == canary_whitelist._CANARY_DIR / "whitelist_phones.yaml"
+    assert resolved == canary_whitelist._DEFAULT_YML_PATH
+
+
+def test_resolve_yml_path_real_filename_switches_to_real_yaml():
+    """CANARY_WHITELIST_PATH=whitelist_phones.real.yaml -> real file under dir."""
+    with patch.object(settings, "canary_whitelist_path", "whitelist_phones.real.yaml"):
+        resolved = canary_whitelist._resolve_yml_path()
+    assert resolved == canary_whitelist._CANARY_DIR / "whitelist_phones.real.yaml"
+    # real path must NOT collide with the mock default (物理隔离 §20)
+    assert resolved != canary_whitelist._DEFAULT_YML_PATH
+
+
+def test_resolve_yml_path_absolute_is_honoured_as_is(tmp_path):
+    """An absolute path value is used verbatim, not joined under deploy/canary/."""
+    abs_path = tmp_path / "custom" / "my_whitelist.yaml"
+    with patch.object(settings, "canary_whitelist_path", str(abs_path)):
+        resolved = canary_whitelist._resolve_yml_path()
+    assert resolved == abs_path
+
+
+def test_resolve_yml_path_empty_falls_back_to_default():
+    """Empty/blank env value falls back to the mock default (fail-safe)."""
+    with patch.object(settings, "canary_whitelist_path", ""):
+        resolved = canary_whitelist._resolve_yml_path()
+    assert resolved == canary_whitelist._DEFAULT_YML_PATH
+
+
+def test_resolve_yml_path_relative_subdir_honoured(tmp_path):
+    """A value containing a separator (e.g. nested rel path) is not re-joined
+    under deploy/canary/ — only bare filenames are."""
+    with patch.object(settings, "canary_whitelist_path", "sub/dir/list.yaml"):
+        resolved = canary_whitelist._resolve_yml_path()
+    assert resolved == Path("sub/dir/list.yaml")
+    assert resolved != canary_whitelist._CANARY_DIR / "sub/dir/list.yaml"
+
+
+def test_noarg_load_reads_env_resolved_path_end_to_end(tmp_path, monkeypatch):
+    """End-to-end: a no-arg load() honours settings.canary_whitelist_path.
+
+    Proves the injection chain (env -> _resolve_yml_path -> load) is wired,
+    i.e. the canary container can switch lists via CANARY_WHITELIST_PATH
+    without code change. Two distinct yaml files yield two distinct snapshots
+    purely by flipping the env value.
+    """
+    mock_yaml = tmp_path / "mock.yaml"
+    mock_yaml.write_text(
+        textwrap.dedent(
+            """
+            version: mock-v
+            team:
+              - role: developer
+                phone: "13800000001"
+            """
+        ),
+        encoding="utf-8",
+    )
+    real_yaml = tmp_path / "real.yaml"
+    real_yaml.write_text(
+        textwrap.dedent(
+            """
+            version: real-v
+            team:
+              - role: developer
+                phone: "13911111111"
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    # env -> mock file: no-arg load resolves & loads mock
+    monkeypatch.setattr(settings, "canary_whitelist_path", str(mock_yaml))
+    canary_whitelist.reset_for_tests()
+    assert canary_whitelist.is_whitelisted("13800000001") is True
+    assert canary_whitelist.is_whitelisted("13911111111") is False
+    assert canary_whitelist.get_snapshot().version == "mock-v"
+
+    # flip env -> real file: a fresh no-arg load picks up the real list
+    monkeypatch.setattr(settings, "canary_whitelist_path", str(real_yaml))
+    canary_whitelist.reset_for_tests()
+    assert canary_whitelist.is_whitelisted("13911111111") is True
+    assert canary_whitelist.is_whitelisted("13800000001") is False
+    assert canary_whitelist.get_snapshot().version == "real-v"

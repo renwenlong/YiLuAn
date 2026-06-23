@@ -1,0 +1,88 @@
+# =============================================================================
+# S3-OPS-CANARY-REAL-YAML-PATH-ENV — canary 真实灰度白名单 (real list)
+# 魈 2026-06-23 方案 b: 与 mock whitelist_phones.yaml 物理隔离 (§20 约定)
+# =============================================================================
+#
+# 用途:
+#   生产 canary 容器设 CANARY_WHITELIST_PATH=whitelist_phones.real.yaml 时,
+#   canary_whitelist.load() 读本文件而非 mock yaml。真实灰度上线
+#   (S2-OPS-A-REAL-LAUNCH) 切量时用,承载真号; mock yaml 仍供本地/staging。
+#
+# 为什么独立文件 (不覆盖 mock yaml):
+#   - mock/real 物理隔离, 避免真号顶掉 mock 占位 (whitelist_phones.yaml §20)
+#   - 回退只需改 1 个 env (CANARY_WHITELIST_PATH 切回 mock), 不动文件
+#   - real 名单独立 git history, audit/blame 清晰
+#
+# 维护流程 (真号填充):
+#   1. 帝君指派 5-10 公司同事手机号 -> PM (凝光) 收齐
+#   2. 凝光同步真号给胡桃 -> 胡桃 sed/edit 替换 __PENDING_* / __PLACEHOLDER_*
+#      占位符 -> PR (走 review)
+#   3. 真号填充前本文件全 placeholder, load() 解析时 placeholder 被跳过
+#      (__PENDING_ / __PLACEHOLDER_ 前缀), 等价空名单 -> 灰度不放量 (fail-safe)
+#
+# 编辑约定 (同 mock yaml):
+#   - 真手机号 11 位, 字符串引号包裹 (避免 yaml int)
+#   - role 标注 (Owner/PM/architect/developer/tester/coordinator/colleague_NN)
+#   - 注释说明谁加 + 日期 (audit 留痕)
+#   - 移除走 git revert 不直接删行 (留痕)
+#
+# ⚠️ 当前状态: 骨架 (全 placeholder)。真号待凝光收齐后填充, 填充前切到本文件
+#    等价空名单 (placeholder 全跳过), 不会误放量。
+#
+# 相关:
+#   - docs/ops/canary-deployment.md §2.3 团队内部测试用户白名单
+#   - S3-OPS-CANARY-REAL-YAML-PATH-ENV / S2-OPS-A-REAL-LAUNCH (taskboard)
+#   - deploy/canary/whitelist_phones.yaml (mock, §20 隔离约定来源)
+# =============================================================================
+
+version: 1
+purpose: f2-whitelist-canary-real
+flow_type: real
+max_size: 20  # AC-1 控制爆炸半径硬上限 (同 mock)
+
+# 团队 5 人位 (凝光收齐真号后替换 __PENDING_*)
+team:
+  - role: pm
+    name: "凝光"
+    phone: "__PENDING_PM__"
+    added_at: "2026-06-23"
+    added_by: "hutao (S3-OPS-CANARY-REAL-YAML-PATH-ENV 骨架)"
+  - role: architect
+    name: "魈"
+    phone: "__PENDING_ARCHITECT__"
+    added_at: "2026-06-23"
+    added_by: "hutao"
+  - role: developer
+    name: "胡桃"
+    phone: "__PENDING_DEVELOPER__"
+    added_at: "2026-06-23"
+    added_by: "hutao"
+  - role: tester
+    name: "刻晴"
+    phone: "__PENDING_TESTER__"
+    added_at: "2026-06-23"
+    added_by: "hutao"
+  - role: coordinator
+    name: "甘雨"
+    phone: "__PENDING_COORDINATOR__"
+    added_at: "2026-06-23"
+    added_by: "hutao"
+
+# 帝君指派同事位 (5-10 人), 凝光收齐真号后填
+colleagues:
+  - phone: "__PENDING_COLLEAGUE_01__"
+    note: "帝君指派 #1, 等凝光收齐真号"
+  - phone: "__PENDING_COLLEAGUE_02__"
+    note: "帝君指派 #2, 等凝光收齐真号"
+  - phone: "__PENDING_COLLEAGUE_03__"
+    note: "帝君指派 #3, 等凝光收齐真号"
+  - phone: "__PENDING_COLLEAGUE_04__"
+    note: "帝君指派 #4, 等凝光收齐真号"
+  - phone: "__PENDING_COLLEAGUE_05__"
+    note: "帝君指派 #5, 等凝光收齐真号"
+  # 6-10 位待清单到时按需追加, 不超 max_size
+
+# Sentinel 测试号 (本地 e2e / smoke 用, 永久保留; 与 mock yaml 对齐)
+sentinels:
+  - phone: "13800000000"
+    note: "canary smoke / e2e 用; 与 seed_canary.py / staging fixtures 对齐"

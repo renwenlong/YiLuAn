@@ -264,6 +264,15 @@ class Settings(BaseSettings):
     # 配合 canary deploy 切 True 实现 "内部白名单 10% mock 灰度上线".
     canary_whitelist_enabled: bool = False
 
+    # S3-OPS-CANARY-REAL-YAML-PATH-ENV (魈 2026-06-23 方案 b): canary 白名单
+    # yaml 文件名 (相对 deploy/canary/ 目录)。默认 mock 名单
+    # ``whitelist_phones.yaml``; 灰度推真号时生产 canary 容器设
+    # ``CANARY_WHITELIST_PATH=whitelist_phones.real.yaml`` 切到独立 real
+    # 名单, 与 mock 物理隔离 (whitelist_phones.yaml §20 约定: 真号另起
+    # .real.yaml 避免 mock/real 串)。绝对路径亦受支持 (含 ``/`` 时按原样
+    # 解析, 否则拼到 deploy/canary/)。仅改注入维度, 不动 enabled 开关语义。
+    canary_whitelist_path: str = "whitelist_phones.yaml"
+
     # ADR-0032 / D-044 Q3: 资金对账历史豁免 cutoff。
     # 早于该时刻产生的 amount_mismatch diff 视为已豁免，guard 不阻断订单
     # 状态机迁移。默认值 = ADR-0032 Accepted 的 UTC 时刻；生产部署可通过
