@@ -142,12 +142,36 @@ class TestStorageBackendFactory:
         b = get_storage_backend()
         assert isinstance(b, LocalStorageBackend)
 
-    def test_factory_azure_picked(self, monkeypatch):
+    # --- stub→real flip (S2-DEV-016-PHASE-B-PREFLIGHT-SDK AC#6) ---
+    # 旧 test_factory_azure_picked 断言 azure+无ENV→返 mock backend，
+    # 被 #5 prod guard 的 fail-fast 行为替代（REAL AC#2 要求 ENV 缺失即报错）。
+    # 拆为 missing_env_raises + with_conn_returns_real 两个测试。
+    def test_factory_azure_missing_env_raises(self, monkeypatch):
+        """azure + 无任何 ENV → prod guard fail-fast raise RuntimeError."""
         from app.config import settings as _s
 
         monkeypatch.setattr(_s, "storage_backend", "azure")
+        monkeypatch.setattr(_s, "azure_storage_connection_string", "")
+        monkeypatch.setattr(_s, "azure_storage_account_name", "")
+        with pytest.raises(RuntimeError, match="AZURE_STORAGE"):
+            get_storage_backend()
+
+    def test_factory_azure_with_conn_returns_real(self, monkeypatch):
+        """azure + connection string → 返真 SDK AzureBlobStorageBackend."""
+        from app.config import settings as _s
+
+        # azurite well-known conn（仅构造 client 不发请求，无需起 azurite）
+        azurite_conn = (
+            "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;"
+            "AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuF"
+            "q2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;"
+            "BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
+        )
+        monkeypatch.setattr(_s, "storage_backend", "azure")
+        monkeypatch.setattr(_s, "azure_storage_connection_string", azurite_conn)
         b = get_storage_backend()
         assert isinstance(b, AzureBlobStorageBackend)
+        assert b.is_real_sdk is True
 
     def test_factory_is_singleton(self, monkeypatch):
         from app.config import settings as _s

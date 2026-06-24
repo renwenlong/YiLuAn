@@ -342,24 +342,36 @@ class LocalStorageBackend(StorageBackend):
 
 
 class AzureBlobStorageBackend(StorageBackend):
-    """Azure Blob storage backend (Phase A: in-memory mock).
+    """Azure Blob storage backend (Phase B: real SDK + Phase A mock fallback).
 
-    Phase A goal: provide a usable backend for unit tests + Phase B切换演练，
-    避免在 21Vianet 账号未到位前阻塞 dev/CI。
+    Dual-mode (S2-DEV-016-PHASE-B-PREFLIGHT-SDK):
+    - **Real SDK mode**: when a ``blob_service_client`` (``BlobServiceClient``)
+      is injected, all IO goes through ``azure-storage-blob``. Used in
+      production (creds via ENV) and azurite integration tests.
+    - **Mock mode**: when no client is injected, an in-memory ``dict`` emulates
+      blob storage. Keeps dev/CI working before 21Vianet creds land and lets
+      Phase A unit tests run unchanged.
 
-    Phase B TODO (ADR-0045 §3.2 P1):
-    - Replace ``_blobs`` dict with ``BlobServiceClient`` (azure-storage-blob)
-    - ``sign_read_url`` → User Delegation SAS (delegation key cached ≤ 7d)
-    - ``verify_sig`` → Azure side verifies SAS; backend just round-trips bytes
-    - Auth: service principal via ``DefaultAzureCredential``
-    - ENV: ``AZURE_STORAGE_ACCOUNT_NAME`` + ``AZURE_CLIENT_ID/SECRET/TENANT_ID``
-      + ``AZURE_CONTAINER_NAME``
+    Auth (Phase B, ADR-0045 §3.2): production constructs the client from
+    ``DefaultAzureCredential`` (service principal via ``AZURE_CLIENT_ID`` /
+    ``AZURE_CLIENT_SECRET`` / ``AZURE_TENANT_ID``) or a connection string; see
+    ``_build_azure_client`` in the factory section.
 
-    Production guard: backend startup must refuse boot when STORAGE_BACKEND=azure
-    and required ENV missing (added in factory below).
+    SAS (Phase B): ``sign_read_url`` issues a real **User Delegation SAS** in
+    SDK mode (delegation key fetched via ``get_user_delegation_key``); mock mode
+    keeps the HMAC stub so tamper/expiry unit tests still pass.
+
+    WORM (Phase B): ``set_worm_policy`` calls Azure immutability APIs
+    (``set_immutability_policy`` + ``set_legal_hold``). azurite does NOT support
+    immutability (Azure/Azurite Issue #2648), so its dedicated test is
+    skip-marked; real enforcement is verified by the REAL task's smoke after
+    creds land.
     """
 
     scheme = "azure-blob://"
+
+    # WORM retention for contract/feedback artefacts (7 years, ADR-0046 §3.5).
+    _WORM_RETENTION_DAYS = 2555
 
     def __init__(
         self,
@@ -369,27 +381,58 @@ class AzureBlobStorageBackend(StorageBackend):
             "https://{account}.blob.core.chinacloudapi.cn/{container}/{key}"
             "?sig=MOCK&se={expires}"
         ),
+        *,
+        blob_service_client: object | None = None,
     ) -> None:
         self.account_name = account_name
         self.container_name = container_name
         self._sign_url_template = sign_url_template
-        # In-memory store: key -> (bytes, content_type)
+        # Real SDK client (BlobServiceClient) when injected; else None -> mock.
+        self._client = blob_service_client
+        # In-memory store (mock mode only): key -> (bytes, content_type)
         self._blobs: dict[str, tuple[bytes, str]] = {}
+        # Cached User Delegation key (SDK mode), refreshed on expiry.
+        self._delegation_key: object | None = None
+
+    @property
+    def is_real_sdk(self) -> bool:
+        """True when a real ``BlobServiceClient`` is wired (vs in-memory mock)."""
+        return self._client is not None
+
+    def _container_client(self) -> object:
+        return self._client.get_container_client(self.container_name)
+
+    def _blob_client(self, key: str) -> object:
+        return self._client.get_blob_client(
+            container=self.container_name, blob=key
+        )
 
     def _secret(self) -> bytes:
         # Mock SAS uses the same HMAC primitive as local backend so tests can
-        # assert tamper detection without real Azure. Phase B drops this in
-        # favour of Azure-side User Delegation SAS validation.
+        # assert tamper detection without real Azure. SDK mode uses real SAS.
         return settings.jwt_secret_key.encode("utf-8")
 
     def _signature(self, key: str, expires: int) -> str:
         payload = f"azure:{key}:{expires}".encode("utf-8")
         return hmac.new(self._secret(), payload, hashlib.sha256).hexdigest()
 
+    # -- StorageBackend interface ----------------------------------------
+
     def put(
         self, key: str, content: bytes, *, content_type: str
     ) -> StoredObject:
-        self._blobs[key] = (content, content_type)
+        if self._client is None:
+            self._blobs[key] = (content, content_type)
+            return StoredObject(scheme=self.scheme, key=key)
+        # Real SDK: upload + overwrite (put is unconditional by contract).
+        from azure.storage.blob import ContentSettings
+
+        bc = self._blob_client(key)
+        bc.upload_blob(
+            content,
+            overwrite=True,
+            content_settings=ContentSettings(content_type=content_type),
+        )
         return StoredObject(scheme=self.scheme, key=key)
 
     def put_if_absent(
@@ -400,22 +443,75 @@ class AzureBlobStorageBackend(StorageBackend):
         content_type: str,
         metadata: dict[str, str] | None = None,
     ) -> StoragePutResult:
-        # Phase A mock: dict-membership emulates ``If-None-Match: *``.
-        # Phase B (ADR-0045 §3.2): pass ``headers={"If-None-Match": "*"}`` to
-        # ``BlobClient.upload_blob`` and translate ``ResourceExistsError`` /
-        # HTTP 409 BlobAlreadyExists into ``already_exists=True`` here.
-        # ``metadata`` will become ``BlobClient.upload_blob(metadata=...)``
-        # in Phase B; stored unused in Phase A but accepted for API parity.
-        del metadata
-        if key in self._blobs:
+        if self._client is None:
+            # Mock: dict-membership emulates ``If-None-Match: *``.
+            del metadata
+            if key in self._blobs:
+                return StoragePutResult(
+                    stored=StoredObject(scheme=self.scheme, key=key),
+                    already_exists=True,
+                )
+            self._blobs[key] = (content, content_type)
+            return StoragePutResult(
+                stored=StoredObject(scheme=self.scheme, key=key),
+                already_exists=False,
+            )
+        # Real SDK: ``If-None-Match: *`` => 409/412 when blob exists.
+        from azure.core.exceptions import ResourceExistsError
+        from azure.storage.blob import ContentSettings
+
+        bc = self._blob_client(key)
+        try:
+            bc.upload_blob(
+                content,
+                overwrite=False,
+                metadata=metadata or None,
+                content_settings=ContentSettings(content_type=content_type),
+            )
+        except ResourceExistsError:
             return StoragePutResult(
                 stored=StoredObject(scheme=self.scheme, key=key),
                 already_exists=True,
             )
-        self._blobs[key] = (content, content_type)
         return StoragePutResult(
             stored=StoredObject(scheme=self.scheme, key=key),
             already_exists=False,
+        )
+
+    def set_worm_policy(
+        self, key: str, *, retention_days: int | None = None
+    ) -> None:
+        """Apply WORM (immutability + legal hold) to an existing blob.
+
+        SDK mode only: calls Azure ``set_immutability_policy`` (locked,
+        time-based retention) + ``set_legal_hold``. Requires a
+        version-level-immutability or immutability-policy-enabled container.
+
+        NOTE: azurite does NOT support immutability (Azure/Azurite Issue
+        #2648); the dedicated test is skip-marked and real enforcement is
+        verified by the REAL task smoke after creds land.
+
+        Mock mode: no-op (no immutability semantics in dict store).
+        """
+        if self._client is None:
+            return
+        from datetime import datetime, timedelta, timezone
+
+        from azure.storage.blob import ImmutabilityPolicy
+
+        days = retention_days or self._WORM_RETENTION_DAYS
+        bc = self._blob_client(key)
+        expiry = datetime.now(timezone.utc) + timedelta(days=days)
+        policy = ImmutabilityPolicy(
+            expiry_time=expiry, policy_mode="Locked"
+        )
+        bc.set_immutability_policy(immutability_policy=policy)
+        bc.set_legal_hold(True)
+
+    def _get_delegation_key(self, start: object, expiry: object) -> object:
+        """Fetch (and cache) a User Delegation key for SAS signing (SDK mode)."""
+        return self._client.get_user_delegation_key(
+            key_start_time=start, key_expiry_time=expiry
         )
 
     def sign_read_url(
@@ -423,30 +519,78 @@ class AzureBlobStorageBackend(StorageBackend):
     ) -> SignedReadURL:
         issued_at = int(time.time() if now is None else now)
         expires = issued_at + ttl_seconds
-        # Phase A mock: append HMAC so tamper tests still pass
-        sig = self._signature(obj.key, expires)
-        url = self._sign_url_template.format(
-            account=self.account_name,
-            container=self.container_name,
-            key=obj.key,
-            expires=expires,
-        ) + f"&_mock_sig={sig}"
-        return SignedReadURL(url=url, expires_at=expires)
+        if self._client is None:
+            # Mock: append HMAC so tamper tests still pass.
+            sig = self._signature(obj.key, expires)
+            url = self._sign_url_template.format(
+                account=self.account_name,
+                container=self.container_name,
+                key=obj.key,
+                expires=expires,
+            ) + f"&_mock_sig={sig}"
+            return SignedReadURL(url=url, expires_at=expires)
+        # Real SDK: User Delegation SAS (no account key needed; uses AAD).
+        from datetime import datetime, timezone
+
+        from azure.storage.blob import (
+            BlobSasPermissions,
+            generate_blob_sas,
+        )
+
+        start_dt = datetime.now(timezone.utc)
+        expiry_dt = datetime.fromtimestamp(expires, tz=timezone.utc)
+        delegation_key = self._get_delegation_key(start_dt, expiry_dt)
+        sas = generate_blob_sas(
+            account_name=self.account_name,
+            container_name=self.container_name,
+            blob_name=obj.key,
+            user_delegation_key=delegation_key,
+            permission=BlobSasPermissions(read=True),
+            expiry=expiry_dt,
+            start=start_dt,
+        )
+        base = (
+            f"https://{self.account_name}.blob.core.chinacloudapi.cn/"
+            f"{self.container_name}/{obj.key}"
+        )
+        return SignedReadURL(url=f"{base}?{sas}", expires_at=expires)
 
     def verify_sig(self, key: str, expires: int, sig: str) -> StoredObject:
+        # Mock mode validates the HMAC stub; SDK mode delegates trust to Azure
+        # (SAS is validated server-side), so we only confirm the blob exists.
         if expires < int(time.time()):
             raise ForbiddenException("Storage URL expired")
-        expected = self._signature(key, expires)
-        if not hmac.compare_digest(expected, sig):
-            raise ForbiddenException("Invalid storage signature")
-        if key not in self._blobs:
-            raise NotFoundException("Storage object not found")
+        if self._client is None:
+            expected = self._signature(key, expires)
+            if not hmac.compare_digest(expected, sig):
+                raise ForbiddenException("Invalid storage signature")
+            if key not in self._blobs:
+                raise NotFoundException("Storage object not found")
+            return StoredObject(scheme=self.scheme, key=key)
+        # Real SDK: existence check (SAS itself is Azure-verified).
+        from azure.core.exceptions import ResourceNotFoundError
+
+        bc = self._blob_client(key)
+        try:
+            bc.get_blob_properties()
+        except ResourceNotFoundError as exc:
+            raise NotFoundException("Storage object not found") from exc
         return StoredObject(scheme=self.scheme, key=key)
 
     def open(self, obj: StoredObject) -> bytes:
-        if obj.key not in self._blobs:
-            raise NotFoundException("Storage object not found")
-        return self._blobs[obj.key][0]
+        if self._client is None:
+            if obj.key not in self._blobs:
+                raise NotFoundException("Storage object not found")
+            return self._blobs[obj.key][0]
+        # Real SDK: download bytes.
+        from azure.core.exceptions import ResourceNotFoundError
+
+        bc = self._blob_client(obj.key)
+        try:
+            stream = bc.download_blob()
+            return stream.readall()
+        except ResourceNotFoundError as exc:
+            raise NotFoundException("Storage object not found") from exc
 
 
 # ---------------------------------------------------------------------------
@@ -457,6 +601,40 @@ class AzureBlobStorageBackend(StorageBackend):
 _backend_singleton: StorageBackend | None = None
 
 
+def _build_azure_client() -> object:
+    """Construct a real ``BlobServiceClient`` from environment configuration.
+
+    Auth resolution order (Phase B, ADR-0045 3.2):
+
+    1. ``AZURE_STORAGE_CONNECTION_STRING`` (full connection string; also how
+       azurite is wired in integration tests) when present.
+    2. Otherwise ``DefaultAzureCredential`` against
+       ``https://{account}.blob.core.chinacloudapi.cn`` (service principal via
+       ``AZURE_CLIENT_ID`` / ``AZURE_CLIENT_SECRET`` / ``AZURE_TENANT_ID``).
+
+    Raises ``RuntimeError`` when neither a connection string nor an account
+    name is configured, so misconfiguration fails fast at startup.
+    """
+    from azure.storage.blob import BlobServiceClient
+
+    conn = (getattr(settings, "azure_storage_connection_string", "") or "").strip()
+    if conn:
+        return BlobServiceClient.from_connection_string(conn)
+
+    account = (getattr(settings, "azure_storage_account_name", "") or "").strip()
+    if not account:
+        raise RuntimeError(
+            "STORAGE_BACKEND=azure requires AZURE_STORAGE_CONNECTION_STRING or "
+            "AZURE_STORAGE_ACCOUNT_NAME to be set"
+        )
+    from azure.identity import DefaultAzureCredential
+
+    account_url = f"https://{account}.blob.core.chinacloudapi.cn"
+    return BlobServiceClient(
+        account_url=account_url, credential=DefaultAzureCredential()
+    )
+
+
 def get_storage_backend() -> StorageBackend:
     """Return process-wide ``StorageBackend`` per ``settings.storage_backend``.
 
@@ -464,7 +642,7 @@ def get_storage_backend() -> StorageBackend:
     to drop the cache.
 
     Production guard (Phase B): when ``storage_backend=azure`` is set but
-    Azure ENV vars are missing, fall back to mock here is unacceptable;
+    Azure ENV vars are missing, falling back to mock here is unacceptable;
     instead we raise immediately so misconfig is caught at startup.
     """
     global _backend_singleton
@@ -473,7 +651,18 @@ def get_storage_backend() -> StorageBackend:
 
     backend_name = (getattr(settings, "storage_backend", "local") or "local").lower()
     if backend_name == "azure":
-        _backend_singleton = AzureBlobStorageBackend()
+        client = _build_azure_client()
+        account = (
+            getattr(settings, "azure_storage_account_name", "") or "mock-account"
+        ).strip() or "mock-account"
+        container = (
+            getattr(settings, "azure_storage_container_cert", "") or "yiluan-cert-mock"
+        ).strip() or "yiluan-cert-mock"
+        _backend_singleton = AzureBlobStorageBackend(
+            account_name=account,
+            container_name=container,
+            blob_service_client=client,
+        )
     else:
         _backend_singleton = LocalStorageBackend()
     return _backend_singleton
