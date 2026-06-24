@@ -125,6 +125,139 @@ class TestAzureBlobStorageBackendMock:
             backend.open(StoredObject(scheme="azure-blob://", key="ghost.jpg"))
 
 
+# ---------- AzureBlobStorageBackend real-SDK unit (mocked client) ----------
+# S2-DEV-016-PHASE-B-PREFLIGHT-SDK AC#4 (WORM) + AC#5 (Auth).
+# 用 unittest.mock 验证真 SDK 调用 shape，不需 azurite / 真 creds。
+# 真生效验证（WORM immutability / DefaultAzureCredential AAD 链）归 REAL task smoke。
+
+
+class TestAzureRealSdkUnit:
+    """Real-SDK branch unit tests with a mocked BlobServiceClient."""
+
+    def _backend_with_mock_client(self):
+        from unittest.mock import MagicMock
+
+        client = MagicMock(name="BlobServiceClient")
+        blob_client = MagicMock(name="BlobClient")
+        client.get_blob_client.return_value = blob_client
+        be = AzureBlobStorageBackend(
+            account_name="acct",
+            container_name="cont",
+            blob_service_client=client,
+        )
+        return be, client, blob_client
+
+    def test_is_real_sdk_flag(self):
+        be, _client, _bc = self._backend_with_mock_client()
+        assert be.is_real_sdk is True
+        assert AzureBlobStorageBackend().is_real_sdk is False
+
+    def test_put_calls_upload_blob_overwrite(self):
+        be, _client, bc = self._backend_with_mock_client()
+        be.put("k.jpg", b"data", content_type="image/jpeg")
+        assert bc.upload_blob.call_count == 1
+        _args, kwargs = bc.upload_blob.call_args
+        assert kwargs.get("overwrite") is True
+
+    def test_put_if_absent_existing_translates_resource_exists(self):
+        from azure.core.exceptions import ResourceExistsError
+
+        be, _client, bc = self._backend_with_mock_client()
+        bc.upload_blob.side_effect = ResourceExistsError("exists")
+        r = be.put_if_absent("k.jpg", b"data", content_type="image/jpeg")
+        assert r.already_exists is True
+        # overwrite=False 是 If-None-Match:* 语义
+        _args, kwargs = bc.upload_blob.call_args
+        assert kwargs.get("overwrite") is False
+
+    def test_open_missing_translates_resource_not_found(self):
+        from azure.core.exceptions import ResourceNotFoundError
+
+        be, _client, bc = self._backend_with_mock_client()
+        bc.download_blob.side_effect = ResourceNotFoundError("missing")
+        with pytest.raises(NotFoundException):
+            be.open(StoredObject(scheme=be.scheme, key="ghost.jpg"))
+
+    # --- AC#4 WORM (azurite 不支持 immutability, 真生效归 REAL smoke) ---
+    def test_set_worm_policy_calls_immutability_and_legal_hold(self):
+        """WORM 代码调用 set_immutability_policy(Locked) + set_legal_hold.
+
+        azurite 不支持 immutability (Azure/Azurite Issue #2648)，故用 mock
+        验证调用 shape；真生效 enforcement 归 REAL task creds 后 smoke。
+        """
+        be, _client, bc = self._backend_with_mock_client()
+        be.set_worm_policy("contract/2026/06/x.pdf", retention_days=2555)
+        assert bc.set_immutability_policy.call_count == 1
+        _args, kwargs = bc.set_immutability_policy.call_args
+        policy = kwargs.get("immutability_policy")
+        assert policy is not None
+        assert getattr(policy, "policy_mode", None) == "Locked"
+        bc.set_legal_hold.assert_called_once_with(True)
+
+    @pytest.mark.skip(
+        reason="azurite 不支持 WORM/immutability Issue#2648, 真生效验证归 REAL task creds 后 smoke"
+    )
+    def test_worm_real_enforcement_smoke(self):
+        """占位：真 Azure container immutability 生效后重写被拒 (412)。等 creds。"""
+
+    # --- AC#5 DefaultAzureCredential / connection-string 构造分支 ---
+    def test_build_client_prefers_connection_string(self, monkeypatch):
+        """有 connection string 时走 from_connection_string，不碰 credential。"""
+        from unittest.mock import MagicMock, patch
+
+        import app.services.storage_backend as sb
+        from app.config import settings as _s
+
+        monkeypatch.setattr(_s, "azure_storage_connection_string", "CONN=x;")
+        with patch(
+            "azure.storage.blob.BlobServiceClient.from_connection_string",
+            return_value=MagicMock(name="svc"),
+        ) as from_conn:
+            client = sb._build_azure_client()  # noqa: SLF001
+        assert from_conn.call_count == 1
+        assert client is not None
+
+    def test_build_client_uses_default_credential_when_no_conn(self, monkeypatch):
+        """无 conn 但有 account name 时走 DefaultAzureCredential。"""
+        from unittest.mock import MagicMock, patch
+
+        import app.services.storage_backend as sb
+        from app.config import settings as _s
+
+        monkeypatch.setattr(_s, "azure_storage_connection_string", "")
+        monkeypatch.setattr(_s, "azure_storage_account_name", "myacct")
+        with patch(
+            "azure.identity.DefaultAzureCredential",
+            return_value=MagicMock(name="cred"),
+        ) as cred, patch(
+            "azure.storage.blob.BlobServiceClient",
+            return_value=MagicMock(name="svc"),
+        ) as svc_cls:
+            client = sb._build_azure_client()  # noqa: SLF001
+        assert cred.call_count == 1
+        assert svc_cls.call_count == 1
+        # account_url 指向 chinacloudapi (21Vianet)
+        _args, kwargs = svc_cls.call_args
+        assert "chinacloudapi.cn" in kwargs.get("account_url", "")
+        assert client is not None
+
+    def test_build_client_missing_all_raises(self, monkeypatch):
+        """无 conn 也无 account name → fail-fast RuntimeError。"""
+        import app.services.storage_backend as sb
+        from app.config import settings as _s
+
+        monkeypatch.setattr(_s, "azure_storage_connection_string", "")
+        monkeypatch.setattr(_s, "azure_storage_account_name", "")
+        with pytest.raises(RuntimeError, match="AZURE_STORAGE"):
+            sb._build_azure_client()  # noqa: SLF001
+
+    @pytest.mark.skip(
+        reason="真 DefaultAzureCredential AAD 链验证需 service principal creds, 归 REAL smoke"
+    )
+    def test_default_credential_real_auth_smoke(self):
+        """占位：真 service principal 连真 Azure 鉴权。等 creds。"""
+
+
 # ---------- Factory ----------
 
 
