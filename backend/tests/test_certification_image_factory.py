@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from app.services import certification_image as cert_image
+from app.services import storage_backend as _sb
 from app.services.storage_backend import reset_storage_backend
 
 
@@ -16,6 +17,21 @@ class _UploadStub:
 
     async def read(self) -> bytes:
         return self._content
+
+
+def _inject_mock_azure_backend() -> None:
+    """Wire a mock-mode Azure backend into the singleton (no real creds needed).
+
+    Phase B (S2-DEV-016-PHASE-B-PREFLIGHT-SDK) flipped the factory so that
+    ``storage_backend=azure`` now calls ``_build_azure_client()`` and fails fast
+    when Azure ENV is missing (AC#6 production guard). These dispatch-only tests
+    verify URI/URL scheme, not real Azure IO, so we inject a mock-mode
+    ``AzureBlobStorageBackend()`` (no client -> in-memory) directly into the
+    singleton, bypassing the factory's ENV check while keeping the production
+    fail-fast guard untouched. Authorized by PREFLIGHT AC#6 (flip downstream
+    test update).
+    """
+    _sb._backend_singleton = _sb.AzureBlobStorageBackend()
 
 
 @pytest.mark.asyncio
@@ -40,6 +56,7 @@ class TestCertificationImageFactoryIntegration:
         reset_storage_backend()
         from app.config import settings as _s
         monkeypatch.setattr(_s, "storage_backend", "azure")
+        _inject_mock_azure_backend()
         uri = await cert_image.save_certification_image(_UploadStub(b"y" * 50))
         assert uri.startswith("azure-blob://")
         reset_storage_backend()
@@ -57,6 +74,7 @@ class TestCertificationImageFactoryIntegration:
         reset_storage_backend()
         # 切口 azure 再 sign，仍可走本地 backend (cert-image:// dispatch)
         monkeypatch.setattr(_s, "storage_backend", "azure")
+        _inject_mock_azure_backend()
         url = cert_image.sign_certification_image_url(uri)
         assert url is not None
         assert "/api/v1/admin/companions/certification-images/" in url
@@ -66,6 +84,7 @@ class TestCertificationImageFactoryIntegration:
         reset_storage_backend()
         from app.config import settings as _s
         monkeypatch.setattr(_s, "storage_backend", "azure")
+        _inject_mock_azure_backend()
         uri = await cert_image.save_certification_image(_UploadStub(b"a" * 20))
         url = cert_image.sign_certification_image_url(uri)
         assert url is not None
