@@ -23,6 +23,13 @@ from app.models.notification import (
     NotificationTargetType,
     NotificationType,
 )
+from app.models.notification_outbox import (
+    DEFAULT_MAX_RETRIES as NOTIFICATION_OUTBOX_DEFAULT_MAX_RETRIES,
+)
+from app.models.notification_outbox import (
+    NotificationOutbox,
+    NotificationOutboxStatus,
+)
 from app.models.order import ORDER_TRANSITIONS, Order, OrderStatus, ServiceType
 from app.models.order_share_access_log import OrderShareAccessLog
 from app.models.order_share_token import (
@@ -118,6 +125,9 @@ __all__ = [
     "Notification",
     "NotificationType",
     "NotificationTargetType",
+    "NotificationOutbox",
+    "NotificationOutboxStatus",
+    "NOTIFICATION_OUTBOX_DEFAULT_MAX_RETRIES",
     "DeviceToken",
     "DeadLetter",
     "DeadLetterStatus",
