@@ -109,6 +109,27 @@ class Settings(BaseSettings):
     # Prep generate cron 单轮处理批量 (避免锁占用过久).
     prep_generate_batch_size: int = 10
 
+    # ─────────────────────────────────────────────────────────────────
+    # S3-DEV-OUTBOX-2-WORKER / ADR-0058 §3.3+§3.4: notification outbox worker
+    # ─────────────────────────────────────────────────────────────────
+    # outbox worker 总开关。DEV-2 仅控制 worker tick 是否真正 drain；业务侧
+    # enqueue 接入 + NOTIFICATION_OUTBOX_ENABLED 业务 flag 属 DEV-3。
+    # 默认 True — worker 本身常驻; 测试/CI 可设 False 避免后台 drain。
+    notification_outbox_worker_enabled: bool = True
+
+    # 单轮最多投递多少行 (限单轮占锁时长, 对齐 ai_digest BATCH_SIZE=20)。
+    notification_outbox_batch_size: int = 20
+
+    # worker tick 间隔 (秒)。投递要及时, 默认 60s 一轮。
+    notification_outbox_interval_seconds: int = 60
+
+    # 指数退避基数 (秒): 第 n 次失败后 next_retry_at = now + base * factor^(retry_count-1)，
+    # 封顶 cap。ADR-0058 §3.4 留白具体曲线 → 此处取业界标准 (60s/×2/封顶1h)，
+    # 注: 上线后按真实投递成功率/下游恢复时间校准, 不写死断言 (AC#3)。
+    notification_outbox_backoff_base_seconds: int = 60
+    notification_outbox_backoff_factor: float = 2.0
+    notification_outbox_backoff_cap_seconds: int = 3600
+
     # Apple Sign-In (W18-A)
     # TODO(PM): supply real values for production. See `placeholders` doc.
     apple_team_id: str = ""  # TODO: 10-char Apple Developer Team ID

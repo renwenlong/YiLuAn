@@ -130,6 +130,9 @@ def create_scheduler(app) -> AsyncIOScheduler:
     from app.cron.cleanup_emergency_pii import cleanup_emergency_pii
     from app.cron.contract_generate_pickup import contract_generate_pickup_job
     from app.cron.contract_worm_repair import contract_worm_repair_job
+    from app.cron.notification_outbox_worker import (
+        process_notification_outbox_job,
+    )
     from app.cron.prep_generate import prep_generate_job
     from app.cron.readonly_flag_real_gate import check_readonly_flag_real_gate
     from app.cron.reconcile_money import reconcile_money_job
@@ -297,6 +300,21 @@ def create_scheduler(app) -> AsyncIOScheduler:
         kwargs={"app": app},
         id="prep_generate",
         name="Preparation package generate (S3-DEV-002 ADR-0048 §8 P4)",
+        coalesce=True,
+        max_instances=1,
+        misfire_grace_time=30,
+        replace_existing=True,
+    )
+    # S3-DEV-OUTBOX-2-WORKER / ADR-0058 §3.3: notification outbox 投递 worker
+    # — 每 1min tick, batch drain pending/到期 failed 行 → 投递 + 指数退避重试
+    # + 死信兑底. scheduler-lock 防多副本 (ADR-0035 红线). enabled gate 在
+    # worker 内部 (settings.notification_outbox_worker_enabled, 默认 True).
+    scheduler.add_job(
+        process_notification_outbox_job,
+        trigger=IntervalTrigger(minutes=1),
+        kwargs={"app": app},
+        id="notification_outbox_worker",
+        name="Notification outbox delivery worker (S3-DEV-OUTBOX-2 ADR-0058)",
         coalesce=True,
         max_instances=1,
         misfire_grace_time=30,
