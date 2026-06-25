@@ -3,6 +3,7 @@ from typing import Sequence
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.models.notification import (
     Notification,
     NotificationTargetType,
@@ -10,6 +11,7 @@ from app.models.notification import (
 )
 from app.models.user import User
 from app.repositories.notification import NotificationRepository
+from app.services.notification_outbox import enqueue_notification_outbox
 
 # S2-REQ-003-P4 / ADR-0043 §3 Phase 4: 去硬编码
 # 优先读 Order.service_name_snapshot (P3 写入),无快照时 fallback 本 dict。
@@ -117,12 +119,82 @@ class NotificationService:
 
         return notification
 
+    async def _dispatch_notification(
+        self,
+        user_id: uuid.UUID,
+        type: NotificationType,
+        title: str,
+        body: str,
+        reference_id: str | None = None,
+        target_type: NotificationTargetType | None = None,
+        target_id: str | None = None,
+    ) -> Notification | None:
+        """S3-DEV-OUTBOX-3: 业务通知派发的统一出口 (flag 隔离)。
+
+        ``settings.notification_outbox_enabled`` (ADR-0058 §3.4):
+
+        - **False** (默认) → 走旧同步 ``create_notification`` (落库 + 实时 WS 推送)。
+          零变更, 现有行为不变 (AC#1/AC#4)。返回落库的 ``Notification``。
+        - **True** → 在调用方业务事务内 ``enqueue_notification_outbox`` 写 outbox 表
+          (不同步投递, AC#2)。不阻塞业务响应 (AC#6); 投递由 worker (DEV-2)
+          后续调 ``_default_deliver`` → ``create_notification`` 落库 + 推送。
+          此时返回 ``None`` (还未投递, 无 ``Notification`` 实体)。
+
+        ⚠ 递归防护: flag 仅拦 ``notify_*`` 业务入口。worker 的 ``_default_deliver``
+        直调 ``create_notification`` (绕过本 helper / notify_*), 不走 flag 分支 →
+        flag True 下 worker 投递不会再次 enqueue, 无无限递归。
+
+        AC#0 payload schema 契约 (铉死 worker ``_default_deliver`` 反序列化口径)::
+
+            {
+                "user_id": "<uuid str>",       # 必填, worker UUID(str(...))
+                "type": "<NotificationType value>",  # 必填, worker NotificationType(...)
+                "title": "...", "body": "...",
+                "reference_id": "...",          # optional
+                "target_type": "<value>",       # optional, worker NotificationTargetType(...)
+                "target_id": "...",             # optional
+            }
+        """
+        if not settings.notification_outbox_enabled:
+            return await self.create_notification(
+                user_id=user_id,
+                type=type,
+                title=title,
+                body=body,
+                reference_id=reference_id,
+                target_type=target_type,
+                target_id=target_id,
+            )
+
+        # flag True: 写 outbox (业务事务内, 不此处 commit)。payload 严格按 worker
+        # _default_deliver 反序列化口径构造 (AC#0)。
+        payload = {
+            "user_id": str(user_id),
+            "type": type.value,
+            "title": title,
+            "body": body,
+            "reference_id": reference_id,
+            "target_type": target_type.value if target_type is not None else None,
+            "target_id": target_id,
+        }
+        # event_dedup_key: 稳定唯一键 (DB UNIQUE 防同事件重复 enqueue)。
+        # 组合 type + user + 业务实体 id (reference 优先, fallback target)。
+        anchor = reference_id or target_id or "-"
+        event_dedup_key = f"{type.value}:{user_id}:{anchor}"
+        await enqueue_notification_outbox(
+            self.session,
+            event_dedup_key=event_dedup_key,
+            payload=payload,
+        )
+        # 调用方均 fire-and-forget (无人用返回值)。flag True 路径无 Notification 实体。
+        return None
+
     async def notify_order_status_changed(
         self,
         order,
         new_status: str,
         recipient_id: uuid.UUID,
-    ) -> Notification:
+    ) -> Notification | None:
         # 覆盖所有 OrderStatus，并支持同义的多种文案（如 created：待接单）
         status_labels = {
             "created": "待接单",
@@ -136,7 +208,7 @@ class NotificationService:
             "expired": "订单已超时取消",
         }
         label = status_labels.get(new_status, new_status)
-        return await self.create_notification(
+        return await self._dispatch_notification(
             user_id=recipient_id,
             type=NotificationType.order_status_changed,
             title=f"订单状态更新: {label}",
@@ -151,8 +223,8 @@ class NotificationService:
         order,
         companion_name: str,
         recipient_id: uuid.UUID,
-    ) -> Notification:
-        return await self.create_notification(
+    ) -> Notification | None:
+        return await self._dispatch_notification(
             user_id=recipient_id,
             type=NotificationType.start_service_request,
             title="陪诊师请求开始服务",
@@ -167,8 +239,8 @@ class NotificationService:
         order_id: uuid.UUID,
         sender_name: str,
         recipient_id: uuid.UUID,
-    ) -> Notification:
-        return await self.create_notification(
+    ) -> Notification | None:
+        return await self._dispatch_notification(
             user_id=recipient_id,
             type=NotificationType.new_message,
             title="新消息",
@@ -185,7 +257,7 @@ class NotificationService:
         order_id: uuid.UUID,
         rating: int,
         review_id: uuid.UUID | None = None,
-    ) -> Notification:
+    ) -> Notification | None:
         # F-02: review 类通知优先指向评价本身；若没有 review_id 则退化指向订单。
         if review_id is not None:
             target_type = NotificationTargetType.review
@@ -193,7 +265,7 @@ class NotificationService:
         else:
             target_type = NotificationTargetType.review
             target_id = str(order_id)
-        return await self.create_notification(
+        return await self._dispatch_notification(
             user_id=companion_id,
             type=NotificationType.review_received,
             title="收到新评价",
@@ -207,9 +279,9 @@ class NotificationService:
         self,
         order,
         companion_id: uuid.UUID,
-    ) -> Notification:
+    ) -> Notification | None:
         type_label = _service_label_from_order(order)
-        return await self.create_notification(
+        return await self._dispatch_notification(
             user_id=companion_id,
             type=NotificationType.new_order,
             title="🔔 新订单来啦",
@@ -223,11 +295,11 @@ class NotificationService:
         self,
         order,
         companion_ids: Sequence[uuid.UUID],
-    ) -> list[Notification]:
+    ) -> list[Notification | None]:
         type_label = _service_label_from_order(order)
         notifications = []
         for cid in companion_ids:
-            n = await self.create_notification(
+            n = await self._dispatch_notification(
                 user_id=cid,
                 type=NotificationType.new_order,
                 title="🔔 附近有新订单",
@@ -243,8 +315,8 @@ class NotificationService:
         self,
         order,
         recipient_id: uuid.UUID,
-    ) -> Notification:
-        return await self.create_notification(
+    ) -> Notification | None:
+        return await self._dispatch_notification(
             user_id=recipient_id,
             type=NotificationType.order_status_changed,
             title="📋 订单需要重新安排",
@@ -258,8 +330,8 @@ class NotificationService:
         self,
         order,
         recipient_id: uuid.UUID,
-    ) -> Notification:
-        return await self.create_notification(
+    ) -> Notification | None:
+        return await self._dispatch_notification(
             user_id=recipient_id,
             type=NotificationType.order_status_changed,
             title="⏰ 订单已自动取消",
@@ -275,7 +347,7 @@ class NotificationService:
         companion_profile_id: uuid.UUID,
         approved: bool,
         reason: str | None = None,
-    ) -> Notification:
+    ) -> Notification | None:
         """[F-02] 陪诊师资料审核通过 / 驳回 — 深链跳转到陪诊师档案页。"""
         if approved:
             title = "✅ 陪诊师资料已通过"
@@ -283,7 +355,7 @@ class NotificationService:
         else:
             title = "❌ 陪诊师资料未通过"
             body = f"驳回原因: {reason}" if reason else "您的陪诊师资料未通过审核，请前往修改"
-        return await self.create_notification(
+        return await self._dispatch_notification(
             user_id=companion_user_id,
             type=NotificationType.system,
             title=title,
