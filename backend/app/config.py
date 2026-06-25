@@ -130,6 +130,20 @@ class Settings(BaseSettings):
     notification_outbox_backoff_factor: float = 2.0
     notification_outbox_backoff_cap_seconds: int = 3600
 
+    # ─────────────────────────────────────────────────────────────────
+    # S3-DEV-OUTBOX-3-INTEGRATION-FLAG / ADR-0058 §3.4: 业务接入灰度 flag
+    # ─────────────────────────────────────────────────────────────────
+    # 业务侧通知路径开关 (与上面 worker_enabled 是两个独立 flag):
+    #   - worker_enabled 控制 worker tick 是否 drain outbox 表 (投递端)
+    #   - 本 flag 控制 notify_* 业务入口走哪条路 (生产端)
+    # False (默认) → notify_* 走旧同步 create_notification (当前行为, 零变更, AC#1/#4)
+    # True         → notify_* 改走 enqueue_notification_outbox (业务事务内写表,
+    #                worker 异步投递; 非阻塞 AC#6, 业务事务不被投递失败污染 AC#5)
+    # 一键回退: 切回 False 即恢复旧同步路径 (AC#3/AC#7 灰度可回退)。
+    # ⚠ flag 仅作用于 notify_* 业务入口; worker 的 _default_deliver 直调
+    #   create_notification (绕过 notify_*), 不受本 flag 影响 → 无投递递归。
+    notification_outbox_enabled: bool = False
+
     # Apple Sign-In (W18-A)
     # TODO(PM): supply real values for production. See `placeholders` doc.
     apple_team_id: str = ""  # TODO: 10-char Apple Developer Team ID
