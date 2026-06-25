@@ -1,0 +1,67 @@
+name: Azurite Integration Tests
+
+# 只在 storage 相关改动触发 (non-required, 可安全用 path filter — 不会锁死任何 PR)。
+# 决策: ADR-0057 / OPS-014 — azurite job 不纳 required check, 仅 informational。
+# 理由: azurite 是辅助验证层 (真 Azure SDK shape 回归); 真 WORM/immutability 验证归 REAL smoke。
+# 纳 required 会撞 OPS-014 "non-required missing 无害 / required missing 锁死" 陷阱。
+on:
+  pull_request:
+    paths:
+      - 'backend/app/services/storage_backend.py'
+      - 'backend/tests/test_storage_backend_azurite.py'
+      - 'backend/tests/test_storage_backend.py'
+      - 'backend/requirements.txt'
+      - '.github/workflows/azurite-ci.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'backend/app/services/storage_backend.py'
+      - 'backend/tests/test_storage_backend_azurite.py'
+
+jobs:
+  azurite-integration:
+    name: Azurite Integration (informational, non-required)
+    runs-on: ubuntu-latest
+    services:
+      azurite:
+        image: mcr.microsoft.com/azure-storage/azurite
+        ports:
+          - 10000:10000
+        # blobHost 实测 (S3-OPS-CI-AZURITE-CONTAINER, hutao 2026-06-24): 当前官方 image
+        # 默认 entrypoint 已监听 0.0.0.0:10000 (容器日志确认 "listening at http://0.0.0.0:10000",
+        # host 连 127.0.0.1:10000 实测可达)。GitHub service container 不支持自定义 command 覆盖
+        # entrypoint, 默认即满足 runner 连通需求, 故无需显式 --blobHost 0.0.0.0。
+        # health-check 用 nc 探活, 等 azurite blob 端口就绪再跑测试。
+        options: >-
+          --health-cmd "nc -z 127.0.0.1 10000 || exit 1"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+          --health-start-period 5s
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install pytest pytest-asyncio
+      - name: Verify azurite reachability
+        run: |
+          # 实施验证 (AC#5): 连接串 BlobEndpoint=http://127.0.0.1:10000 在 runner 网络可达。
+          # service container 端口映射到 runner localhost:10000。
+          for i in $(seq 1 10); do
+            if nc -z 127.0.0.1 10000; then
+              echo "✅ azurite blob 端口 127.0.0.1:10000 可达"
+              exit 0
+            fi
+            echo "  等 azurite 就绪 ($i/10)..."
+            sleep 3
+          done
+          echo "❌ azurite 10000 端口不可达"
+          exit 1
+      - name: Run azurite integration tests
+        run: cd backend && python -m pytest -m azurite -v --tb=short
+        timeout-minutes: 5
