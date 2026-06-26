@@ -2,26 +2,45 @@
 #
 # Runs the full mock-provider patient-journey replay every Wednesday
 # 14:00 GMT+8.  Requires a self-hosted runner with Docker available
-# because the stack binds to 127.0.0.1:18080.  Until a self-hosted
-# runner labelled `staging-mock` is registered, this workflow is
-# DISABLED and the rehearsal is performed manually per
-# docs/STAGING_REHEARSAL_RUNBOOK.md.
+# because the stack binds to 127.0.0.1:18080.
+#
+# ENABLEMENT (ADR-0059 方案 B, self-hosted runner):
+#   This workflow is gated on the repo variable `STAGING_RUNNER_READY`.
+#   It stays inert until a self-hosted runner labelled `staging-mock` is
+#   registered AND `STAGING_RUNNER_READY` is set to 'true' (no workflow
+#   edit needed to flip it on/off — just set/unset the repo variable).
+#   See docs/STAGING_RUNNER_SETUP.md for the runner registration + enable
+#   steps.  Until then the rehearsal is performed manually per
+#   docs/STAGING_REHEARSAL_RUNBOOK.md (fallback, unchanged — AC#3).
 name: staging-rehearsal
 
 on:
   workflow_dispatch: {}
-  # DISABLED until a self-hosted runner is registered.  See runbook §7.
+  # Gated by STAGING_RUNNER_READY at the job level (below); cron stays
+  # commented until a self-hosted runner is registered.  See setup doc §3.
   # schedule:
   #   - cron: '0 6 * * 3'   # 14:00 GMT+8
 
 jobs:
   rehearsal:
-    # DISABLED: switch to `[self-hosted, staging-mock]` once runner exists.
-    if: ${{ false }}
+    # Enabled only when a self-hosted runner is registered and the repo
+    # variable STAGING_RUNNER_READY == 'true'.  Flip via repo variable,
+    # not by editing this file (ADR-0059 §6.5 / docs/STAGING_RUNNER_SETUP.md).
+    if: ${{ vars.STAGING_RUNNER_READY == 'true' }}
     runs-on: [self-hosted, staging-mock]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+
+      # ADR-0059 §5.5 — pre-deploy CI gate.  Refuse to bring up staging on
+      # a commit whose REQUIRED checks are not all green (prevents a
+      # red/pending commit from polluting 刻晴's QA environment).
+      - name: CI gate (required checks green)
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          deploy/staging/check-main-ci.sh --sha "$(git rev-parse HEAD)"
 
       - name: Bring up staging stack
         working-directory: deploy

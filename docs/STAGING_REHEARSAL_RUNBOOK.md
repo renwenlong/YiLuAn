@@ -97,17 +97,22 @@ cd C:\Users\wenlongren\Desktop\PZAPP\YiLuAn-staging\deploy\staging
 
 ## 7. CI 触发（GitHub Actions，可选）
 
-`.github/workflows/staging-rehearsal.yml` 配置了 `cron: '0 6 * * 3'`
-（即每周三 14:00 GMT+8），但需要 self-hosted runner（hosted runner 不能跑
+`.github/workflows/staging-rehearsal.yml` 配置了 weekly rehearsal（每周三
+14:00 GMT+8），但需要 self-hosted runner（hosted runner 不能跑
 docker compose + 本地 18080 端口的栈）。
 
 当前状态：**未启用 self-hosted runner**，每周演练靠本 runbook 手动执行。
 
-启用方法：
+**启用方法**（ADR-0059 方案 B）：完整步骤见
+`docs/STAGING_RUNNER_SETUP.md`。要点：
 
-1. 在公司内网机器上注册 self-hosted runner，标签 `staging-mock`。
-2. 把 workflow `runs-on: ubuntu-latest` 改为 `runs-on: [self-hosted, staging-mock]`。
-3. 取消 workflow 文件顶部的 `# DISABLED:` 注释。
+1. 在常驻机器上注册 self-hosted runner，label 含 `staging-mock`。
+2. 设 repo variable `STAGING_RUNNER_READY=true`（job 的 `if` 条件依赖它，
+   **不需要再改 workflow 文件**；停用就把 variable 改掉）。
+3. （可选）取消 workflow 顶部 `schedule:` 注释恢复 weekly cron。
+
+> workflow 已内嵌 ADR-0059 §5.5 CI gate（`deploy/staging/check-main-ci.sh`），
+> 部署前强制校验 main HEAD 的 required checks 全绿，防未过 CI 代码污染验收环境。
 
 ## 8. 验收 checklist（每周跑完贴到群里）
 
