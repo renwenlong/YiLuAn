@@ -103,7 +103,25 @@ colleagues:
     added_at: "2026-06-29"
     added_by: "hutao (S2-OPS-A-REAL-LAUNCH 真上线)"
     note: "帝君指派 #5; 真号走 ENV"
-  # 6-10 位待清单到时按需追加, 不超 max_size
+  - name: "同事6"
+    phone: "___****____"
+    phone_env: "REAL_PHONE_COLLEAGUE_6"
+    added_at: "2026-06-29"
+    added_by: "hutao (S2-OPS-A-REAL-LAUNCH 真上线, 凝光 ratify cc375910 13号定案)"
+    note: "帝君指派 #6 (候选池筛选); 真号走 ENV"
+  - name: "同事7"
+    phone: "___****____"
+    phone_env: "REAL_PHONE_COLLEAGUE_7"
+    added_at: "2026-06-29"
+    added_by: "hutao (S2-OPS-A-REAL-LAUNCH 真上线, 凝光 ratify cc375910 13号定案)"
+    note: "帝君指派 #7 (候选池筛选); 真号走 ENV"
+  - name: "同事8"
+    phone: "___****____"
+    phone_env: "REAL_PHONE_COLLEAGUE_8"
+    added_at: "2026-06-29"
+    added_by: "hutao (S2-OPS-A-REAL-LAUNCH 真上线, 凝光 ratify cc375910 13号定案)"
+    note: "帝君指派 #8 (候选池筛选); 真号走 ENV"
+  # 9-10 位待清单到时按需追加, 不超 max_size
 
 # Sentinel 测试号 (本地 e2e / smoke 用, 永久保留; 与 mock yaml 对齐)
 sentinels:
