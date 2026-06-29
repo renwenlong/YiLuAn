@@ -20,6 +20,11 @@ Design:
   raw 11-digit strings)
 - placeholder rejection: phones starting with ``__PENDING_`` / ``__PLACEHOLDER_``
   are ignored at load (treated as not in whitelist)
+- real-number env indirection (S2-OPS-A-REAL-LAUNCH, 凝光 Q2=a 2026-06-29):
+  an entry may carry ``phone_env`` naming an env var holding the real number;
+  ``phone`` is then a masked audit string (``157****2719``) never loaded.
+  env unset / placeholder => that single entry fail-safe skips. legacy mock
+  yaml without phone_env loads ``phone`` unchanged (backward compat)
 - malformed yaml fail-closed when ``canary_whitelist_enabled=True``
   (returns empty whitelist → all phones fail F2 entry) to prevent
   silent leakage of feature to non-canary users
@@ -30,6 +35,7 @@ Design:
 from __future__ import annotations
 
 import logging
+import os
 import threading
 from dataclasses import dataclass
 from pathlib import Path
@@ -184,7 +190,17 @@ class _WhitelistCache:
 
 
 def _extract_phones(raw: dict) -> list[str]:
-    """Extract all phone strings from the parsed yaml, skipping placeholders."""
+    """Extract all phone strings from the parsed yaml, skipping placeholders.
+
+    S2-OPS-A-REAL-LAUNCH (凝光 Q2=a, 2026-06-29): per-entry ``phone_env``
+    indirection. When an entry has ``phone_env``, the real 11-digit number is
+    read from that env var at load time and the yaml ``phone`` is treated as a
+    masked audit string (e.g. ``157****2719``) that is *never* loaded into the
+    whitelist. ENV not injected / injected with a placeholder → that single
+    entry fail-safe skips (does not affect other entries). When ``phone_env``
+    is absent the legacy ``phone`` path runs unchanged (mock yaml backward
+    compat). 1 env = 1 number, no list/JSON, fully decoupled per entry.
+    """
     out: list[str] = []
     for section in ("team", "colleagues", "sentinels"):
         block = raw.get(section) or []
@@ -198,6 +214,19 @@ def _extract_phones(raw: dict) -> list[str]:
         for entry in block:
             if not isinstance(entry, dict):
                 continue
+            # New path: real number lives in env, yaml phone is a masked
+            # audit-only string. Takes precedence over phone.
+            phone_env = entry.get("phone_env")
+            if isinstance(phone_env, str) and phone_env.strip():
+                real = os.environ.get(phone_env.strip(), "").strip()
+                if not real or any(
+                    real.startswith(p) for p in _PLACEHOLDER_PREFIXES
+                ):
+                    # env unset / env holds placeholder → fail-safe skip
+                    continue
+                out.append(real)
+                continue
+            # Legacy path (mock yaml): raw phone in yaml.
             phone = entry.get("phone")
             if not isinstance(phone, str):
                 continue

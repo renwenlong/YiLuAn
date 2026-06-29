@@ -380,3 +380,107 @@ def test_noarg_load_reads_env_resolved_path_end_to_end(tmp_path, monkeypatch):
     assert canary_whitelist.is_whitelisted("13911111111") is True
     assert canary_whitelist.is_whitelisted("13800000001") is False
     assert canary_whitelist.get_snapshot().version == "real-v"
+
+
+# ---------------------------------------------------------------------------
+# S2-OPS-A-REAL-LAUNCH: phone_env real-number injection (凝光 Q2=a 2026-06-29)
+# yaml stores masked phone (audit only); real number comes from per-entry env.
+# ---------------------------------------------------------------------------
+
+
+def _real_yaml(tmp_path: Path) -> Path:
+    """real-style yaml: masked phone + phone_env per entry, plus a sentinel."""
+    body = textwrap.dedent(
+        """
+        version: real-1
+        purpose: f2-whitelist-canary-real
+        flow_type: real
+        max_size: 20
+        team:
+          - role: pm
+            name: "凝光"
+            phone: "157****2719"
+            phone_env: "REAL_PHONE_TEAM_PM"
+        colleagues:
+          - name: "同事1"
+            phone: "138****0001"
+            phone_env: "REAL_PHONE_COLLEAGUE_1"
+        sentinels:
+          - phone: "13800000000"
+            note: "smoke"
+        """
+    )
+    p = tmp_path / "whitelist_phones.real.yaml"
+    p.write_text(body, encoding="utf-8")
+    return p
+
+
+def test_real_env_injected_number_passes_pipeline(tmp_path, monkeypatch):
+    """phone_env set + env holds a real number -> that number enters frozenset;
+    sentinel (no phone_env) still loads via legacy path."""
+    monkeypatch.setenv("REAL_PHONE_TEAM_PM", "13800000001")
+    monkeypatch.setenv("REAL_PHONE_COLLEAGUE_1", "13800000002")
+    canary_whitelist.reload(_real_yaml(tmp_path))
+    snap = canary_whitelist.get_snapshot()
+    assert "13800000001" in snap.phones
+    assert "13800000002" in snap.phones
+    assert "13800000000" in snap.phones  # sentinel legacy phone
+    assert len(snap.phones) == 3
+
+
+def test_real_env_unset_entry_failsafe_skips_and_mask_not_loaded(tmp_path):
+    """phone_env unset -> that entry skipped (fail-safe); mask never loaded."""
+    canary_whitelist.reload(_real_yaml(tmp_path))
+    snap = canary_whitelist.get_snapshot()
+    assert "157****2719" not in snap.phones
+    assert "138****0001" not in snap.phones
+    assert snap.phones == frozenset({"13800000000"})
+
+
+def test_real_mask_string_never_in_frozenset(tmp_path, monkeypatch):
+    """Even with env injected, the masked phone string itself is not loaded."""
+    monkeypatch.setenv("REAL_PHONE_TEAM_PM", "13800000001")
+    monkeypatch.setenv("REAL_PHONE_COLLEAGUE_1", "13800000002")
+    canary_whitelist.reload(_real_yaml(tmp_path))
+    assert canary_whitelist.is_whitelisted("157****2719") is False
+    assert canary_whitelist.is_whitelisted("138****0001") is False
+
+
+def test_real_mixed_env_and_legacy_yaml_coexist(tmp_path, monkeypatch):
+    """Backward compat: env entry + plain legacy phone entry both load."""
+    monkeypatch.setenv("REAL_PHONE_TEAM_PM", "13800000001")
+    body = textwrap.dedent(
+        """
+        version: mixed-1
+        team:
+          - role: pm
+            phone: "157****2719"
+            phone_env: "REAL_PHONE_TEAM_PM"
+          - role: dev
+            phone: "13800000009"
+        """
+    )
+    p = tmp_path / "mixed.yaml"
+    p.write_text(body, encoding="utf-8")
+    canary_whitelist.reload(p)
+    snap = canary_whitelist.get_snapshot()
+    assert snap.phones == frozenset({"13800000001", "13800000009"})
+
+
+def test_real_env_placeholder_value_skipped(tmp_path, monkeypatch):
+    """env injected with a placeholder sentinel -> entry fail-safe skips."""
+    monkeypatch.setenv("REAL_PHONE_TEAM_PM", "__PLACEHOLDER_pm__")
+    monkeypatch.setenv("REAL_PHONE_COLLEAGUE_1", "13800000002")
+    canary_whitelist.reload(_real_yaml(tmp_path))
+    snap = canary_whitelist.get_snapshot()
+    assert "13800000002" in snap.phones
+    assert "__PLACEHOLDER_pm__" not in snap.phones
+    assert snap.phones == frozenset({"13800000002", "13800000000"})
+
+
+def test_real_env_value_whitespace_trimmed(tmp_path, monkeypatch):
+    """env real number with stray whitespace is trimmed before membership."""
+    monkeypatch.setenv("REAL_PHONE_TEAM_PM", "  13800000001  ")
+    monkeypatch.setenv("REAL_PHONE_COLLEAGUE_1", "13800000002")
+    canary_whitelist.reload(_real_yaml(tmp_path))
+    assert canary_whitelist.is_whitelisted("13800000001") is True
