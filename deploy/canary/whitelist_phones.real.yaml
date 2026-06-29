@@ -1,42 +1,36 @@
 # =============================================================================
-# S3-OPS-CANARY-REAL-YAML-PATH-ENV — canary 真实灰度白名单 (real list)
-# 魈 2026-06-23 方案 b: 与 mock whitelist_phones.yaml 物理隔离 (§20 约定)
+# S2-OPS-A-REAL-LAUNCH — canary 真实灰度白名单 (real list, phone_env 注入)
+# 凝光 Q2=a 2026-06-29: yaml 仅存掩码(审计), 真号走 phone_env → encrypted secret
 # =============================================================================
 #
 # 用途:
 #   生产 canary 容器设 CANARY_WHITELIST_PATH=whitelist_phones.real.yaml 时,
-#   canary_whitelist.load() 读本文件而非 mock yaml。真实灰度上线
-#   (S2-OPS-A-REAL-LAUNCH) 切量时用,承载真号; mock yaml 仍供本地/staging。
+#   canary_whitelist.load() 读本文件而非 mock yaml。每条 entry 的真号由
+#   phone_env 字段命名的环境变量注入 (1 ENV = 1 真号), yaml phone 仅掩码。
 #
-# 为什么独立文件 (不覆盖 mock yaml):
-#   - mock/real 物理隔离, 避免真号顶掉 mock 占位 (whitelist_phones.yaml §20)
-#   - 回退只需改 1 个 env (CANARY_WHITELIST_PATH 切回 mock), 不动文件
-#   - real 名单独立 git history, audit/blame 清晰
+# 新机制 (phone_env, = 老机制超集):
+#   - entry 有 phone_env → load() 从该 ENV 读真号, yaml phone 当掩码不读
+#   - entry 无 phone_env → 老路径读 phone (mock yaml 向后兼容)
+#   - ENV 未注入 / 注入 __PENDING_/__PLACEHOLDER_ → 该 entry fail-safe 跳 (不放量)
+#   - 单条故障松耦合, 不靠跨 entry 顺序/列表对齐
 #
-# 维护流程 (真号填充):
-#   1. 帝君指派 5-10 公司同事手机号 -> PM (凝光) 收齐
-#   2. 凝光同步真号给胡桃 -> 胡桃 sed/edit 替换 __PENDING_* / __PLACEHOLDER_*
-#      占位符 -> PR (走 review)
-#   3. 真号填充前本文件全 placeholder, load() 解析时 placeholder 被跳过
-#      (__PENDING_ / __PLACEHOLDER_ 前缀), 等价空名单 -> 灰度不放量 (fail-safe)
+# 掩码格式:
+#   前3 + **** + 后4 (11 字符), 后4 明文对账 + 前3 运营商粗判, 公开 OK。
+#   真号绝不入 git/yaml/log/comment — 仅 encrypted secret + runtime ENV。
 #
-# 编辑约定 (同 mock yaml):
-#   - 真手机号 11 位, 字符串引号包裹 (避免 yaml int)
-#   - role 标注 (Owner/PM/architect/developer/tester/coordinator/colleague_NN)
-#   - 注释说明谁加 + 日期 (audit 留痕)
-#   - 移除走 git revert 不直接删行 (留痕)
+# ENV 命名 (10 真号):
+#   team:       REAL_PHONE_TEAM_{PM,ARCH,DEV,TEST,COORD}
+#   colleagues: REAL_PHONE_COLLEAGUE_{1..5}
 #
-# ⚠️⚠️ 当前状态: DRY-RUN 占位号 (13800000001~05, 非真号/非真实可达)。
-#    team/colleagues 号重复仅因帝君示意基底相同 (138 尾号 1-5)。
-#    本填充仅为验证 real.yaml 路径切换 + load() 解析 + gate 放行机制走通
-#    (S2-OPS-A-REAL-LAUNCH dry-run, 凝光派, 帝君方案 B 2026-06-24)。
-#    ❗真上线 (REAL-LAUNCH gate-ON 切真流量) 前必须替换为 10 个不同真号❗
-#    dry-run 下重复号无害 (gate 按号匹配放行, frozenset 自动去重)。
+# 维护流程:
+#   1. 帝君指派 10 真号 → PM 凝光收齐 → 物流到 encrypted secret (帝君 Q3 拍路径)
+#   2. PM 把后4位掩码同步胡桃 → 胡桃填 yaml phone 掩码 (PR 走 review)
+#   3. 注入前掩码占位 ___****____, frozenset 空, gate fail-safe 不放量
 #
 # 相关:
 #   - docs/ops/canary-deployment.md §2.3 团队内部测试用户白名单
-#   - S3-OPS-CANARY-REAL-YAML-PATH-ENV / S2-OPS-A-REAL-LAUNCH (taskboard)
-#   - deploy/canary/whitelist_phones.yaml (mock, §20 隔离约定来源)
+#   - S2-OPS-A-REAL-LAUNCH / S3-OPS-CANARY-REAL-YAML-PATH-ENV (taskboard)
+#   - deploy/canary/whitelist_phones.yaml (mock, §20 物理隔离约定)
 # =============================================================================
 
 version: 1
@@ -44,61 +38,71 @@ purpose: f2-whitelist-canary-real
 flow_type: real
 max_size: 20  # AC-1 控制爆炸半径硬上限 (同 mock)
 
-# 团队 5 人位 — ⚠️DRY-RUN 占位号 (13800000001~05, 非真号), 真上线前必须替换 10 个不同真号
+# 团队 5 人位 — phone 掩码仅审计, 真号走 phone_env 注入
 team:
   - role: pm
     name: "凝光"
-    phone: "13800000001"
-    added_at: "2026-06-24"
-    added_by: "hutao (S2-OPS-A-REAL-LAUNCH dry-run, 凝光派, 帝君方案B)"
+    phone: "___****____"  # 掩码占位, PM 同步真号后填后4位; 真号走 phone_env
+    phone_env: "REAL_PHONE_TEAM_PM"
+    added_at: "2026-06-29"
+    added_by: "hutao (S2-OPS-A-REAL-LAUNCH 真上线, 帝君 Q1=a/Q2=a)"
   - role: architect
     name: "魈"
-    phone: "13800000002"
-    added_at: "2026-06-24"
-    added_by: "hutao (S2-OPS-A-REAL-LAUNCH dry-run, 凝光派, 帝君方案B)"
+    phone: "___****____"
+    phone_env: "REAL_PHONE_TEAM_ARCH"
+    added_at: "2026-06-29"
+    added_by: "hutao (S2-OPS-A-REAL-LAUNCH 真上线, 帝君 Q1=a/Q2=a)"
   - role: developer
     name: "胡桃"
-    phone: "13800000003"
-    added_at: "2026-06-24"
-    added_by: "hutao (S2-OPS-A-REAL-LAUNCH dry-run, 凝光派, 帝君方案B)"
+    phone: "___****____"
+    phone_env: "REAL_PHONE_TEAM_DEV"
+    added_at: "2026-06-29"
+    added_by: "hutao (S2-OPS-A-REAL-LAUNCH 真上线, 帝君 Q1=a/Q2=a)"
   - role: tester
     name: "刻晴"
-    phone: "13800000004"
-    added_at: "2026-06-24"
-    added_by: "hutao (S2-OPS-A-REAL-LAUNCH dry-run, 凝光派, 帝君方案B)"
+    phone: "___****____"
+    phone_env: "REAL_PHONE_TEAM_TEST"
+    added_at: "2026-06-29"
+    added_by: "hutao (S2-OPS-A-REAL-LAUNCH 真上线, 帝君 Q1=a/Q2=a)"
   - role: coordinator
     name: "甘雨"
-    phone: "13800000005"
-    added_at: "2026-06-24"
-    added_by: "hutao (S2-OPS-A-REAL-LAUNCH dry-run, 凝光派, 帝君方案B)"
+    phone: "___****____"
+    phone_env: "REAL_PHONE_TEAM_COORD"
+    added_at: "2026-06-29"
+    added_by: "hutao (S2-OPS-A-REAL-LAUNCH 真上线, 帝君 Q1=a/Q2=a)"
 
-# 帝君指派同事位 (5-10 人) — ⚠️DRY-RUN 占位号 (13800000001~05, 与 team 重复仅因帝君示意基底相同), 真上线前必须替换 10 个不同真号
+# 帝君指派同事位 (5-10 人) — phone 掩码仅审计, 真号走 phone_env
 colleagues:
-  - phone: "13800000001"
-    name: "李一"
-    added_at: "2026-06-24"
-    added_by: "hutao (S2-OPS-A-REAL-LAUNCH dry-run, 凝光派, 帝君方案B)"
-    note: "帝君指派 #1 (DRY-RUN 占位, 真上线替换真号)"
-  - phone: "13800000002"
-    name: "李二"
-    added_at: "2026-06-24"
-    added_by: "hutao (S2-OPS-A-REAL-LAUNCH dry-run, 凝光派, 帝君方案B)"
-    note: "帝君指派 #2 (DRY-RUN 占位, 真上线替换真号)"
-  - phone: "13800000003"
-    name: "李三"
-    added_at: "2026-06-24"
-    added_by: "hutao (S2-OPS-A-REAL-LAUNCH dry-run, 凝光派, 帝君方案B)"
-    note: "帝君指派 #3 (DRY-RUN 占位, 真上线替换真号)"
-  - phone: "13800000004"
-    name: "李四"
-    added_at: "2026-06-24"
-    added_by: "hutao (S2-OPS-A-REAL-LAUNCH dry-run, 凝光派, 帝君方案B)"
-    note: "帝君指派 #4 (DRY-RUN 占位, 真上线替换真号)"
-  - phone: "13800000005"
-    name: "李五"
-    added_at: "2026-06-24"
-    added_by: "hutao (S2-OPS-A-REAL-LAUNCH dry-run, 凝光派, 帝君方案B)"
-    note: "帝君指派 #5 (DRY-RUN 占位, 真上线替换真号)"
+  - name: "同事1"
+    phone: "___****____"
+    phone_env: "REAL_PHONE_COLLEAGUE_1"
+    added_at: "2026-06-29"
+    added_by: "hutao (S2-OPS-A-REAL-LAUNCH 真上线)"
+    note: "帝君指派 #1; 真号走 ENV, 掩码 PM 同步后填"
+  - name: "同事2"
+    phone: "___****____"
+    phone_env: "REAL_PHONE_COLLEAGUE_2"
+    added_at: "2026-06-29"
+    added_by: "hutao (S2-OPS-A-REAL-LAUNCH 真上线)"
+    note: "帝君指派 #2; 真号走 ENV"
+  - name: "同事3"
+    phone: "___****____"
+    phone_env: "REAL_PHONE_COLLEAGUE_3"
+    added_at: "2026-06-29"
+    added_by: "hutao (S2-OPS-A-REAL-LAUNCH 真上线)"
+    note: "帝君指派 #3; 真号走 ENV"
+  - name: "同事4"
+    phone: "___****____"
+    phone_env: "REAL_PHONE_COLLEAGUE_4"
+    added_at: "2026-06-29"
+    added_by: "hutao (S2-OPS-A-REAL-LAUNCH 真上线)"
+    note: "帝君指派 #4; 真号走 ENV"
+  - name: "同事5"
+    phone: "___****____"
+    phone_env: "REAL_PHONE_COLLEAGUE_5"
+    added_at: "2026-06-29"
+    added_by: "hutao (S2-OPS-A-REAL-LAUNCH 真上线)"
+    note: "帝君指派 #5; 真号走 ENV"
   # 6-10 位待清单到时按需追加, 不超 max_size
 
 # Sentinel 测试号 (本地 e2e / smoke 用, 永久保留; 与 mock yaml 对齐)

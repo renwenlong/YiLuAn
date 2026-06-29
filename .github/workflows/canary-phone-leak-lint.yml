@@ -1,0 +1,35 @@
+# S2-OPS-A-REAL-LAUNCH 安全哨兵: canary real.yaml 真号意外提交 lint
+# 凝光 Q2=a: 真号只走 phone_env ENV, yaml 仅掩码。命中疑似真号 -> CI exit 1 阻塞 PR
+name: Canary Real Phone Leak Lint
+
+on:
+  pull_request:
+    paths:
+      - 'deploy/canary/whitelist_phones.real.yaml'
+      - 'scripts/qa/check_canary_real_phone_leak.py'
+      - 'tests/scripts/test_check_canary_real_phone_leak.py'
+      - '.github/workflows/canary-phone-leak-lint.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'deploy/canary/whitelist_phones.real.yaml'
+      - 'scripts/qa/check_canary_real_phone_leak.py'
+      - 'tests/scripts/test_check_canary_real_phone_leak.py'
+      - '.github/workflows/canary-phone-leak-lint.yml'
+
+jobs:
+  phone-leak-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install pytest
+        run: pip install --quiet pytest
+      - name: Run phone-leak lint (CI gate, 命中真号阻塞)
+        run: python scripts/qa/check_canary_real_phone_leak.py
+      - name: Run unit tests
+        run: python -m pytest tests/scripts/test_check_canary_real_phone_leak.py -v
