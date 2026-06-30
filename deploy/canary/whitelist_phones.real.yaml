@@ -18,12 +18,12 @@
 #   前3 + **** + 后4 (11 字符), 后4 明文对账 + 前3 运营商粗判, 公开 OK。
 #   真号绝不入 git/yaml/log/comment — 仅 encrypted secret + runtime ENV。
 #
-# ENV 命名 (10 真号):
+# ENV 命名 (13 真号 = team5 + colleague8; 凝光 ratify cc375910 13号定案):
 #   team:       REAL_PHONE_TEAM_{PM,ARCH,DEV,TEST,COORD}
-#   colleagues: REAL_PHONE_COLLEAGUE_{1..5}
+#   colleagues: REAL_PHONE_COLLEAGUE_{1..8}
 #
 # 维护流程:
-#   1. 帝君指派 10 真号 → PM 凝光收齐 → 物流到 encrypted secret (帝君 Q3 拍路径)
+#   1. 帝君指派 13 真号 → PM 凝光收齐 → 物流到 encrypted secret (帝君 Q3 拍路径)
 #   2. PM 把后4位掩码同步胡桃 → 胡桃填 yaml phone 掩码 (PR 走 review)
 #   3. 注入前掩码占位 ___****____, frozenset 空, gate fail-safe 不放量
 #
@@ -121,7 +121,7 @@ colleagues:
     added_at: "2026-06-29"
     added_by: "hutao (S2-OPS-A-REAL-LAUNCH 真上线, 凝光 ratify cc375910 13号定案)"
     note: "帝君指派 #8 (候选池筛选); 真号走 ENV"
-  # 9-10 位待清单到时按需追加, 不超 max_size
+  # colleague 已定案 8 位 (13号定案 = team5 + colleague8); 如需扩充按需追加, 不超 max_size
 
 # Sentinel 测试号 (本地 e2e / smoke 用, 永久保留; 与 mock yaml 对齐)
 sentinels:
