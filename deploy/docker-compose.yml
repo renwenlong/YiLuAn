@@ -140,6 +140,12 @@ services:
       # config.py canary_whitelist_enabled default False—不 passthrough = 容器读不到 env.canary.local 的 true。
       # :-false 兑底：staging/dev/production 不设此变量时 gate 仍关，不破坏其他 profile 基线。
       CANARY_WHITELIST_ENABLED: ${CANARY_WHITELIST_ENABLED:-false}
+      # S2-OPS-A-REAL-LAUNCH: canary 白名单 yaml 路径 (mock vs real 切换)。
+      # config.py canary_whitelist_path default "whitelist_phones.yaml" (mock)—不 passthrough
+      # = 容器读不到 env.canary 的 real.yaml 路径 → 真号灯灰度加载不到 real list (退回 mock)。
+      # canary_whitelist.py _resolve_yml_path() 读此 env 切 whitelist_phones.real.yaml。
+      # :-whitelist_phones.yaml 兜底：staging/dev/production 不设时走 mock yaml, 不破坏其他 profile 基线。
+      CANARY_WHITELIST_PATH: ${CANARY_WHITELIST_PATH:-whitelist_phones.yaml}
     depends_on:
       pg:
         condition: service_healthy
