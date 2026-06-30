@@ -146,6 +146,25 @@ services:
       # canary_whitelist.py _resolve_yml_path() 读此 env 切 whitelist_phones.real.yaml。
       # :-whitelist_phones.yaml 兜底：staging/dev/production 不设时走 mock yaml, 不破坏其他 profile 基线。
       CANARY_WHITELIST_PATH: ${CANARY_WHITELIST_PATH:-whitelist_phones.yaml}
+      # S2-OPS-A-REAL-LAUNCH: canary 真号白名单 13 槽 passthrough (team5 + colleague8)。
+      # whitelist_phones.real.yaml 用 phone_env 机制 (yaml 存 env 名, 运行时 os.environ.get 读值)。
+      # compose environment 白名单式逐列, 不 passthrough = 容器读不到 env.canary.local 真号 →
+      # real.yaml phone_env fail-safe skip 所有真号 → frozenset 只剩 sentinel (真号灰度空)。
+      # :- 兜底空: staging/dev/production 不设时为空, phone_env 机制 skip 空值, 不破坏其他 profile (gate 仍可 fail-closed)。
+      # profile 隔离: 逐列 + 兜底空 比 env_file 整体注入更干净 (env_file 指 canary.local 会让 staging/production 误加载真号)。
+      REAL_PHONE_TEAM_PM: ${REAL_PHONE_TEAM_PM:-}
+      REAL_PHONE_TEAM_ARCH: ${REAL_PHONE_TEAM_ARCH:-}
+      REAL_PHONE_TEAM_DEV: ${REAL_PHONE_TEAM_DEV:-}
+      REAL_PHONE_TEAM_TEST: ${REAL_PHONE_TEAM_TEST:-}
+      REAL_PHONE_TEAM_COORD: ${REAL_PHONE_TEAM_COORD:-}
+      REAL_PHONE_COLLEAGUE_1: ${REAL_PHONE_COLLEAGUE_1:-}
+      REAL_PHONE_COLLEAGUE_2: ${REAL_PHONE_COLLEAGUE_2:-}
+      REAL_PHONE_COLLEAGUE_3: ${REAL_PHONE_COLLEAGUE_3:-}
+      REAL_PHONE_COLLEAGUE_4: ${REAL_PHONE_COLLEAGUE_4:-}
+      REAL_PHONE_COLLEAGUE_5: ${REAL_PHONE_COLLEAGUE_5:-}
+      REAL_PHONE_COLLEAGUE_6: ${REAL_PHONE_COLLEAGUE_6:-}
+      REAL_PHONE_COLLEAGUE_7: ${REAL_PHONE_COLLEAGUE_7:-}
+      REAL_PHONE_COLLEAGUE_8: ${REAL_PHONE_COLLEAGUE_8:-}
     depends_on:
       pg:
         condition: service_healthy
