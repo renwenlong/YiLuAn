@@ -1,0 +1,27 @@
+# AC-8 canary 24h 观察窗 — t24 终点封口快照存证 (零真号: 仅聚合数值)
+# 采集: 2026-07-01T14:25:05Z | gate-ON: 2026-06-30T14:24Z | 采集点: t24 满点终点 (+24h = 2026-07-01T14:24Z 观察窗满)
+# frozenset: 14 (13真号+1哨兵, 数据源=whitelist_phones.real.yaml) — 每次 watch 采样恒定14未退化
+# 判定口径: C (帝君 2026-07-01T11:13Z 背书『C 按原文』, comment_id 3dba901e)
+
+[灰度健康-HTTP累计]
+  2xx = 23281
+  4xx = 0
+  5xx = 0
+  2xx-1h增量 = 947.7171572947227
+  backend up = 1.0
+
+[AC-9门槛三项 — C口径收口标尺]
+  ①放行-otp_sent{pool=canary} = 0
+  ①放行-access_logged{pool=canary} = 0
+  ②误拦真白名单(canary 4xx) = 0
+  ③fail-closed(canary 5xx) = 0
+  活跃告警数 = 0
+
+[t24 终点判定 (口径C)]
+  ② 误拦真白名单 = 0            → ✅ 达标
+  ③ fail-closed          = 0    → ✅ 达标
+  ① 放行 = 0/0 (otp/access)     → ✅ C认: 内部灰度零业务流量→符合"率符合预期"(非违AC)
+  基础设施: frozenset=14 + 0告警 + 5xx=0 + backend up=1 → ✅ 零瑕疵
+  锚点: AC-5 链路可用双证 (mock演练全链路201 + 容器membership双向) 锚定"若有真流量必放得通"
+
+  ⇒ AC-9 达标 (口径C + 链路可用锚点)。24h 整窗跑完, 无 5xx / 无误拦 / 无 fail-closed / 无告警。
