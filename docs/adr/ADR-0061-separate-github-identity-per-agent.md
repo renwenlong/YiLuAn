@@ -8,6 +8,8 @@
 
 > ⚠️ **实施边界（分层 gate）**: 本 ADR 锁**技术设计契约 + 可自动化部分**。**卡帝君物料**的三点明标：AC#1（建 5 个 GH 账号，人工注册）、AC#2 真 PAT（帝君生成后交付）、AC#5 apply（branch protection 变更 = 反案#48 治理硬规，需帝君背书 + 全 in-flight PR batch 协调）。**架构师先落设计 + 写好自动化脚本（读 token 逻辑/gh 配置隔离/规约还原），物料到位胡桃即接实施，不空等。**
 
+> 🛑 **AC#5 与现行合并规约（方案A）直接冲突 —— apply 前必帝君本人背书（PM 凝光 surface）**: 帝君 2026-06-02 10:02Z 拍板**方案A** = `required_approving_review_count=0`（CI 绿即合，取消人工 approve 闸）。本 ADR 的 AC#5 要把它改回 **`=1`**（强制 1 approve），**等于逆转帝君亲拍的方案A合并硬规**。按反案#48（改 gate 硬规必帝君本人背书），**AC#5 apply 独立卡帝君背书**，且 **merge 本 ADR ≠ 批准 apply**——ADR 入 main 仅冻结「设计契约」，`count=0→1` 的实际变更必须帝君单独点头 + 全 in-flight PR batch 协调后才生效。GH-IDENTITY 其余部分（账号/PAT/auth 脚本/规约还原）到位即可推，**唯 AC#5 apply 双卡（物料 + 帝君背书）**。
+
 ---
 
 ## 1. 背景与问题
@@ -113,8 +115,9 @@ fi
 **S3. branch protection amend 脚本** `scripts/qa/enable-required-approvals.sh`（**写好但不 apply**，物料到位帝君背书后跑）:
 ```bash
 #!/usr/bin/env bash
-# ⚠️ 治理变更(反案#48): 需帝君背书 + 全 in-flight PR batch 协调后 apply
-# apply 前提: 5 个 yiluan-* 账号 + PAT 就位, architect(yiluan-xiao)≠author 可真 --approve
+# 🛑 治理变更(反案#48): 逆转帝君 2026-06-02 方案A(count=0→1), 需帝君本人背书 + 全 in-flight PR batch 协调后 apply
+# apply 前提: ① 5 个 yiluan-* 账号 + PAT 就位(architect yiluan-xiao≠author 可真 --approve) ② 帝君单独批准逆转方案A ③ 低峰期 batch 协调
+# ⚠️ merge 本 ADR ≠ 解锁本脚本 apply, 二者独立
 set -euo pipefail
 gh api -X PUT repos/renwenlong/YiLuAn/branches/main/protection/required_pull_request_reviews \
   -f required_approving_review_count=1 \
@@ -144,7 +147,7 @@ echo "[branch-protection] required_approving_review_count=1 已启用"
 
 ### 正面
 - ✅ 根治 self-approve 物理禁：architect(yiluan-xiao) ≠ author(yiluan-hutao) → 真 `--approve`(state=APPROVED)
-- ✅ branch protection 可加 `required_approving_review_count=1`（真强制 review 闸）
+- ✅ branch protection 可加 `required_approving_review_count=1`（真强制 review 闸）——**但这逆转方案A(count=0)，属治理硬规变更，apply 独立卡帝君背书，非本 ADR merge 即生效**
 - ✅ audit trail 清晰：author/reviewer/merger 各自身份可辨
 - ✅ 反案#37 workaround 退役为 fallback
 
