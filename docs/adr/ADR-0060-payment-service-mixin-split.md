@@ -1,12 +1,14 @@
 # ADR-0060: PaymentService Mixin 拆分设计
 
-- **状态**: 设计冻结（Accepted, 实施 gated）
-- **日期**: 2026-06-30
+- **状态**: 设计冻结（Accepted）；**实施 gate 于 2026-07-01 00:51:28Z 由帝君本人明示 override → DEV 启动中（一次性开窗，重构完再 gate）**
+- **日期**: 2026-06-30（初版）/ 2026-07-01（r1 amend: gate override）
 - **决策者**: 魈（架构师）
 - **关联**: BACKLOG-PAY-REFACTOR（P2 requirement, 凝光发起）/ OrderService SP-01 mixin 先例 / 反案#52(review前核git tracked) / 反案#47(引用前核实况)
 - **上游 review**: 凝光 PM 业务 review（board comment ba7fe39b, AC 4→7）+ 刻晴测试视角 review（扫码实证 15 处 patch target + L388 跨 mixin self 调）
 
-> ⚠️ **实施 gate（硬约束）**: 本 ADR 仅锁**设计契约**。实施（DEV/TEST task）的启动前置 = **Top1 上线 + AI 扣费稳定 30 天（资金线无回归确认）**，当前远未满足（F2 REAL-LAUNCH 2026-06-30 刚 gate-ON, 24h 观察窗未满）。design 冻结 ≠ 启动重构。`S3-DES/DEV/TEST-PAY-MIXIN-SPLIT` 三 task 立项后保持 `not-started`，等触发条件 + 帝君拍板再启。**趁 review 热度锁防御条款（evidence 新鲜、行号未漂移），不是现在改支付代码。**
+> ⚠️ **实施 gate（初版硬约束，已被 override，保留作决策历史）**: 本 ADR 仅锁**设计契约**。实施（DEV/TEST task）的启动前置 = **Top1 上线 + AI 扣费稳定 30 天（资金线无回归确认）**，当前远未满足（F2 REAL-LAUNCH 2026-06-30 刚 gate-ON, 24h 观察窗未满）。design 冻结 ≠ 启动重构。`S3-DES/DEV/TEST-PAY-MIXIN-SPLIT` 三 task 立项后保持 `not-started`，等触发条件 + 帝君拍板再启。**趁 review 热度锁防御条款（evidence 新鲜、行号未漂移），不是现在改支付代码。**
+
+> 🔓 **r1 amend — gate override（2026-07-01 00:51:28Z）**: 帝君本人在璃月群 @全体明示 **「解 gate 启动 DEV，重构完再 gate」**（甘雨 session seq=565, role=user, sender=wenlongren, 非转述；魈 evidence-first 亲核 role=user 确认，反案#48：改 gate 硬规必帝君本人背书）。**语义**：(1)「解 gate 启动 DEV」= 立即启动 `S3-DEV-PAY-MIXIN-SPLIT`，帝君作为最终决策者 override 上方「启动前置（AC#1）= Top1+扣费稳30d」；(2)「重构完再 gate」= **一次性开窗**做重构，DEV/TEST 完成后重新上 gate（非永久解除）。**边界不变**：override 的只是「何时启动」，§4 契约 + §5 三雷区防御（patch target 逐字节 / L388 跨 mixin MRO / money_safety 单 PR 一把验）+ 纯结构搬移铁律（git diff 须识别 rename，任何夹带逻辑改动 = 🔴 阻塞）**一条不松**。当前状态：DEV in-progress（胡桃），TEST 等 DEV done。
 
 ---
 
@@ -174,15 +176,17 @@ backend/app/services/payment/
 
 ---
 
-## 7. 实施任务拆分（立项，gated not-started）
+## 7. 实施任务拆分（gate override 后，DEV 启动中）
+
+> 状态列反映 **2026-07-01 00:51:28Z 帝君 override 后**实际；初版为「not-started（gated）」，见上方 r1 amend。
 
 | task | 角色 | 内容 | 状态 |
 |---|---|---|---|
-| `S3-DES-PAY-MIXIN-SPLIT` | 魈 | 本 ADR（设计冻结） | **本 ADR = 交付** |
-| `S3-DEV-PAY-MIXIN-SPLIT` | 胡桃 | 按 §4 契约 + §5 防御实施（纯结构搬移 + shim） | not-started（gated） |
-| `S3-TEST-PAY-MIXIN-SPLIT` | 刻晴 | §5 三哨兵回归（15 patch 命中 + 跨 mixin self 调 + money_safety 全绿） | not-started（gated, depends_on DEV） |
+| `S3-DES-PAY-MIXIN-SPLIT` | 魈 | 本 ADR（设计冻结） | **done（本 ADR = 交付，PR #371 入 main）** |
+| `S3-DEV-PAY-MIXIN-SPLIT` | 胡桃 | 按 §4 契约 + §5 防御实施（纯结构搬移 + shim） | **in-progress（gate 已 override，2026-07-01 起工）** |
+| `S3-TEST-PAY-MIXIN-SPLIT` | 刻晴 | §5 三哨兵回归（15 patch 命中 + 跨 mixin self 调 + money_safety 全绿） | not-started（depends_on DEV，等 DEV done 启动） |
 
-**启动前置（AC#1）**: Top1 上线 + AI 扣费稳定 30 天。当前未满足 → 三 task 挂 not-started，等触发 + 帝君拍板。
+**启动前置（AC#1，初版）**: Top1 上线 + AI 扣费稳定 30 天。**→ 2026-07-01 00:51:28Z 帝君本人明示 override，改为立即启动（一次性开窗，重构完再 gate）**。
 
 ---
 
