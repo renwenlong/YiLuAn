@@ -83,6 +83,8 @@ Pods/
 *.pem
 *.key
 credentials.json
+.openclaw/secrets/
+**/.openclaw/secrets/
 
 # WeChat Mini Program
 wechat/node_modules/
