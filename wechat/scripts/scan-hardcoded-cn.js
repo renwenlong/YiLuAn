@@ -20,6 +20,9 @@ const SKIP_PATH = [
   'node_modules', '__tests__', '.test.js',
   'utils/i18n.dict.js', 'utils/i18n.js',
   'scripts/', 'utils/constants.js',
+  // AC-3 边界裁决 (凝光 PM 2026-07-10 拍板, PRD 751536c):
+  // 法律条款正文本期不译 (合规风险需法务审校, 非 UI 范围).
+  'pages/legal/privacy/', 'pages/legal/terms/',
 ]
 
 const ALLOW_TOKENS = ['\u533b\u8def\u5b89'] // 医路安 品牌名
