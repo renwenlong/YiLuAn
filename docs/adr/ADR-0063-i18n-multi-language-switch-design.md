@@ -100,6 +100,17 @@ PRD-I18N-001 要求微信 + iOS 两端界面支持中/英手动切换，选择�
 - **i18nBehavior 订阅必 `fireImmediately:true`**：实测 `subscribeSelector(selector, listener, opts)` 支持 `opts.fireImmediately`（:98-100）。页面 `attached` 首屏即需正确语言，不能只在切换时刷。DEV-002 AC-2.1 钉入。
 - **现状**：`subscribeSelector`→`setData` 目前 **无任何生产组件在用**（全 `getState()` 命令式，grep 仅 `store.test.js`）。i18nBehavior 是净新增（建在现成但无人用的 `subscribeSelector` 上）。DEV-002 为三个 dev 中最重（20 分包逐页挂 behavior + ~671 wxml 抽 key）。
 
+### 4.4 抽 key 范围边界（胡桃 DEV-002 扫描实测触发，架构裁定 2026-07-10）
+
+**胡桃扫描实测**：微信端硬编码中文 **970 行 / 76 文件**（比 §4 估的 671 高，因含 JS 层串 + 全文件，非矛盾——671 是 wxml-only 粗估）。其中 **legal/terms 48 行 + legal/privacy 63 行 = ~111 行是大段法律条款正文**（实样：“本协议是您与医路安平台运营方之间…”）。
+
+**架构裁定（技术边界）：抽 key = UI 层文案，法律条款正文 body 白名单排除。**
+- 理据：（a）法律正文是 **content 非 chrome**，与 UI 映射文案不同 cadence（按法务/合规节律变，非 UI）；（b）PRD §2.2-3 已明排除“图片/富文本/运营配置类内容…本期只做代码内静态/映射文案”，法律长文属富文本类；（c）法律英译有**合规含义**，开发不得直译，需法务/PM 背书。
+- **边界精确**：legal 页的 **UI chrome 仍抽**（页标题栏、“同意/返回”按钮、section 导航标题如适用）；**仅条款 body 正文（`section-body`/`list-item` 内长文）白名单排除**。扫描脚本白名单加 legal body 选择器。
+- **工作量**：降一档（~860 行 UI 层），规避法务风险。
+
+**⚠ 产品/合规决策归凝光×帝君（非架构）**：“法律条款英文版本期要不要做”是产品/合规拍板。若要做 → **新立独立 task**，由**法务 review 过的英译稿**入字典，不走开发直译。本 ADR 只定技术边界（UI-only + legal body 白名单），不拍合规范围。
+
 ---
 
 ## 5. iOS 端方案
