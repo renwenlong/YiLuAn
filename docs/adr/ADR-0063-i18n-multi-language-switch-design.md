@@ -182,7 +182,7 @@ PRD-I18N-001 要求微信 + iOS 两端界面支持中/英手动切换，选择�
 ### ① AC-5 无回归基线手段（实测：iOS 无 snapshot/XCUITest，微信 automator 不在 CI）
 - **实测证据**：`.github/workflows/` 有 `ios-ci.yml`/`ios-tests.yml` 但**无 snapshot/XCUITest/UITests**；微信无 automator CI 步骤（仅结构 `toMatchSnapshot`，无 jest-image-snapshot）。
 - **决定（采 option a = 人工验收 + 基线协议，刻晴 r2 阻塞②要求定死）**：不新增快照设施（超本期，backlog），而是定一套**可复现的基线截图协议**写进 TEST-002/003 前置 + DEV 前置：
-  - **基线 commit**：DEV 动工前的 `feature/i18n-multi-language` 基点（即本设计批准、DEV-002/003 开始前的 HEAD），测试员在此 commit 截中文态基线。
+  - **基线 commit**（帝君 2026-07-10 修正：挑到能跑微信/iOS IDE 的环节采集，非代码动工前置）：基线=中文态截图；因中文态必与改造前渲染一致，可在**当前 committed 分支**用中文语言设置采集（无需回退到抽 key 前 commit），由有 IDE（微信开发者工具 / Xcode 模拟器）的环境在 TEST-002/003 回归比对前采集。**本步骤从 DEV 代码交付解耦**——DEV 抽 key/运行时代码不 block 于截图（因 agent 环境跑不了微信 IDE），截图归 TEST-002/003 前置。
   - **截图清单**：8 核心页 × 中文态（登录/角色选择、首页、下单/服务选择、订单列表、订单详情、聊天、我的、设置），两端各一套。
   - **存放**：`tests/baseline/i18n/{wechat,ios}/<page>.png`（git 追踪）。
   - **判差异**：改造后中文态同 8 页逐屏目测比对基线，文案/布局无差异即 PASS（允许因抽 key 引入的等价改写，不允许文案错漏/串位/丢失）。
@@ -218,7 +218,7 @@ PRD-I18N-001 要求微信 + iOS 两端界面支持中/英手动切换，选择�
 - PRD §2.2/§6 表述据 ADR-0062 修正（后端 error_code 基础设施已存在）。
 - **PRD §7.3 status 表据 §3.3 修正**：删 `in_service`（幻影），`refunded` 移入 RefundState，补 `reviewed`/`rejected_by_companion`/`expired`；orderStatus 全集 = 9 code（backend SSoT）。DEV-001 据此落字典。
 - **iOS `Order.swift` 缺 `rejected_by_companion`/`expired`**（仅 7/9），DEV-003 补齐映射全 9 code。
-- **无回归基线截图协议**（commit/8页/`tests/baseline/i18n/`/逐屏判差）写入 TEST-002/003 前置，且为 DEV-002/003 开工前置。
+- **无回归基线截图协议**（中文态/8页/`tests/baseline/i18n/`/逐屏判差）写入 TEST-002/003 前置。帝君 2026-07-10 裁定：截图挑到能跑微信/iOS IDE 的环节，从 DEV 代码交付解耦（不再是 DEV 开工前置）。
 - iOS 达成无需重启即时切换，FR-3 iOS 优先项满足。
 - develop/test 共 5+5（DEV/TEST-001~005），均 depends_on I18N-DSN-001。
 - error_codes.py docstring 关于 `wechat/services/request.js` 的 stale 引用在 DEV-005 一并更正。
