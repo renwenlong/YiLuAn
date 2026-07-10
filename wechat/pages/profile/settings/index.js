@@ -3,15 +3,44 @@ const { setAccessToken, setRefreshToken } = require('../../../utils/token')
 const { getHospitalFilters, getNearestRegion } = require('../../../services/hospital')
 const store = require('../../../store/index')
 const router = require('../../../utils/router')
+const i18n = require('../../../utils/i18n')
+const i18nBehavior = require('../../../behaviors/i18n')
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    // i18nBehavior 注入范围（静态文案）
+    i18nScopes: ['common', 'settings', 'city'],
     cacheSize: '0 KB',
     user: null,
     city: '',
     showCityPicker: false,
+    showLangPicker: false,
     allCities: [],
-    locating: false
+    locating: false,
+    // 动态拼接 label（随语言/角色变，onShow/语言切换时重算）
+    switchRoleLabel: '',
+    currentRoleLabel: '',
+    langLabel: '',
+    currentLang: 'zh-Hans'
+  },
+
+  // 动态 label 集中重算（占位串在 js 层用 $t 现算）
+  _recalcI18nLabels: function () {
+    var user = this.data.user
+    var lang = i18n.getCurrentLang()
+    var patchData = {
+      currentLang: lang,
+      langLabel: lang === 'en' ? this.$t('settings.languageEn') : this.$t('settings.languageZh')
+    }
+    if (user) {
+      var isPatient = user.role === 'patient'
+      var targetRole = isPatient ? this.$t('role.companion') : this.$t('role.patient')
+      var curRole = isPatient ? this.$t('role.patient') : this.$t('role.companion')
+      patchData.switchRoleLabel = this.$t('role.switchTo', { targetRole: targetRole })
+      patchData.currentRoleLabel = this.$t('role.current', { role: curRole })
+    }
+    this.setData(patchData)
   },
 
   onLoad: function () {
@@ -33,6 +62,24 @@ Page({
     if (state && state.city) {
       this.setData({ city: state.city })
     }
+    this._recalcI18nLabels()
+  },
+
+  // 语言入口 (AC-4)
+  onLanguageTap: function () {
+    this.setData({ showLangPicker: true })
+  },
+
+  onCloseLangPicker: function () {
+    this.setData({ showLangPicker: false })
+  },
+
+  onSelectLang: function (e) {
+    var lang = e.currentTarget.dataset.lang
+    i18n.setLang(lang)
+    this.setData({ showLangPicker: false })
+    // i18nBehavior 会因 store.language 变化重注入静态 t；动态 label 手动重算
+    this._recalcI18nLabels()
   },
 
   calcCache: function () {
@@ -74,26 +121,26 @@ Page({
                 if (city) {
                   self.setData({ city: city, showCityPicker: false, locating: false })
                   store.setState({ city: city })
-                  wx.showToast({ title: '已定位到' + city, icon: 'none' })
+                  wx.showToast({ title: self.$t('toast.locatedTo', { city: city }), icon: 'none' })
                 } else {
                   self.setData({ locating: false })
-                  wx.showToast({ title: '定位失败', icon: 'none' })
+                  wx.showToast({ title: self.$t('toast.locateFailed'), icon: 'none' })
                 }
               })
               .catch(function () {
                 self.setData({ locating: false })
-                wx.showToast({ title: '定位失败', icon: 'none' })
+                wx.showToast({ title: self.$t('toast.locateFailed'), icon: 'none' })
               })
           },
           fail: function () {
             self.setData({ locating: false })
-            wx.showToast({ title: '定位失败，请检查权限', icon: 'none' })
+            wx.showToast({ title: self.$t('toast.locateFailedPerm'), icon: 'none' })
           }
         })
       },
       fail: function () {
         self.setData({ locating: false })
-        wx.showToast({ title: '请允许位置权限', icon: 'none' })
+        wx.showToast({ title: self.$t('toast.needLocationPerm'), icon: 'none' })
       }
     })
   },
@@ -102,7 +149,7 @@ Page({
     var city = e.currentTarget.dataset.city
     this.setData({ city: city, showCityPicker: false })
     store.setState({ city: city })
-    wx.showToast({ title: '已选择' + city, icon: 'none' })
+    wx.showToast({ title: this.$t('toast.selectedCity', { city: city }), icon: 'none' })
   },
 
   onChangePhone: function () {
@@ -113,13 +160,14 @@ Page({
     var user = this.data.user
     if (!user) return
     var targetRole = user.role === 'patient' ? 'companion' : 'patient'
-    var targetLabel = targetRole === 'patient' ? '患者' : '陪诊师'
+    var targetLabel = targetRole === 'patient' ? this.$t('role.patient') : this.$t('role.companion')
     var hasTargetRole = user.roles && user.roles.indexOf(targetRole) !== -1
+    var self = this
 
     if (!hasTargetRole) {
       wx.showModal({
-        title: '注册新角色',
-        content: '您还没有' + targetLabel + '角色，是否前往注册？',
+        title: self.$t('dialog.registerRoleTitle'),
+        content: self.$t('dialog.registerRoleContent', { targetLabel: targetLabel }),
         confirmColor: '#1890FF',
         success: function (res) {
           if (res.confirm) {
@@ -131,12 +179,12 @@ Page({
     }
 
     wx.showModal({
-      title: '切换角色',
-      content: '确定切换为' + targetLabel + '吗？',
+      title: self.$t('dialog.switchRoleTitle'),
+      content: self.$t('dialog.switchRoleContent', { targetLabel: targetLabel }),
       confirmColor: '#1890FF',
       success: function (res) {
         if (res.confirm) {
-          wx.showLoading({ title: '切换中...' })
+          wx.showLoading({ title: self.$t('toast.switching') })
           switchRole(targetRole)
             .then(function (data) {
               wx.hideLoading()
@@ -148,7 +196,7 @@ Page({
             })
             .catch(function () {
               wx.hideLoading()
-              wx.showToast({ title: '切换失败', icon: 'none' })
+              wx.showToast({ title: self.$t('toast.switchFailed'), icon: 'none' })
             })
         }
       }
@@ -158,13 +206,13 @@ Page({
   onClearCache: function () {
     var self = this
     wx.showModal({
-      title: '提示',
-      content: '确定清除缓存？',
+      title: self.$t('dialog.tip'),
+      content: self.$t('dialog.clearCacheConfirm'),
       success: function (res) {
         if (res.confirm) {
           wx.clearStorageSync()
           self.setData({ cacheSize: '0 KB' })
-          wx.showToast({ title: '已清除', icon: 'success' })
+          wx.showToast({ title: self.$t('toast.cleared'), icon: 'success' })
         }
       }
     })

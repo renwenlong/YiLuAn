@@ -34,7 +34,14 @@
     "clearCache":    { "zh-Hans": "清除缓存",   "en": "Clear Cache" },
     "privacyPolicy": { "zh-Hans": "隐私政策",   "en": "Privacy Policy" },
     "termsOfService":{ "zh-Hans": "用户协议",   "en": "Terms of Service" },
-    "logout":        { "zh-Hans": "退出登录",   "en": "Log Out" }
+    "logout":        { "zh-Hans": "退出登录",   "en": "Log Out" },
+    "myCity":        { "zh-Hans": "我的城市",   "en": "My City" },
+    "myPhone":       { "zh-Hans": "我的手机号", "en": "My Phone" },
+    "about":         { "zh-Hans": "关于",       "en": "About" },
+    "deleteAccount": { "zh-Hans": "注销账号",   "en": "Delete Account" },
+    "selectCity":    { "zh-Hans": "选择城市",   "en": "Select City" },
+    "autoLocate":    { "zh-Hans": "自动定位",   "en": "Auto Locate" },
+    "availableCities":{ "zh-Hans": "可选城市",  "en": "Available Cities" }
   },
 
   "role": {
@@ -111,6 +118,26 @@
 
   "hospital": {
     "searchPlaceholder": { "zh-Hans": "搜索医院名称", "en": "Search hospital name" }
+  },
+
+  "toast": {
+    "locatedTo":       { "zh-Hans": "已定位到 {city}", "en": "Located to {city}", "_params": ["city"] },
+    "locateFailed":    { "zh-Hans": "定位失败", "en": "Location failed" },
+    "locateFailedPerm":{ "zh-Hans": "定位失败，请检查权限", "en": "Location failed, please check permissions" },
+    "needLocationPerm":{ "zh-Hans": "请允许位置权限", "en": "Please allow location access" },
+    "selectedCity":    { "zh-Hans": "已选择 {city}", "en": "Selected {city}", "_params": ["city"] },
+    "switching":       { "zh-Hans": "切换中...", "en": "Switching..." },
+    "switchFailed":    { "zh-Hans": "切换失败", "en": "Switch failed" },
+    "cleared":         { "zh-Hans": "已清除", "en": "Cleared" }
+  },
+
+  "dialog": {
+    "registerRoleTitle":   { "zh-Hans": "注册新角色", "en": "Register New Role" },
+    "registerRoleContent": { "zh-Hans": "您还没有{targetLabel}角色，是否前往注册？", "en": "You don't have the {targetLabel} role yet. Register now?", "_params": ["targetLabel"] },
+    "switchRoleTitle":     { "zh-Hans": "切换角色", "en": "Switch Role" },
+    "switchRoleContent":   { "zh-Hans": "确定切换为{targetLabel}吗？", "en": "Switch to {targetLabel}?", "_params": ["targetLabel"] },
+    "tip":                 { "zh-Hans": "提示", "en": "Notice" },
+    "clearCacheConfirm":   { "zh-Hans": "确定清除缓存？", "en": "Clear cache?" }
   },
 
   "error": {
