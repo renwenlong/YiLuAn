@@ -4,9 +4,13 @@ const { getHospitals, getHospitalFilters } = require('../../../services/hospital
 const { SERVICE_TYPES } = require('../../../utils/constants')
 const store = require('../../../store/index')
 const router = require('../../../utils/router')
+const i18n = require('../../../utils/i18n')
+const i18nBehavior = require('../../../behaviors/i18n')
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'profileEdit', 'serviceType', 'city'],
     role: '',
     emergency_contact: '',
     emergency_phone: '',
@@ -16,6 +20,8 @@ Page({
     service_area: '',
     // service types
     serviceTypeList: [],
+    cityWrapText: '',
+    selectedHospitalsText: '',
     selectedServiceTypes: [],
     serviceTypeMap: {},
     // hospitals
@@ -51,7 +57,7 @@ Page({
 
     if (role === 'companion') {
       var types = Object.keys(SERVICE_TYPES).map(function (key) {
-        return { key: key, label: SERVICE_TYPES[key].label }
+        return { key: key, label: i18n.t('serviceType.' + key) }
       })
       this.setData({ serviceTypeList: types })
     }
@@ -78,7 +84,7 @@ Page({
         })
     } else if (role === 'companion') {
       var state = store.getState()
-      var city = (state && state.city) || '北京'
+      var city = (state && state.city) || i18n.t('profileEdit.defaultCity')
       getMyProfile()
         .then((profile) => {
           var hospitalIds = profile.service_hospitals ? profile.service_hospitals.split(',').filter(Boolean) : []
