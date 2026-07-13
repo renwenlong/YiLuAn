@@ -605,6 +605,34 @@ module.exports = {
     "self": {
       "zh-Hans": "本人",
       "en": "Myself"
+    },
+    "weekSun": {
+      "zh-Hans": "周日",
+      "en": "Sun"
+    },
+    "weekMon": {
+      "zh-Hans": "周一",
+      "en": "Mon"
+    },
+    "weekTue": {
+      "zh-Hans": "周二",
+      "en": "Tue"
+    },
+    "weekWed": {
+      "zh-Hans": "周三",
+      "en": "Wed"
+    },
+    "weekThu": {
+      "zh-Hans": "周四",
+      "en": "Thu"
+    },
+    "weekFri": {
+      "zh-Hans": "周五",
+      "en": "Fri"
+    },
+    "weekSat": {
+      "zh-Hans": "周六",
+      "en": "Sat"
     }
   },
   "orderDetail": {
