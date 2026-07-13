@@ -3,17 +3,17 @@
   <!-- 定位 + 搜索医院 -->
   <view class="section">
     <view class="section-header">
-      <text class="section-title">选择医院</text>
-      <text class="section-clear" wx:if="{{selectedHospital}}" bindtap="onClearHospital">清除选择</text>
+      <text class="section-title">{{t['home.selectHospital']}}</text>
+      <text class="section-clear" wx:if="{{selectedHospital}}" bindtap="onClearHospital">{{t['home.clearSelection']}}</text>
       <view class="location-bar" wx:else bindtap="onCityTap">
         <text class="location-icon">📍</text>
-        <text class="location-city">{{city || '定位中...'}}</text>
+        <text class="location-city">{{cityDisplay}}</text>
       </view>
     </view>
     <!-- 未选中：搜索栏 + 完整列表 -->
     <block wx:if="{{!selectedHospital}}">
       <view class="search-bar">
-        <input class="search-input" placeholder="搜索医院名称" value="{{hospitalKeyword}}" bindinput="onHospitalSearch" confirm-type="search" />
+        <input class="search-input" placeholder="{{t['home.searchHospital']}}" value="{{hospitalKeyword}}" bindinput="onHospitalSearch" confirm-type="search" />
       </view>
       <view class="hospital-list" wx:if="{{hospitals.length > 0}}">
         <view class="hospital-card" wx:for="{{hospitals}}" wx:key="id" data-id="{{item.id}}" data-name="{{item.name}}" bindtap="onHospitalTap">
@@ -25,7 +25,7 @@
       </view>
       <view class="empty-hint" wx:if="{{hospitals.length === 0 && city}}">
         <text class="empty-hint-icon">🏥</text>
-        <text class="empty-hint-text">暂未找到相关医院，换个关键词试试吧</text>
+        <text class="empty-hint-text">{{t['home.noHospitalFound']}}</text>
       </view>
     </block>
     <!-- 已选中：只展示选中的医院 -->
@@ -44,9 +44,9 @@
   <!-- 选择服务 -->
   <view class="section">
     <view class="section-header">
-      <text class="section-title">选择服务</text>
-      <text class="section-hint" wx:if="{{!selectedService}}">点击选择服务类型</text>
-      <text class="section-clear" wx:if="{{selectedService}}" bindtap="onServiceTap" data-type="{{selectedService}}">清除筛选</text>
+      <text class="section-title">{{t['home.selectService']}}</text>
+      <text class="section-hint" wx:if="{{!selectedService}}">{{t['home.tapSelectService']}}</text>
+      <text class="section-clear" wx:if="{{selectedService}}" bindtap="onServiceTap" data-type="{{selectedService}}">{{t['home.clearFilter']}}</text>
     </view>
     <view class="service-grid">
       <service-card
@@ -63,7 +63,7 @@
   <!-- 推荐陪诊师 -->
   <view class="section">
     <view class="section-header">
-      <text class="section-title">{{selectedHospital ? '匹配陪诊师 · ' + selectedHospital.name : (selectedService ? '匹配陪诊师' : '推荐陪诊师')}}</text>
+      <text class="section-title">{{selectedHospital ? matchedTitle : (selectedService ? t['home.matchedCompanions'] : t['home.recommendedCompanions'])}}</text>
     </view>
 
     <view class="companion-list" wx:if="{{companions.length > 0}}">
@@ -83,20 +83,20 @@
 
     <view class="empty-hint" wx:if="{{companions.length === 0 && !loadingCompanions}}">
       <text class="empty-hint-icon">👩‍⚕️</text>
-      <text class="empty-hint-text">{{selectedService ? '暂未找到匹配的陪诊师' : '暂无推荐陪诊师，稍后再来看看'}}</text>
+      <text class="empty-hint-text">{{selectedService ? t['home.noMatchedCompanion'] : t['home.noRecommendCompanion']}}</text>
     </view>
 
     <view class="loading-hint" wx:if="{{loadingCompanions && companions.length > 0}}">
-      <text>加载中...</text>
+      <text>{{t['common.loading']}}</text>
     </view>
 
     <view class="load-more" wx:if="{{!loadingCompanions && companions.length > 0 && hasMore}}" bindtap="onLoadMore">
-      <text class="load-more-text" wx:if="{{!loadingMore}}">查看更多</text>
-      <text class="load-more-text" wx:else>加载中...</text>
+      <text class="load-more-text" wx:if="{{!loadingMore}}">{{t['home.loadMore']}}</text>
+      <text class="load-more-text" wx:else>{{t['common.loading']}}</text>
     </view>
 
     <view class="no-more-hint" wx:if="{{!loadingCompanions && companions.length > 0 && !hasMore}}">
-      <text>— 已展示全部 —</text>
+      <text>{{t['home.allShown']}}</text>
     </view>
   </view>
 </view>
@@ -105,17 +105,17 @@
 <view class="city-modal-mask" wx:if="{{showCityPicker}}" bindtap="onCloseCityPicker">
   <view class="city-modal" catchtap>
     <view class="city-modal-header">
-      <text class="city-modal-title">选择城市</text>
+      <text class="city-modal-title">{{t['home.selectCity']}}</text>
       <text class="city-modal-close" bindtap="onCloseCityPicker">✕</text>
     </view>
     <view class="city-modal-body">
       <view class="city-option city-option-locate" bindtap="onAutoLocate">
         <text class="city-option-icon">📍</text>
-        <text class="city-option-text">自动定位</text>
-        <text class="city-option-hint" wx:if="{{locating}}">定位中...</text>
+        <text class="city-option-text">{{t['home.autoLocate']}}</text>
+        <text class="city-option-hint" wx:if="{{locating}}">{{t['city.locating']}}</text>
       </view>
       <view class="city-list-title" wx:if="{{allCities.length > 0}}">
-        <text>可选城市</text>
+        <text>{{t['home.availableCities']}}</text>
       </view>
       <view
         class="city-option {{city === item ? 'active' : ''}}"

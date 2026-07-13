@@ -148,6 +148,38 @@ module.exports = {
       "_params": [
         "role"
       ]
+    },
+    "selectTitle": {
+      "zh-Hans": "选择您的身份",
+      "en": "Select Your Role"
+    },
+    "selectSubtitle": {
+      "zh-Hans": "请选择您的使用身份，后续可在设置中更改",
+      "en": "Choose how you'll use the app. You can change this later in Settings."
+    },
+    "iamPatient": {
+      "zh-Hans": "我是患者",
+      "en": "I'm a Patient"
+    },
+    "iamCompanion": {
+      "zh-Hans": "我是陪诊师",
+      "en": "I'm a Companion"
+    },
+    "patientDesc": {
+      "zh-Hans": "寻找专业陪诊师",
+      "en": "Find a professional companion"
+    },
+    "companionDesc": {
+      "zh-Hans": "接单赚取收入",
+      "en": "Take orders and earn income"
+    },
+    "patientBadge": {
+      "zh-Hans": "患",
+      "en": "P"
+    },
+    "companionBadge": {
+      "zh-Hans": "陪",
+      "en": "C"
     }
   },
   "order": {
@@ -326,6 +358,77 @@ module.exports = {
     "greeting": {
       "zh-Hans": "你好",
       "en": "Hello"
+    },
+    "selectHospital": {
+      "zh-Hans": "选择医院",
+      "en": "Select Hospital"
+    },
+    "clearSelection": {
+      "zh-Hans": "清除选择",
+      "en": "Clear"
+    },
+    "searchHospital": {
+      "zh-Hans": "搜索医院名称",
+      "en": "Search hospital name"
+    },
+    "noHospitalFound": {
+      "zh-Hans": "暂未找到相关医院，换个关键词试试吧",
+      "en": "No hospitals found. Try a different keyword."
+    },
+    "selectService": {
+      "zh-Hans": "选择服务",
+      "en": "Select Service"
+    },
+    "tapSelectService": {
+      "zh-Hans": "点击选择服务类型",
+      "en": "Tap to select a service type"
+    },
+    "clearFilter": {
+      "zh-Hans": "清除筛选",
+      "en": "Clear Filter"
+    },
+    "recommendedCompanions": {
+      "zh-Hans": "推荐陪诊师",
+      "en": "Recommended Companions"
+    },
+    "matchedCompanions": {
+      "zh-Hans": "匹配陪诊师",
+      "en": "Matched Companions"
+    },
+    "matchedAt": {
+      "zh-Hans": "匹配陪诊师 · {name}",
+      "en": "Matched Companions · {name}",
+      "_params": [
+        "name"
+      ]
+    },
+    "noMatchedCompanion": {
+      "zh-Hans": "暂未找到匹配的陪诊师",
+      "en": "No matched companions found"
+    },
+    "noRecommendCompanion": {
+      "zh-Hans": "暂无推荐陪诊师，稍后再来看看",
+      "en": "No recommendations yet. Check back later."
+    },
+    "loadMore": {
+      "zh-Hans": "查看更多",
+      "en": "Load More"
+    },
+    "allShown": {
+      "zh-Hans": "— 已展示全部 —",
+      "en": "— All shown —"
+    },
+    "selectCity": {
+      "zh-Hans": "选择城市",
+      "en": "Select City"
+    },
+    "autoLocate": {
+      "zh-Hans": "自动定位",
+      "en": "Auto Locate"
+    },
+    "availableCities": {
+      "zh-Hans": "可选城市",
+      "en": "Available Cities"
     }
   },
   "chat": {
@@ -438,6 +541,22 @@ module.exports = {
     "codeWrongExpired": {
       "zh-Hans": "验证码错误或已过期",
       "en": "Code is incorrect or expired"
+    },
+    "opFailed": {
+      "zh-Hans": "操作失败，请重试",
+      "en": "Operation failed, please try again"
+    },
+    "selectHospitalFirst": {
+      "zh-Hans": "请先选择医院",
+      "en": "Please select a hospital first"
+    },
+    "selectServiceFirst": {
+      "zh-Hans": "请先选择服务类型",
+      "en": "Please select a service type first"
+    },
+    "selectCompanionFirst": {
+      "zh-Hans": "请先选择陪诊师",
+      "en": "Please select a companion first"
     }
   },
   "dialog": {

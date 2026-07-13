@@ -3,9 +3,13 @@ const { getCompanionStats } = require('../../services/companion')
 const store = require('../../store/index')
 const router = require('../../utils/router')
 const logger = require('../../utils/logger')
+const i18n = require('../../utils/i18n')
+const i18nBehavior = require('../../behaviors/i18n')
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'role'],
     loading: false
   },
 
@@ -47,7 +51,7 @@ Page({
       })
       .catch(err => {
         logger.error('设置角色失败', { err: err && (err.message || String(err)) })
-        wx.showToast({ title: '操作失败，请重试', icon: 'none' })
+        wx.showToast({ title: i18n.t('toast.opFailed'), icon: 'none' })
       })
       .finally(() => {
         self.setData({ loading: false })
