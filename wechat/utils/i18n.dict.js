@@ -591,6 +591,323 @@ module.exports = {
       "en": "Myself"
     }
   },
+  "orderDetail": {
+    "emergencyCall": {
+      "zh-Hans": "紧急呼叫",
+      "en": "Emergency Call"
+    },
+    "selectContact": {
+      "zh-Hans": "选择要拨打的联系人",
+      "en": "Select a contact to call"
+    },
+    "noEmergencyContact": {
+      "zh-Hans": "未设置紧急联系人",
+      "en": "No emergency contact set"
+    },
+    "goAdd": {
+      "zh-Hans": "去添加",
+      "en": "Add"
+    },
+    "platformHotline": {
+      "zh-Hans": "平台客服热线",
+      "en": "Platform Hotline"
+    },
+    "subPayNow": {
+      "zh-Hans": "请尽快完成支付",
+      "en": "Please complete payment soon"
+    },
+    "subAutoCancel": {
+      "zh-Hans": "距订单自动取消还剩",
+      "en": "Auto-cancel in"
+    },
+    "subWaitAccept": {
+      "zh-Hans": "等待陪诊师接单",
+      "en": "Waiting for a companion"
+    },
+    "subAccepted": {
+      "zh-Hans": "陪诊师已接单，即将为您服务",
+      "en": "Companion accepted, service starting soon"
+    },
+    "subInProgress": {
+      "zh-Hans": "服务进行中，请保持联系",
+      "en": "Service in progress, please stay in touch"
+    },
+    "subCompleted": {
+      "zh-Hans": "服务已完成",
+      "en": "Service completed"
+    },
+    "subRejected": {
+      "zh-Hans": "陪诊师暂时无法为您服务，建议重新预约",
+      "en": "Companion is unavailable, please rebook"
+    },
+    "subExpired": {
+      "zh-Hans": "订单因超时未接单已自动取消，款项将原路退回",
+      "en": "Order auto-cancelled due to timeout; refund will be returned"
+    },
+    "subCancelled": {
+      "zh-Hans": "订单已取消",
+      "en": "Order cancelled"
+    },
+    "orderInfo": {
+      "zh-Hans": "订单信息",
+      "en": "Order Info"
+    },
+    "orderNumber": {
+      "zh-Hans": "订单编号",
+      "en": "Order No."
+    },
+    "serviceTypeLabel": {
+      "zh-Hans": "服务类型",
+      "en": "Service Type"
+    },
+    "hospitalLabel": {
+      "zh-Hans": "医院",
+      "en": "Hospital"
+    },
+    "appointmentTime": {
+      "zh-Hans": "预约时间",
+      "en": "Appointment Time"
+    },
+    "feeLabel": {
+      "zh-Hans": "费用",
+      "en": "Fee"
+    },
+    "paymentStatusLabel": {
+      "zh-Hans": "支付状态",
+      "en": "Payment Status"
+    },
+    "notesLabel": {
+      "zh-Hans": "备注",
+      "en": "Notes"
+    },
+    "companionInfo": {
+      "zh-Hans": "陪诊师信息",
+      "en": "Companion Info"
+    },
+    "companionLabel": {
+      "zh-Hans": "陪诊师",
+      "en": "Companion"
+    },
+    "pollingFallback": {
+      "zh-Hans": "网络不稳, 已切换轮询模式 (30s)",
+      "en": "Unstable network, switched to polling mode (30s)"
+    },
+    "actualPatient": {
+      "zh-Hans": "实际就诊人",
+      "en": "Actual Patient"
+    },
+    "nameLabel": {
+      "zh-Hans": "姓名",
+      "en": "Name"
+    },
+    "phoneLabel": {
+      "zh-Hans": "联系电话",
+      "en": "Phone"
+    },
+    "orderProgress": {
+      "zh-Hans": "订单进度",
+      "en": "Order Progress"
+    },
+    "reviewLabel": {
+      "zh-Hans": "评价",
+      "en": "Review"
+    },
+    "agreePre": {
+      "zh-Hans": "我已阅读并同意",
+      "en": "I have read and agree to the"
+    },
+    "contractLink": {
+      "zh-Hans": "《医路安陪诊服务合同》",
+      "en": "YiLuAn Escort Service Contract"
+    },
+    "insuranceLink": {
+      "zh-Hans": "《陪诊责任险服务条款》",
+      "en": "Escort Liability Insurance Terms"
+    },
+    "contractHint": {
+      "zh-Hans": "勾选上方同意后可继续支付",
+      "en": "Check the box above to continue payment"
+    },
+    "processing": {
+      "zh-Hans": "处理中...",
+      "en": "Processing..."
+    },
+    "payNow": {
+      "zh-Hans": "立即支付",
+      "en": "Pay Now"
+    },
+    "cancelOrder": {
+      "zh-Hans": "取消订单",
+      "en": "Cancel Order"
+    },
+    "confirmStart": {
+      "zh-Hans": "确认开始服务",
+      "en": "Confirm Start"
+    },
+    "contactCompanion": {
+      "zh-Hans": "联系陪诊师",
+      "en": "Contact Companion"
+    },
+    "writeReview": {
+      "zh-Hans": "写评价",
+      "en": "Write Review"
+    },
+    "createFollowup": {
+      "zh-Hans": "创建复诊提醒",
+      "en": "Create Follow-up Reminder"
+    },
+    "reorder": {
+      "zh-Hans": "重新下单",
+      "en": "Reorder"
+    },
+    "payUnpaid": {
+      "zh-Hans": "待支付",
+      "en": "Unpaid"
+    },
+    "payPaid": {
+      "zh-Hans": "已支付",
+      "en": "Paid"
+    },
+    "payRefunded": {
+      "zh-Hans": "已退款",
+      "en": "Refunded"
+    },
+    "timedOut": {
+      "zh-Hans": "已超时",
+      "en": "Timed out"
+    },
+    "countdownHm": {
+      "zh-Hans": "{hours}小时{minutes}分钟",
+      "en": "{hours}h {minutes}m",
+      "_params": [
+        "hours",
+        "minutes"
+      ]
+    },
+    "loadFailed": {
+      "zh-Hans": "加载失败",
+      "en": "Failed to load"
+    },
+    "contractNetErr": {
+      "zh-Hans": "合同确认网络异常,请检查后重试",
+      "en": "Contract confirmation network error, please retry"
+    },
+    "contractLoadFailed": {
+      "zh-Hans": "合同加载失败",
+      "en": "Failed to load contract"
+    },
+    "contractNotReady": {
+      "zh-Hans": "合同尚未生成,请稍后再查看",
+      "en": "Contract not ready yet, please check later"
+    },
+    "contractGenFailed": {
+      "zh-Hans": "合同生成失败,客服已介入处理",
+      "en": "Contract generation failed; support is handling it"
+    },
+    "contractVoided": {
+      "zh-Hans": "合同已作废,请联系客服",
+      "en": "Contract voided, please contact support"
+    },
+    "contractDetailFailed": {
+      "zh-Hans": "合同详情加载失败",
+      "en": "Failed to load contract details"
+    },
+    "insuranceTitle": {
+      "zh-Hans": "陪诊责任险服务条款",
+      "en": "Escort Liability Insurance Terms"
+    },
+    "insuranceContent": {
+      "zh-Hans": "本服务由医路安平台合作保险公司承保,保障范围包括陪诊期间意外医疗等. S3 灰度阶段保险条款为静态版本,正式版以理赔时实际生效条款为准. 如有问题请联系客服.",
+      "en": "This service is underwritten by YiLuAn's partner insurer, covering accidental medical care during escort. During the S3 gray-release, terms are a static version; the version in effect at claim time prevails. Contact support with any questions."
+    },
+    "gotIt": {
+      "zh-Hans": "我已了解",
+      "en": "Got it"
+    },
+    "confirmPay": {
+      "zh-Hans": "确认支付",
+      "en": "Confirm Payment"
+    },
+    "payContent": {
+      "zh-Hans": "支付 {price}",
+      "en": "Pay {price}",
+      "_params": [
+        "price"
+      ]
+    },
+    "payFailed": {
+      "zh-Hans": "支付失败",
+      "en": "Payment failed"
+    },
+    "confirmStartTitle": {
+      "zh-Hans": "确认开始服务",
+      "en": "Confirm Start"
+    },
+    "confirmStartContent": {
+      "zh-Hans": "确认后服务正式开始，如需取消将退还50%费用",
+      "en": "Once confirmed, service starts; cancelling refunds 50% of the fee"
+    },
+    "confirmStartBtn": {
+      "zh-Hans": "确认开始",
+      "en": "Confirm Start"
+    },
+    "serviceStarted": {
+      "zh-Hans": "服务已开始",
+      "en": "Service started"
+    },
+    "opFailed": {
+      "zh-Hans": "操作失败",
+      "en": "Operation failed"
+    },
+    "cancelConfirmDefault": {
+      "zh-Hans": "确定要取消该订单吗？",
+      "en": "Are you sure you want to cancel this order?"
+    },
+    "cancelConfirmRefundFull": {
+      "zh-Hans": "取消后将全额退款，确定要取消吗？",
+      "en": "You'll get a full refund. Cancel this order?"
+    },
+    "cancelConfirmInProgress": {
+      "zh-Hans": "服务已开始，取消将退还50%费用，确定要取消吗？",
+      "en": "Service has started; cancelling refunds 50% of the fee. Cancel?"
+    },
+    "confirmCancelTitle": {
+      "zh-Hans": "确认取消",
+      "en": "Confirm Cancellation"
+    },
+    "confirmCancelBtn": {
+      "zh-Hans": "确认取消",
+      "en": "Confirm Cancel"
+    },
+    "cancelled": {
+      "zh-Hans": "已取消",
+      "en": "Cancelled"
+    },
+    "followupTitle": {
+      "zh-Hans": "创建复诊提醒",
+      "en": "Create Follow-up Reminder"
+    },
+    "followupContent": {
+      "zh-Hans": "默认在 7 天后提醒。点击“确定”即创建。",
+      "en": "Defaults to a reminder in 7 days. Tap OK to create."
+    },
+    "followupPlaceholder": {
+      "zh-Hans": "备注（可选，如：取报告 / 复查血常规）",
+      "en": "Note (optional, e.g. pick up report / recheck blood test)"
+    },
+    "created": {
+      "zh-Hans": "已创建",
+      "en": "Created"
+    },
+    "createFailed": {
+      "zh-Hans": "创建失败",
+      "en": "Failed to create"
+    },
+    "callFailed": {
+      "zh-Hans": "呼叫失败",
+      "en": "Call failed"
+    }
+  },
   "home": {
     "title": {
       "zh-Hans": "首页",

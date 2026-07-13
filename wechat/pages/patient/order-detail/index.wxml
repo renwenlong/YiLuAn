@@ -25,14 +25,14 @@
     bindtap="onEmergencyTap"
   >
     <text class="emergency-icon">⚠️</text>
-    <text class="emergency-label">紧急呼叫</text>
+    <text class="emergency-label">{{t['orderDetail.emergencyCall']}}</text>
   </view>
 
   <!-- Emergency modal -->
   <view class="em-mask" wx:if="{{showEmergency}}" bindtap="onEmergencyClose" />
   <view class="em-modal" wx:if="{{showEmergency}}">
-    <view class="em-title">紧急呼叫</view>
-    <view class="em-hint">选择要拨打的联系人</view>
+    <view class="em-title">{{t['orderDetail.emergencyCall']}}</view>
+    <view class="em-hint">{{t['orderDetail.selectContact']}}</view>
     <view class="em-list">
       <view
         class="em-item tap-target"
@@ -45,69 +45,69 @@
         <view class="em-item-phone">{{item.phone}}</view>
       </view>
       <view class="em-empty" wx:if="{{emergencyContacts.length === 0}}">
-        <text>未设置紧急联系人</text>
-        <text class="em-link tap-target" bindtap="onManageContacts">去添加</text>
+        <text>{{t['orderDetail.noEmergencyContact']}}</text>
+        <text class="em-link tap-target" bindtap="onManageContacts">{{t['orderDetail.goAdd']}}</text>
       </view>
       <view class="em-item em-hotline tap-target" bindtap="onCallHotline">
-        <view class="em-item-name">平台客服热线</view>
-        <view class="em-item-phone">{{emergencyHotline || '加载中...'}}</view>
+        <view class="em-item-name">{{t['orderDetail.platformHotline']}}</view>
+        <view class="em-item-phone">{{emergencyHotline || t['common.loading']}}</view>
       </view>
     </view>
-    <button class="em-cancel" bindtap="onEmergencyClose">取消</button>
+    <button class="em-cancel" bindtap="onEmergencyClose">{{t['common.cancel']}}</button>
   </view>
   <!-- Status Header -->
   <view class="status-header status-{{order.status}}">
     <view class="status-header-decor"></view>
-    <text class="status-text">{{statusList[order.status].label || order.status}}</text>
-    <text class="status-subtitle" wx:if="{{order.status === 'created' && order.payment_status === 'unpaid'}}">请尽快完成支付</text>
-    <text class="status-subtitle" wx:elif="{{order.status === 'created' && countdown}}">距订单自动取消还剩 <text class="countdown-text {{countdownUrgent ? 'countdown-urgent' : ''}}">{{countdown}}</text></text>
-    <text class="status-subtitle" wx:elif="{{order.status === 'created'}}">等待陪诊师接单</text>
-    <text class="status-subtitle" wx:elif="{{order.status === 'accepted'}}">陪诊师已接单，即将为您服务</text>
-    <text class="status-subtitle" wx:elif="{{order.status === 'in_progress'}}">服务进行中，请保持联系</text>
-    <text class="status-subtitle" wx:elif="{{order.status === 'completed'}}">服务已完成</text>
-    <text class="status-subtitle" wx:elif="{{order.status === 'rejected_by_companion'}}">陪诊师暂时无法为您服务，建议重新预约</text>
-    <text class="status-subtitle" wx:elif="{{order.status === 'expired'}}">订单因超时未接单已自动取消，款项将原路退回</text>
-    <text class="status-subtitle" wx:elif="{{order.status === 'cancelled_by_patient' || order.status === 'cancelled_by_companion'}}">订单已取消</text>
+    <text class="status-text">{{statusLabelText || order.status}}</text>
+    <text class="status-subtitle" wx:if="{{order.status === 'created' && order.payment_status === 'unpaid'}}">{{t['orderDetail.subPayNow']}}</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'created' && countdown}}">{{t['orderDetail.subAutoCancel']}} <text class="countdown-text {{countdownUrgent ? 'countdown-urgent' : ''}}">{{countdown}}</text></text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'created'}}">{{t['orderDetail.subWaitAccept']}}</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'accepted'}}">{{t['orderDetail.subAccepted']}}</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'in_progress'}}">{{t['orderDetail.subInProgress']}}</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'completed'}}">{{t['orderDetail.subCompleted']}}</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'rejected_by_companion'}}">{{t['orderDetail.subRejected']}}</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'expired'}}">{{t['orderDetail.subExpired']}}</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'cancelled_by_patient' || order.status === 'cancelled_by_companion'}}">{{t['orderDetail.subCancelled']}}</text>
   </view>
 
   <!-- Order Info -->
   <view class="detail-section">
-    <view class="section-title">订单信息</view>
+    <view class="section-title">{{t['orderDetail.orderInfo']}}</view>
     <view class="info-row">
-      <text class="info-label">订单编号</text>
+      <text class="info-label">{{t['orderDetail.orderNumber']}}</text>
       <text class="info-value">{{order.order_number}}</text>
     </view>
     <view class="info-row">
-      <text class="info-label">服务类型</text>
+      <text class="info-label">{{t['orderDetail.serviceTypeLabel']}}</text>
       <text class="info-value">{{serviceLabel}}</text>
     </view>
     <view class="info-row">
-      <text class="info-label">医院</text>
+      <text class="info-label">{{t['orderDetail.hospitalLabel']}}</text>
       <text class="info-value">{{order.hospital_name}}</text>
     </view>
     <view class="info-row">
-      <text class="info-label">预约时间</text>
+      <text class="info-label">{{t['orderDetail.appointmentTime']}}</text>
       <text class="info-value">{{order.appointment_date}} {{order.appointment_time}}</text>
     </view>
     <view class="info-row" wx:if="{{order.formattedPrice}}">
-      <text class="info-label">费用</text>
+      <text class="info-label">{{t['orderDetail.feeLabel']}}</text>
       <text class="info-value price">{{order.formattedPrice}}</text>
     </view>
     <view class="info-row">
-      <text class="info-label">支付状态</text>
+      <text class="info-label">{{t['orderDetail.paymentStatusLabel']}}</text>
       <text class="info-value payment-{{paymentStatusClass}}">{{paymentStatusLabel}}</text>
     </view>
     <view class="info-row" wx:if="{{order.description}}">
-      <text class="info-label">备注</text>
+      <text class="info-label">{{t['orderDetail.notesLabel']}}</text>
       <text class="info-value">{{order.description}}</text>
     </view>
   </view>
 
   <!-- Companion Info -->
   <view class="detail-section" wx:if="{{order.companion_name}}">
-    <view class="section-title">陪诊师信息</view>
+    <view class="section-title">{{t['orderDetail.companionInfo']}}</view>
     <view class="info-row">
-      <text class="info-label">陪诊师</text>
+      <text class="info-label">{{t['orderDetail.companionLabel']}}</text>
       <text class="info-value">{{order.companion_name}}</text>
     </view>
   </view>
@@ -122,27 +122,27 @@
          WS 重连成功后自动隐藏 (precheckWs 'authenticated' event 触发 stopPolling). -->
     <view wx:if="{{isPollingFallback}}" class="polling-fallback-indicator">
       <text class="polling-fallback-icon">⟳</text>
-      <text class="polling-fallback-text">网络不稳, 已切换轮询模式 (30s)</text>
+      <text class="polling-fallback-text">{{t['orderDetail.pollingFallback']}}</text>
     </view>
     <cert-card cert-status="{{certStatus}}" />
   </view>
 
   <!-- [F-05] 实际就诊人（代他人下单） -->
   <view class="detail-section" wx:if="{{order.family_member}}">
-    <view class="section-title">实际就诊人</view>
+    <view class="section-title">{{t['orderDetail.actualPatient']}}</view>
     <view class="info-row">
-      <text class="info-label">姓名</text>
+      <text class="info-label">{{t['orderDetail.nameLabel']}}</text>
       <text class="info-value">{{order.family_member.name}}（{{familyRelationLabel}}）</text>
     </view>
     <view class="info-row" wx:if="{{order.family_member.phone}}">
-      <text class="info-label">联系电话</text>
+      <text class="info-label">{{t['orderDetail.phoneLabel']}}</text>
       <text class="info-value">{{order.family_member.phone}}</text>
     </view>
   </view>
 
   <!-- Status Timeline -->
   <view class="detail-section">
-    <view class="section-title">订单进度</view>
+    <view class="section-title">{{t['orderDetail.orderProgress']}}</view>
     <view class="timeline">
       <view class="timeline-item {{order.timeline && index <= order.timelineIndex ? 'active' : ''}}" wx:for="{{order.timeline}}" wx:key="time">
         <view class="timeline-dot"></view>
@@ -156,7 +156,7 @@
 
   <!-- Review Section (if completed with review) -->
   <view class="detail-section" wx:if="{{order.review}}">
-    <view class="section-title">评价</view>
+    <view class="section-title">{{t['orderDetail.reviewLabel']}}</view>
     <view class="review-card">
       <rating-stars value="{{order.review.rating}}" readonly="{{true}}" />
       <text class="review-content">{{order.review.content}}</text>
@@ -176,61 +176,61 @@
             <text wx:if="{{contractAccepted}}" class="contract-checkbox-tick">✓</text>
           </view>
           <view class="contract-checkbox-label">
-            <text>我已阅读并同意</text>
-            <text class="contract-link" catchtap="onViewContract">《医路安陪诊服务合同》</text>
+            <text>{{t['orderDetail.agreePre']}}</text>
+            <text class="contract-link" catchtap="onViewContract">{{t['orderDetail.contractLink']}}</text>
             <text wx:if="{{order.insurance_id}}">+</text>
-            <text wx:if="{{order.insurance_id}}" class="contract-link" catchtap="onViewInsuranceTerms">《陪诊责任险服务条款》</text>
+            <text wx:if="{{order.insurance_id}}" class="contract-link" catchtap="onViewInsuranceTerms">{{t['orderDetail.insuranceLink']}}</text>
           </view>
         </view>
-        <text wx:if="{{!contractAccepted}}" class="contract-hint">勾选上方同意后可继续支付</text>
+        <text wx:if="{{!contractAccepted}}" class="contract-hint">{{t['orderDetail.contractHint']}}</text>
       </view>
       <!-- 支付按钮: 有合同时必须勾选才解锁; 无合同时 (历史订单) 直接可点 -->
       <button class="btn-primary" bindtap="onPay" loading="{{actionLoading}}" disabled="{{actionLoading || (order.contract_id && !contractAccepted)}}">
-        {{actionLoading ? '处理中...' : '立即支付 ' + order.formattedPrice}}
+        {{actionLoading ? t['orderDetail.processing'] : t['orderDetail.payNow'] + ' ' + order.formattedPrice}}
       </button>
       <button class="btn-danger" bindtap="onCancel" loading="{{actionLoading}}" disabled="{{actionLoading}}">
-        {{actionLoading ? '处理中...' : '取消订单'}}
+        {{actionLoading ? t['orderDetail.processing'] : t['orderDetail.cancelOrder']}}
       </button>
     </block>
 
     <!-- Created & paid: cancel only -->
     <block wx:if="{{order.status === 'created' && order.payment_status === 'paid'}}">
       <button class="btn-danger" bindtap="onCancel" loading="{{actionLoading}}" disabled="{{actionLoading}}">
-        {{actionLoading ? '处理中...' : '取消订单'}}
+        {{actionLoading ? t['orderDetail.processing'] : t['orderDetail.cancelOrder']}}
       </button>
     </block>
 
     <!-- Accepted: confirm-start + chat + cancel -->
     <block wx:if="{{order.status === 'accepted'}}">
       <button class="btn-primary" bindtap="onConfirmStart" loading="{{actionLoading}}" disabled="{{actionLoading}}">
-        {{actionLoading ? '处理中...' : '确认开始服务'}}
+        {{actionLoading ? t['orderDetail.processing'] : t['orderDetail.confirmStart']}}
       </button>
-      <button class="btn-secondary" bindtap="onChat" disabled="{{actionLoading}}">联系陪诊师</button>
+      <button class="btn-secondary" bindtap="onChat" disabled="{{actionLoading}}">{{t['orderDetail.contactCompanion']}}</button>
       <button class="btn-danger" bindtap="onCancel" loading="{{actionLoading}}" disabled="{{actionLoading}}">
-        {{actionLoading ? '处理中...' : '取消订单'}}
+        {{actionLoading ? t['orderDetail.processing'] : t['orderDetail.cancelOrder']}}
       </button>
     </block>
     <block wx:if="{{order.status === 'in_progress'}}">
-      <button class="btn-primary" bindtap="onChat" disabled="{{actionLoading}}">联系陪诊师</button>
+      <button class="btn-primary" bindtap="onChat" disabled="{{actionLoading}}">{{t['orderDetail.contactCompanion']}}</button>
       <button class="btn-danger" bindtap="onCancelInProgress" loading="{{actionLoading}}" disabled="{{actionLoading}}">
-        {{actionLoading ? '处理中...' : '取消订单'}}
+        {{actionLoading ? t['orderDetail.processing'] : t['orderDetail.cancelOrder']}}
       </button>
     </block>
 
     <!-- Completed without review: can review -->
     <block wx:if="{{order.status === 'completed' && !order.review}}">
-      <button class="btn-primary" bindtap="onReview" disabled="{{actionLoading}}">写评价</button>
-      <button class="btn-secondary" bindtap="onChat" disabled="{{actionLoading}}">联系陪诊师</button>
+      <button class="btn-primary" bindtap="onReview" disabled="{{actionLoading}}">{{t['orderDetail.writeReview']}}</button>
+      <button class="btn-secondary" bindtap="onChat" disabled="{{actionLoading}}">{{t['orderDetail.contactCompanion']}}</button>
     </block>
 
     <!-- [F-07] 复诊提醒：已完成/已评价订单可创建，与 iOS 对齐 -->
     <block wx:if="{{order.status === 'completed' || order.status === 'reviewed'}}">
-      <button class="btn-secondary" bindtap="onCreateFollowup" disabled="{{actionLoading}}">创建复诊提醒</button>
+      <button class="btn-secondary" bindtap="onCreateFollowup" disabled="{{actionLoading}}">{{t['orderDetail.createFollowup']}}</button>
     </block>
 
     <!-- Rejected / Expired: reorder -->
     <block wx:if="{{order.status === 'rejected_by_companion' || order.status === 'expired'}}">
-      <button class="btn-primary" bindtap="onReorder">重新下单</button>
+      <button class="btn-primary" bindtap="onReorder">{{t['orderDetail.reorder']}}</button>
     </block>
   </view>
 </view>
