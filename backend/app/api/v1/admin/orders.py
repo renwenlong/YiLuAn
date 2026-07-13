@@ -36,10 +36,10 @@ from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 
+from app.core import error_codes
 from app.core.admin_auth import (
     require_admin_token,  # noqa: F401  (legacy import retained for downstream consumers)
 )
-from app.core import error_codes
 from app.core.admin_jwt import admin_operator_id, require_admin
 from app.core.pii import mask_phone
 from app.dependencies import DBSession

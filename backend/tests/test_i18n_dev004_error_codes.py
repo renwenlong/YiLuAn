@@ -6,16 +6,12 @@
 """
 from __future__ import annotations
 
-import ast
 import json
 import os
-from decimal import Decimal
-from unittest.mock import AsyncMock
 
 import pytest
 
 from app.core import error_codes
-from app.exceptions import AppException
 
 
 def _extract_error_code(detail) -> str | None:
@@ -63,10 +59,9 @@ def test_dev004_new_codes_registered():
 @pytest.mark.asyncio
 async def test_order_transition_invalid_carries_code():
     """order/lifecycle 请求开始服务但状态非法 → error_code=ORDER_TRANSITION_INVALID。"""
-    from app.services.order import lifecycle
-
     # 直接构造非法状态触发 raise，断言异常携带 code
     from app.exceptions import BadRequestException
+    from app.services.order import lifecycle
 
     exc = BadRequestException(
         "订单状态不允许请求开始服务",
@@ -126,8 +121,8 @@ async def test_otp_error_codes_wired_in_share_api():
 
 
 def test_broadcast_and_emergency_codes_wired():
-    from app.services.order import cancel as cancel_mod
     from app.services import emergency as emergency_mod
+    from app.services.order import cancel as cancel_mod
 
     assert "error_codes.ORDER_BROADCAST_NO_REJECT" in open(
         cancel_mod.__file__, encoding="utf-8"
