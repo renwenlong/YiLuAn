@@ -3,9 +3,13 @@ var authService = require('../../../services/auth')
 var validate = require('../../../utils/validate')
 var store = require('../../../store/index')
 const router = require('../../../utils/router')
+const i18n = require('../../../utils/i18n')
+const i18nBehavior = require('../../../behaviors/i18n')
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'login', 'profileSetup'],
     nickname: '',
     avatarUrl: '',
     showPhoneSection: true,
@@ -24,7 +28,7 @@ Page({
       sourceType: ['album', 'camera'],
       success: function (res) {
         var filePath = res.tempFilePaths[0]
-        wx.showLoading({ title: '上传中...' })
+        wx.showLoading({ title: i18n.t('profileSetup.uploading') })
         userService.uploadAvatar(filePath)
           .then(function (data) {
             wx.hideLoading()
@@ -35,11 +39,11 @@ Page({
               var user = Object.assign({}, state.user, { avatar_url: url })
               store.setState({ user: user })
             }
-            wx.showToast({ title: '头像已上传', icon: 'success' })
+            wx.showToast({ title: i18n.t('profileSetup.avatarUploaded'), icon: 'success' })
           })
           .catch(function () {
             wx.hideLoading()
-            wx.showToast({ title: '上传失败', icon: 'none' })
+            wx.showToast({ title: i18n.t('profileSetup.uploadFailed'), icon: 'none' })
           })
       }
     })
@@ -60,7 +64,7 @@ Page({
   onSendOTP: function () {
     var phone = this.data.phone.trim()
     if (!validate.isValidPhone(phone)) {
-      wx.showToast({ title: '请输入正确的手机号', icon: 'none' })
+      wx.showToast({ title: i18n.t('profileSetup.invalidPhone'), icon: 'none' })
       return
     }
     this.setData({ sending: true })
@@ -69,11 +73,11 @@ Page({
       .then(function () {
         self.setData({ sending: false, countdown: 60 })
         self.startCountdown()
-        wx.showToast({ title: '验证码已发送', icon: 'success' })
+        wx.showToast({ title: i18n.t('profileSetup.codeSent'), icon: 'success' })
       })
       .catch(function () {
         self.setData({ sending: false })
-        wx.showToast({ title: '发送失败，请重试', icon: 'none' })
+        wx.showToast({ title: i18n.t('profileSetup.sendFailed'), icon: 'none' })
       })
   },
 
@@ -99,19 +103,19 @@ Page({
   onSubmit: function () {
     var nickname = this.data.nickname.trim()
     if (!nickname) {
-      wx.showToast({ title: '请输入昵称', icon: 'none' })
+      wx.showToast({ title: i18n.t('profileSetup.inputNicknameToast'), icon: 'none' })
       return
     }
 
     var phone = this.data.phone.trim()
     if (!phone || !validate.isValidPhone(phone)) {
-      wx.showToast({ title: '请输入正确的手机号', icon: 'none' })
+      wx.showToast({ title: i18n.t('profileSetup.invalidPhone'), icon: 'none' })
       return
     }
 
     var code = this.data.code.trim()
     if (!code || !validate.isValidOTP(code)) {
-      wx.showToast({ title: '请输入6位验证码', icon: 'none' })
+      wx.showToast({ title: i18n.t('profileSetup.inputCode6'), icon: 'none' })
       return
     }
 
@@ -139,7 +143,7 @@ Page({
       })
       .catch(function () {
         self.setData({ saving: false })
-        wx.showToast({ title: '保存失败，请重试', icon: 'none' })
+        wx.showToast({ title: i18n.t('profileSetup.saveFailed'), icon: 'none' })
       })
   },
 

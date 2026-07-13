@@ -6,9 +6,13 @@ var isValidPhone = validate.isValidPhone
 var isValidOTP = validate.isValidOTP
 var store = require('../../../store/index')
 const router = require('../../../utils/router')
+const i18n = require('../../../utils/i18n')
+const i18nBehavior = require('../../../behaviors/i18n')
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'login', 'bindPhone'],
     phone: '',
     code: '',
     countdown: 0,
@@ -33,18 +37,18 @@ Page({
 
   onSendOTP: function () {
     if (!isValidPhone(this.data.phone)) {
-      wx.showToast({ title: '请输入正确手机号', icon: 'none' })
+      wx.showToast({ title: i18n.t('bindPhone.invalidPhone'), icon: 'none' })
       return
     }
     var self = this
     self.setData({ sending: true })
     sendOTP(self.data.phone)
       .then(function () {
-        wx.showToast({ title: '验证码已发送', icon: 'success' })
+        wx.showToast({ title: i18n.t('bindPhone.codeSent'), icon: 'success' })
         self.startCountdown()
       })
       .catch(function () {
-        wx.showToast({ title: '发送失败', icon: 'none' })
+        wx.showToast({ title: i18n.t('bindPhone.sendFailed'), icon: 'none' })
       })
       .finally(function () {
         self.setData({ sending: false })
@@ -66,7 +70,7 @@ Page({
 
   onBind: function () {
     if (!isValidPhone(this.data.phone) || !isValidOTP(this.data.code)) {
-      wx.showToast({ title: '请检查输入', icon: 'none' })
+      wx.showToast({ title: i18n.t('bindPhone.checkInput'), icon: 'none' })
       return
     }
     var self = this
@@ -76,7 +80,7 @@ Page({
         var state = store.getState()
         var user = Object.assign({}, state.user, { phone: self.data.phone })
         store.setState({ user: user })
-        wx.showToast({ title: '绑定成功', icon: 'success' })
+        wx.showToast({ title: i18n.t('bindPhone.bindSuccess'), icon: 'success' })
         setTimeout(function () {
           if (self.data.redirect) {
             router.redirect({ url: self.data.redirect })
@@ -105,16 +109,16 @@ function _bindErrorMessage(err) {
     raw = detail.message || ''
   }
   var map = {
-    'OTP code expired or not found': '验证码已过期或未发送，请重新获取',
-    'Invalid OTP code': '验证码错误，请检查后重试',
-    'User already has a phone number bound': '该账号已绑定手机号',
-    'Phone number already registered to another account': '该手机号已被其他账号注册'
+    'OTP code expired or not found': i18n.t('bindPhone.errOtpExpired'),
+    'Invalid OTP code': i18n.t('bindPhone.errOtpInvalid'),
+    'User already has a phone number bound': i18n.t('bindPhone.errAlreadyBound'),
+    'Phone number already registered to another account': i18n.t('bindPhone.errRegisteredOther')
   }
   if (raw && map[raw]) {
     return map[raw]
   }
   // 未命中映射：有后端文案就显示后端文案，否则兑底。
-  return raw || '绑定失败，请稍后重试'
+  return raw || i18n.t('bindPhone.bindFailed')
 }
 
 // 仅供单测 require（小程序运行时 module 存在，不影响 Page 注册）。
