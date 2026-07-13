@@ -1001,6 +1001,93 @@ module.exports = {
     "send": {
       "zh-Hans": "发送",
       "en": "Send"
+    },
+    "defaultName": {
+      "zh-Hans": "聊天",
+      "en": "Chat"
+    },
+    "companionPrefix": {
+      "zh-Hans": "陪诊师·{name}",
+      "en": "Companion·{name}",
+      "_params": [
+        "name"
+      ]
+    },
+    "hintCreated": {
+      "zh-Hans": "待接单",
+      "en": "Pending"
+    },
+    "hintCompleted": {
+      "zh-Hans": "订单已完成",
+      "en": "Order completed"
+    },
+    "hintReviewed": {
+      "zh-Hans": "已评价",
+      "en": "Reviewed"
+    },
+    "tapToEnter": {
+      "zh-Hans": "点击进入聊天",
+      "en": "Tap to open chat"
+    },
+    "systemPrefix": {
+      "zh-Hans": "[系统] ",
+      "en": "[System] "
+    },
+    "noMessage": {
+      "zh-Hans": "暂无消息",
+      "en": "No messages"
+    },
+    "emptyHint": {
+      "zh-Hans": "下单后可与陪诊师沟通",
+      "en": "Chat with your companion after booking"
+    },
+    "emptyIcon": {
+      "zh-Hans": "消",
+      "en": "💬"
+    },
+    "loadMsgFailed": {
+      "zh-Hans": "加载消息失败",
+      "en": "Failed to load messages"
+    },
+    "loadHistoryFailed": {
+      "zh-Hans": "加载历史失败",
+      "en": "Failed to load history"
+    },
+    "reconnecting": {
+      "zh-Hans": "连接断开，正在重连...",
+      "en": "Disconnected, reconnecting..."
+    },
+    "confirmAcceptTitle": {
+      "zh-Hans": "确认接单",
+      "en": "Confirm Accept"
+    },
+    "confirmAcceptContent": {
+      "zh-Hans": "确定接受此订单吗？",
+      "en": "Accept this order?"
+    },
+    "accepted": {
+      "zh-Hans": "已接单",
+      "en": "Accepted"
+    },
+    "acceptFailed": {
+      "zh-Hans": "接单失败",
+      "en": "Failed to accept"
+    },
+    "inputPlaceholderShort": {
+      "zh-Hans": "输入消息...",
+      "en": "Type a message..."
+    },
+    "historyEnd": {
+      "zh-Hans": "已是最早的消息",
+      "en": "This is the earliest message"
+    },
+    "viewOrderDetail": {
+      "zh-Hans": "查看订单详情",
+      "en": "View Order Details"
+    },
+    "acceptOrder": {
+      "zh-Hans": "接受订单",
+      "en": "Accept Order"
     }
   },
   "city": {

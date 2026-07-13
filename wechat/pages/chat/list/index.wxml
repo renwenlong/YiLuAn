@@ -22,7 +22,7 @@
           <text class="conversation-time">{{item.lastTime}}</text>
         </view>
         <view class="conversation-bottom">
-          <text class="last-message">{{item.lastMessage || '暂无消息'}}</text>
+          <text class="last-message">{{item.lastMessage || t['chat.noMessage']}}</text>
         </view>
       </view>
     </view>
@@ -31,9 +31,9 @@
   <!-- P-07: 改用全局 empty-state 组件，统一空状态样式 -->
   <empty-state
     wx:if="{{conversations.length === 0}}"
-    text="暂无消息"
-    hint="下单后可与陪诊师沟通"
-    icon="消"
+    text="{{t['chat.noMessage']}}"
+    hint="{{t['chat.emptyHint']}}"
+    icon="{{t['chat.emptyIcon']}}"
   />
 </view>
 
