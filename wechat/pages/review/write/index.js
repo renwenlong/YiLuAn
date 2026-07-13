@@ -1,16 +1,20 @@
 const { submitReview } = require('../../services/review')
 const store = require('../../store/index')
 const router = require('../../../utils/router')
+const i18n = require('../../../utils/i18n')
+const i18nBehavior = require('../../../behaviors/i18n')
 
 const DIMENSION_LABELS = {
-  punctuality: '守时',
-  professionalism: '专业',
-  communication: '沟通',
-  attitude: '态度'
+  punctuality: i18n.t('reviewWrite.dimPunctuality'),
+  professionalism: i18n.t('reviewWrite.dimProfessionalism'),
+  communication: i18n.t('reviewWrite.dimCommunication'),
+  attitude: i18n.t('reviewWrite.dimAttitude')
 }
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'reviewWrite'],
     orderId: '',
     // F-04: 4 dimension star ratings (default 5). Total rating computed
     // server-side; we no longer track a single `rating` slider.
@@ -76,12 +80,12 @@ Page({
     } = this.data
 
     if (!content.trim()) {
-      wx.showToast({ title: '请填写评价内容', icon: 'none' })
+      wx.showToast({ title: i18n.t('reviewWrite.contentRequired'), icon: 'none' })
       return
     }
 
     if (content.trim().length < 5) {
-      wx.showToast({ title: '评价内容至少5个字', icon: 'none' })
+      wx.showToast({ title: i18n.t('reviewWrite.contentTooShort'), icon: 'none' })
       return
     }
 
@@ -95,12 +99,12 @@ Page({
         attitude_rating,
         content: content.trim()
       })
-      wx.showToast({ title: '评价成功', icon: 'success' })
+      wx.showToast({ title: i18n.t('reviewWrite.submitSuccess'), icon: 'success' })
       setTimeout(() => {
         router.back()
       }, 1500)
     } catch (err) {
-      wx.showToast({ title: err.message || '提交失败', icon: 'none' })
+      wx.showToast({ title: err.message || i18n.t('reviewWrite.submitFailed'), icon: 'none' })
     } finally {
       this.setData({ loading: false })
     }
