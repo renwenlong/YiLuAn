@@ -5,54 +5,54 @@
   <view class="status-header status-{{order.status}}">
     <view class="status-header-decor"></view>
     <text class="status-text">{{statusList[order.status].label || order.status}}</text>
-    <text class="status-subtitle" wx:if="{{order.status === 'created'}}">新订单，等待接单</text>
-    <text class="status-subtitle" wx:elif="{{order.status === 'accepted'}}">已接单，准备开始服务</text>
-    <text class="status-subtitle" wx:elif="{{order.status === 'in_progress'}}">服务进行中</text>
-    <text class="status-subtitle" wx:elif="{{order.status === 'completed'}}">服务已完成</text>
-    <text class="status-subtitle" wx:elif="{{order.status === 'cancelled'}}">订单已取消</text>
+    <text class="status-subtitle" wx:if="{{order.status === 'created'}}">{{t['companionOrderDetail.subNewOrder']}}</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'accepted'}}">{{t['companionOrderDetail.subAccepted']}}</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'in_progress'}}">{{t['companionOrderDetail.subInProgress']}}</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'completed'}}">{{t['companionOrderDetail.subCompleted']}}</text>
+    <text class="status-subtitle" wx:elif="{{order.status === 'cancelled'}}">{{t['companionOrderDetail.subCancelled']}}</text>
   </view>
 
   <!-- Order Info -->
   <view class="detail-section">
-    <view class="section-title">订单信息</view>
+    <view class="section-title">{{t['orderDetail.orderInfo']}}</view>
     <view class="info-row">
-      <text class="info-label">订单编号</text>
+      <text class="info-label">{{t['orderDetail.orderNumber']}}</text>
       <text class="info-value">{{order.order_number}}</text>
     </view>
     <view class="info-row">
-      <text class="info-label">服务类型</text>
+      <text class="info-label">{{t['orderDetail.serviceTypeLabel']}}</text>
       <text class="info-value">{{serviceLabel}}</text>
     </view>
     <view class="info-row">
-      <text class="info-label">医院</text>
+      <text class="info-label">{{t['orderDetail.hospitalLabel']}}</text>
       <text class="info-value">{{order.hospital_name}}</text>
     </view>
     <view class="info-row">
-      <text class="info-label">预约时间</text>
+      <text class="info-label">{{t['orderDetail.appointmentTime']}}</text>
       <text class="info-value">{{order.appointment_date}} {{order.appointment_time}}</text>
     </view>
     <view class="info-row" wx:if="{{order.formattedPrice}}">
-      <text class="info-label">费用</text>
+      <text class="info-label">{{t['orderDetail.feeLabel']}}</text>
       <text class="info-value price">{{order.formattedPrice}}</text>
     </view>
     <view class="info-row" wx:if="{{order.description}}">
-      <text class="info-label">备注</text>
+      <text class="info-label">{{t['orderDetail.notesLabel']}}</text>
       <text class="info-value">{{order.description}}</text>
     </view>
   </view>
 
   <!-- Patient Info -->
   <view class="detail-section" wx:if="{{order.patient_name}}">
-    <view class="section-title">患者信息</view>
+    <view class="section-title">{{t['companionOrderDetail.patientInfo']}}</view>
     <view class="info-row">
-      <text class="info-label">患者姓名</text>
+      <text class="info-label">{{t['companionOrderDetail.patientName']}}</text>
       <text class="info-value">{{order.patient_name}}</text>
     </view>
   </view>
 
   <!-- Status Timeline -->
   <view class="detail-section" wx:if="{{order.timeline && order.timeline.length > 0}}">
-    <view class="section-title">订单进度</view>
+    <view class="section-title">{{t['orderDetail.orderProgress']}}</view>
     <view class="timeline">
       <view class="timeline-item {{index <= order.timelineIndex ? 'active' : ''}}" wx:for="{{order.timeline}}" wx:key="time">
         <view class="timeline-dot"></view>
@@ -66,7 +66,7 @@
 
   <!-- Review Section (if reviewed) -->
   <view class="detail-section" wx:if="{{order.review}}">
-    <view class="section-title">患者评价</view>
+    <view class="section-title">{{t['companionOrderDetail.patientReview']}}</view>
     <view class="review-card">
       <rating-stars value="{{order.review.rating}}" readonly="{{true}}" />
       <text class="review-content">{{order.review.content}}</text>
@@ -75,33 +75,33 @@
   </view>
 
   <view class="review-pending-hint" wx:if="{{order.status === 'completed' && !order.review}}">
-    <text class="pending-text">等待患者评价</text>
+    <text class="pending-text">{{t['companionOrderDetail.waitPatientReview']}}</text>
   </view>
 
   <!-- Action Buttons -->
   <view class="action-bar">
     <!-- Created: accept + reject (if assigned to this companion) -->
     <block wx:if="{{order.status === 'created'}}">
-      <button class="btn-primary" bindtap="onAccept">接受订单</button>
-      <button class="btn-reject" wx:if="{{order.companion_id}}" bindtap="onReject">无法接单</button>
+      <button class="btn-primary" bindtap="onAccept">{{t['companionOrderDetail.accept']}}</button>
+      <button class="btn-reject" wx:if="{{order.companion_id}}" bindtap="onReject">{{t['companionOrderDetail.reject']}}</button>
     </block>
 
     <!-- Accepted: request start + chat + cancel -->
     <block wx:if="{{order.status === 'accepted'}}">
-      <button class="btn-primary" bindtap="onStart">通知患者开始服务</button>
-      <button class="btn-secondary" bindtap="onChat">联系患者</button>
-      <button class="btn-reject" bindtap="onCancelAccepted">取消订单</button>
+      <button class="btn-primary" bindtap="onStart">{{t['companionOrderDetail.notifyStart']}}</button>
+      <button class="btn-secondary" bindtap="onChat">{{t['companionOrderDetail.contactPatient']}}</button>
+      <button class="btn-reject" bindtap="onCancelAccepted">{{t['companionOrderDetail.cancelOrder']}}</button>
     </block>
 
     <!-- In Progress: complete + chat -->
     <block wx:if="{{order.status === 'in_progress'}}">
-      <button class="btn-primary" bindtap="onComplete">完成服务</button>
-      <button class="btn-secondary" bindtap="onChat">联系患者</button>
+      <button class="btn-primary" bindtap="onComplete">{{t['companionOrderDetail.complete']}}</button>
+      <button class="btn-secondary" bindtap="onChat">{{t['companionOrderDetail.contactPatient']}}</button>
     </block>
 
     <!-- Completed: chat only -->
     <block wx:if="{{order.status === 'completed'}}">
-      <button class="btn-secondary" bindtap="onChat">联系患者</button>
+      <button class="btn-secondary" bindtap="onChat">{{t['companionOrderDetail.contactPatient']}}</button>
     </block>
   </view>
 </view>
