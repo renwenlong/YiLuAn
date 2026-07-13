@@ -50,6 +50,10 @@ module.exports = {
     "retry": {
       "zh-Hans": "重试",
       "en": "Retry"
+    },
+    "noMore": {
+      "zh-Hans": "没有更多了",
+      "en": "No more"
     }
   },
   "settings": {
@@ -1594,6 +1598,10 @@ module.exports = {
     "selectServiceType": {
       "zh-Hans": "请至少选择一种服务类型",
       "en": "Please select at least one service type"
+    },
+    "saveFailedRetry": {
+      "zh-Hans": "保存失败，请重试",
+      "en": "Failed to save, please try again"
     }
   },
   "home": {
@@ -2671,6 +2679,242 @@ module.exports = {
     "submitFailed": {
       "zh-Hans": "提交失败",
       "en": "Submission failed"
+    }
+  },
+  "payResult": {
+    "successTitle": {
+      "zh-Hans": "支付成功",
+      "en": "Payment Successful"
+    },
+    "successDesc": {
+      "zh-Hans": "您的订单已支付，请等待陪诊师接单",
+      "en": "Your order is paid. Please wait for a companion to accept it"
+    },
+    "viewOrder": {
+      "zh-Hans": "查看订单",
+      "en": "View Order"
+    },
+    "goHome": {
+      "zh-Hans": "返回首页",
+      "en": "Back to Home"
+    },
+    "failTitle": {
+      "zh-Hans": "支付失败",
+      "en": "Payment Failed"
+    },
+    "failDesc": {
+      "zh-Hans": "支付遇到问题，请重试",
+      "en": "Something went wrong with the payment. Please try again"
+    },
+    "retry": {
+      "zh-Hans": "重新支付",
+      "en": "Pay Again"
+    },
+    "cancelTitle": {
+      "zh-Hans": "支付取消",
+      "en": "Payment Cancelled"
+    },
+    "cancelDesc": {
+      "zh-Hans": "您已取消支付，订单尚未完成",
+      "en": "You cancelled the payment. The order is not completed"
+    },
+    "backToOrder": {
+      "zh-Hans": "返回订单",
+      "en": "Back to Order"
+    }
+  },
+  "followupReminders": {
+    "hint": {
+      "zh-Hans": "在已完成订单中可以创建复诊提醒",
+      "en": "You can create follow-up reminders from completed orders"
+    },
+    "empty": {
+      "zh-Hans": "还没有复诊提醒",
+      "en": "No follow-up reminders yet"
+    },
+    "orderNo": {
+      "zh-Hans": "订单 #{no}",
+      "en": "Order #{no}",
+      "_params": [
+        "no"
+      ]
+    },
+    "cancel": {
+      "zh-Hans": "取消",
+      "en": "Cancel"
+    },
+    "statusPending": {
+      "zh-Hans": "待提醒",
+      "en": "Pending"
+    },
+    "statusSent": {
+      "zh-Hans": "已发送",
+      "en": "Sent"
+    },
+    "statusCancelled": {
+      "zh-Hans": "已取消",
+      "en": "Cancelled"
+    },
+    "statusFailed": {
+      "zh-Hans": "发送失败",
+      "en": "Failed"
+    },
+    "loadFailed": {
+      "zh-Hans": "加载失败",
+      "en": "Failed to load"
+    },
+    "cancelTitle": {
+      "zh-Hans": "取消提醒",
+      "en": "Cancel Reminder"
+    },
+    "cancelConfirm": {
+      "zh-Hans": "确定要取消该提醒吗？",
+      "en": "Cancel this reminder?"
+    },
+    "cancelled": {
+      "zh-Hans": "已取消",
+      "en": "Cancelled"
+    },
+    "cancelFailed": {
+      "zh-Hans": "取消失败",
+      "en": "Failed to cancel"
+    }
+  },
+  "companionHome": {
+    "unreadNotice": {
+      "zh-Hans": "您有 {count} 条未读通知",
+      "en": "You have {count} unread notifications",
+      "_params": [
+        "count"
+      ]
+    },
+    "view": {
+      "zh-Hans": "查看",
+      "en": "View"
+    },
+    "openOrders": {
+      "zh-Hans": "未结订单",
+      "en": "Open Orders"
+    },
+    "totalEarnings": {
+      "zh-Hans": "累计收入(元)",
+      "en": "Total Earnings (CNY)"
+    },
+    "rating": {
+      "zh-Hans": "评分",
+      "en": "Rating"
+    },
+    "pendingOrders": {
+      "zh-Hans": "待接订单",
+      "en": "Pending Orders"
+    },
+    "viewAllPending": {
+      "zh-Hans": "查看全部待接单",
+      "en": "View All Pending"
+    },
+    "viewAllPendingCount": {
+      "zh-Hans": "查看全部 {count} 条待接订单",
+      "en": "View all {count} pending orders",
+      "_params": [
+        "count"
+      ]
+    },
+    "noPending": {
+      "zh-Hans": "暂无待接订单",
+      "en": "No pending orders"
+    }
+  },
+  "availableOrders": {
+    "accept": {
+      "zh-Hans": "接单",
+      "en": "Accept"
+    },
+    "empty": {
+      "zh-Hans": "暂无待接订单",
+      "en": "No pending orders"
+    },
+    "emptySub": {
+      "zh-Hans": "新订单将会在这里显示",
+      "en": "New orders will appear here"
+    },
+    "loadFailed": {
+      "zh-Hans": "加载失败",
+      "en": "Failed to load"
+    },
+    "bindPhoneTitle": {
+      "zh-Hans": "请先绑定手机号",
+      "en": "Bind Phone First"
+    },
+    "bindPhoneContent": {
+      "zh-Hans": "接单前需要绑定手机号，方便患者联系您",
+      "en": "Bind your phone before accepting orders so patients can reach you"
+    },
+    "bindPhoneConfirm": {
+      "zh-Hans": "去绑定",
+      "en": "Bind Now"
+    },
+    "acceptTitle": {
+      "zh-Hans": "确认接单",
+      "en": "Confirm Accept"
+    },
+    "acceptContent": {
+      "zh-Hans": "确定要接受该订单吗？",
+      "en": "Accept this order?"
+    },
+    "acceptConfirm": {
+      "zh-Hans": "确认接单",
+      "en": "Accept"
+    },
+    "acceptSuccess": {
+      "zh-Hans": "接单成功",
+      "en": "Order accepted"
+    },
+    "acceptFailed": {
+      "zh-Hans": "接单失败",
+      "en": "Failed to accept"
+    }
+  },
+  "notification": {
+    "unreadCount": {
+      "zh-Hans": "{count} 条未读",
+      "en": "{count} unread",
+      "_params": [
+        "count"
+      ]
+    },
+    "markAll": {
+      "zh-Hans": "全部已读",
+      "en": "Mark All Read"
+    },
+    "empty": {
+      "zh-Hans": "暂无通知",
+      "en": "No notifications"
+    },
+    "emptyDesc": {
+      "zh-Hans": "有新消息时会第一时间通知您",
+      "en": "We'll notify you as soon as there's news"
+    }
+  },
+  "tabBar": {
+    "workbench": {
+      "zh-Hans": "工作台",
+      "en": "Workbench"
+    },
+    "home": {
+      "zh-Hans": "首页",
+      "en": "Home"
+    },
+    "orders": {
+      "zh-Hans": "订单",
+      "en": "Orders"
+    },
+    "chat": {
+      "zh-Hans": "消息",
+      "en": "Messages"
+    },
+    "profile": {
+      "zh-Hans": "我的",
+      "en": "Me"
     }
   },
   "error": {
