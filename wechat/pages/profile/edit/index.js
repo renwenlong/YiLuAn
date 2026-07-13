@@ -164,9 +164,9 @@ Page({
     getHospitalFilters(params)
       .then(function (res) {
         var rawDistricts = res.districts || []
-        var districts = ['不限'].concat(rawDistricts)
-        var levels = ['不限'].concat(res.levels || [])
-        var tags = ['不限'].concat(res.tags || [])
+        var districts = [i18n.t('profileEdit.unlimited')].concat(rawDistricts)
+        var levels = [i18n.t('profileEdit.unlimited')].concat(res.levels || [])
+        var tags = [i18n.t('profileEdit.unlimited')].concat(res.tags || [])
         self.setData({
           serviceDistricts: rawDistricts,
           allDistricts: districts,
@@ -302,19 +302,19 @@ Page({
       updatePatientProfile(patientData)
         .then(() => {
           this.setData({ saving: false })
-          wx.showToast({ title: '保存成功', icon: 'success' })
+          wx.showToast({ title: i18n.t('profileEdit.saveSuccess'), icon: 'success' })
           setTimeout(function() {
             router.back()
           }, 1500)
         })
         .catch(() => {
           this.setData({ saving: false })
-          wx.showToast({ title: '保存失败', icon: 'none' })
+          wx.showToast({ title: i18n.t('profileEdit.saveFailed'), icon: 'none' })
         })
     } else if (role === 'companion') {
       if (this.data.selectedServiceTypes.length === 0) {
         this.setData({ saving: false })
-        wx.showToast({ title: '请至少选择一种服务类型', icon: 'none' })
+        wx.showToast({ title: i18n.t('profileEdit.selectServiceType'), icon: 'none' })
         return
       }
       var companionData = {
@@ -339,16 +339,16 @@ Page({
           }
           var user = Object.assign({}, state.user, companionFields)
           store.setState({ user: user })
-          wx.showToast({ title: '保存成功', icon: 'success' })
+          wx.showToast({ title: i18n.t('profileEdit.saveSuccess'), icon: 'success' })
           setTimeout(function() {
             router.back()
           }, 1500)
         })
         .catch((err) => {
           this.setData({ saving: false })
-          var msg = '保存失败'
+          var msg = i18n.t('profileEdit.saveFailed')
           if (err && err.data && err.data.detail) {
-            msg = typeof err.data.detail === 'string' ? err.data.detail : '保存失败，请重试'
+            msg = typeof err.data.detail === 'string' ? err.data.detail : i18n.t('profileEdit.saveFailedRetry')
           }
           wx.showToast({ title: msg, icon: 'none' })
         })

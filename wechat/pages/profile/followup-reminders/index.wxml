@@ -1,7 +1,7 @@
 <view class="page">
-  <view class="hint">在已完成订单中可以创建复诊提醒</view>
+  <view class="hint">{{t['followupReminders.hint']}}</view>
 
-  <view class="empty" wx:if="{{!loading && items.length === 0}}">还没有复诊提醒</view>
+  <view class="empty" wx:if="{{!loading && items.length === 0}}">{{t['followupReminders.empty']}}</view>
 
   <view class="card" wx:for="{{items}}" wx:key="id">
     <view class="card-head">
@@ -9,9 +9,9 @@
       <text class="status status-{{item.status}}">{{item.status_label}}</text>
     </view>
     <view class="note" wx:if="{{item.note}}">{{item.note}}</view>
-    <view class="meta">订单 #{{item.order_short}}</view>
+    <view class="meta">{{item.order_no_text}}</view>
     <view class="actions" wx:if="{{item.can_cancel}}">
-      <text class="link link-danger" data-id="{{item.id}}" bindtap="onCancelTap">取消</text>
+      <text class="link link-danger" data-id="{{item.id}}" bindtap="onCancelTap">{{t['followupReminders.cancel']}}</text>
     </view>
   </view>
 </view>
