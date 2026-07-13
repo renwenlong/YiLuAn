@@ -2,9 +2,9 @@
   <view class="login-content">
     <view class="logo-section">
       <view class="logo-placeholder">
-        <text class="logo-text">医路安</text>
+        <text class="logo-text">{{t['login.appName']}}</text>
       </view>
-      <text class="app-description">专业医疗陪诊服务</text>
+      <text class="app-description">{{t['login.appDesc']}}</text>
     </view>
 
     <view class="action-section">
@@ -16,7 +16,7 @@
         disabled="{{loading}}"
         bindtap="onLogin"
       >
-        微信一键登录
+        {{t['login.wechatLogin']}}
       </button>
 
       <!-- 手机号登录 -->
@@ -28,7 +28,7 @@
                 class="form-input phone-input"
                 type="number"
                 maxlength="11"
-                placeholder="请输入手机号"
+                placeholder="{{t['login.inputPhone']}}"
                 value="{{phone}}"
                 bindinput="onPhoneInput"
               />
@@ -37,7 +37,7 @@
                 disabled="{{sendingOTP || countdown > 0}}"
                 bindtap="onSendOTP"
               >
-                {{countdown > 0 ? countdown + 's' : '获取验证码'}}
+                {{countdown > 0 ? countdown + 's' : t['login.getCode']}}
               </button>
             </view>
           </view>
@@ -46,7 +46,7 @@
               class="form-input"
               type="number"
               maxlength="6"
-              placeholder="请输入6位验证码"
+              placeholder="{{t['login.inputCode']}}"
               value="{{code}}"
               bindinput="onCodeInput"
             />
@@ -58,13 +58,13 @@
           disabled="{{loading}}"
           bindtap="onPhoneLogin"
         >
-          登录
+          {{t['login.submit']}}
         </button>
       </view>
 
       <!-- 切换登录方式 -->
       <view class="switch-login" bindtap="onSwitchLoginMode">
-        <text class="switch-login-text">{{showPhoneLogin ? '微信一键登录' : '手机号登录'}}</text>
+        <text class="switch-login-text">{{showPhoneLogin ? t['login.wechatLogin'] : t['login.phoneLogin']}}</text>
       </view>
 
       <!-- 协议勾选 -->
@@ -74,10 +74,10 @@
             <text wx:if="{{agreed}}" class="check-mark">✓</text>
           </view>
           <view class="agreement-text">
-            <text>我已阅读并同意</text>
-            <text class="agreement-link" catchtap="onOpenTerms">《用户协议》</text>
-            <text>和</text>
-            <text class="agreement-link" catchtap="onOpenPrivacy">《隐私政策》</text>
+            <text>{{t['login.agreementPre']}}</text>
+            <text class="agreement-link" catchtap="onOpenTerms">{{t['login.userAgreement']}}</text>
+            <text>{{t['login.and']}}</text>
+            <text class="agreement-link" catchtap="onOpenPrivacy">{{t['login.privacyPolicy']}}</text>
           </view>
         </view>
       </view>

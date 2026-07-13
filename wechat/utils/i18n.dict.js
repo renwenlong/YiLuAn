@@ -263,6 +263,50 @@ module.exports = {
     "codeLabel": {
       "zh-Hans": "验证码",
       "en": "Verification Code"
+    },
+    "appName": {
+      "zh-Hans": "医路安",
+      "en": "YiLuAn"
+    },
+    "appDesc": {
+      "zh-Hans": "专业医疗陪诊服务",
+      "en": "Professional Medical Escort Service"
+    },
+    "wechatLogin": {
+      "zh-Hans": "微信一键登录",
+      "en": "Log in with WeChat"
+    },
+    "phoneLogin": {
+      "zh-Hans": "手机号登录",
+      "en": "Log in with Phone"
+    },
+    "submit": {
+      "zh-Hans": "登录",
+      "en": "Log In"
+    },
+    "inputPhone": {
+      "zh-Hans": "请输入手机号",
+      "en": "Enter phone number"
+    },
+    "inputCode": {
+      "zh-Hans": "请输入6位验证码",
+      "en": "Enter 6-digit code"
+    },
+    "agreementPre": {
+      "zh-Hans": "我已阅读并同意",
+      "en": "I have read and agree to the"
+    },
+    "userAgreement": {
+      "zh-Hans": "《用户协议》",
+      "en": "User Agreement"
+    },
+    "and": {
+      "zh-Hans": "和",
+      "en": "and"
+    },
+    "privacyPolicy": {
+      "zh-Hans": "《隐私政策》",
+      "en": "Privacy Policy"
     }
   },
   "otp": {
@@ -366,6 +410,34 @@ module.exports = {
     "cleared": {
       "zh-Hans": "已清除",
       "en": "Cleared"
+    },
+    "agreeFirst": {
+      "zh-Hans": "请先同意用户协议和隐私政策",
+      "en": "Please agree to the User Agreement and Privacy Policy first"
+    },
+    "loginFailed": {
+      "zh-Hans": "登录失败，请重试",
+      "en": "Login failed, please try again"
+    },
+    "invalidPhone": {
+      "zh-Hans": "请输入正确的手机号",
+      "en": "Please enter a valid phone number"
+    },
+    "codeSent": {
+      "zh-Hans": "验证码已发送",
+      "en": "Verification code sent"
+    },
+    "sendFailed": {
+      "zh-Hans": "发送失败，请重试",
+      "en": "Failed to send, please try again"
+    },
+    "inputCode6": {
+      "zh-Hans": "请输入6位验证码",
+      "en": "Please enter the 6-digit code"
+    },
+    "codeWrongExpired": {
+      "zh-Hans": "验证码错误或已过期",
+      "en": "Code is incorrect or expired"
     }
   },
   "dialog": {
