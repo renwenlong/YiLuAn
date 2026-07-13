@@ -1924,6 +1924,202 @@ module.exports = {
       "en": "Clear cache?"
     }
   },
+  "companionSetup": {
+    "title": {
+      "zh-Hans": "陪诊师注册",
+      "en": "Companion Registration"
+    },
+    "subtitle": {
+      "zh-Hans": "完善您的资料，开始接单",
+      "en": "Complete your profile to start taking orders"
+    },
+    "realName": {
+      "zh-Hans": "真实姓名",
+      "en": "Real Name"
+    },
+    "realNamePlaceholder": {
+      "zh-Hans": "请输入您的真实姓名",
+      "en": "Enter your real name"
+    },
+    "phone": {
+      "zh-Hans": "手机号",
+      "en": "Phone Number"
+    },
+    "phonePlaceholder": {
+      "zh-Hans": "请输入手机号",
+      "en": "Enter phone number"
+    },
+    "phoneVerified": {
+      "zh-Hans": "已验证",
+      "en": "Verified"
+    },
+    "codePlaceholder": {
+      "zh-Hans": "请输入6位验证码",
+      "en": "Enter 6-digit code"
+    },
+    "getCode": {
+      "zh-Hans": "获取验证码",
+      "en": "Get Code"
+    },
+    "verifying": {
+      "zh-Hans": "验证中...",
+      "en": "Verifying..."
+    },
+    "verify": {
+      "zh-Hans": "验证",
+      "en": "Verify"
+    },
+    "serviceType": {
+      "zh-Hans": "服务类型",
+      "en": "Service Type"
+    },
+    "serviceTypeHint": {
+      "zh-Hans": "请选择您可提供的服务类型（可多选）",
+      "en": "Select the service types you can provide (multiple)"
+    },
+    "certifications": {
+      "zh-Hans": "认证资质",
+      "en": "Certifications"
+    },
+    "optional": {
+      "zh-Hans": "选填",
+      "en": "Optional"
+    },
+    "certificationsPlaceholder": {
+      "zh-Hans": "请输入资质证书信息，如护士证、健康管理师证等",
+      "en": "Enter certification info, e.g. nurse license, health manager cert"
+    },
+    "bio": {
+      "zh-Hans": "个人简介",
+      "en": "Bio"
+    },
+    "bioPlaceholder": {
+      "zh-Hans": "介绍一下自己，让患者更了解您",
+      "en": "Introduce yourself so patients know you better"
+    },
+    "serviceDistrict": {
+      "zh-Hans": "服务区域",
+      "en": "Service Area"
+    },
+    "recommend": {
+      "zh-Hans": "推荐",
+      "en": "Recommended"
+    },
+    "serviceDistrictHint": {
+      "zh-Hans": "选择您服务的区域（可多选）",
+      "en": "Select your service areas (multiple)"
+    },
+    "noDistrictData": {
+      "zh-Hans": "暂无区域数据",
+      "en": "No area data"
+    },
+    "locating": {
+      "zh-Hans": "定位中...",
+      "en": "Locating..."
+    },
+    "serviceHospital": {
+      "zh-Hans": "服务医院",
+      "en": "Service Hospitals"
+    },
+    "serviceHospitalHint": {
+      "zh-Hans": "选择您熟悉的医院，方便患者匹配",
+      "en": "Select hospitals you know for better matching"
+    },
+    "searchHospitalPlaceholder": {
+      "zh-Hans": "搜索医院名称",
+      "en": "Search hospital name"
+    },
+    "filterDistrict": {
+      "zh-Hans": "区县",
+      "en": "District"
+    },
+    "filterLevel": {
+      "zh-Hans": "资质",
+      "en": "Level"
+    },
+    "filterTag": {
+      "zh-Hans": "专科",
+      "en": "Specialty"
+    },
+    "loadingHospitals": {
+      "zh-Hans": "加载中...",
+      "en": "Loading..."
+    },
+    "noHospitalData": {
+      "zh-Hans": "暂无医院数据",
+      "en": "No hospital data"
+    },
+    "locationFailed": {
+      "zh-Hans": "定位失败，无法加载医院列表",
+      "en": "Location failed, cannot load hospitals"
+    },
+    "submitting": {
+      "zh-Hans": "提交中...",
+      "en": "Submitting..."
+    },
+    "submit": {
+      "zh-Hans": "完成注册",
+      "en": "Complete Registration"
+    },
+    "selectedHospitalCount": {
+      "zh-Hans": "已选 {count} 家医院",
+      "en": "Selected {count} hospital(s)",
+      "_params": [
+        "count"
+      ]
+    },
+    "cityWrap": {
+      "zh-Hans": "（{city}）",
+      "en": " ({city})",
+      "_params": [
+        "city"
+      ]
+    },
+    "toastPhoneInvalid": {
+      "zh-Hans": "请输入正确手机号",
+      "en": "Please enter a valid phone number"
+    },
+    "toastCodeSent": {
+      "zh-Hans": "验证码已发送",
+      "en": "Code sent"
+    },
+    "toastSendFailed": {
+      "zh-Hans": "发送失败",
+      "en": "Send failed"
+    },
+    "toastCheckPhoneCode": {
+      "zh-Hans": "请检查手机号和验证码",
+      "en": "Please check phone and code"
+    },
+    "toastPhoneVerified": {
+      "zh-Hans": "手机号验证成功",
+      "en": "Phone verified"
+    },
+    "toastVerifyFailedRetry": {
+      "zh-Hans": "验证失败，请重试",
+      "en": "Verification failed, please retry"
+    },
+    "toastNeedRealName": {
+      "zh-Hans": "请输入真实姓名",
+      "en": "Please enter your real name"
+    },
+    "toastNeedPhone": {
+      "zh-Hans": "请先验证手机号",
+      "en": "Please verify phone first"
+    },
+    "toastNeedServiceType": {
+      "zh-Hans": "请至少选择一种服务类型",
+      "en": "Please select at least one service type"
+    },
+    "toastRegisterSuccess": {
+      "zh-Hans": "注册成功",
+      "en": "Registration successful"
+    },
+    "toastRegisterFailed": {
+      "zh-Hans": "注册失败",
+      "en": "Registration failed"
+    }
+  },
   "error": {
     "PHONE_REQUIRED": {
       "zh-Hans": "请先绑定手机号",
