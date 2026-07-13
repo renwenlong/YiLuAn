@@ -3,6 +3,7 @@ import SwiftUI
 @main
 struct YiLuAnApp: App {
     @StateObject private var authViewModel = AuthViewModel()
+    @StateObject private var localizationManager = LocalizationManager.shared
 
     /// S2-INT-006 #2：share deep link 截获后的待处理 token（用 sheet 弹 ShareOTPView）
     @State private var pendingShareToken: String?
@@ -51,6 +52,10 @@ struct YiLuAnApp: App {
                     }
                 }
             }
+            // I18N-DEV-003 (ADR-0063 §5.2)：根视图注入 LocalizationManager，
+            // currentLanguage 变更驱动 SwiftUI 重渲染（即时切换无需重启）。
+            .environmentObject(localizationManager)
+            .environment(\.locale, Locale(identifier: localizationManager.currentLanguage.rawValue))
         }
     }
 }

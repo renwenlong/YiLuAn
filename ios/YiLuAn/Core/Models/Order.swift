@@ -30,6 +30,8 @@ enum OrderStatus: String, Codable {
     case reviewed
     case cancelledByPatient = "cancelled_by_patient"
     case cancelledByCompanion = "cancelled_by_companion"
+    case rejectedByCompanion = "rejected_by_companion"
+    case expired
 
     var displayName: String {
         switch self {
@@ -40,6 +42,8 @@ enum OrderStatus: String, Codable {
         case .reviewed: return "已评价"
         case .cancelledByPatient: return "患者取消"
         case .cancelledByCompanion: return "陪诊师取消"
+        case .rejectedByCompanion: return "陪诊师拒单"
+        case .expired: return "已过期"
         }
     }
 }
