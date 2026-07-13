@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core import error_codes
 from app.core.pii import encrypt_phone, phone_hash
 from app.exceptions import (
     BadRequestException,
@@ -60,9 +61,14 @@ class EmergencyService:
     ) -> EmergencyContact:
         contact = await self.contact_repo.get_by_id(contact_id)
         if contact is None:
-            raise NotFoundException("联系人不存在")
+            raise NotFoundException(
+                "联系人不存在", error_code=error_codes.EMERGENCY_CONTACT_NOT_FOUND
+            )
         if contact.user_id != user_id:
-            raise ForbiddenException("无权操作他人联系人")
+            raise ForbiddenException(
+                "无权操作他人联系人",
+                error_code=error_codes.EMERGENCY_CONTACT_FORBIDDEN,
+            )
         return contact
 
     async def update_contact(

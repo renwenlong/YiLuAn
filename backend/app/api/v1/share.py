@@ -255,7 +255,9 @@ async def send_share_otp(
     except OtpRateLimitedError as exc:
         raise TooManyRequestsException(str(exc)) from exc
     except OtpSendError as exc:
-        raise BadRequestException(str(exc)) from exc
+        raise BadRequestException(
+            str(exc), error_code=error_codes.OTP_SEND_FAILED
+        ) from exc
     return SendOtpResponse(
         sent=True,
         masked_phone=mask_phone_sms(body.phone),
@@ -299,7 +301,9 @@ async def exchange_session(
                 token_value=token, phone=body.phone, code=body.otp
             )
         except OtpInvalidError as exc:
-            raise UnauthorizedException(str(exc)) from exc
+            raise UnauthorizedException(
+                str(exc), error_code=error_codes.OTP_INVALID
+            ) from exc
 
     svc = ShareService(session)
     jwt_str, exp, row = await svc.exchange_session(

@@ -3086,6 +3086,34 @@ module.exports = {
       "zh-Hans": "该功能灰度测试中，暂未对您开放",
       "en": "This feature is in limited testing and not yet available to you",
       "_note": "灰度白名单门"
+    },
+    "ORDER_BROADCAST_NO_REJECT": {
+      "zh-Hans": "广播订单无需拒绝，其他陪诊师仍可接单",
+      "en": "Broadcast orders need no rejection; other companions can still accept"
+    },
+    "PAYMENT_ALREADY_PAID": {
+      "zh-Hans": "订单已支付，请勿重复操作",
+      "en": "Order already paid, please do not repeat"
+    },
+    "REFUND_ALREADY_PROCESSED": {
+      "zh-Hans": "该订单已退款，请勿重复操作",
+      "en": "This order has already been refunded, please do not repeat"
+    },
+    "REFUND_ORDER_NOT_PAID": {
+      "zh-Hans": "原订单未支付成功，无法退款",
+      "en": "The original order was not paid successfully and cannot be refunded"
+    },
+    "OTP_SEND_FAILED": {
+      "zh-Hans": "验证码发送失败，请稍后重试",
+      "en": "Failed to send code, please try again later"
+    },
+    "EMERGENCY_CONTACT_NOT_FOUND": {
+      "zh-Hans": "联系人不存在",
+      "en": "Contact not found"
+    },
+    "EMERGENCY_CONTACT_FORBIDDEN": {
+      "zh-Hans": "无权操作他人联系人",
+      "en": "You are not allowed to operate on others' contacts"
     }
   },
   "legal": {

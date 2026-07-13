@@ -39,6 +39,7 @@ from sqlalchemy import select
 from app.core.admin_auth import (
     require_admin_token,  # noqa: F401  (legacy import retained for downstream consumers)
 )
+from app.core import error_codes
 from app.core.admin_jwt import admin_operator_id, require_admin
 from app.core.pii import mask_phone
 from app.dependencies import DBSession
@@ -584,7 +585,10 @@ async def refund_order(
     pay_repo = PaymentRepository(session)
     original_pay = await pay_repo.get_by_order_and_type(order_id, "pay")
     if original_pay is None or original_pay.status != "success":
-        raise BadRequestException("原订单未支付成功，无法退款")
+        raise BadRequestException(
+            "原订单未支付成功，无法退款",
+            error_code=error_codes.REFUND_ORDER_NOT_PAID,
+        )
 
     try:
         refund_amount = Decimal(body.amount).quantize(Decimal("0.01"))

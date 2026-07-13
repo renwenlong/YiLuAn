@@ -5,6 +5,7 @@ import uuid
 from decimal import ROUND_HALF_UP, Decimal
 
 from app.exceptions import BadRequestException, ForbiddenException
+from app.core import error_codes
 from app.models.order import Order, OrderStatus
 from app.models.user import User, UserRole
 from app.services.dead_letter import record_dead_letter
@@ -99,7 +100,10 @@ class _OrderCancelMixin(_OrderServiceBase):
 
         # For broadcast orders (no companion_id), companion just skips it — no state change
         if order.companion_id is None:
-            raise BadRequestException("广播订单无需拒绝，其他陪诊师仍可接单")
+            raise BadRequestException(
+                "广播订单无需拒绝，其他陪诊师仍可接单",
+                error_code=error_codes.ORDER_BROADCAST_NO_REJECT,
+            )
 
         if order.companion_id != user.id:
             raise ForbiddenException("Not your order")
