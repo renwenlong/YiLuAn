@@ -2143,7 +2143,7 @@ module.exports = {
     },
     "patientInfo": {
       "zh-Hans": "患者信息",
-      "en": "Patient Information"
+      "en": "Patient Info"
     },
     "patientName": {
       "zh-Hans": "患者姓名",
@@ -2183,19 +2183,15 @@ module.exports = {
     },
     "bindPhoneTitle": {
       "zh-Hans": "请先绑定手机号",
-      "en": "Please Bind Phone First"
+      "en": "Please bind your phone first"
     },
     "bindPhoneContent": {
       "zh-Hans": "接单前需要绑定手机号，方便患者联系您",
-      "en": "Binding a phone is required before accepting so patients can reach you"
+      "en": "You need to bind your phone before accepting orders so patients can reach you"
     },
     "bindPhoneConfirm": {
       "zh-Hans": "去绑定",
-      "en": "Go Bind"
-    },
-    "confirmAcceptTitle": {
-      "zh-Hans": "确认接单",
-      "en": "Confirm Acceptance"
+      "en": "Bind Now"
     },
     "acceptConfirmDefault": {
       "zh-Hans": "确定要接受该订单吗？",
@@ -2203,7 +2199,11 @@ module.exports = {
     },
     "acceptConfirmUnpaid": {
       "zh-Hans": "患者暂未支付，是否仍要接单？",
-      "en": "Patient has not paid yet. Accept anyway?"
+      "en": "The patient hasn't paid yet. Accept anyway?"
+    },
+    "confirmAcceptTitle": {
+      "zh-Hans": "确认接单",
+      "en": "Confirm Acceptance"
     },
     "acceptSuccess": {
       "zh-Hans": "接单成功",
@@ -2215,7 +2215,7 @@ module.exports = {
     },
     "notifyStartContent": {
       "zh-Hans": "将通知患者确认开始服务，患者确认后服务正式开始",
-      "en": "The patient will be notified to confirm; service starts once confirmed"
+      "en": "The patient will be notified to confirm the start; service begins after their confirmation"
     },
     "notifyStartConfirm": {
       "zh-Hans": "确认通知",
@@ -2247,7 +2247,7 @@ module.exports = {
     },
     "rejectContent": {
       "zh-Hans": "拒绝后订单将取消，已支付的款项将退还给患者。确定要拒绝吗？",
-      "en": "Rejecting cancels the order and refunds the patient. Reject?"
+      "en": "Rejecting will cancel the order and refund any payment to the patient. Confirm rejection?"
     },
     "rejectConfirm": {
       "zh-Hans": "确认拒绝",
@@ -2263,11 +2263,270 @@ module.exports = {
     },
     "cancelAcceptedContent": {
       "zh-Hans": "取消后订单将退款给患者，确定要取消吗？",
-      "en": "Cancelling refunds the patient. Cancel?"
+      "en": "Cancelling will refund the patient. Confirm cancellation?"
     },
     "cancelAcceptedConfirm": {
       "zh-Hans": "确认取消",
       "en": "Confirm Cancel"
+    }
+  },
+  "companionDetail": {
+    "verified": {
+      "zh-Hans": "已认证",
+      "en": "Verified"
+    },
+    "unverified": {
+      "zh-Hans": "未认证",
+      "en": "Unverified"
+    },
+    "noRating": {
+      "zh-Hans": "暂无评分",
+      "en": "No rating"
+    },
+    "bioTitle": {
+      "zh-Hans": "个人简介",
+      "en": "Bio"
+    },
+    "noBio": {
+      "zh-Hans": "暂无简介",
+      "en": "No bio"
+    },
+    "serviceInfo": {
+      "zh-Hans": "服务信息",
+      "en": "Service Info"
+    },
+    "serviceArea": {
+      "zh-Hans": "服务区域",
+      "en": "Service Area"
+    },
+    "none": {
+      "zh-Hans": "暂无",
+      "en": "N/A"
+    },
+    "completedOrders": {
+      "zh-Hans": "已完成订单",
+      "en": "Completed Orders"
+    },
+    "experience": {
+      "zh-Hans": "从业时间",
+      "en": "Experience"
+    },
+    "expertise": {
+      "zh-Hans": "擅长领域",
+      "en": "Expertise"
+    },
+    "dimensionScores": {
+      "zh-Hans": "服务维度评分",
+      "en": "Dimension Scores"
+    },
+    "dimPunctuality": {
+      "zh-Hans": "守时",
+      "en": "Punctuality"
+    },
+    "dimProfessionalism": {
+      "zh-Hans": "专业",
+      "en": "Professionalism"
+    },
+    "dimCommunication": {
+      "zh-Hans": "沟通",
+      "en": "Communication"
+    },
+    "dimAttitude": {
+      "zh-Hans": "态度",
+      "en": "Attitude"
+    },
+    "reviewsTitle": {
+      "zh-Hans": "用户评价",
+      "en": "Reviews"
+    },
+    "emptyReviews": {
+      "zh-Hans": "期待第一条评价",
+      "en": "Be the first to review"
+    },
+    "book": {
+      "zh-Hans": "预约陪诊",
+      "en": "Book Companion"
+    },
+    "anonymousUser": {
+      "zh-Hans": "匿名用户",
+      "en": "Anonymous"
+    },
+    "loadFailed": {
+      "zh-Hans": "加载失败",
+      "en": "Load failed"
+    },
+    "ratingScore": {
+      "zh-Hans": "{score}分",
+      "en": "{score}",
+      "_params": [
+        "score"
+      ]
+    },
+    "ordersCount": {
+      "zh-Hans": "{count}单",
+      "en": "{count} orders",
+      "_params": [
+        "count"
+      ]
+    }
+  },
+  "certCard": {
+    "title": {
+      "zh-Hans": "陪诊师资质",
+      "en": "Companion Qualification"
+    },
+    "stateVerified": {
+      "zh-Hans": "已认证",
+      "en": "Verified"
+    },
+    "statePending": {
+      "zh-Hans": "临时证明补交中",
+      "en": "Temp proof resubmitting"
+    },
+    "stateUnverified": {
+      "zh-Hans": "未认证",
+      "en": "Unverified"
+    },
+    "labelName": {
+      "zh-Hans": "姓名",
+      "en": "Name"
+    },
+    "labelWorkId": {
+      "zh-Hans": "工号",
+      "en": "Work ID"
+    },
+    "labelQualifications": {
+      "zh-Hans": "资质",
+      "en": "Qualifications"
+    },
+    "labelVerifiedAt": {
+      "zh-Hans": "认证时间",
+      "en": "Verified At"
+    },
+    "qualSeparator": {
+      "zh-Hans": "、",
+      "en": ", "
+    },
+    "hintPending": {
+      "zh-Hans": "陪诊师正在补交临时证明，服务暂停受理。",
+      "en": "The companion is resubmitting temporary proof; service is paused."
+    },
+    "hintUnverified": {
+      "zh-Hans": "陪诊师资质未通过审核。",
+      "en": "The companion's qualification has not passed review."
+    },
+    "ariaHeader": {
+      "zh-Hans": "陪诊师资质，状态：{state}",
+      "en": "Companion qualification, status: {state}",
+      "_params": [
+        "state"
+      ]
+    },
+    "ariaBadge": {
+      "zh-Hans": "陪诊师资质状态：{state}",
+      "en": "Companion qualification status: {state}",
+      "_params": [
+        "state"
+      ]
+    },
+    "ariaName": {
+      "zh-Hans": "陪诊师化名：{name}",
+      "en": "Companion alias: {name}",
+      "_params": [
+        "name"
+      ]
+    },
+    "ariaWorkId": {
+      "zh-Hans": "陪诊师工号：{workId}",
+      "en": "Companion work ID: {workId}",
+      "_params": [
+        "workId"
+      ]
+    },
+    "ariaQualifications": {
+      "zh-Hans": "陪诊师资质：{qualifications}",
+      "en": "Companion qualifications: {qualifications}",
+      "_params": [
+        "qualifications"
+      ]
+    },
+    "ariaVerifiedAt": {
+      "zh-Hans": "认证时间：{time}",
+      "en": "Verified at: {time}",
+      "_params": [
+        "time"
+      ]
+    },
+    "ariaPendingHint": {
+      "zh-Hans": "陪诊师资质临时证明补交中，服务暂停受理",
+      "en": "Companion temporary proof resubmitting, service paused"
+    },
+    "ariaUnverifiedHint": {
+      "zh-Hans": "陪诊师资质未通过审核",
+      "en": "Companion qualification not approved"
+    },
+    "a11yStatePrefix": {
+      "zh-Hans": "状态：{state}",
+      "en": "Status: {state}",
+      "_params": [
+        "state"
+      ]
+    },
+    "a11ySeparator": {
+      "zh-Hans": "，",
+      "en": ". "
+    },
+    "a11yLabelSuffix": {
+      "zh-Hans": "证件原图不会在用户端展示",
+      "en": "Original certificate images are not shown on the user side"
+    },
+    "a11yNameProvided": {
+      "zh-Hans": "姓名：{name}",
+      "en": "Name: {name}",
+      "_params": [
+        "name"
+      ]
+    },
+    "a11yNameMissing": {
+      "zh-Hans": "姓名：未提供",
+      "en": "Name: not provided"
+    },
+    "a11yWorkIdProvided": {
+      "zh-Hans": "工号：{workId}",
+      "en": "Work ID: {workId}",
+      "_params": [
+        "workId"
+      ]
+    },
+    "a11yWorkIdMissing": {
+      "zh-Hans": "工号：未提供",
+      "en": "Work ID: not provided"
+    },
+    "a11yQualProvided": {
+      "zh-Hans": "资质：{quals}",
+      "en": "Qualifications: {quals}",
+      "_params": [
+        "quals"
+      ]
+    },
+    "a11yQualMissing": {
+      "zh-Hans": "资质：未提供",
+      "en": "Qualifications: not provided"
+    },
+    "a11yVerifiedAtProvided": {
+      "zh-Hans": "认证时间：{time}",
+      "en": "Verified at: {time}",
+      "_params": [
+        "time"
+      ]
+    },
+    "a11yVerifiedAtMissing": {
+      "zh-Hans": "认证时间：未提供",
+      "en": "Verified at: not provided"
+    },
+    "a11yVerifiedAtPending": {
+      "zh-Hans": "认证时间：待认证",
+      "en": "Verified at: pending"
     }
   },
   "error": {
@@ -2351,265 +2610,6 @@ module.exports = {
       "zh-Hans": "该功能灰度测试中，暂未对您开放",
       "en": "This feature is in limited testing and not yet available to you",
       "_note": "灰度白名单门"
-    }
-  },
-  "companionDetail": {
-    "verified": {
-      "zh-Hans": "已认证",
-      "en": "Verified"
-    },
-    "unverified": {
-      "zh-Hans": "未认证",
-      "en": "Unverified"
-    },
-    "ratingScore": {
-      "zh-Hans": "{score}分",
-      "en": "{score}",
-      "_params": [
-        "score"
-      ]
-    },
-    "noRating": {
-      "zh-Hans": "暂无评分",
-      "en": "No rating yet"
-    },
-    "bioTitle": {
-      "zh-Hans": "个人简介",
-      "en": "Bio"
-    },
-    "noBio": {
-      "zh-Hans": "暂无简介",
-      "en": "No bio provided"
-    },
-    "serviceInfo": {
-      "zh-Hans": "服务信息",
-      "en": "Service Info"
-    },
-    "serviceArea": {
-      "zh-Hans": "服务区域",
-      "en": "Service Area"
-    },
-    "none": {
-      "zh-Hans": "暂无",
-      "en": "None"
-    },
-    "completedOrders": {
-      "zh-Hans": "已完成订单",
-      "en": "Completed Orders"
-    },
-    "ordersCount": {
-      "zh-Hans": "{count}单",
-      "en": "{count} orders",
-      "_params": [
-        "count"
-      ]
-    },
-    "experience": {
-      "zh-Hans": "从业时间",
-      "en": "Experience"
-    },
-    "expertise": {
-      "zh-Hans": "擅长领域",
-      "en": "Expertise"
-    },
-    "dimensionScores": {
-      "zh-Hans": "服务维度评分",
-      "en": "Service Dimension Ratings"
-    },
-    "dimPunctuality": {
-      "zh-Hans": "守时",
-      "en": "Punctuality"
-    },
-    "dimProfessionalism": {
-      "zh-Hans": "专业",
-      "en": "Professionalism"
-    },
-    "dimCommunication": {
-      "zh-Hans": "沟通",
-      "en": "Communication"
-    },
-    "dimAttitude": {
-      "zh-Hans": "态度",
-      "en": "Attitude"
-    },
-    "reviewsTitle": {
-      "zh-Hans": "用户评价",
-      "en": "User Reviews"
-    },
-    "emptyReviews": {
-      "zh-Hans": "期待第一条评价",
-      "en": "Be the first to review"
-    },
-    "book": {
-      "zh-Hans": "预约陪诊",
-      "en": "Book Companion"
-    },
-    "anonymousUser": {
-      "zh-Hans": "匿名用户",
-      "en": "Anonymous"
-    },
-    "loadFailed": {
-      "zh-Hans": "加载失败",
-      "en": "Failed to load"
-    }
-  },
-  "certCard": {
-    "title": {
-      "zh-Hans": "陪诊师资质",
-      "en": "Companion Credentials"
-    },
-    "stateVerified": {
-      "zh-Hans": "已认证",
-      "en": "Verified"
-    },
-    "statePending": {
-      "zh-Hans": "临时证明补交中",
-      "en": "Interim proof pending"
-    },
-    "stateUnverified": {
-      "zh-Hans": "未认证",
-      "en": "Unverified"
-    },
-    "labelName": {
-      "zh-Hans": "姓名",
-      "en": "Name"
-    },
-    "labelWorkId": {
-      "zh-Hans": "工号",
-      "en": "Staff ID"
-    },
-    "labelQualifications": {
-      "zh-Hans": "资质",
-      "en": "Qualifications"
-    },
-    "labelVerifiedAt": {
-      "zh-Hans": "认证时间",
-      "en": "Verified At"
-    },
-    "hintPending": {
-      "zh-Hans": "陪诊师正在补交临时证明, 服务暂停受理.",
-      "en": "The companion is submitting interim proof; service is temporarily paused."
-    },
-    "hintUnverified": {
-      "zh-Hans": "陪诊师资质未通过审核.",
-      "en": "The companion credentials did not pass review."
-    },
-    "ariaHeader": {
-      "zh-Hans": "陪诊师资质，状态：{state}",
-      "en": "Companion credentials, status: {state}",
-      "_params": [
-        "state"
-      ]
-    },
-    "ariaBadge": {
-      "zh-Hans": "陪诊师资质状态：{state}",
-      "en": "Companion credential status: {state}",
-      "_params": [
-        "state"
-      ]
-    },
-    "ariaName": {
-      "zh-Hans": "陪诊师化名：{name}",
-      "en": "Companion alias: {name}",
-      "_params": [
-        "name"
-      ]
-    },
-    "ariaWorkId": {
-      "zh-Hans": "陪诊师工号：{workId}",
-      "en": "Companion staff ID: {workId}",
-      "_params": [
-        "workId"
-      ]
-    },
-    "ariaQualifications": {
-      "zh-Hans": "陪诊师资质：{quals}",
-      "en": "Companion qualifications: {quals}",
-      "_params": [
-        "quals"
-      ]
-    },
-    "ariaVerifiedAt": {
-      "zh-Hans": "认证时间：{time}",
-      "en": "Verified at: {time}",
-      "_params": [
-        "time"
-      ]
-    },
-    "ariaPendingHint": {
-      "zh-Hans": "陪诊师资质临时证明补交中，服务暂停受理",
-      "en": "Companion interim proof pending; service temporarily paused"
-    },
-    "ariaUnverifiedHint": {
-      "zh-Hans": "陪诊师资质未通过审核",
-      "en": "Companion credentials did not pass review"
-    },
-    "a11yStatePrefix": {
-      "zh-Hans": "状态：{state}",
-      "en": "Status: {state}",
-      "_params": [
-        "state"
-      ]
-    },
-    "a11yNameProvided": {
-      "zh-Hans": "姓名：{name}",
-      "en": "Name: {name}",
-      "_params": [
-        "name"
-      ]
-    },
-    "a11yNameMissing": {
-      "zh-Hans": "姓名未提供",
-      "en": "Name not provided"
-    },
-    "a11yWorkIdProvided": {
-      "zh-Hans": "工号：{workId}",
-      "en": "Staff ID: {workId}",
-      "_params": [
-        "workId"
-      ]
-    },
-    "a11yWorkIdMissing": {
-      "zh-Hans": "工号未提供",
-      "en": "Staff ID not provided"
-    },
-    "a11yQualProvided": {
-      "zh-Hans": "资质：{quals}",
-      "en": "Qualifications: {quals}",
-      "_params": [
-        "quals"
-      ]
-    },
-    "a11yQualMissing": {
-      "zh-Hans": "资质未提供",
-      "en": "Qualifications not provided"
-    },
-    "a11yVerifiedAtProvided": {
-      "zh-Hans": "认证时间：{time}",
-      "en": "Verified at: {time}",
-      "_params": [
-        "time"
-      ]
-    },
-    "a11yVerifiedAtMissing": {
-      "zh-Hans": "认证时间未提供",
-      "en": "Verified time not provided"
-    },
-    "a11yVerifiedAtPending": {
-      "zh-Hans": "认证时间待核验",
-      "en": "Verified time pending"
-    },
-    "a11yLabelSuffix": {
-      "zh-Hans": "证件原图不会在用户端展示。",
-      "en": "Original certificate images are never shown to users."
-    },
-    "qualSeparator": {
-      "zh-Hans": "、",
-      "en": ", "
-    },
-    "a11ySeparator": {
-      "zh-Hans": "；",
-      "en": "; "
     }
   }
 }
