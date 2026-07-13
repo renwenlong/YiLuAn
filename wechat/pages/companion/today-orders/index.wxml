@@ -14,11 +14,11 @@
   <empty-state
     wx:if="{{!loading && orders.length === 0}}"
     icon="order"
-    text="暂无今日订单"
-    subText="接单后订单将显示在这里"
+    text="{{t['order.todayEmpty']}}"
+    subText="{{t['order.todayEmptySub']}}"
   />
 
   <view class="load-more" wx:if="{{loading && orders.length > 0}}">
-    <text>加载中...</text>
+    <text>{{t['common.loading']}}</text>
   </view>
 </view>

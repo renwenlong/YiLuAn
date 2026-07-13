@@ -1,8 +1,12 @@
 const router = require('../../../utils/router')
 const { getOrders } = require('../../../services/order')
+const i18n = require('../../../utils/i18n')
+const i18nBehavior = require('../../../behaviors/i18n')
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['chat'],
     conversations: [],
     loading: false
   },
@@ -40,9 +44,9 @@ Page({
 
   _orderToConversation(order) {
     // Companion sees patient name + hospital
-    var name = '聊天'
+    var name = i18n.t('chat.defaultName')
     if (order.patient_name) {
-      name = '患者·' + order.patient_name
+      name = i18n.t('chat.patientPrefix', { name: order.patient_name })
     }
     if (order.hospital_name) {
       name = name + ' - ' + order.hospital_name
@@ -50,7 +54,7 @@ Page({
     return {
       id: order.id,
       name: name,
-      lastMessage: order.status === 'completed' ? '订单已完成' : '点击进入聊天',
+      lastMessage: order.status === 'completed' ? i18n.t('chat.hintCompleted') : i18n.t('chat.tapToEnter'),
       lastTime: order.appointment_date || '',
       unreadCount: 0,
     }

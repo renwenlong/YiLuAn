@@ -243,6 +243,18 @@ module.exports = {
       "zh-Hans": "已取消",
       "en": "Cancelled"
     },
+    "tabAccepted": {
+      "zh-Hans": "已接单",
+      "en": "Accepted"
+    },
+    "todayEmpty": {
+      "zh-Hans": "暂无今日订单",
+      "en": "No orders today"
+    },
+    "todayEmptySub": {
+      "zh-Hans": "接单后订单将显示在这里",
+      "en": "Accepted orders will appear here"
+    },
     "noMore": {
       "zh-Hans": "没有更多了",
       "en": "No more"
@@ -1784,6 +1796,17 @@ module.exports = {
     "acceptOrder": {
       "zh-Hans": "接受订单",
       "en": "Accept Order"
+    },
+    "patientPrefix": {
+      "zh-Hans": "患者·{name}",
+      "en": "Patient·{name}",
+      "_params": [
+        "name"
+      ]
+    },
+    "companionEmptyHint": {
+      "zh-Hans": "接单后可与患者沟通",
+      "en": "Chat with patients after accepting orders"
     }
   },
   "city": {
@@ -2915,6 +2938,43 @@ module.exports = {
     "profile": {
       "zh-Hans": "我的",
       "en": "Me"
+    }
+  },
+  "companionCard": {
+    "noRating": {
+      "zh-Hans": "暂无评分",
+      "en": "No rating"
+    },
+    "completedCount": {
+      "zh-Hans": "已完成 {count} 单",
+      "en": "{count} completed",
+      "_params": [
+        "count"
+      ]
+    },
+    "book": {
+      "zh-Hans": "预约",
+      "en": "Book"
+    }
+  },
+  "networkBanner": {
+    "unstable": {
+      "zh-Hans": "网络不稳定，部分功能可能受影响",
+      "en": "Network unstable, some features may be affected"
+    },
+    "retry": {
+      "zh-Hans": "点此重试",
+      "en": "Tap to retry"
+    }
+  },
+  "emptyState": {
+    "defaultText": {
+      "zh-Hans": "暂无数据",
+      "en": "No data"
+    },
+    "defaultIcon": {
+      "zh-Hans": "空",
+      "en": "∅"
     }
   },
   "error": {
