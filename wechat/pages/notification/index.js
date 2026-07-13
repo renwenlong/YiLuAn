@@ -1,6 +1,8 @@
 const { getNotifications, getUnreadCount, markRead, markAllRead } = require('../../services/notification')
 const store = require('../../store/index')
 const router = require('../../utils/router')
+const i18n = require('../../utils/i18n')
+const i18nBehavior = require('../../behaviors/i18n')
 
 /**
  * [F-02] 根据通知的 target_type/target_id 计算跳转 URL。
@@ -53,9 +55,12 @@ function getNavigationUrl(notification) {
 }
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'notification'],
     notifications: [],
     unreadCount: 0,
+    unreadCountText: '',
     loading: false,
     page: 1,
     hasMore: true,
@@ -90,7 +95,11 @@ Page({
   fetchUnreadCount() {
     getUnreadCount()
       .then(res => {
-        this.setData({ unreadCount: res.count || 0 })
+        const count = res.count || 0
+        this.setData({
+          unreadCount: count,
+          unreadCountText: count > 0 ? i18n.t('notification.unreadCount', { count: count }) : ''
+        })
       })
       .catch(() => {})
   },

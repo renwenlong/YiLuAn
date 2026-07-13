@@ -1,10 +1,16 @@
 const router = require('../../utils/router')
+const i18nBehavior = require('../../behaviors/i18n')
 Component({
+  behaviors: [i18nBehavior],
   properties: {
     active: {
       type: String,
       value: 'home'
     }
+  },
+
+  data: {
+    i18nScopes: ['tabBar']
   },
 
   methods: {
