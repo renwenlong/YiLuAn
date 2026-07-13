@@ -14,7 +14,7 @@
           class="btn-accept"
           data-id="{{item.id}}"
           catchtap="onAccept"
-        >接单</button>
+        >{{t['availableOrders.accept']}}</button>
       </view>
     </view>
   </view>
@@ -23,15 +23,15 @@
   <empty-state
     wx:if="{{!loading && orders.length === 0}}"
     icon="order"
-    text="暂无待接订单"
-    subText="新订单将会在这里显示"
+    text="{{t['availableOrders.empty']}}"
+    subText="{{t['availableOrders.emptySub']}}"
   />
 
   <!-- Load More -->
   <view class="load-more" wx:if="{{loading && orders.length > 0}}">
-    <text>加载中...</text>
+    <text>{{t['common.loading']}}</text>
   </view>
   <view class="no-more" wx:if="{{!hasMore && orders.length > 0}}">
-    <text>没有更多了</text>
+    <text>{{t['common.noMore']}}</text>
   </view>
 </view>
