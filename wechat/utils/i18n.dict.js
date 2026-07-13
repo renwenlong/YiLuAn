@@ -350,6 +350,171 @@ module.exports = {
       ]
     }
   },
+  "createOrder": {
+    "hugeFont": {
+      "zh-Hans": "巨字号",
+      "en": "Large Font"
+    },
+    "notSelected": {
+      "zh-Hans": "未选择",
+      "en": "Not selected"
+    },
+    "nextStep": {
+      "zh-Hans": "下一步",
+      "en": "Next"
+    },
+    "serviceFallback": {
+      "zh-Hans": "⚠️ 服务列表已降级，使用默认 3 档",
+      "en": "⚠️ Service list degraded, using 3 default tiers"
+    },
+    "stepService": {
+      "zh-Hans": "服务类型",
+      "en": "Service Type"
+    },
+    "stepHospital": {
+      "zh-Hans": "医院",
+      "en": "Hospital"
+    },
+    "stepDate": {
+      "zh-Hans": "日期",
+      "en": "Date"
+    },
+    "stepPatient": {
+      "zh-Hans": "患者与陪诊师",
+      "en": "Patient & Companion"
+    },
+    "change": {
+      "zh-Hans": "更换",
+      "en": "Change"
+    },
+    "selectHospital": {
+      "zh-Hans": "选择医院",
+      "en": "Select Hospital"
+    },
+    "department": {
+      "zh-Hans": "科室（可选）",
+      "en": "Department (optional)"
+    },
+    "noDepartment": {
+      "zh-Hans": "不选择科室",
+      "en": "No department"
+    },
+    "dateLabel": {
+      "zh-Hans": "日期",
+      "en": "Date"
+    },
+    "selectDate": {
+      "zh-Hans": "请选择日期",
+      "en": "Select a date"
+    },
+    "period": {
+      "zh-Hans": "时段",
+      "en": "Period"
+    },
+    "morning": {
+      "zh-Hans": "上午",
+      "en": "Morning"
+    },
+    "afternoon": {
+      "zh-Hans": "下午",
+      "en": "Afternoon"
+    },
+    "orderFor": {
+      "zh-Hans": "给谁下单",
+      "en": "Order for"
+    },
+    "manageFamily": {
+      "zh-Hans": "管理家人",
+      "en": "Manage Family"
+    },
+    "assignCompanion": {
+      "zh-Hans": "指定陪诊师",
+      "en": "Assigned Companion"
+    },
+    "reselect": {
+      "zh-Hans": "重新选择",
+      "en": "Reselect"
+    },
+    "completedOrders": {
+      "zh-Hans": "已完成 {count} 单",
+      "en": "{count} orders completed",
+      "_params": [
+        "count"
+      ]
+    },
+    "notesOptional": {
+      "zh-Hans": "备注（可选）",
+      "en": "Notes (optional)"
+    },
+    "notesPlaceholder": {
+      "zh-Hans": "请描述您的需求，如症状等",
+      "en": "Describe your needs, e.g. symptoms"
+    },
+    "confirmOrder": {
+      "zh-Hans": "确认下单",
+      "en": "Confirm Order"
+    },
+    "selectCompanion": {
+      "zh-Hans": "选择陪诊师",
+      "en": "Select Companion"
+    },
+    "verified": {
+      "zh-Hans": "已认证",
+      "en": "Verified"
+    },
+    "noMatchCompanion": {
+      "zh-Hans": "暂无匹配的陪诊师",
+      "en": "No matching companions"
+    },
+    "finishStepFirst": {
+      "zh-Hans": "请先完成本步",
+      "en": "Please complete this step first"
+    },
+    "confirmBack": {
+      "zh-Hans": "是否回改？",
+      "en": "Go back to edit?"
+    },
+    "confirmBackContent": {
+      "zh-Hans": "下游已选数据将保留",
+      "en": "Your later selections will be kept"
+    },
+    "missingService": {
+      "zh-Hans": "缺少服务类型",
+      "en": "Service type missing"
+    },
+    "missingHospital": {
+      "zh-Hans": "缺少医院信息",
+      "en": "Hospital info missing"
+    },
+    "selectDateTime": {
+      "zh-Hans": "请选择日期和时间",
+      "en": "Please select date and time"
+    },
+    "bindPhoneTitle": {
+      "zh-Hans": "请先绑定手机号",
+      "en": "Bind your phone number first"
+    },
+    "bindPhoneContent": {
+      "zh-Hans": "下单前需要绑定手机号，方便陪诊师联系您",
+      "en": "You need to bind a phone number before ordering so the companion can contact you"
+    },
+    "goBind": {
+      "zh-Hans": "去绑定",
+      "en": "Bind Now"
+    },
+    "orderSuccess": {
+      "zh-Hans": "订单创建成功",
+      "en": "Order created successfully"
+    },
+    "createFailed": {
+      "zh-Hans": "创建失败",
+      "en": "Failed to create order"
+    },
+    "self": {
+      "zh-Hans": "本人",
+      "en": "Myself"
+    }
+  },
   "home": {
     "title": {
       "zh-Hans": "首页",
