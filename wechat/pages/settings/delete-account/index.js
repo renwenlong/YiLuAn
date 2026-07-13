@@ -3,9 +3,13 @@ const router = require('../../../utils/router')
 var { sendOTP } = require('../../../services/auth')
 var { deleteAccount } = require('../../../services/user')
 var { clearTokens } = require('../../../utils/token')
+const i18n = require('../../../utils/i18n')
+const i18nBehavior = require('../../../behaviors/i18n')
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'deleteAccount'],
     phone: '',
     phoneMask: '',
     code: '',
@@ -57,15 +61,15 @@ Page({
     var self = this
     if (self.data.countdown > 0) return
     if (!self.data.phone) {
-      wx.showToast({ title: '未绑定手机号', icon: 'none' })
+      wx.showToast({ title: i18n.t('deleteAccount.noPhone'), icon: 'none' })
       return
     }
 
-    wx.showLoading({ title: '发送中...' })
+    wx.showLoading({ title: i18n.t('deleteAccount.sending') })
     sendOTP(self.data.phone)
       .then(function () {
         wx.hideLoading()
-        wx.showToast({ title: '验证码已发送', icon: 'none' })
+        wx.showToast({ title: i18n.t('deleteAccount.codeSent'), icon: 'none' })
         self.setData({ countdown: 60 })
         self._timer = setInterval(function () {
           var c = self.data.countdown - 1
@@ -78,7 +82,7 @@ Page({
       })
       .catch(function () {
         wx.hideLoading()
-        wx.showToast({ title: '发送失败，请稍后重试', icon: 'none' })
+        wx.showToast({ title: i18n.t('deleteAccount.sendFailed'), icon: 'none' })
       })
   },
 
@@ -120,14 +124,14 @@ Page({
   _doDelete: function () {
     var self = this
     self.setData({ submitting: true })
-    wx.showLoading({ title: '注销中...' })
+    wx.showLoading({ title: i18n.t('deleteAccount.deleting') })
 
     deleteAccount(self.data.code)
       .then(function () {
         wx.hideLoading()
         clearTokens()
         store.reset()
-        wx.showToast({ title: '账号已注销', icon: 'success', duration: 2000 })
+        wx.showToast({ title: i18n.t('deleteAccount.deleted'), icon: 'success', duration: 2000 })
         setTimeout(function () {
           router.relaunch({ url: '/pages/login/index' })
         }, 1500)
@@ -135,7 +139,7 @@ Page({
       .catch(function (err) {
         wx.hideLoading()
         self.setData({ submitting: false })
-        var msg = '注销失败，请稍后重试'
+        var msg = i18n.t('deleteAccount.deleteFailed')
         if (err && err.data && err.data.detail) {
           msg = err.data.detail
         }

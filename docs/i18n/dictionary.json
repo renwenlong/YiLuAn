@@ -12,2610 +12,746 @@
     "authority_note": "orderStatus.* 以 ADR-0063 §3.3 backend SSoT (backend/app/models/order.py OrderStatus, 9 codes) 为唯一基准，不含 in_service(幻影,真码 in_progress)、不含 orderStatus.refunded(退款归 refundState)。error.* 覆盖 backend/app/core/error_codes.py __all__ 全 19 码。",
     "version": "1.0.0"
   },
+
   "common": {
-    "confirm": {
-      "zh-Hans": "确认",
-      "en": "Confirm"
-    },
-    "cancel": {
-      "zh-Hans": "取消",
-      "en": "Cancel"
-    },
-    "submit": {
-      "zh-Hans": "提交",
-      "en": "Submit"
-    },
-    "back": {
-      "zh-Hans": "返回",
-      "en": "Back"
-    },
-    "save": {
-      "zh-Hans": "保存",
-      "en": "Save"
-    },
-    "delete": {
-      "zh-Hans": "删除",
-      "en": "Delete"
-    },
-    "edit": {
-      "zh-Hans": "编辑",
-      "en": "Edit"
-    },
-    "loading": {
-      "zh-Hans": "加载中...",
-      "en": "Loading..."
-    },
-    "notSet": {
-      "zh-Hans": "未设置",
-      "en": "Not Set"
-    },
-    "notBound": {
-      "zh-Hans": "未绑定",
-      "en": "Not Bound"
-    },
-    "retry": {
-      "zh-Hans": "重试",
-      "en": "Retry"
-    }
+    "confirm": { "zh-Hans": "确认", "en": "Confirm" },
+    "cancel": { "zh-Hans": "取消", "en": "Cancel" },
+    "submit": { "zh-Hans": "提交", "en": "Submit" },
+    "back": { "zh-Hans": "返回", "en": "Back" },
+    "save": { "zh-Hans": "保存", "en": "Save" },
+    "delete": { "zh-Hans": "删除", "en": "Delete" },
+    "edit": { "zh-Hans": "编辑", "en": "Edit" },
+    "loading": { "zh-Hans": "加载中...", "en": "Loading..." },
+    "notSet": { "zh-Hans": "未设置", "en": "Not Set" },
+    "notBound": { "zh-Hans": "未绑定", "en": "Not Bound" },
+    "retry": { "zh-Hans": "重试", "en": "Retry" }
   },
+
   "settings": {
-    "title": {
-      "zh-Hans": "设置",
-      "en": "Settings"
-    },
-    "language": {
-      "zh-Hans": "语言",
-      "en": "Language"
-    },
-    "languageZh": {
-      "zh-Hans": "简体中文",
-      "en": "简体中文"
-    },
-    "languageEn": {
-      "zh-Hans": "English",
-      "en": "English"
-    },
-    "general": {
-      "zh-Hans": "通用",
-      "en": "General"
-    },
-    "version": {
-      "zh-Hans": "版本",
-      "en": "Version"
-    },
-    "clearCache": {
-      "zh-Hans": "清除缓存",
-      "en": "Clear Cache"
-    },
-    "privacyPolicy": {
-      "zh-Hans": "隐私政策",
-      "en": "Privacy Policy"
-    },
-    "termsOfService": {
-      "zh-Hans": "用户协议",
-      "en": "Terms of Service"
-    },
-    "logout": {
-      "zh-Hans": "退出登录",
-      "en": "Log Out"
-    },
-    "myCity": {
-      "zh-Hans": "我的城市",
-      "en": "My City"
-    },
-    "myPhone": {
-      "zh-Hans": "我的手机号",
-      "en": "My Phone"
-    },
-    "about": {
-      "zh-Hans": "关于",
-      "en": "About"
-    },
-    "deleteAccount": {
-      "zh-Hans": "注销账号",
-      "en": "Delete Account"
-    },
-    "selectCity": {
-      "zh-Hans": "选择城市",
-      "en": "Select City"
-    },
-    "autoLocate": {
-      "zh-Hans": "自动定位",
-      "en": "Auto Locate"
-    },
-    "availableCities": {
-      "zh-Hans": "可选城市",
-      "en": "Available Cities"
-    }
+    "title": { "zh-Hans": "设置", "en": "Settings" },
+    "language": { "zh-Hans": "语言", "en": "Language" },
+    "languageZh": { "zh-Hans": "简体中文", "en": "简体中文" },
+    "languageEn": { "zh-Hans": "English", "en": "English" },
+    "general": { "zh-Hans": "通用", "en": "General" },
+    "version": { "zh-Hans": "版本", "en": "Version" },
+    "clearCache": { "zh-Hans": "清除缓存", "en": "Clear Cache" },
+    "privacyPolicy": { "zh-Hans": "隐私政策", "en": "Privacy Policy" },
+    "termsOfService": { "zh-Hans": "用户协议", "en": "Terms of Service" },
+    "logout": { "zh-Hans": "退出登录", "en": "Log Out" },
+    "myCity": { "zh-Hans": "我的城市", "en": "My City" },
+    "myPhone": { "zh-Hans": "我的手机号", "en": "My Phone" },
+    "about": { "zh-Hans": "关于", "en": "About" },
+    "deleteAccount": { "zh-Hans": "注销账号", "en": "Delete Account" },
+    "selectCity": { "zh-Hans": "选择城市", "en": "Select City" },
+    "autoLocate": { "zh-Hans": "自动定位", "en": "Auto Locate" },
+    "availableCities": { "zh-Hans": "可选城市", "en": "Available Cities" }
   },
+
   "role": {
-    "patient": {
-      "zh-Hans": "患者",
-      "en": "Patient"
-    },
-    "companion": {
-      "zh-Hans": "陪诊师",
-      "en": "Companion"
-    },
-    "familyMember": {
-      "zh-Hans": "家属",
-      "en": "Family Member"
-    },
-    "switchTo": {
-      "zh-Hans": "切换为{targetRole}",
-      "en": "Switch to {targetRole}",
-      "_params": [
-        "targetRole"
-      ]
-    },
-    "current": {
-      "zh-Hans": "当前：{role}",
-      "en": "Current: {role}",
-      "_params": [
-        "role"
-      ]
-    },
-    "selectTitle": {
-      "zh-Hans": "选择您的身份",
-      "en": "Select Your Role"
-    },
-    "selectSubtitle": {
-      "zh-Hans": "请选择您的使用身份，后续可在设置中更改",
-      "en": "Choose how you'll use the app. You can change this later in Settings."
-    },
-    "iamPatient": {
-      "zh-Hans": "我是患者",
-      "en": "I'm a Patient"
-    },
-    "iamCompanion": {
-      "zh-Hans": "我是陪诊师",
-      "en": "I'm a Companion"
-    },
-    "patientDesc": {
-      "zh-Hans": "寻找专业陪诊师",
-      "en": "Find a professional companion"
-    },
-    "companionDesc": {
-      "zh-Hans": "接单赚取收入",
-      "en": "Take orders and earn income"
-    },
-    "patientBadge": {
-      "zh-Hans": "患",
-      "en": "P"
-    },
-    "companionBadge": {
-      "zh-Hans": "陪",
-      "en": "C"
-    }
+    "patient": { "zh-Hans": "患者", "en": "Patient" },
+    "companion": { "zh-Hans": "陪诊师", "en": "Companion" },
+    "familyMember": { "zh-Hans": "家属", "en": "Family Member" },
+    "switchTo": { "zh-Hans": "切换为{targetRole}", "en": "Switch to {targetRole}", "_params": ["targetRole"] },
+    "current": { "zh-Hans": "当前：{role}", "en": "Current: {role}", "_params": ["role"] },
+    "selectTitle": { "zh-Hans": "选择您的身份", "en": "Select Your Role" },
+    "selectSubtitle": { "zh-Hans": "请选择您的使用身份，后续可在设置中更改", "en": "Choose how you'll use the app. You can change this later in Settings." },
+    "iamPatient": { "zh-Hans": "我是患者", "en": "I'm a Patient" },
+    "iamCompanion": { "zh-Hans": "我是陪诊师", "en": "I'm a Companion" },
+    "patientDesc": { "zh-Hans": "寻找专业陪诊师", "en": "Find a professional companion" },
+    "companionDesc": { "zh-Hans": "接单赚取收入", "en": "Take orders and earn income" },
+    "patientBadge": { "zh-Hans": "患", "en": "P" },
+    "companionBadge": { "zh-Hans": "陪", "en": "C" }
   },
+
   "order": {
-    "title": {
-      "zh-Hans": "订单",
-      "en": "Order"
-    },
-    "wallet": {
-      "zh-Hans": "钱包",
-      "en": "Wallet"
-    },
-    "hospital": {
-      "zh-Hans": "医院",
-      "en": "Hospital"
-    },
-    "emergencyContact": {
-      "zh-Hans": "紧急联系人",
-      "en": "Emergency Contact"
-    },
-    "myOrders": {
-      "zh-Hans": "我的订单",
-      "en": "My Orders"
-    },
-    "noOrders": {
-      "zh-Hans": "暂无订单",
-      "en": "No Orders"
-    },
-    "emptyHint": {
-      "zh-Hans": "下单后可在此查看进度",
-      "en": "Track your order progress here after booking"
-    },
-    "countUnit": {
-      "zh-Hans": "{count} 个订单",
-      "en": "{count} order(s)",
-      "_params": [
-        "count"
-      ],
-      "_note": "English 单复数本期采 order(s) 折中 (PRD §7.5 已接受，AC-5 认可)"
-    },
-    "tabAll": {
-      "zh-Hans": "全部",
-      "en": "All"
-    },
-    "tabPending": {
-      "zh-Hans": "待接单",
-      "en": "Pending"
-    },
-    "tabInProgress": {
-      "zh-Hans": "进行中",
-      "en": "In Progress"
-    },
-    "tabCompleted": {
-      "zh-Hans": "已完成",
-      "en": "Completed"
-    },
-    "tabCancelled": {
-      "zh-Hans": "已取消",
-      "en": "Cancelled"
-    },
-    "noMore": {
-      "zh-Hans": "没有更多了",
-      "en": "No more"
-    },
-    "loadFailed": {
-      "zh-Hans": "加载失败",
-      "en": "Failed to load"
-    },
-    "emptyIcon": {
-      "zh-Hans": "单",
-      "en": "📋"
-    },
-    "rowHospital": {
-      "zh-Hans": "医院",
-      "en": "Hospital"
-    },
-    "rowTime": {
-      "zh-Hans": "时间",
-      "en": "Time"
-    },
-    "rowPatient": {
-      "zh-Hans": "患者",
-      "en": "Patient"
-    },
-    "rowActualPatient": {
-      "zh-Hans": "实际就诊人",
-      "en": "Actual Patient"
-    },
-    "payHint": {
-      "zh-Hans": "待支付",
-      "en": "To Pay"
-    },
-    "reviewHint": {
-      "zh-Hans": "待评价",
-      "en": "To Review"
-    },
-    "reviewedHint": {
-      "zh-Hans": "已评价",
-      "en": "Reviewed"
-    },
-    "statusUnknown": {
-      "zh-Hans": "未知",
-      "en": "Unknown"
-    }
+    "title": { "zh-Hans": "订单", "en": "Order" },
+    "wallet": { "zh-Hans": "钱包", "en": "Wallet" },
+    "hospital": { "zh-Hans": "医院", "en": "Hospital" },
+    "emergencyContact": { "zh-Hans": "紧急联系人", "en": "Emergency Contact" },
+    "myOrders": { "zh-Hans": "我的订单", "en": "My Orders" },
+    "noOrders": { "zh-Hans": "暂无订单", "en": "No Orders" },
+    "emptyHint": { "zh-Hans": "下单后可在此查看进度", "en": "Track your order progress here after booking" },
+    "countUnit": { "zh-Hans": "{count} 个订单", "en": "{count} order(s)", "_params": ["count"], "_note": "English 单复数本期采 order(s) 折中 (PRD §7.5 已接受，AC-5 认可)" },
+    "tabAll": { "zh-Hans": "全部", "en": "All" },
+    "tabPending": { "zh-Hans": "待接单", "en": "Pending" },
+    "tabInProgress": { "zh-Hans": "进行中", "en": "In Progress" },
+    "tabCompleted": { "zh-Hans": "已完成", "en": "Completed" },
+    "tabCancelled": { "zh-Hans": "已取消", "en": "Cancelled" },
+    "noMore": { "zh-Hans": "没有更多了", "en": "No more" },
+    "loadFailed": { "zh-Hans": "加载失败", "en": "Failed to load" },
+    "emptyIcon": { "zh-Hans": "单", "en": "📋" },
+    "rowHospital": { "zh-Hans": "医院", "en": "Hospital" },
+    "rowTime": { "zh-Hans": "时间", "en": "Time" },
+    "rowPatient": { "zh-Hans": "患者", "en": "Patient" },
+    "rowActualPatient": { "zh-Hans": "实际就诊人", "en": "Actual Patient" },
+    "payHint": { "zh-Hans": "待支付", "en": "To Pay" },
+    "reviewHint": { "zh-Hans": "待评价", "en": "To Review" },
+    "reviewedHint": { "zh-Hans": "已评价", "en": "Reviewed" },
+    "statusUnknown": { "zh-Hans": "未知", "en": "Unknown" }
   },
+
   "orderStatus": {
-    "created": {
-      "zh-Hans": "待接单",
-      "en": "Pending"
-    },
-    "accepted": {
-      "zh-Hans": "已接单",
-      "en": "Accepted"
-    },
-    "in_progress": {
-      "zh-Hans": "进行中",
-      "en": "In Progress"
-    },
-    "completed": {
-      "zh-Hans": "已完成",
-      "en": "Completed"
-    },
-    "reviewed": {
-      "zh-Hans": "已评价",
-      "en": "Reviewed"
-    },
-    "cancelled_by_patient": {
-      "zh-Hans": "患者取消",
-      "en": "Cancelled by Patient"
-    },
-    "cancelled_by_companion": {
-      "zh-Hans": "陪诊师取消",
-      "en": "Cancelled by Companion"
-    },
-    "rejected_by_companion": {
-      "zh-Hans": "陪诊师拒单",
-      "en": "Rejected by Companion"
-    },
-    "expired": {
-      "zh-Hans": "已过期",
-      "en": "Expired"
-    }
+    "created": { "zh-Hans": "待接单", "en": "Pending" },
+    "accepted": { "zh-Hans": "已接单", "en": "Accepted" },
+    "in_progress": { "zh-Hans": "进行中", "en": "In Progress" },
+    "completed": { "zh-Hans": "已完成", "en": "Completed" },
+    "reviewed": { "zh-Hans": "已评价", "en": "Reviewed" },
+    "cancelled_by_patient": { "zh-Hans": "患者取消", "en": "Cancelled by Patient" },
+    "cancelled_by_companion": { "zh-Hans": "陪诊师取消", "en": "Cancelled by Companion" },
+    "rejected_by_companion": { "zh-Hans": "陪诊师拒单", "en": "Rejected by Companion" },
+    "expired": { "zh-Hans": "已过期", "en": "Expired" }
   },
+
   "refundState": {
-    "refunded": {
-      "zh-Hans": "已退款",
-      "en": "Refunded",
-      "_note": "退款子状态独立维度 (ADR-0041 解耦)，非 orderStatus"
-    }
+    "refunded": { "zh-Hans": "已退款", "en": "Refunded", "_note": "退款子状态独立维度 (ADR-0041 解耦)，非 orderStatus" }
   },
+
   "serviceType": {
-    "full_accompany": {
-      "zh-Hans": "全程陪诊",
-      "en": "Full Accompaniment"
-    },
-    "half_accompany": {
-      "zh-Hans": "半程陪诊",
-      "en": "Half Accompaniment"
-    },
-    "errand": {
-      "zh-Hans": "代办跑腿",
-      "en": "Errand Service"
-    },
-    "full_accompanyDesc": {
-      "zh-Hans": "挂号、候诊、就诊、取药全流程陪同",
-      "en": "Full-process escort: registration, waiting, consultation, medication pickup"
-    },
-    "half_accompanyDesc": {
-      "zh-Hans": "陪同就诊或取报告，按需半程服务",
-      "en": "Escort for consultation or report pickup, half-process on demand"
-    },
-    "errandDesc": {
-      "zh-Hans": "代取报告、代挂号、代取药等跑腿服务",
-      "en": "Errands: report/medication pickup, registration proxy, etc."
-    }
+    "full_accompany": { "zh-Hans": "全程陪诊", "en": "Full Accompaniment" },
+    "half_accompany": { "zh-Hans": "半程陪诊", "en": "Half Accompaniment" },
+    "errand": { "zh-Hans": "代办跑腿", "en": "Errand Service" },
+    "full_accompanyDesc": { "zh-Hans": "挂号、候诊、就诊、取药全流程陪同", "en": "Full-process escort: registration, waiting, consultation, medication pickup" },
+    "half_accompanyDesc": { "zh-Hans": "陪同就诊或取报告，按需半程服务", "en": "Escort for consultation or report pickup, half-process on demand" },
+    "errandDesc": { "zh-Hans": "代取报告、代挂号、代取药等跑腿服务", "en": "Errands: report/medication pickup, registration proxy, etc." }
   },
+
   "login": {
-    "title": {
-      "zh-Hans": "登录",
-      "en": "Log In"
-    },
-    "phone": {
-      "zh-Hans": "手机号",
-      "en": "Phone Number"
-    },
-    "getCode": {
-      "zh-Hans": "获取验证码",
-      "en": "Get Code"
-    },
-    "codeLabel": {
-      "zh-Hans": "验证码",
-      "en": "Verification Code"
-    },
-    "appName": {
-      "zh-Hans": "医路安",
-      "en": "YiLuAn"
-    },
-    "appDesc": {
-      "zh-Hans": "专业医疗陪诊服务",
-      "en": "Professional Medical Escort Service"
-    },
-    "wechatLogin": {
-      "zh-Hans": "微信一键登录",
-      "en": "Log in with WeChat"
-    },
-    "phoneLogin": {
-      "zh-Hans": "手机号登录",
-      "en": "Log in with Phone"
-    },
-    "submit": {
-      "zh-Hans": "登录",
-      "en": "Log In"
-    },
-    "inputPhone": {
-      "zh-Hans": "请输入手机号",
-      "en": "Enter phone number"
-    },
-    "inputCode": {
-      "zh-Hans": "请输入6位验证码",
-      "en": "Enter 6-digit code"
-    },
-    "agreementPre": {
-      "zh-Hans": "我已阅读并同意",
-      "en": "I have read and agree to the"
-    },
-    "userAgreement": {
-      "zh-Hans": "《用户协议》",
-      "en": "User Agreement"
-    },
-    "and": {
-      "zh-Hans": "和",
-      "en": "and"
-    },
-    "privacyPolicy": {
-      "zh-Hans": "《隐私政策》",
-      "en": "Privacy Policy"
-    }
+    "title": { "zh-Hans": "登录", "en": "Log In" },
+    "phone": { "zh-Hans": "手机号", "en": "Phone Number" },
+    "getCode": { "zh-Hans": "获取验证码", "en": "Get Code" },
+    "codeLabel": { "zh-Hans": "验证码", "en": "Verification Code" },
+    "appName": { "zh-Hans": "医路安", "en": "YiLuAn" },
+    "appDesc": { "zh-Hans": "专业医疗陪诊服务", "en": "Professional Medical Escort Service" },
+    "wechatLogin": { "zh-Hans": "微信一键登录", "en": "Log in with WeChat" },
+    "phoneLogin": { "zh-Hans": "手机号登录", "en": "Log in with Phone" },
+    "submit": { "zh-Hans": "登录", "en": "Log In" },
+    "inputPhone": { "zh-Hans": "请输入手机号", "en": "Enter phone number" },
+    "inputCode": { "zh-Hans": "请输入6位验证码", "en": "Enter 6-digit code" },
+    "agreementPre": { "zh-Hans": "我已阅读并同意", "en": "I have read and agree to the" },
+    "userAgreement": { "zh-Hans": "《用户协议》", "en": "User Agreement" },
+    "and": { "zh-Hans": "和", "en": "and" },
+    "privacyPolicy": { "zh-Hans": "《隐私政策》", "en": "Privacy Policy" }
   },
+
   "otp": {
-    "sentTo": {
-      "zh-Hans": "验证码已发送至 +86 {phone}",
-      "en": "Code sent to +86 {phone}",
-      "_params": [
-        "phone"
-      ]
-    }
+    "sentTo": { "zh-Hans": "验证码已发送至 +86 {phone}", "en": "Code sent to +86 {phone}", "_params": ["phone"] }
   },
+
   "createOrder": {
-    "hugeFont": {
-      "zh-Hans": "巨字号",
-      "en": "Large Font"
-    },
-    "notSelected": {
-      "zh-Hans": "未选择",
-      "en": "Not selected"
-    },
-    "nextStep": {
-      "zh-Hans": "下一步",
-      "en": "Next"
-    },
-    "serviceFallback": {
-      "zh-Hans": "⚠️ 服务列表已降级，使用默认 3 档",
-      "en": "⚠️ Service list degraded, using 3 default tiers"
-    },
-    "stepService": {
-      "zh-Hans": "服务类型",
-      "en": "Service Type"
-    },
-    "stepHospital": {
-      "zh-Hans": "医院",
-      "en": "Hospital"
-    },
-    "stepDate": {
-      "zh-Hans": "日期",
-      "en": "Date"
-    },
-    "stepPatient": {
-      "zh-Hans": "患者与陪诊师",
-      "en": "Patient & Companion"
-    },
-    "change": {
-      "zh-Hans": "更换",
-      "en": "Change"
-    },
-    "selectHospital": {
-      "zh-Hans": "选择医院",
-      "en": "Select Hospital"
-    },
-    "department": {
-      "zh-Hans": "科室（可选）",
-      "en": "Department (optional)"
-    },
-    "noDepartment": {
-      "zh-Hans": "不选择科室",
-      "en": "No department"
-    },
-    "dateLabel": {
-      "zh-Hans": "日期",
-      "en": "Date"
-    },
-    "selectDate": {
-      "zh-Hans": "请选择日期",
-      "en": "Select a date"
-    },
-    "period": {
-      "zh-Hans": "时段",
-      "en": "Period"
-    },
-    "morning": {
-      "zh-Hans": "上午",
-      "en": "Morning"
-    },
-    "afternoon": {
-      "zh-Hans": "下午",
-      "en": "Afternoon"
-    },
-    "orderFor": {
-      "zh-Hans": "给谁下单",
-      "en": "Order for"
-    },
-    "manageFamily": {
-      "zh-Hans": "管理家人",
-      "en": "Manage Family"
-    },
-    "assignCompanion": {
-      "zh-Hans": "指定陪诊师",
-      "en": "Assigned Companion"
-    },
-    "reselect": {
-      "zh-Hans": "重新选择",
-      "en": "Reselect"
-    },
-    "completedOrders": {
-      "zh-Hans": "已完成 {count} 单",
-      "en": "{count} orders completed",
-      "_params": [
-        "count"
-      ]
-    },
-    "notesOptional": {
-      "zh-Hans": "备注（可选）",
-      "en": "Notes (optional)"
-    },
-    "notesPlaceholder": {
-      "zh-Hans": "请描述您的需求，如症状等",
-      "en": "Describe your needs, e.g. symptoms"
-    },
-    "confirmOrder": {
-      "zh-Hans": "确认下单",
-      "en": "Confirm Order"
-    },
-    "selectCompanion": {
-      "zh-Hans": "选择陪诊师",
-      "en": "Select Companion"
-    },
-    "verified": {
-      "zh-Hans": "已认证",
-      "en": "Verified"
-    },
-    "noMatchCompanion": {
-      "zh-Hans": "暂无匹配的陪诊师",
-      "en": "No matching companions"
-    },
-    "finishStepFirst": {
-      "zh-Hans": "请先完成本步",
-      "en": "Please complete this step first"
-    },
-    "confirmBack": {
-      "zh-Hans": "是否回改？",
-      "en": "Go back to edit?"
-    },
-    "confirmBackContent": {
-      "zh-Hans": "下游已选数据将保留",
-      "en": "Your later selections will be kept"
-    },
-    "missingService": {
-      "zh-Hans": "缺少服务类型",
-      "en": "Service type missing"
-    },
-    "missingHospital": {
-      "zh-Hans": "缺少医院信息",
-      "en": "Hospital info missing"
-    },
-    "selectDateTime": {
-      "zh-Hans": "请选择日期和时间",
-      "en": "Please select date and time"
-    },
-    "bindPhoneTitle": {
-      "zh-Hans": "请先绑定手机号",
-      "en": "Bind your phone number first"
-    },
-    "bindPhoneContent": {
-      "zh-Hans": "下单前需要绑定手机号，方便陪诊师联系您",
-      "en": "You need to bind a phone number before ordering so the companion can contact you"
-    },
-    "goBind": {
-      "zh-Hans": "去绑定",
-      "en": "Bind Now"
-    },
-    "orderSuccess": {
-      "zh-Hans": "订单创建成功",
-      "en": "Order created successfully"
-    },
-    "createFailed": {
-      "zh-Hans": "创建失败",
-      "en": "Failed to create order"
-    },
-    "self": {
-      "zh-Hans": "本人",
-      "en": "Myself"
-    }
+    "hugeFont": { "zh-Hans": "巨字号", "en": "Large Font" },
+    "notSelected": { "zh-Hans": "未选择", "en": "Not selected" },
+    "nextStep": { "zh-Hans": "下一步", "en": "Next" },
+    "serviceFallback": { "zh-Hans": "⚠️ 服务列表已降级，使用默认 3 档", "en": "⚠️ Service list degraded, using 3 default tiers" },
+    "stepService": { "zh-Hans": "服务类型", "en": "Service Type" },
+    "stepHospital": { "zh-Hans": "医院", "en": "Hospital" },
+    "stepDate": { "zh-Hans": "日期", "en": "Date" },
+    "stepPatient": { "zh-Hans": "患者与陪诊师", "en": "Patient & Companion" },
+    "change": { "zh-Hans": "更换", "en": "Change" },
+    "selectHospital": { "zh-Hans": "选择医院", "en": "Select Hospital" },
+    "department": { "zh-Hans": "科室（可选）", "en": "Department (optional)" },
+    "noDepartment": { "zh-Hans": "不选择科室", "en": "No department" },
+    "dateLabel": { "zh-Hans": "日期", "en": "Date" },
+    "selectDate": { "zh-Hans": "请选择日期", "en": "Select a date" },
+    "period": { "zh-Hans": "时段", "en": "Period" },
+    "morning": { "zh-Hans": "上午", "en": "Morning" },
+    "afternoon": { "zh-Hans": "下午", "en": "Afternoon" },
+    "orderFor": { "zh-Hans": "给谁下单", "en": "Order for" },
+    "manageFamily": { "zh-Hans": "管理家人", "en": "Manage Family" },
+    "assignCompanion": { "zh-Hans": "指定陪诊师", "en": "Assigned Companion" },
+    "reselect": { "zh-Hans": "重新选择", "en": "Reselect" },
+    "completedOrders": { "zh-Hans": "已完成 {count} 单", "en": "{count} orders completed", "_params": ["count"] },
+    "notesOptional": { "zh-Hans": "备注（可选）", "en": "Notes (optional)" },
+    "notesPlaceholder": { "zh-Hans": "请描述您的需求，如症状等", "en": "Describe your needs, e.g. symptoms" },
+    "confirmOrder": { "zh-Hans": "确认下单", "en": "Confirm Order" },
+    "selectCompanion": { "zh-Hans": "选择陪诊师", "en": "Select Companion" },
+    "verified": { "zh-Hans": "已认证", "en": "Verified" },
+    "noMatchCompanion": { "zh-Hans": "暂无匹配的陪诊师", "en": "No matching companions" },
+    "finishStepFirst": { "zh-Hans": "请先完成本步", "en": "Please complete this step first" },
+    "confirmBack": { "zh-Hans": "是否回改？", "en": "Go back to edit?" },
+    "confirmBackContent": { "zh-Hans": "下游已选数据将保留", "en": "Your later selections will be kept" },
+    "missingService": { "zh-Hans": "缺少服务类型", "en": "Service type missing" },
+    "missingHospital": { "zh-Hans": "缺少医院信息", "en": "Hospital info missing" },
+    "selectDateTime": { "zh-Hans": "请选择日期和时间", "en": "Please select date and time" },
+    "bindPhoneTitle": { "zh-Hans": "请先绑定手机号", "en": "Bind your phone number first" },
+    "bindPhoneContent": { "zh-Hans": "下单前需要绑定手机号，方便陪诊师联系您", "en": "You need to bind a phone number before ordering so the companion can contact you" },
+    "goBind": { "zh-Hans": "去绑定", "en": "Bind Now" },
+    "orderSuccess": { "zh-Hans": "订单创建成功", "en": "Order created successfully" },
+    "createFailed": { "zh-Hans": "创建失败", "en": "Failed to create order" },
+    "self": { "zh-Hans": "本人", "en": "Myself" }
   },
+
   "orderDetail": {
-    "emergencyCall": {
-      "zh-Hans": "紧急呼叫",
-      "en": "Emergency Call"
-    },
-    "selectContact": {
-      "zh-Hans": "选择要拨打的联系人",
-      "en": "Select a contact to call"
-    },
-    "noEmergencyContact": {
-      "zh-Hans": "未设置紧急联系人",
-      "en": "No emergency contact set"
-    },
-    "goAdd": {
-      "zh-Hans": "去添加",
-      "en": "Add"
-    },
-    "platformHotline": {
-      "zh-Hans": "平台客服热线",
-      "en": "Platform Hotline"
-    },
-    "subPayNow": {
-      "zh-Hans": "请尽快完成支付",
-      "en": "Please complete payment soon"
-    },
-    "subAutoCancel": {
-      "zh-Hans": "距订单自动取消还剩",
-      "en": "Auto-cancel in"
-    },
-    "subWaitAccept": {
-      "zh-Hans": "等待陪诊师接单",
-      "en": "Waiting for a companion"
-    },
-    "subAccepted": {
-      "zh-Hans": "陪诊师已接单，即将为您服务",
-      "en": "Companion accepted, service starting soon"
-    },
-    "subInProgress": {
-      "zh-Hans": "服务进行中，请保持联系",
-      "en": "Service in progress, please stay in touch"
-    },
-    "subCompleted": {
-      "zh-Hans": "服务已完成",
-      "en": "Service completed"
-    },
-    "subRejected": {
-      "zh-Hans": "陪诊师暂时无法为您服务，建议重新预约",
-      "en": "Companion is unavailable, please rebook"
-    },
-    "subExpired": {
-      "zh-Hans": "订单因超时未接单已自动取消，款项将原路退回",
-      "en": "Order auto-cancelled due to timeout; refund will be returned"
-    },
-    "subCancelled": {
-      "zh-Hans": "订单已取消",
-      "en": "Order cancelled"
-    },
-    "orderInfo": {
-      "zh-Hans": "订单信息",
-      "en": "Order Info"
-    },
-    "orderNumber": {
-      "zh-Hans": "订单编号",
-      "en": "Order No."
-    },
-    "serviceTypeLabel": {
-      "zh-Hans": "服务类型",
-      "en": "Service Type"
-    },
-    "hospitalLabel": {
-      "zh-Hans": "医院",
-      "en": "Hospital"
-    },
-    "appointmentTime": {
-      "zh-Hans": "预约时间",
-      "en": "Appointment Time"
-    },
-    "feeLabel": {
-      "zh-Hans": "费用",
-      "en": "Fee"
-    },
-    "paymentStatusLabel": {
-      "zh-Hans": "支付状态",
-      "en": "Payment Status"
-    },
-    "notesLabel": {
-      "zh-Hans": "备注",
-      "en": "Notes"
-    },
-    "companionInfo": {
-      "zh-Hans": "陪诊师信息",
-      "en": "Companion Info"
-    },
-    "companionLabel": {
-      "zh-Hans": "陪诊师",
-      "en": "Companion"
-    },
-    "pollingFallback": {
-      "zh-Hans": "网络不稳, 已切换轮询模式 (30s)",
-      "en": "Unstable network, switched to polling mode (30s)"
-    },
-    "actualPatient": {
-      "zh-Hans": "实际就诊人",
-      "en": "Actual Patient"
-    },
-    "nameLabel": {
-      "zh-Hans": "姓名",
-      "en": "Name"
-    },
-    "phoneLabel": {
-      "zh-Hans": "联系电话",
-      "en": "Phone"
-    },
-    "orderProgress": {
-      "zh-Hans": "订单进度",
-      "en": "Order Progress"
-    },
-    "reviewLabel": {
-      "zh-Hans": "评价",
-      "en": "Review"
-    },
-    "agreePre": {
-      "zh-Hans": "我已阅读并同意",
-      "en": "I have read and agree to the"
-    },
-    "contractLink": {
-      "zh-Hans": "《医路安陪诊服务合同》",
-      "en": "YiLuAn Escort Service Contract"
-    },
-    "insuranceLink": {
-      "zh-Hans": "《陪诊责任险服务条款》",
-      "en": "Escort Liability Insurance Terms"
-    },
-    "contractHint": {
-      "zh-Hans": "勾选上方同意后可继续支付",
-      "en": "Check the box above to continue payment"
-    },
-    "processing": {
-      "zh-Hans": "处理中...",
-      "en": "Processing..."
-    },
-    "payNow": {
-      "zh-Hans": "立即支付",
-      "en": "Pay Now"
-    },
-    "cancelOrder": {
-      "zh-Hans": "取消订单",
-      "en": "Cancel Order"
-    },
-    "confirmStart": {
-      "zh-Hans": "确认开始服务",
-      "en": "Confirm Start"
-    },
-    "contactCompanion": {
-      "zh-Hans": "联系陪诊师",
-      "en": "Contact Companion"
-    },
-    "writeReview": {
-      "zh-Hans": "写评价",
-      "en": "Write Review"
-    },
-    "createFollowup": {
-      "zh-Hans": "创建复诊提醒",
-      "en": "Create Follow-up Reminder"
-    },
-    "reorder": {
-      "zh-Hans": "重新下单",
-      "en": "Reorder"
-    },
-    "payUnpaid": {
-      "zh-Hans": "待支付",
-      "en": "Unpaid"
-    },
-    "payPaid": {
-      "zh-Hans": "已支付",
-      "en": "Paid"
-    },
-    "payRefunded": {
-      "zh-Hans": "已退款",
-      "en": "Refunded"
-    },
-    "timedOut": {
-      "zh-Hans": "已超时",
-      "en": "Timed out"
-    },
-    "countdownHm": {
-      "zh-Hans": "{hours}小时{minutes}分钟",
-      "en": "{hours}h {minutes}m",
-      "_params": [
-        "hours",
-        "minutes"
-      ]
-    },
-    "loadFailed": {
-      "zh-Hans": "加载失败",
-      "en": "Failed to load"
-    },
-    "contractNetErr": {
-      "zh-Hans": "合同确认网络异常,请检查后重试",
-      "en": "Contract confirmation network error, please retry"
-    },
-    "contractLoadFailed": {
-      "zh-Hans": "合同加载失败",
-      "en": "Failed to load contract"
-    },
-    "contractNotReady": {
-      "zh-Hans": "合同尚未生成,请稍后再查看",
-      "en": "Contract not ready yet, please check later"
-    },
-    "contractGenFailed": {
-      "zh-Hans": "合同生成失败,客服已介入处理",
-      "en": "Contract generation failed; support is handling it"
-    },
-    "contractVoided": {
-      "zh-Hans": "合同已作废,请联系客服",
-      "en": "Contract voided, please contact support"
-    },
-    "contractDetailFailed": {
-      "zh-Hans": "合同详情加载失败",
-      "en": "Failed to load contract details"
-    },
-    "insuranceTitle": {
-      "zh-Hans": "陪诊责任险服务条款",
-      "en": "Escort Liability Insurance Terms"
-    },
-    "insuranceContent": {
-      "zh-Hans": "本服务由医路安平台合作保险公司承保,保障范围包括陪诊期间意外医疗等. S3 灰度阶段保险条款为静态版本,正式版以理赔时实际生效条款为准. 如有问题请联系客服.",
-      "en": "This service is underwritten by YiLuAn's partner insurer, covering accidental medical care during escort. During the S3 gray-release, terms are a static version; the version in effect at claim time prevails. Contact support with any questions."
-    },
-    "gotIt": {
-      "zh-Hans": "我已了解",
-      "en": "Got it"
-    },
-    "confirmPay": {
-      "zh-Hans": "确认支付",
-      "en": "Confirm Payment"
-    },
-    "payContent": {
-      "zh-Hans": "支付 {price}",
-      "en": "Pay {price}",
-      "_params": [
-        "price"
-      ]
-    },
-    "payFailed": {
-      "zh-Hans": "支付失败",
-      "en": "Payment failed"
-    },
-    "confirmStartTitle": {
-      "zh-Hans": "确认开始服务",
-      "en": "Confirm Start"
-    },
-    "confirmStartContent": {
-      "zh-Hans": "确认后服务正式开始，如需取消将退还50%费用",
-      "en": "Once confirmed, service starts; cancelling refunds 50% of the fee"
-    },
-    "confirmStartBtn": {
-      "zh-Hans": "确认开始",
-      "en": "Confirm Start"
-    },
-    "serviceStarted": {
-      "zh-Hans": "服务已开始",
-      "en": "Service started"
-    },
-    "opFailed": {
-      "zh-Hans": "操作失败",
-      "en": "Operation failed"
-    },
-    "cancelConfirmDefault": {
-      "zh-Hans": "确定要取消该订单吗？",
-      "en": "Are you sure you want to cancel this order?"
-    },
-    "cancelConfirmRefundFull": {
-      "zh-Hans": "取消后将全额退款，确定要取消吗？",
-      "en": "You'll get a full refund. Cancel this order?"
-    },
-    "cancelConfirmInProgress": {
-      "zh-Hans": "服务已开始，取消将退还50%费用，确定要取消吗？",
-      "en": "Service has started; cancelling refunds 50% of the fee. Cancel?"
-    },
-    "confirmCancelTitle": {
-      "zh-Hans": "确认取消",
-      "en": "Confirm Cancellation"
-    },
-    "confirmCancelBtn": {
-      "zh-Hans": "确认取消",
-      "en": "Confirm Cancel"
-    },
-    "cancelled": {
-      "zh-Hans": "已取消",
-      "en": "Cancelled"
-    },
-    "followupTitle": {
-      "zh-Hans": "创建复诊提醒",
-      "en": "Create Follow-up Reminder"
-    },
-    "followupContent": {
-      "zh-Hans": "默认在 7 天后提醒。点击“确定”即创建。",
-      "en": "Defaults to a reminder in 7 days. Tap OK to create."
-    },
-    "followupPlaceholder": {
-      "zh-Hans": "备注（可选，如：取报告 / 复查血常规）",
-      "en": "Note (optional, e.g. pick up report / recheck blood test)"
-    },
-    "created": {
-      "zh-Hans": "已创建",
-      "en": "Created"
-    },
-    "createFailed": {
-      "zh-Hans": "创建失败",
-      "en": "Failed to create"
-    },
-    "callFailed": {
-      "zh-Hans": "呼叫失败",
-      "en": "Call failed"
-    }
+    "emergencyCall": { "zh-Hans": "紧急呼叫", "en": "Emergency Call" },
+    "selectContact": { "zh-Hans": "选择要拨打的联系人", "en": "Select a contact to call" },
+    "noEmergencyContact": { "zh-Hans": "未设置紧急联系人", "en": "No emergency contact set" },
+    "goAdd": { "zh-Hans": "去添加", "en": "Add" },
+    "platformHotline": { "zh-Hans": "平台客服热线", "en": "Platform Hotline" },
+    "subPayNow": { "zh-Hans": "请尽快完成支付", "en": "Please complete payment soon" },
+    "subAutoCancel": { "zh-Hans": "距订单自动取消还剩", "en": "Auto-cancel in" },
+    "subWaitAccept": { "zh-Hans": "等待陪诊师接单", "en": "Waiting for a companion" },
+    "subAccepted": { "zh-Hans": "陪诊师已接单，即将为您服务", "en": "Companion accepted, service starting soon" },
+    "subInProgress": { "zh-Hans": "服务进行中，请保持联系", "en": "Service in progress, please stay in touch" },
+    "subCompleted": { "zh-Hans": "服务已完成", "en": "Service completed" },
+    "subRejected": { "zh-Hans": "陪诊师暂时无法为您服务，建议重新预约", "en": "Companion is unavailable, please rebook" },
+    "subExpired": { "zh-Hans": "订单因超时未接单已自动取消，款项将原路退回", "en": "Order auto-cancelled due to timeout; refund will be returned" },
+    "subCancelled": { "zh-Hans": "订单已取消", "en": "Order cancelled" },
+    "orderInfo": { "zh-Hans": "订单信息", "en": "Order Info" },
+    "orderNumber": { "zh-Hans": "订单编号", "en": "Order No." },
+    "serviceTypeLabel": { "zh-Hans": "服务类型", "en": "Service Type" },
+    "hospitalLabel": { "zh-Hans": "医院", "en": "Hospital" },
+    "appointmentTime": { "zh-Hans": "预约时间", "en": "Appointment Time" },
+    "feeLabel": { "zh-Hans": "费用", "en": "Fee" },
+    "paymentStatusLabel": { "zh-Hans": "支付状态", "en": "Payment Status" },
+    "notesLabel": { "zh-Hans": "备注", "en": "Notes" },
+    "companionInfo": { "zh-Hans": "陪诊师信息", "en": "Companion Info" },
+    "companionLabel": { "zh-Hans": "陪诊师", "en": "Companion" },
+    "pollingFallback": { "zh-Hans": "网络不稳, 已切换轮询模式 (30s)", "en": "Unstable network, switched to polling mode (30s)" },
+    "actualPatient": { "zh-Hans": "实际就诊人", "en": "Actual Patient" },
+    "nameLabel": { "zh-Hans": "姓名", "en": "Name" },
+    "phoneLabel": { "zh-Hans": "联系电话", "en": "Phone" },
+    "orderProgress": { "zh-Hans": "订单进度", "en": "Order Progress" },
+    "reviewLabel": { "zh-Hans": "评价", "en": "Review" },
+    "agreePre": { "zh-Hans": "我已阅读并同意", "en": "I have read and agree to the" },
+    "contractLink": { "zh-Hans": "《医路安陪诊服务合同》", "en": "YiLuAn Escort Service Contract" },
+    "insuranceLink": { "zh-Hans": "《陪诊责任险服务条款》", "en": "Escort Liability Insurance Terms" },
+    "contractHint": { "zh-Hans": "勾选上方同意后可继续支付", "en": "Check the box above to continue payment" },
+    "processing": { "zh-Hans": "处理中...", "en": "Processing..." },
+    "payNow": { "zh-Hans": "立即支付", "en": "Pay Now" },
+    "cancelOrder": { "zh-Hans": "取消订单", "en": "Cancel Order" },
+    "confirmStart": { "zh-Hans": "确认开始服务", "en": "Confirm Start" },
+    "contactCompanion": { "zh-Hans": "联系陪诊师", "en": "Contact Companion" },
+    "writeReview": { "zh-Hans": "写评价", "en": "Write Review" },
+    "createFollowup": { "zh-Hans": "创建复诊提醒", "en": "Create Follow-up Reminder" },
+    "reorder": { "zh-Hans": "重新下单", "en": "Reorder" },
+    "payUnpaid": { "zh-Hans": "待支付", "en": "Unpaid" },
+    "payPaid": { "zh-Hans": "已支付", "en": "Paid" },
+    "payRefunded": { "zh-Hans": "已退款", "en": "Refunded" },
+    "timedOut": { "zh-Hans": "已超时", "en": "Timed out" },
+    "countdownHm": { "zh-Hans": "{hours}小时{minutes}分钟", "en": "{hours}h {minutes}m", "_params": ["hours","minutes"] },
+    "loadFailed": { "zh-Hans": "加载失败", "en": "Failed to load" },
+    "contractNetErr": { "zh-Hans": "合同确认网络异常,请检查后重试", "en": "Contract confirmation network error, please retry" },
+    "contractLoadFailed": { "zh-Hans": "合同加载失败", "en": "Failed to load contract" },
+    "contractNotReady": { "zh-Hans": "合同尚未生成,请稍后再查看", "en": "Contract not ready yet, please check later" },
+    "contractGenFailed": { "zh-Hans": "合同生成失败,客服已介入处理", "en": "Contract generation failed; support is handling it" },
+    "contractVoided": { "zh-Hans": "合同已作废,请联系客服", "en": "Contract voided, please contact support" },
+    "contractDetailFailed": { "zh-Hans": "合同详情加载失败", "en": "Failed to load contract details" },
+    "insuranceTitle": { "zh-Hans": "陪诊责任险服务条款", "en": "Escort Liability Insurance Terms" },
+    "insuranceContent": { "zh-Hans": "本服务由医路安平台合作保险公司承保,保障范围包括陪诊期间意外医疗等. S3 灰度阶段保险条款为静态版本,正式版以理赔时实际生效条款为准. 如有问题请联系客服.", "en": "This service is underwritten by YiLuAn's partner insurer, covering accidental medical care during escort. During the S3 gray-release, terms are a static version; the version in effect at claim time prevails. Contact support with any questions." },
+    "gotIt": { "zh-Hans": "我已了解", "en": "Got it" },
+    "confirmPay": { "zh-Hans": "确认支付", "en": "Confirm Payment" },
+    "payContent": { "zh-Hans": "支付 {price}", "en": "Pay {price}", "_params": ["price"] },
+    "payFailed": { "zh-Hans": "支付失败", "en": "Payment failed" },
+    "confirmStartTitle": { "zh-Hans": "确认开始服务", "en": "Confirm Start" },
+    "confirmStartContent": { "zh-Hans": "确认后服务正式开始，如需取消将退还50%费用", "en": "Once confirmed, service starts; cancelling refunds 50% of the fee" },
+    "confirmStartBtn": { "zh-Hans": "确认开始", "en": "Confirm Start" },
+    "serviceStarted": { "zh-Hans": "服务已开始", "en": "Service started" },
+    "opFailed": { "zh-Hans": "操作失败", "en": "Operation failed" },
+    "cancelConfirmDefault": { "zh-Hans": "确定要取消该订单吗？", "en": "Are you sure you want to cancel this order?" },
+    "cancelConfirmRefundFull": { "zh-Hans": "取消后将全额退款，确定要取消吗？", "en": "You'll get a full refund. Cancel this order?" },
+    "cancelConfirmInProgress": { "zh-Hans": "服务已开始，取消将退还50%费用，确定要取消吗？", "en": "Service has started; cancelling refunds 50% of the fee. Cancel?" },
+    "confirmCancelTitle": { "zh-Hans": "确认取消", "en": "Confirm Cancellation" },
+    "confirmCancelBtn": { "zh-Hans": "确认取消", "en": "Confirm Cancel" },
+    "cancelled": { "zh-Hans": "已取消", "en": "Cancelled" },
+    "followupTitle": { "zh-Hans": "创建复诊提醒", "en": "Create Follow-up Reminder" },
+    "followupContent": { "zh-Hans": "默认在 7 天后提醒。点击“确定”即创建。", "en": "Defaults to a reminder in 7 days. Tap OK to create." },
+    "followupPlaceholder": { "zh-Hans": "备注（可选，如：取报告 / 复查血常规）", "en": "Note (optional, e.g. pick up report / recheck blood test)" },
+    "created": { "zh-Hans": "已创建", "en": "Created" },
+    "createFailed": { "zh-Hans": "创建失败", "en": "Failed to create" },
+    "callFailed": { "zh-Hans": "呼叫失败", "en": "Call failed" }
   },
+
   "profile": {
-    "defaultUser": {
-      "zh-Hans": "用户",
-      "en": "User"
-    },
-    "avatarFallback": {
-      "zh-Hans": "用",
-      "en": "U"
-    },
-    "changeAvatar": {
-      "zh-Hans": "换",
-      "en": "Edit"
-    },
-    "unbindPhone": {
-      "zh-Hans": "未绑定手机",
-      "en": "Phone not bound"
-    },
-    "goBind": {
-      "zh-Hans": "去绑定",
-      "en": "Bind"
-    },
-    "menuEdit": {
-      "zh-Hans": "编辑资料",
-      "en": "Edit Profile"
-    },
-    "menuOrders": {
-      "zh-Hans": "我的订单",
-      "en": "My Orders"
-    },
-    "menuWallet": {
-      "zh-Hans": "我的钱包",
-      "en": "My Wallet"
-    },
-    "menuFamily": {
-      "zh-Hans": "我的家人",
-      "en": "My Family"
-    },
-    "menuEmergency": {
-      "zh-Hans": "紧急联系人",
-      "en": "Emergency Contacts"
-    },
-    "menuFollowup": {
-      "zh-Hans": "复诊提醒",
-      "en": "Follow-up Reminders"
-    },
-    "menuSettings": {
-      "zh-Hans": "设置",
-      "en": "Settings"
-    },
-    "logout": {
-      "zh-Hans": "退出登录",
-      "en": "Log Out"
-    },
-    "uploading": {
-      "zh-Hans": "上传中...",
-      "en": "Uploading..."
-    },
-    "avatarUpdated": {
-      "zh-Hans": "头像已更新",
-      "en": "Avatar updated"
-    },
-    "uploadFailed": {
-      "zh-Hans": "上传失败",
-      "en": "Upload failed"
-    },
-    "logoutConfirm": {
-      "zh-Hans": "确定要退出登录吗？",
-      "en": "Are you sure you want to log out?"
-    },
-    "aboutLogo": {
-      "zh-Hans": "医",
-      "en": "Y"
-    },
-    "aboutDesc": {
-      "zh-Hans": "医路安是一款专业的陪诊服务平台，致力于为患者提供贴心、专业的就医陪伴服务，让每一次就医都更安心。",
-      "en": "YiLuAn is a professional medical escort platform dedicated to caring, professional companionship so every visit is more reassuring."
-    },
-    "servicePhone": {
-      "zh-Hans": "客服电话",
-      "en": "Service Phone"
-    },
-    "officialEmail": {
-      "zh-Hans": "官方邮箱",
-      "en": "Official Email"
-    },
-    "userAgreement": {
-      "zh-Hans": "用户协议",
-      "en": "User Agreement"
-    },
-    "privacyPolicy": {
-      "zh-Hans": "隐私政策",
-      "en": "Privacy Policy"
-    }
+    "defaultUser": { "zh-Hans": "用户", "en": "User" },
+    "avatarFallback": { "zh-Hans": "用", "en": "U" },
+    "changeAvatar": { "zh-Hans": "换", "en": "Edit" },
+    "unbindPhone": { "zh-Hans": "未绑定手机", "en": "Phone not bound" },
+    "goBind": { "zh-Hans": "去绑定", "en": "Bind" },
+    "menuEdit": { "zh-Hans": "编辑资料", "en": "Edit Profile" },
+    "menuOrders": { "zh-Hans": "我的订单", "en": "My Orders" },
+    "menuWallet": { "zh-Hans": "我的钱包", "en": "My Wallet" },
+    "menuFamily": { "zh-Hans": "我的家人", "en": "My Family" },
+    "menuEmergency": { "zh-Hans": "紧急联系人", "en": "Emergency Contacts" },
+    "menuFollowup": { "zh-Hans": "复诊提醒", "en": "Follow-up Reminders" },
+    "menuSettings": { "zh-Hans": "设置", "en": "Settings" },
+    "logout": { "zh-Hans": "退出登录", "en": "Log Out" },
+    "uploading": { "zh-Hans": "上传中...", "en": "Uploading..." },
+    "avatarUpdated": { "zh-Hans": "头像已更新", "en": "Avatar updated" },
+    "uploadFailed": { "zh-Hans": "上传失败", "en": "Upload failed" },
+    "logoutConfirm": { "zh-Hans": "确定要退出登录吗？", "en": "Are you sure you want to log out?" },
+    "aboutLogo": { "zh-Hans": "医", "en": "Y" },
+    "aboutDesc": { "zh-Hans": "医路安是一款专业的陪诊服务平台，致力于为患者提供贴心、专业的就医陪伴服务，让每一次就医都更安心。", "en": "YiLuAn is a professional medical escort platform dedicated to caring, professional companionship so every visit is more reassuring." },
+    "servicePhone": { "zh-Hans": "客服电话", "en": "Service Phone" },
+    "officialEmail": { "zh-Hans": "官方邮箱", "en": "Official Email" },
+    "userAgreement": { "zh-Hans": "用户协议", "en": "User Agreement" },
+    "privacyPolicy": { "zh-Hans": "隐私政策", "en": "Privacy Policy" }
   },
+
   "wallet": {
-    "balanceCompanion": {
-      "zh-Hans": "可提现余额(元)",
-      "en": "Withdrawable Balance (CNY)"
-    },
-    "balancePatient": {
-      "zh-Hans": "账户余额(元)",
-      "en": "Account Balance (CNY)"
-    },
-    "selectAmount": {
-      "zh-Hans": "选择充值金额",
-      "en": "Select Top-up Amount"
-    },
-    "customAmount": {
-      "zh-Hans": "自定义金额",
-      "en": "Custom Amount"
-    },
-    "inputAmount": {
-      "zh-Hans": "请输入充值金额",
-      "en": "Enter top-up amount"
-    },
-    "rechargeNow": {
-      "zh-Hans": "立即充值",
-      "en": "Top Up Now"
-    },
-    "totalIncome": {
-      "zh-Hans": "累计收入",
-      "en": "Total Income"
-    },
-    "withdrawn": {
-      "zh-Hans": "已提现",
-      "en": "Withdrawn"
-    },
-    "applyWithdraw": {
-      "zh-Hans": "申请提现",
-      "en": "Request Withdrawal"
-    },
-    "incomeDetail": {
-      "zh-Hans": "收入明细",
-      "en": "Income Details"
-    },
-    "expenseDetail": {
-      "zh-Hans": "消费明细",
-      "en": "Expense Details"
-    },
-    "noIncome": {
-      "zh-Hans": "暂无收入记录",
-      "en": "No income records"
-    },
-    "noExpense": {
-      "zh-Hans": "暂无消费记录",
-      "en": "No expense records"
-    },
-    "recordRefund": {
-      "zh-Hans": "订单退款",
-      "en": "Order Refund"
-    },
-    "recordIncome": {
-      "zh-Hans": "服务收入",
-      "en": "Service Income"
-    },
-    "recordExpense": {
-      "zh-Hans": "订单消费",
-      "en": "Order Payment"
-    },
-    "selectRechargeAmount": {
-      "zh-Hans": "请选择充值金额",
-      "en": "Please select a top-up amount"
-    },
-    "rechargeWip": {
-      "zh-Hans": "充值功能开发中",
-      "en": "Top-up feature coming soon"
-    },
-    "noWithdrawable": {
-      "zh-Hans": "暂无可提现余额",
-      "en": "No withdrawable balance"
-    },
-    "withdrawWip": {
-      "zh-Hans": "提现功能开发中",
-      "en": "Withdrawal feature coming soon"
-    }
+    "balanceCompanion": { "zh-Hans": "可提现余额(元)", "en": "Withdrawable Balance (CNY)" },
+    "balancePatient": { "zh-Hans": "账户余额(元)", "en": "Account Balance (CNY)" },
+    "selectAmount": { "zh-Hans": "选择充值金额", "en": "Select Top-up Amount" },
+    "customAmount": { "zh-Hans": "自定义金额", "en": "Custom Amount" },
+    "inputAmount": { "zh-Hans": "请输入充值金额", "en": "Enter top-up amount" },
+    "rechargeNow": { "zh-Hans": "立即充值", "en": "Top Up Now" },
+    "totalIncome": { "zh-Hans": "累计收入", "en": "Total Income" },
+    "withdrawn": { "zh-Hans": "已提现", "en": "Withdrawn" },
+    "applyWithdraw": { "zh-Hans": "申请提现", "en": "Request Withdrawal" },
+    "incomeDetail": { "zh-Hans": "收入明细", "en": "Income Details" },
+    "expenseDetail": { "zh-Hans": "消费明细", "en": "Expense Details" },
+    "noIncome": { "zh-Hans": "暂无收入记录", "en": "No income records" },
+    "noExpense": { "zh-Hans": "暂无消费记录", "en": "No expense records" },
+    "recordRefund": { "zh-Hans": "订单退款", "en": "Order Refund" },
+    "recordIncome": { "zh-Hans": "服务收入", "en": "Service Income" },
+    "recordExpense": { "zh-Hans": "订单消费", "en": "Order Payment" },
+    "selectRechargeAmount": { "zh-Hans": "请选择充值金额", "en": "Please select a top-up amount" },
+    "rechargeWip": { "zh-Hans": "充值功能开发中", "en": "Top-up feature coming soon" },
+    "noWithdrawable": { "zh-Hans": "暂无可提现余额", "en": "No withdrawable balance" },
+    "withdrawWip": { "zh-Hans": "提现功能开发中", "en": "Withdrawal feature coming soon" }
   },
+
   "bindPhone": {
-    "submitting": {
-      "zh-Hans": "提交中...",
-      "en": "Submitting..."
-    },
-    "bindNow": {
-      "zh-Hans": "立即绑定",
-      "en": "Bind Now"
-    },
-    "invalidPhone": {
-      "zh-Hans": "请输入正确手机号",
-      "en": "Please enter a valid phone number"
-    },
-    "codeSent": {
-      "zh-Hans": "验证码已发送",
-      "en": "Verification code sent"
-    },
-    "sendFailed": {
-      "zh-Hans": "发送失败",
-      "en": "Failed to send"
-    },
-    "checkInput": {
-      "zh-Hans": "请检查输入",
-      "en": "Please check your input"
-    },
-    "bindSuccess": {
-      "zh-Hans": "绑定成功",
-      "en": "Bound successfully"
-    },
-    "errOtpExpired": {
-      "zh-Hans": "验证码已过期或未发送，请重新获取",
-      "en": "Code expired or not sent, please request again"
-    },
-    "errOtpInvalid": {
-      "zh-Hans": "验证码错误，请检查后重试",
-      "en": "Invalid code, please check and retry"
-    },
-    "errAlreadyBound": {
-      "zh-Hans": "该账号已绑定手机号",
-      "en": "This account already has a phone bound"
-    },
-    "errRegisteredOther": {
-      "zh-Hans": "该手机号已被其他账号注册",
-      "en": "This phone is registered to another account"
-    },
-    "bindFailed": {
-      "zh-Hans": "绑定失败，请稍后重试",
-      "en": "Binding failed, please try again later"
-    }
+    "submitting": { "zh-Hans": "提交中...", "en": "Submitting..." },
+    "bindNow": { "zh-Hans": "立即绑定", "en": "Bind Now" },
+    "invalidPhone": { "zh-Hans": "请输入正确手机号", "en": "Please enter a valid phone number" },
+    "codeSent": { "zh-Hans": "验证码已发送", "en": "Verification code sent" },
+    "sendFailed": { "zh-Hans": "发送失败", "en": "Failed to send" },
+    "checkInput": { "zh-Hans": "请检查输入", "en": "Please check your input" },
+    "bindSuccess": { "zh-Hans": "绑定成功", "en": "Bound successfully" },
+    "errOtpExpired": { "zh-Hans": "验证码已过期或未发送，请重新获取", "en": "Code expired or not sent, please request again" },
+    "errOtpInvalid": { "zh-Hans": "验证码错误，请检查后重试", "en": "Invalid code, please check and retry" },
+    "errAlreadyBound": { "zh-Hans": "该账号已绑定手机号", "en": "This account already has a phone bound" },
+    "errRegisteredOther": { "zh-Hans": "该手机号已被其他账号注册", "en": "This phone is registered to another account" },
+    "bindFailed": { "zh-Hans": "绑定失败，请稍后重试", "en": "Binding failed, please try again later" }
   },
+
   "profileSetup": {
-    "title": {
-      "zh-Hans": "完善您的资料",
-      "en": "Complete Your Profile"
-    },
-    "subtitle": {
-      "zh-Hans": "设置昵称和头像，方便其他用户识别您",
-      "en": "Set a nickname and avatar so others can recognize you"
-    },
-    "uploadAvatar": {
-      "zh-Hans": "点击上传头像",
-      "en": "Tap to upload avatar"
-    },
-    "nickname": {
-      "zh-Hans": "昵称",
-      "en": "Nickname"
-    },
-    "inputNickname": {
-      "zh-Hans": "请输入您的昵称",
-      "en": "Enter your nickname"
-    },
-    "saving": {
-      "zh-Hans": "保存中...",
-      "en": "Saving..."
-    },
-    "finishSetup": {
-      "zh-Hans": "完成设置",
-      "en": "Finish Setup"
-    },
-    "skip": {
-      "zh-Hans": "跳过，稍后完善",
-      "en": "Skip, complete later"
-    },
-    "uploading": {
-      "zh-Hans": "上传中...",
-      "en": "Uploading..."
-    },
-    "avatarUploaded": {
-      "zh-Hans": "头像已上传",
-      "en": "Avatar uploaded"
-    },
-    "uploadFailed": {
-      "zh-Hans": "上传失败",
-      "en": "Upload failed"
-    },
-    "invalidPhone": {
-      "zh-Hans": "请输入正确的手机号",
-      "en": "Please enter a valid phone number"
-    },
-    "codeSent": {
-      "zh-Hans": "验证码已发送",
-      "en": "Verification code sent"
-    },
-    "sendFailed": {
-      "zh-Hans": "发送失败，请重试",
-      "en": "Failed to send, please retry"
-    },
-    "inputNicknameToast": {
-      "zh-Hans": "请输入昵称",
-      "en": "Please enter a nickname"
-    },
-    "inputCode6": {
-      "zh-Hans": "请输入6位验证码",
-      "en": "Please enter the 6-digit code"
-    },
-    "saveFailed": {
-      "zh-Hans": "保存失败，请重试",
-      "en": "Failed to save, please retry"
-    }
+    "title": { "zh-Hans": "完善您的资料", "en": "Complete Your Profile" },
+    "subtitle": { "zh-Hans": "设置昵称和头像，方便其他用户识别您", "en": "Set a nickname and avatar so others can recognize you" },
+    "uploadAvatar": { "zh-Hans": "点击上传头像", "en": "Tap to upload avatar" },
+    "nickname": { "zh-Hans": "昵称", "en": "Nickname" },
+    "inputNickname": { "zh-Hans": "请输入您的昵称", "en": "Enter your nickname" },
+    "saving": { "zh-Hans": "保存中...", "en": "Saving..." },
+    "finishSetup": { "zh-Hans": "完成设置", "en": "Finish Setup" },
+    "skip": { "zh-Hans": "跳过，稍后完善", "en": "Skip, complete later" },
+    "uploading": { "zh-Hans": "上传中...", "en": "Uploading..." },
+    "avatarUploaded": { "zh-Hans": "头像已上传", "en": "Avatar uploaded" },
+    "uploadFailed": { "zh-Hans": "上传失败", "en": "Upload failed" },
+    "invalidPhone": { "zh-Hans": "请输入正确的手机号", "en": "Please enter a valid phone number" },
+    "codeSent": { "zh-Hans": "验证码已发送", "en": "Verification code sent" },
+    "sendFailed": { "zh-Hans": "发送失败，请重试", "en": "Failed to send, please retry" },
+    "inputNicknameToast": { "zh-Hans": "请输入昵称", "en": "Please enter a nickname" },
+    "inputCode6": { "zh-Hans": "请输入6位验证码", "en": "Please enter the 6-digit code" },
+    "saveFailed": { "zh-Hans": "保存失败，请重试", "en": "Failed to save, please retry" }
   },
+
   "emergencyContacts": {
-    "hint": {
-      "zh-Hans": "最多可设置 3 个紧急联系人，紧急情况下可一键呼叫",
-      "en": "Up to 3 emergency contacts; call with one tap in emergencies"
-    },
-    "edit": {
-      "zh-Hans": "编辑",
-      "en": "Edit"
-    },
-    "delete": {
-      "zh-Hans": "删除",
-      "en": "Delete"
-    },
-    "empty": {
-      "zh-Hans": "还没有紧急联系人",
-      "en": "No emergency contacts yet"
-    },
-    "addBtn": {
-      "zh-Hans": "+ 添加紧急联系人",
-      "en": "+ Add Emergency Contact"
-    },
-    "limitReached": {
-      "zh-Hans": "已达到上限（3 个）",
-      "en": "Limit reached (3)"
-    },
-    "editTitle": {
-      "zh-Hans": "编辑紧急联系人",
-      "en": "Edit Emergency Contact"
-    },
-    "addTitle": {
-      "zh-Hans": "添加紧急联系人",
-      "en": "Add Emergency Contact"
-    },
-    "nameLabel": {
-      "zh-Hans": "姓名",
-      "en": "Name"
-    },
-    "namePlaceholder": {
-      "zh-Hans": "如 王芳",
-      "en": "e.g. Wang Fang"
-    },
-    "phoneLabel": {
-      "zh-Hans": "手机号",
-      "en": "Phone"
-    },
-    "phonePlaceholder": {
-      "zh-Hans": "11 位手机号",
-      "en": "11-digit phone number"
-    },
-    "relationLabel": {
-      "zh-Hans": "关系",
-      "en": "Relationship"
-    },
-    "relationPlaceholder": {
-      "zh-Hans": "如 配偶/子女/朋友",
-      "en": "e.g. Spouse/Child/Friend"
-    },
-    "loadFailed": {
-      "zh-Hans": "加载失败",
-      "en": "Failed to load"
-    },
-    "maxLimit": {
-      "zh-Hans": "最多只能添加{count}个联系人",
-      "en": "You can add at most {count} contacts",
-      "_params": [
-        "count"
-      ]
-    },
-    "fillName": {
-      "zh-Hans": "请填写姓名",
-      "en": "Please enter a name"
-    },
-    "fillValidPhone": {
-      "zh-Hans": "请填写正确手机号",
-      "en": "Please enter a valid phone number"
-    },
-    "fillRelation": {
-      "zh-Hans": "请填写关系",
-      "en": "Please enter the relationship"
-    },
-    "updated": {
-      "zh-Hans": "已更新",
-      "en": "Updated"
-    },
-    "added": {
-      "zh-Hans": "已添加",
-      "en": "Added"
-    },
-    "saveFailed": {
-      "zh-Hans": "保存失败",
-      "en": "Failed to save"
-    },
-    "deleteTitle": {
-      "zh-Hans": "删除联系人",
-      "en": "Delete Contact"
-    },
-    "deleteConfirm": {
-      "zh-Hans": "确定要删除该紧急联系人吗？",
-      "en": "Delete this emergency contact?"
-    },
-    "deleted": {
-      "zh-Hans": "已删除",
-      "en": "Deleted"
-    },
-    "deleteFailed": {
-      "zh-Hans": "删除失败",
-      "en": "Failed to delete"
-    }
+    "hint": { "zh-Hans": "最多可设置 3 个紧急联系人，紧急情况下可一键呼叫", "en": "Up to 3 emergency contacts; call with one tap in emergencies" },
+    "edit": { "zh-Hans": "编辑", "en": "Edit" },
+    "delete": { "zh-Hans": "删除", "en": "Delete" },
+    "empty": { "zh-Hans": "还没有紧急联系人", "en": "No emergency contacts yet" },
+    "addBtn": { "zh-Hans": "+ 添加紧急联系人", "en": "+ Add Emergency Contact" },
+    "limitReached": { "zh-Hans": "已达到上限（3 个）", "en": "Limit reached (3)" },
+    "editTitle": { "zh-Hans": "编辑紧急联系人", "en": "Edit Emergency Contact" },
+    "addTitle": { "zh-Hans": "添加紧急联系人", "en": "Add Emergency Contact" },
+    "nameLabel": { "zh-Hans": "姓名", "en": "Name" },
+    "namePlaceholder": { "zh-Hans": "如 王芳", "en": "e.g. Wang Fang" },
+    "phoneLabel": { "zh-Hans": "手机号", "en": "Phone" },
+    "phonePlaceholder": { "zh-Hans": "11 位手机号", "en": "11-digit phone number" },
+    "relationLabel": { "zh-Hans": "关系", "en": "Relationship" },
+    "relationPlaceholder": { "zh-Hans": "如 配偶/子女/朋友", "en": "e.g. Spouse/Child/Friend" },
+    "loadFailed": { "zh-Hans": "加载失败", "en": "Failed to load" },
+    "maxLimit": { "zh-Hans": "最多只能添加{count}个联系人", "en": "You can add at most {count} contacts", "_params": ["count"] },
+    "fillName": { "zh-Hans": "请填写姓名", "en": "Please enter a name" },
+    "fillValidPhone": { "zh-Hans": "请填写正确手机号", "en": "Please enter a valid phone number" },
+    "fillRelation": { "zh-Hans": "请填写关系", "en": "Please enter the relationship" },
+    "updated": { "zh-Hans": "已更新", "en": "Updated" },
+    "added": { "zh-Hans": "已添加", "en": "Added" },
+    "saveFailed": { "zh-Hans": "保存失败", "en": "Failed to save" },
+    "deleteTitle": { "zh-Hans": "删除联系人", "en": "Delete Contact" },
+    "deleteConfirm": { "zh-Hans": "确定要删除该紧急联系人吗？", "en": "Delete this emergency contact?" },
+    "deleted": { "zh-Hans": "已删除", "en": "Deleted" },
+    "deleteFailed": { "zh-Hans": "删除失败", "en": "Failed to delete" }
   },
+
   "familyMembers": {
-    "hint": {
-      "zh-Hans": "添加家人后，下单时可指定为其本人就诊",
-      "en": "After adding family members, you can order on their behalf"
-    },
-    "ageUnit": {
-      "zh-Hans": "{age} 岁",
-      "en": "{age} y/o",
-      "_params": [
-        "age"
-      ]
-    },
-    "edit": {
-      "zh-Hans": "编辑",
-      "en": "Edit"
-    },
-    "delete": {
-      "zh-Hans": "删除",
-      "en": "Delete"
-    },
-    "empty": {
-      "zh-Hans": "还没有添加家人",
-      "en": "No family members added yet"
-    },
-    "addBtn": {
-      "zh-Hans": "+ 添加家人",
-      "en": "+ Add Family Member"
-    },
-    "editTitle": {
-      "zh-Hans": "编辑家人",
-      "en": "Edit Family Member"
-    },
-    "addTitle": {
-      "zh-Hans": "添加家人",
-      "en": "Add Family Member"
-    },
-    "nameLabel": {
-      "zh-Hans": "姓名",
-      "en": "Name"
-    },
-    "namePlaceholder": {
-      "zh-Hans": "如 王芳",
-      "en": "e.g. Wang Fang"
-    },
-    "relationLabel": {
-      "zh-Hans": "关系",
-      "en": "Relationship"
-    },
-    "phoneLabel": {
-      "zh-Hans": "手机号",
-      "en": "Phone"
-    },
-    "phonePlaceholder": {
-      "zh-Hans": "11 位手机号（选填）",
-      "en": "11-digit phone (optional)"
-    },
-    "genderLabel": {
-      "zh-Hans": "性别",
-      "en": "Gender"
-    },
-    "genderUnknown": {
-      "zh-Hans": "未知",
-      "en": "Unknown"
-    },
-    "genderMale": {
-      "zh-Hans": "男",
-      "en": "Male"
-    },
-    "genderFemale": {
-      "zh-Hans": "女",
-      "en": "Female"
-    },
-    "ageLabel": {
-      "zh-Hans": "年龄",
-      "en": "Age"
-    },
-    "agePlaceholder": {
-      "zh-Hans": "0-130（选填）",
-      "en": "0-130 (optional)"
-    },
-    "notesLabel": {
-      "zh-Hans": "病情备注",
-      "en": "Medical Notes"
-    },
-    "notesPlaceholder": {
-      "zh-Hans": "过敏史、慢性病等（选填）",
-      "en": "Allergies, chronic conditions, etc. (optional)"
-    },
-    "loadFailed": {
-      "zh-Hans": "加载失败",
-      "en": "Failed to load"
-    },
-    "fillName": {
-      "zh-Hans": "请填写姓名",
-      "en": "Please enter a name"
-    },
-    "nameTooLong": {
-      "zh-Hans": "姓名不超过 50 字",
-      "en": "Name must be 50 characters or fewer"
-    },
-    "invalidPhone": {
-      "zh-Hans": "请填写正确手机号",
-      "en": "Please enter a valid phone number"
-    },
-    "invalidAge": {
-      "zh-Hans": "年龄需为 0-130 的整数",
-      "en": "Age must be an integer from 0 to 130"
-    },
-    "updated": {
-      "zh-Hans": "已更新",
-      "en": "Updated"
-    },
-    "added": {
-      "zh-Hans": "已添加",
-      "en": "Added"
-    },
-    "saveFailed": {
-      "zh-Hans": "保存失败",
-      "en": "Failed to save"
-    },
-    "deleteTitle": {
-      "zh-Hans": "删除家人",
-      "en": "Delete Family Member"
-    },
-    "deleteConfirm": {
-      "zh-Hans": "确定要删除该家人档案吗？历史订单不会受影响。",
-      "en": "Delete this family member? Past orders are unaffected."
-    },
-    "deleted": {
-      "zh-Hans": "已删除",
-      "en": "Deleted"
-    },
-    "deleteFailed": {
-      "zh-Hans": "删除失败",
-      "en": "Failed to delete"
-    }
+    "hint": { "zh-Hans": "添加家人后，下单时可指定为其本人就诊", "en": "After adding family members, you can order on their behalf" },
+    "ageUnit": { "zh-Hans": "{age} 岁", "en": "{age} y/o", "_params": ["age"] },
+    "edit": { "zh-Hans": "编辑", "en": "Edit" },
+    "delete": { "zh-Hans": "删除", "en": "Delete" },
+    "empty": { "zh-Hans": "还没有添加家人", "en": "No family members added yet" },
+    "addBtn": { "zh-Hans": "+ 添加家人", "en": "+ Add Family Member" },
+    "editTitle": { "zh-Hans": "编辑家人", "en": "Edit Family Member" },
+    "addTitle": { "zh-Hans": "添加家人", "en": "Add Family Member" },
+    "nameLabel": { "zh-Hans": "姓名", "en": "Name" },
+    "namePlaceholder": { "zh-Hans": "如 王芳", "en": "e.g. Wang Fang" },
+    "relationLabel": { "zh-Hans": "关系", "en": "Relationship" },
+    "phoneLabel": { "zh-Hans": "手机号", "en": "Phone" },
+    "phonePlaceholder": { "zh-Hans": "11 位手机号（选填）", "en": "11-digit phone (optional)" },
+    "genderLabel": { "zh-Hans": "性别", "en": "Gender" },
+    "genderUnknown": { "zh-Hans": "未知", "en": "Unknown" },
+    "genderMale": { "zh-Hans": "男", "en": "Male" },
+    "genderFemale": { "zh-Hans": "女", "en": "Female" },
+    "ageLabel": { "zh-Hans": "年龄", "en": "Age" },
+    "agePlaceholder": { "zh-Hans": "0-130（选填）", "en": "0-130 (optional)" },
+    "notesLabel": { "zh-Hans": "病情备注", "en": "Medical Notes" },
+    "notesPlaceholder": { "zh-Hans": "过敏史、慢性病等（选填）", "en": "Allergies, chronic conditions, etc. (optional)" },
+    "loadFailed": { "zh-Hans": "加载失败", "en": "Failed to load" },
+    "fillName": { "zh-Hans": "请填写姓名", "en": "Please enter a name" },
+    "nameTooLong": { "zh-Hans": "姓名不超过 50 字", "en": "Name must be 50 characters or fewer" },
+    "invalidPhone": { "zh-Hans": "请填写正确手机号", "en": "Please enter a valid phone number" },
+    "invalidAge": { "zh-Hans": "年龄需为 0-130 的整数", "en": "Age must be an integer from 0 to 130" },
+    "updated": { "zh-Hans": "已更新", "en": "Updated" },
+    "added": { "zh-Hans": "已添加", "en": "Added" },
+    "saveFailed": { "zh-Hans": "保存失败", "en": "Failed to save" },
+    "deleteTitle": { "zh-Hans": "删除家人", "en": "Delete Family Member" },
+    "deleteConfirm": { "zh-Hans": "确定要删除该家人档案吗？历史订单不会受影响。", "en": "Delete this family member? Past orders are unaffected." },
+    "deleted": { "zh-Hans": "已删除", "en": "Deleted" },
+    "deleteFailed": { "zh-Hans": "删除失败", "en": "Failed to delete" }
   },
+
   "relation": {
-    "self": {
-      "zh-Hans": "本人",
-      "en": "Myself"
-    },
-    "parent": {
-      "zh-Hans": "父母",
-      "en": "Parent"
-    },
-    "spouse": {
-      "zh-Hans": "配偶",
-      "en": "Spouse"
-    },
-    "child": {
-      "zh-Hans": "子女",
-      "en": "Child"
-    },
-    "sibling": {
-      "zh-Hans": "兄弟姐妹",
-      "en": "Sibling"
-    },
-    "grandparent": {
-      "zh-Hans": "祖父母",
-      "en": "Grandparent"
-    },
-    "relative": {
-      "zh-Hans": "亲戚",
-      "en": "Relative"
-    },
-    "friend": {
-      "zh-Hans": "朋友",
-      "en": "Friend"
-    },
-    "other": {
-      "zh-Hans": "其他",
-      "en": "Other"
-    }
+    "self": { "zh-Hans": "本人", "en": "Myself" },
+    "parent": { "zh-Hans": "父母", "en": "Parent" },
+    "spouse": { "zh-Hans": "配偶", "en": "Spouse" },
+    "child": { "zh-Hans": "子女", "en": "Child" },
+    "sibling": { "zh-Hans": "兄弟姐妹", "en": "Sibling" },
+    "grandparent": { "zh-Hans": "祖父母", "en": "Grandparent" },
+    "relative": { "zh-Hans": "亲戚", "en": "Relative" },
+    "friend": { "zh-Hans": "朋友", "en": "Friend" },
+    "other": { "zh-Hans": "其他", "en": "Other" }
   },
+
   "profileEdit": {
-    "emergencyContact": {
-      "zh-Hans": "紧急联系人",
-      "en": "Emergency Contact"
-    },
-    "emergencyContactPlaceholder": {
-      "zh-Hans": "请输入紧急联系人姓名",
-      "en": "Enter emergency contact name"
-    },
-    "emergencyPhone": {
-      "zh-Hans": "紧急联系电话",
-      "en": "Emergency Phone"
-    },
-    "emergencyPhonePlaceholder": {
-      "zh-Hans": "请输入紧急联系电话",
-      "en": "Enter emergency phone"
-    },
-    "medicalNotes": {
-      "zh-Hans": "病情备注",
-      "en": "Medical Notes"
-    },
-    "medicalNotesPlaceholder": {
-      "zh-Hans": "请输入病情备注信息",
-      "en": "Enter medical notes"
-    },
-    "serviceType": {
-      "zh-Hans": "服务类型",
-      "en": "Service Type"
-    },
-    "certifications": {
-      "zh-Hans": "认证资质",
-      "en": "Certifications"
-    },
-    "certificationsPlaceholder": {
-      "zh-Hans": "请输入资质证书信息，如护士证、健康管理师证等",
-      "en": "Enter certifications, e.g. nurse license, health manager cert"
-    },
-    "bio": {
-      "zh-Hans": "个人简介",
-      "en": "Bio"
-    },
-    "bioPlaceholder": {
-      "zh-Hans": "请输入个人简介",
-      "en": "Enter your bio"
-    },
-    "serviceArea": {
-      "zh-Hans": "服务区域",
-      "en": "Service Area"
-    },
-    "serviceHospital": {
-      "zh-Hans": "服务医院",
-      "en": "Service Hospitals"
-    },
-    "cityWrap": {
-      "zh-Hans": "（{city}）",
-      "en": " ({city})",
-      "_params": [
-        "city"
-      ]
-    },
-    "searchHospital": {
-      "zh-Hans": "搜索医院名称",
-      "en": "Search hospital name"
-    },
-    "filterDistrict": {
-      "zh-Hans": "区县",
-      "en": "District"
-    },
-    "filterLevel": {
-      "zh-Hans": "资质",
-      "en": "Level"
-    },
-    "filterTag": {
-      "zh-Hans": "专科",
-      "en": "Specialty"
-    },
-    "noHospitalData": {
-      "zh-Hans": "暂无医院数据",
-      "en": "No hospital data"
-    },
-    "selectedHospitals": {
-      "zh-Hans": "已选 {count} 家医院",
-      "en": "{count} hospitals selected",
-      "_params": [
-        "count"
-      ]
-    },
-    "unlimited": {
-      "zh-Hans": "不限",
-      "en": "All"
-    },
-    "defaultCity": {
-      "zh-Hans": "北京",
-      "en": "Beijing"
-    },
-    "saveSuccess": {
-      "zh-Hans": "保存成功",
-      "en": "Saved successfully"
-    },
-    "saveFailed": {
-      "zh-Hans": "保存失败",
-      "en": "Failed to save"
-    },
-    "selectServiceType": {
-      "zh-Hans": "请至少选择一种服务类型",
-      "en": "Please select at least one service type"
-    }
+    "emergencyContact": { "zh-Hans": "紧急联系人", "en": "Emergency Contact" },
+    "emergencyContactPlaceholder": { "zh-Hans": "请输入紧急联系人姓名", "en": "Enter emergency contact name" },
+    "emergencyPhone": { "zh-Hans": "紧急联系电话", "en": "Emergency Phone" },
+    "emergencyPhonePlaceholder": { "zh-Hans": "请输入紧急联系电话", "en": "Enter emergency phone" },
+    "medicalNotes": { "zh-Hans": "病情备注", "en": "Medical Notes" },
+    "medicalNotesPlaceholder": { "zh-Hans": "请输入病情备注信息", "en": "Enter medical notes" },
+    "serviceType": { "zh-Hans": "服务类型", "en": "Service Type" },
+    "certifications": { "zh-Hans": "认证资质", "en": "Certifications" },
+    "certificationsPlaceholder": { "zh-Hans": "请输入资质证书信息，如护士证、健康管理师证等", "en": "Enter certifications, e.g. nurse license, health manager cert" },
+    "bio": { "zh-Hans": "个人简介", "en": "Bio" },
+    "bioPlaceholder": { "zh-Hans": "请输入个人简介", "en": "Enter your bio" },
+    "serviceArea": { "zh-Hans": "服务区域", "en": "Service Area" },
+    "serviceHospital": { "zh-Hans": "服务医院", "en": "Service Hospitals" },
+    "cityWrap": { "zh-Hans": "（{city}）", "en": " ({city})", "_params": ["city"] },
+    "searchHospital": { "zh-Hans": "搜索医院名称", "en": "Search hospital name" },
+    "filterDistrict": { "zh-Hans": "区县", "en": "District" },
+    "filterLevel": { "zh-Hans": "资质", "en": "Level" },
+    "filterTag": { "zh-Hans": "专科", "en": "Specialty" },
+    "noHospitalData": { "zh-Hans": "暂无医院数据", "en": "No hospital data" },
+    "selectedHospitals": { "zh-Hans": "已选 {count} 家医院", "en": "{count} hospitals selected", "_params": ["count"] },
+    "unlimited": { "zh-Hans": "不限", "en": "All" },
+    "defaultCity": { "zh-Hans": "北京", "en": "Beijing" },
+    "saveSuccess": { "zh-Hans": "保存成功", "en": "Saved successfully" },
+    "saveFailed": { "zh-Hans": "保存失败", "en": "Failed to save" },
+    "selectServiceType": { "zh-Hans": "请至少选择一种服务类型", "en": "Please select at least one service type" }
   },
+
   "home": {
-    "title": {
-      "zh-Hans": "首页",
-      "en": "Home"
-    },
-    "greeting": {
-      "zh-Hans": "你好",
-      "en": "Hello"
-    },
-    "selectHospital": {
-      "zh-Hans": "选择医院",
-      "en": "Select Hospital"
-    },
-    "clearSelection": {
-      "zh-Hans": "清除选择",
-      "en": "Clear"
-    },
-    "searchHospital": {
-      "zh-Hans": "搜索医院名称",
-      "en": "Search hospital name"
-    },
-    "noHospitalFound": {
-      "zh-Hans": "暂未找到相关医院，换个关键词试试吧",
-      "en": "No hospitals found. Try a different keyword."
-    },
-    "selectService": {
-      "zh-Hans": "选择服务",
-      "en": "Select Service"
-    },
-    "tapSelectService": {
-      "zh-Hans": "点击选择服务类型",
-      "en": "Tap to select a service type"
-    },
-    "clearFilter": {
-      "zh-Hans": "清除筛选",
-      "en": "Clear Filter"
-    },
-    "recommendedCompanions": {
-      "zh-Hans": "推荐陪诊师",
-      "en": "Recommended Companions"
-    },
-    "matchedCompanions": {
-      "zh-Hans": "匹配陪诊师",
-      "en": "Matched Companions"
-    },
-    "matchedAt": {
-      "zh-Hans": "匹配陪诊师 · {name}",
-      "en": "Matched Companions · {name}",
-      "_params": [
-        "name"
-      ]
-    },
-    "noMatchedCompanion": {
-      "zh-Hans": "暂未找到匹配的陪诊师",
-      "en": "No matched companions found"
-    },
-    "noRecommendCompanion": {
-      "zh-Hans": "暂无推荐陪诊师，稍后再来看看",
-      "en": "No recommendations yet. Check back later."
-    },
-    "loadMore": {
-      "zh-Hans": "查看更多",
-      "en": "Load More"
-    },
-    "allShown": {
-      "zh-Hans": "— 已展示全部 —",
-      "en": "— All shown —"
-    },
-    "selectCity": {
-      "zh-Hans": "选择城市",
-      "en": "Select City"
-    },
-    "autoLocate": {
-      "zh-Hans": "自动定位",
-      "en": "Auto Locate"
-    },
-    "availableCities": {
-      "zh-Hans": "可选城市",
-      "en": "Available Cities"
-    }
+    "title": { "zh-Hans": "首页", "en": "Home" },
+    "greeting": { "zh-Hans": "你好", "en": "Hello" },
+    "selectHospital": { "zh-Hans": "选择医院", "en": "Select Hospital" },
+    "clearSelection": { "zh-Hans": "清除选择", "en": "Clear" },
+    "searchHospital": { "zh-Hans": "搜索医院名称", "en": "Search hospital name" },
+    "noHospitalFound": { "zh-Hans": "暂未找到相关医院，换个关键词试试吧", "en": "No hospitals found. Try a different keyword." },
+    "selectService": { "zh-Hans": "选择服务", "en": "Select Service" },
+    "tapSelectService": { "zh-Hans": "点击选择服务类型", "en": "Tap to select a service type" },
+    "clearFilter": { "zh-Hans": "清除筛选", "en": "Clear Filter" },
+    "recommendedCompanions": { "zh-Hans": "推荐陪诊师", "en": "Recommended Companions" },
+    "matchedCompanions": { "zh-Hans": "匹配陪诊师", "en": "Matched Companions" },
+    "matchedAt": { "zh-Hans": "匹配陪诊师 · {name}", "en": "Matched Companions · {name}", "_params": ["name"] },
+    "noMatchedCompanion": { "zh-Hans": "暂未找到匹配的陪诊师", "en": "No matched companions found" },
+    "noRecommendCompanion": { "zh-Hans": "暂无推荐陪诊师，稍后再来看看", "en": "No recommendations yet. Check back later." },
+    "loadMore": { "zh-Hans": "查看更多", "en": "Load More" },
+    "allShown": { "zh-Hans": "— 已展示全部 —", "en": "— All shown —" },
+    "selectCity": { "zh-Hans": "选择城市", "en": "Select City" },
+    "autoLocate": { "zh-Hans": "自动定位", "en": "Auto Locate" },
+    "availableCities": { "zh-Hans": "可选城市", "en": "Available Cities" }
   },
+
   "chat": {
-    "title": {
-      "zh-Hans": "聊天",
-      "en": "Chat"
-    },
-    "inputPlaceholder": {
-      "zh-Hans": "输入消息...",
-      "en": "Type a message..."
-    },
-    "send": {
-      "zh-Hans": "发送",
-      "en": "Send"
-    },
-    "defaultName": {
-      "zh-Hans": "聊天",
-      "en": "Chat"
-    },
-    "companionPrefix": {
-      "zh-Hans": "陪诊师·{name}",
-      "en": "Companion·{name}",
-      "_params": [
-        "name"
-      ]
-    },
-    "hintCreated": {
-      "zh-Hans": "待接单",
-      "en": "Pending"
-    },
-    "hintCompleted": {
-      "zh-Hans": "订单已完成",
-      "en": "Order completed"
-    },
-    "hintReviewed": {
-      "zh-Hans": "已评价",
-      "en": "Reviewed"
-    },
-    "tapToEnter": {
-      "zh-Hans": "点击进入聊天",
-      "en": "Tap to open chat"
-    },
-    "systemPrefix": {
-      "zh-Hans": "[系统] ",
-      "en": "[System] "
-    },
-    "noMessage": {
-      "zh-Hans": "暂无消息",
-      "en": "No messages"
-    },
-    "emptyHint": {
-      "zh-Hans": "下单后可与陪诊师沟通",
-      "en": "Chat with your companion after booking"
-    },
-    "emptyIcon": {
-      "zh-Hans": "消",
-      "en": "💬"
-    },
-    "loadMsgFailed": {
-      "zh-Hans": "加载消息失败",
-      "en": "Failed to load messages"
-    },
-    "loadHistoryFailed": {
-      "zh-Hans": "加载历史失败",
-      "en": "Failed to load history"
-    },
-    "reconnecting": {
-      "zh-Hans": "连接断开，正在重连...",
-      "en": "Disconnected, reconnecting..."
-    },
-    "confirmAcceptTitle": {
-      "zh-Hans": "确认接单",
-      "en": "Confirm Accept"
-    },
-    "confirmAcceptContent": {
-      "zh-Hans": "确定接受此订单吗？",
-      "en": "Accept this order?"
-    },
-    "accepted": {
-      "zh-Hans": "已接单",
-      "en": "Accepted"
-    },
-    "acceptFailed": {
-      "zh-Hans": "接单失败",
-      "en": "Failed to accept"
-    },
-    "inputPlaceholderShort": {
-      "zh-Hans": "输入消息...",
-      "en": "Type a message..."
-    },
-    "historyEnd": {
-      "zh-Hans": "已是最早的消息",
-      "en": "This is the earliest message"
-    },
-    "viewOrderDetail": {
-      "zh-Hans": "查看订单详情",
-      "en": "View Order Details"
-    },
-    "acceptOrder": {
-      "zh-Hans": "接受订单",
-      "en": "Accept Order"
-    }
+    "title": { "zh-Hans": "聊天", "en": "Chat" },
+    "inputPlaceholder": { "zh-Hans": "输入消息...", "en": "Type a message..." },
+    "send": { "zh-Hans": "发送", "en": "Send" },
+    "defaultName": { "zh-Hans": "聊天", "en": "Chat" },
+    "companionPrefix": { "zh-Hans": "陪诊师·{name}", "en": "Companion·{name}", "_params": ["name"] },
+    "hintCreated": { "zh-Hans": "待接单", "en": "Pending" },
+    "hintCompleted": { "zh-Hans": "订单已完成", "en": "Order completed" },
+    "hintReviewed": { "zh-Hans": "已评价", "en": "Reviewed" },
+    "tapToEnter": { "zh-Hans": "点击进入聊天", "en": "Tap to open chat" },
+    "systemPrefix": { "zh-Hans": "[系统] ", "en": "[System] " },
+    "noMessage": { "zh-Hans": "暂无消息", "en": "No messages" },
+    "emptyHint": { "zh-Hans": "下单后可与陪诊师沟通", "en": "Chat with your companion after booking" },
+    "emptyIcon": { "zh-Hans": "消", "en": "💬" },
+    "loadMsgFailed": { "zh-Hans": "加载消息失败", "en": "Failed to load messages" },
+    "loadHistoryFailed": { "zh-Hans": "加载历史失败", "en": "Failed to load history" },
+    "reconnecting": { "zh-Hans": "连接断开，正在重连...", "en": "Disconnected, reconnecting..." },
+    "confirmAcceptTitle": { "zh-Hans": "确认接单", "en": "Confirm Accept" },
+    "confirmAcceptContent": { "zh-Hans": "确定接受此订单吗？", "en": "Accept this order?" },
+    "accepted": { "zh-Hans": "已接单", "en": "Accepted" },
+    "acceptFailed": { "zh-Hans": "接单失败", "en": "Failed to accept" },
+    "inputPlaceholderShort": { "zh-Hans": "输入消息...", "en": "Type a message..." },
+    "historyEnd": { "zh-Hans": "已是最早的消息", "en": "This is the earliest message" },
+    "viewOrderDetail": { "zh-Hans": "查看订单详情", "en": "View Order Details" },
+    "acceptOrder": { "zh-Hans": "接受订单", "en": "Accept Order" }
   },
+
   "city": {
-    "locating": {
-      "zh-Hans": "定位中...",
-      "en": "Locating..."
-    },
-    "value": {
-      "zh-Hans": "{city}",
-      "en": "{city}",
-      "_params": [
-        "city"
-      ],
-      "_note": "无值时回退 common.notSet / Not Set"
-    }
+    "locating": { "zh-Hans": "定位中...", "en": "Locating..." },
+    "value": { "zh-Hans": "{city}", "en": "{city}", "_params": ["city"], "_note": "无值时回退 common.notSet / Not Set" }
   },
+
   "price": {
-    "amount": {
-      "zh-Hans": "¥{amount}",
-      "en": "¥{amount}",
-      "_params": [
-        "amount"
-      ],
-      "_note": "货币符号本期不本地化，保留 ¥ (PRD §7.5)"
-    }
+    "amount": { "zh-Hans": "¥{amount}", "en": "¥{amount}", "_params": ["amount"], "_note": "货币符号本期不本地化，保留 ¥ (PRD §7.5)" }
   },
+
   "hospital": {
-    "searchPlaceholder": {
-      "zh-Hans": "搜索医院名称",
-      "en": "Search hospital name"
-    }
+    "searchPlaceholder": { "zh-Hans": "搜索医院名称", "en": "Search hospital name" }
   },
+
   "toast": {
-    "locatedTo": {
-      "zh-Hans": "已定位到 {city}",
-      "en": "Located to {city}",
-      "_params": [
-        "city"
-      ]
-    },
-    "locateFailed": {
-      "zh-Hans": "定位失败",
-      "en": "Location failed"
-    },
-    "locateFailedPerm": {
-      "zh-Hans": "定位失败，请检查权限",
-      "en": "Location failed, please check permissions"
-    },
-    "needLocationPerm": {
-      "zh-Hans": "请允许位置权限",
-      "en": "Please allow location access"
-    },
-    "selectedCity": {
-      "zh-Hans": "已选择 {city}",
-      "en": "Selected {city}",
-      "_params": [
-        "city"
-      ]
-    },
-    "switching": {
-      "zh-Hans": "切换中...",
-      "en": "Switching..."
-    },
-    "switchFailed": {
-      "zh-Hans": "切换失败",
-      "en": "Switch failed"
-    },
-    "cleared": {
-      "zh-Hans": "已清除",
-      "en": "Cleared"
-    },
-    "agreeFirst": {
-      "zh-Hans": "请先同意用户协议和隐私政策",
-      "en": "Please agree to the User Agreement and Privacy Policy first"
-    },
-    "loginFailed": {
-      "zh-Hans": "登录失败，请重试",
-      "en": "Login failed, please try again"
-    },
-    "invalidPhone": {
-      "zh-Hans": "请输入正确的手机号",
-      "en": "Please enter a valid phone number"
-    },
-    "codeSent": {
-      "zh-Hans": "验证码已发送",
-      "en": "Verification code sent"
-    },
-    "sendFailed": {
-      "zh-Hans": "发送失败，请重试",
-      "en": "Failed to send, please try again"
-    },
-    "inputCode6": {
-      "zh-Hans": "请输入6位验证码",
-      "en": "Please enter the 6-digit code"
-    },
-    "codeWrongExpired": {
-      "zh-Hans": "验证码错误或已过期",
-      "en": "Code is incorrect or expired"
-    },
-    "opFailed": {
-      "zh-Hans": "操作失败，请重试",
-      "en": "Operation failed, please try again"
-    },
-    "selectHospitalFirst": {
-      "zh-Hans": "请先选择医院",
-      "en": "Please select a hospital first"
-    },
-    "selectServiceFirst": {
-      "zh-Hans": "请先选择服务类型",
-      "en": "Please select a service type first"
-    },
-    "selectCompanionFirst": {
-      "zh-Hans": "请先选择陪诊师",
-      "en": "Please select a companion first"
-    }
+    "locatedTo": { "zh-Hans": "已定位到 {city}", "en": "Located to {city}", "_params": ["city"] },
+    "locateFailed": { "zh-Hans": "定位失败", "en": "Location failed" },
+    "locateFailedPerm": { "zh-Hans": "定位失败，请检查权限", "en": "Location failed, please check permissions" },
+    "needLocationPerm": { "zh-Hans": "请允许位置权限", "en": "Please allow location access" },
+    "selectedCity": { "zh-Hans": "已选择 {city}", "en": "Selected {city}", "_params": ["city"] },
+    "switching": { "zh-Hans": "切换中...", "en": "Switching..." },
+    "switchFailed": { "zh-Hans": "切换失败", "en": "Switch failed" },
+    "cleared": { "zh-Hans": "已清除", "en": "Cleared" },
+    "agreeFirst": { "zh-Hans": "请先同意用户协议和隐私政策", "en": "Please agree to the User Agreement and Privacy Policy first" },
+    "loginFailed": { "zh-Hans": "登录失败，请重试", "en": "Login failed, please try again" },
+    "invalidPhone": { "zh-Hans": "请输入正确的手机号", "en": "Please enter a valid phone number" },
+    "codeSent": { "zh-Hans": "验证码已发送", "en": "Verification code sent" },
+    "sendFailed": { "zh-Hans": "发送失败，请重试", "en": "Failed to send, please try again" },
+    "inputCode6": { "zh-Hans": "请输入6位验证码", "en": "Please enter the 6-digit code" },
+    "codeWrongExpired": { "zh-Hans": "验证码错误或已过期", "en": "Code is incorrect or expired" },
+    "opFailed": { "zh-Hans": "操作失败，请重试", "en": "Operation failed, please try again" },
+    "selectHospitalFirst": { "zh-Hans": "请先选择医院", "en": "Please select a hospital first" },
+    "selectServiceFirst": { "zh-Hans": "请先选择服务类型", "en": "Please select a service type first" },
+    "selectCompanionFirst": { "zh-Hans": "请先选择陪诊师", "en": "Please select a companion first" }
   },
+
   "dialog": {
-    "registerRoleTitle": {
-      "zh-Hans": "注册新角色",
-      "en": "Register New Role"
-    },
-    "registerRoleContent": {
-      "zh-Hans": "您还没有{targetLabel}角色，是否前往注册？",
-      "en": "You don't have the {targetLabel} role yet. Register now?",
-      "_params": [
-        "targetLabel"
-      ]
-    },
-    "switchRoleTitle": {
-      "zh-Hans": "切换角色",
-      "en": "Switch Role"
-    },
-    "switchRoleContent": {
-      "zh-Hans": "确定切换为{targetLabel}吗？",
-      "en": "Switch to {targetLabel}?",
-      "_params": [
-        "targetLabel"
-      ]
-    },
-    "tip": {
-      "zh-Hans": "提示",
-      "en": "Notice"
-    },
-    "clearCacheConfirm": {
-      "zh-Hans": "确定清除缓存？",
-      "en": "Clear cache?"
-    }
+    "registerRoleTitle": { "zh-Hans": "注册新角色", "en": "Register New Role" },
+    "registerRoleContent": { "zh-Hans": "您还没有{targetLabel}角色，是否前往注册？", "en": "You don't have the {targetLabel} role yet. Register now?", "_params": ["targetLabel"] },
+    "switchRoleTitle": { "zh-Hans": "切换角色", "en": "Switch Role" },
+    "switchRoleContent": { "zh-Hans": "确定切换为{targetLabel}吗？", "en": "Switch to {targetLabel}?", "_params": ["targetLabel"] },
+    "tip": { "zh-Hans": "提示", "en": "Notice" },
+    "clearCacheConfirm": { "zh-Hans": "确定清除缓存？", "en": "Clear cache?" }
   },
+
   "companionSetup": {
-    "title": {
-      "zh-Hans": "陪诊师注册",
-      "en": "Companion Registration"
-    },
-    "subtitle": {
-      "zh-Hans": "完善您的资料，开始接单",
-      "en": "Complete your profile to start taking orders"
-    },
-    "realName": {
-      "zh-Hans": "真实姓名",
-      "en": "Real Name"
-    },
-    "realNamePlaceholder": {
-      "zh-Hans": "请输入您的真实姓名",
-      "en": "Enter your real name"
-    },
-    "phone": {
-      "zh-Hans": "手机号",
-      "en": "Phone Number"
-    },
-    "phonePlaceholder": {
-      "zh-Hans": "请输入手机号",
-      "en": "Enter phone number"
-    },
-    "phoneVerified": {
-      "zh-Hans": "已验证",
-      "en": "Verified"
-    },
-    "codePlaceholder": {
-      "zh-Hans": "请输入6位验证码",
-      "en": "Enter 6-digit code"
-    },
-    "getCode": {
-      "zh-Hans": "获取验证码",
-      "en": "Get Code"
-    },
-    "verifying": {
-      "zh-Hans": "验证中...",
-      "en": "Verifying..."
-    },
-    "verify": {
-      "zh-Hans": "验证",
-      "en": "Verify"
-    },
-    "serviceType": {
-      "zh-Hans": "服务类型",
-      "en": "Service Type"
-    },
-    "serviceTypeHint": {
-      "zh-Hans": "请选择您可提供的服务类型（可多选）",
-      "en": "Select the service types you can provide (multiple)"
-    },
-    "certifications": {
-      "zh-Hans": "认证资质",
-      "en": "Certifications"
-    },
-    "optional": {
-      "zh-Hans": "选填",
-      "en": "Optional"
-    },
-    "certificationsPlaceholder": {
-      "zh-Hans": "请输入资质证书信息，如护士证、健康管理师证等",
-      "en": "Enter certification info, e.g. nurse license, health manager cert"
-    },
-    "bio": {
-      "zh-Hans": "个人简介",
-      "en": "Bio"
-    },
-    "bioPlaceholder": {
-      "zh-Hans": "介绍一下自己，让患者更了解您",
-      "en": "Introduce yourself so patients know you better"
-    },
-    "serviceDistrict": {
-      "zh-Hans": "服务区域",
-      "en": "Service Area"
-    },
-    "recommend": {
-      "zh-Hans": "推荐",
-      "en": "Recommended"
-    },
-    "serviceDistrictHint": {
-      "zh-Hans": "选择您服务的区域（可多选）",
-      "en": "Select your service areas (multiple)"
-    },
-    "noDistrictData": {
-      "zh-Hans": "暂无区域数据",
-      "en": "No area data"
-    },
-    "locating": {
-      "zh-Hans": "定位中...",
-      "en": "Locating..."
-    },
-    "serviceHospital": {
-      "zh-Hans": "服务医院",
-      "en": "Service Hospitals"
-    },
-    "serviceHospitalHint": {
-      "zh-Hans": "选择您熟悉的医院，方便患者匹配",
-      "en": "Select hospitals you know for better matching"
-    },
-    "searchHospitalPlaceholder": {
-      "zh-Hans": "搜索医院名称",
-      "en": "Search hospital name"
-    },
-    "filterDistrict": {
-      "zh-Hans": "区县",
-      "en": "District"
-    },
-    "filterLevel": {
-      "zh-Hans": "资质",
-      "en": "Level"
-    },
-    "filterTag": {
-      "zh-Hans": "专科",
-      "en": "Specialty"
-    },
-    "loadingHospitals": {
-      "zh-Hans": "加载中...",
-      "en": "Loading..."
-    },
-    "noHospitalData": {
-      "zh-Hans": "暂无医院数据",
-      "en": "No hospital data"
-    },
-    "locationFailed": {
-      "zh-Hans": "定位失败，无法加载医院列表",
-      "en": "Location failed, cannot load hospitals"
-    },
-    "submitting": {
-      "zh-Hans": "提交中...",
-      "en": "Submitting..."
-    },
-    "submit": {
-      "zh-Hans": "完成注册",
-      "en": "Complete Registration"
-    },
-    "selectedHospitalCount": {
-      "zh-Hans": "已选 {count} 家医院",
-      "en": "Selected {count} hospital(s)",
-      "_params": [
-        "count"
-      ]
-    },
-    "cityWrap": {
-      "zh-Hans": "（{city}）",
-      "en": " ({city})",
-      "_params": [
-        "city"
-      ]
-    },
-    "toastPhoneInvalid": {
-      "zh-Hans": "请输入正确手机号",
-      "en": "Please enter a valid phone number"
-    },
-    "toastCodeSent": {
-      "zh-Hans": "验证码已发送",
-      "en": "Code sent"
-    },
-    "toastSendFailed": {
-      "zh-Hans": "发送失败",
-      "en": "Send failed"
-    },
-    "toastCheckPhoneCode": {
-      "zh-Hans": "请检查手机号和验证码",
-      "en": "Please check phone and code"
-    },
-    "toastPhoneVerified": {
-      "zh-Hans": "手机号验证成功",
-      "en": "Phone verified"
-    },
-    "toastVerifyFailedRetry": {
-      "zh-Hans": "验证失败，请重试",
-      "en": "Verification failed, please retry"
-    },
-    "toastNeedRealName": {
-      "zh-Hans": "请输入真实姓名",
-      "en": "Please enter your real name"
-    },
-    "toastNeedPhone": {
-      "zh-Hans": "请先验证手机号",
-      "en": "Please verify phone first"
-    },
-    "toastNeedServiceType": {
-      "zh-Hans": "请至少选择一种服务类型",
-      "en": "Please select at least one service type"
-    },
-    "toastRegisterSuccess": {
-      "zh-Hans": "注册成功",
-      "en": "Registration successful"
-    },
-    "toastRegisterFailed": {
-      "zh-Hans": "注册失败",
-      "en": "Registration failed"
-    }
+    "title": { "zh-Hans": "陪诊师注册", "en": "Companion Registration" },
+    "subtitle": { "zh-Hans": "完善您的资料，开始接单", "en": "Complete your profile to start taking orders" },
+    "realName": { "zh-Hans": "真实姓名", "en": "Real Name" },
+    "realNamePlaceholder": { "zh-Hans": "请输入您的真实姓名", "en": "Enter your real name" },
+    "phone": { "zh-Hans": "手机号", "en": "Phone Number" },
+    "phonePlaceholder": { "zh-Hans": "请输入手机号", "en": "Enter phone number" },
+    "phoneVerified": { "zh-Hans": "已验证", "en": "Verified" },
+    "codePlaceholder": { "zh-Hans": "请输入6位验证码", "en": "Enter 6-digit code" },
+    "getCode": { "zh-Hans": "获取验证码", "en": "Get Code" },
+    "verifying": { "zh-Hans": "验证中...", "en": "Verifying..." },
+    "verify": { "zh-Hans": "验证", "en": "Verify" },
+    "serviceType": { "zh-Hans": "服务类型", "en": "Service Type" },
+    "serviceTypeHint": { "zh-Hans": "请选择您可提供的服务类型（可多选）", "en": "Select the service types you can provide (multiple)" },
+    "certifications": { "zh-Hans": "认证资质", "en": "Certifications" },
+    "optional": { "zh-Hans": "选填", "en": "Optional" },
+    "certificationsPlaceholder": { "zh-Hans": "请输入资质证书信息，如护士证、健康管理师证等", "en": "Enter certification info, e.g. nurse license, health manager cert" },
+    "bio": { "zh-Hans": "个人简介", "en": "Bio" },
+    "bioPlaceholder": { "zh-Hans": "介绍一下自己，让患者更了解您", "en": "Introduce yourself so patients know you better" },
+    "serviceDistrict": { "zh-Hans": "服务区域", "en": "Service Area" },
+    "recommend": { "zh-Hans": "推荐", "en": "Recommended" },
+    "serviceDistrictHint": { "zh-Hans": "选择您服务的区域（可多选）", "en": "Select your service areas (multiple)" },
+    "noDistrictData": { "zh-Hans": "暂无区域数据", "en": "No area data" },
+    "locating": { "zh-Hans": "定位中...", "en": "Locating..." },
+    "serviceHospital": { "zh-Hans": "服务医院", "en": "Service Hospitals" },
+    "serviceHospitalHint": { "zh-Hans": "选择您熟悉的医院，方便患者匹配", "en": "Select hospitals you know for better matching" },
+    "searchHospitalPlaceholder": { "zh-Hans": "搜索医院名称", "en": "Search hospital name" },
+    "filterDistrict": { "zh-Hans": "区县", "en": "District" },
+    "filterLevel": { "zh-Hans": "资质", "en": "Level" },
+    "filterTag": { "zh-Hans": "专科", "en": "Specialty" },
+    "loadingHospitals": { "zh-Hans": "加载中...", "en": "Loading..." },
+    "noHospitalData": { "zh-Hans": "暂无医院数据", "en": "No hospital data" },
+    "locationFailed": { "zh-Hans": "定位失败，无法加载医院列表", "en": "Location failed, cannot load hospitals" },
+    "submitting": { "zh-Hans": "提交中...", "en": "Submitting..." },
+    "submit": { "zh-Hans": "完成注册", "en": "Complete Registration" },
+    "selectedHospitalCount": { "zh-Hans": "已选 {count} 家医院", "en": "Selected {count} hospital(s)", "_params": ["count"] },
+    "cityWrap": { "zh-Hans": "（{city}）", "en": " ({city})", "_params": ["city"] },
+    "toastPhoneInvalid": { "zh-Hans": "请输入正确手机号", "en": "Please enter a valid phone number" },
+    "toastCodeSent": { "zh-Hans": "验证码已发送", "en": "Code sent" },
+    "toastSendFailed": { "zh-Hans": "发送失败", "en": "Send failed" },
+    "toastCheckPhoneCode": { "zh-Hans": "请检查手机号和验证码", "en": "Please check phone and code" },
+    "toastPhoneVerified": { "zh-Hans": "手机号验证成功", "en": "Phone verified" },
+    "toastVerifyFailedRetry": { "zh-Hans": "验证失败，请重试", "en": "Verification failed, please retry" },
+    "toastNeedRealName": { "zh-Hans": "请输入真实姓名", "en": "Please enter your real name" },
+    "toastNeedPhone": { "zh-Hans": "请先验证手机号", "en": "Please verify phone first" },
+    "toastNeedServiceType": { "zh-Hans": "请至少选择一种服务类型", "en": "Please select at least one service type" },
+    "toastRegisterSuccess": { "zh-Hans": "注册成功", "en": "Registration successful" },
+    "toastRegisterFailed": { "zh-Hans": "注册失败", "en": "Registration failed" }
   },
+
   "companionOrderDetail": {
-    "subNewOrder": {
-      "zh-Hans": "新订单，等待接单",
-      "en": "New order, awaiting acceptance"
-    },
-    "subAccepted": {
-      "zh-Hans": "已接单，准备开始服务",
-      "en": "Accepted, preparing to start service"
-    },
-    "subInProgress": {
-      "zh-Hans": "服务进行中",
-      "en": "Service in progress"
-    },
-    "subCompleted": {
-      "zh-Hans": "服务已完成",
-      "en": "Service completed"
-    },
-    "subCancelled": {
-      "zh-Hans": "订单已取消",
-      "en": "Order cancelled"
-    },
-    "patientInfo": {
-      "zh-Hans": "患者信息",
-      "en": "Patient Info"
-    },
-    "patientName": {
-      "zh-Hans": "患者姓名",
-      "en": "Patient Name"
-    },
-    "patientReview": {
-      "zh-Hans": "患者评价",
-      "en": "Patient Review"
-    },
-    "waitPatientReview": {
-      "zh-Hans": "等待患者评价",
-      "en": "Awaiting patient review"
-    },
-    "accept": {
-      "zh-Hans": "接受订单",
-      "en": "Accept Order"
-    },
-    "reject": {
-      "zh-Hans": "无法接单",
-      "en": "Cannot Accept"
-    },
-    "notifyStart": {
-      "zh-Hans": "通知患者开始服务",
-      "en": "Notify Patient to Start"
-    },
-    "contactPatient": {
-      "zh-Hans": "联系患者",
-      "en": "Contact Patient"
-    },
-    "cancelOrder": {
-      "zh-Hans": "取消订单",
-      "en": "Cancel Order"
-    },
-    "complete": {
-      "zh-Hans": "完成服务",
-      "en": "Complete Service"
-    },
-    "bindPhoneTitle": {
-      "zh-Hans": "请先绑定手机号",
-      "en": "Please bind your phone first"
-    },
-    "bindPhoneContent": {
-      "zh-Hans": "接单前需要绑定手机号，方便患者联系您",
-      "en": "You need to bind your phone before accepting orders so patients can reach you"
-    },
-    "bindPhoneConfirm": {
-      "zh-Hans": "去绑定",
-      "en": "Bind Now"
-    },
-    "acceptConfirmDefault": {
-      "zh-Hans": "确定要接受该订单吗？",
-      "en": "Accept this order?"
-    },
-    "acceptConfirmUnpaid": {
-      "zh-Hans": "患者暂未支付，是否仍要接单？",
-      "en": "The patient hasn't paid yet. Accept anyway?"
-    },
-    "confirmAcceptTitle": {
-      "zh-Hans": "确认接单",
-      "en": "Confirm Acceptance"
-    },
-    "acceptSuccess": {
-      "zh-Hans": "接单成功",
-      "en": "Order accepted"
-    },
-    "notifyPatientTitle": {
-      "zh-Hans": "通知患者",
-      "en": "Notify Patient"
-    },
-    "notifyStartContent": {
-      "zh-Hans": "将通知患者确认开始服务，患者确认后服务正式开始",
-      "en": "The patient will be notified to confirm the start; service begins after their confirmation"
-    },
-    "notifyStartConfirm": {
-      "zh-Hans": "确认通知",
-      "en": "Confirm Notify"
-    },
-    "notifiedWaiting": {
-      "zh-Hans": "已通知患者，等待确认",
-      "en": "Patient notified, awaiting confirmation"
-    },
-    "completeTitle": {
-      "zh-Hans": "完成服务",
-      "en": "Complete Service"
-    },
-    "completeContent": {
-      "zh-Hans": "确认已完成本次陪诊服务？",
-      "en": "Confirm this companion service is complete?"
-    },
-    "completeConfirm": {
-      "zh-Hans": "确认完成",
-      "en": "Confirm Complete"
-    },
-    "serviceCompleted": {
-      "zh-Hans": "服务已完成",
-      "en": "Service completed"
-    },
-    "rejectTitle": {
-      "zh-Hans": "确认拒单",
-      "en": "Confirm Rejection"
-    },
-    "rejectContent": {
-      "zh-Hans": "拒绝后订单将取消，已支付的款项将退还给患者。确定要拒绝吗？",
-      "en": "Rejecting will cancel the order and refund any payment to the patient. Confirm rejection?"
-    },
-    "rejectConfirm": {
-      "zh-Hans": "确认拒绝",
-      "en": "Confirm Reject"
-    },
-    "rejected": {
-      "zh-Hans": "已拒绝",
-      "en": "Rejected"
-    },
-    "cancelAcceptedTitle": {
-      "zh-Hans": "确认取消",
-      "en": "Confirm Cancellation"
-    },
-    "cancelAcceptedContent": {
-      "zh-Hans": "取消后订单将退款给患者，确定要取消吗？",
-      "en": "Cancelling will refund the patient. Confirm cancellation?"
-    },
-    "cancelAcceptedConfirm": {
-      "zh-Hans": "确认取消",
-      "en": "Confirm Cancel"
-    }
+    "subNewOrder": { "zh-Hans": "新订单，等待接单", "en": "New order, awaiting acceptance" },
+    "subAccepted": { "zh-Hans": "已接单，准备开始服务", "en": "Accepted, preparing to start service" },
+    "subInProgress": { "zh-Hans": "服务进行中", "en": "Service in progress" },
+    "subCompleted": { "zh-Hans": "服务已完成", "en": "Service completed" },
+    "subCancelled": { "zh-Hans": "订单已取消", "en": "Order cancelled" },
+    "patientInfo": { "zh-Hans": "患者信息", "en": "Patient Info" },
+    "patientName": { "zh-Hans": "患者姓名", "en": "Patient Name" },
+    "patientReview": { "zh-Hans": "患者评价", "en": "Patient Review" },
+    "waitPatientReview": { "zh-Hans": "等待患者评价", "en": "Awaiting patient review" },
+    "accept": { "zh-Hans": "接受订单", "en": "Accept Order" },
+    "reject": { "zh-Hans": "无法接单", "en": "Cannot Accept" },
+    "notifyStart": { "zh-Hans": "通知患者开始服务", "en": "Notify Patient to Start" },
+    "contactPatient": { "zh-Hans": "联系患者", "en": "Contact Patient" },
+    "cancelOrder": { "zh-Hans": "取消订单", "en": "Cancel Order" },
+    "complete": { "zh-Hans": "完成服务", "en": "Complete Service" },
+    "bindPhoneTitle": { "zh-Hans": "请先绑定手机号", "en": "Please bind your phone first" },
+    "bindPhoneContent": { "zh-Hans": "接单前需要绑定手机号，方便患者联系您", "en": "You need to bind your phone before accepting orders so patients can reach you" },
+    "bindPhoneConfirm": { "zh-Hans": "去绑定", "en": "Bind Now" },
+    "acceptConfirmDefault": { "zh-Hans": "确定要接受该订单吗？", "en": "Accept this order?" },
+    "acceptConfirmUnpaid": { "zh-Hans": "患者暂未支付，是否仍要接单？", "en": "The patient hasn't paid yet. Accept anyway?" },
+    "confirmAcceptTitle": { "zh-Hans": "确认接单", "en": "Confirm Acceptance" },
+    "acceptSuccess": { "zh-Hans": "接单成功", "en": "Order accepted" },
+    "notifyPatientTitle": { "zh-Hans": "通知患者", "en": "Notify Patient" },
+    "notifyStartContent": { "zh-Hans": "将通知患者确认开始服务，患者确认后服务正式开始", "en": "The patient will be notified to confirm the start; service begins after their confirmation" },
+    "notifyStartConfirm": { "zh-Hans": "确认通知", "en": "Confirm Notify" },
+    "notifiedWaiting": { "zh-Hans": "已通知患者，等待确认", "en": "Patient notified, awaiting confirmation" },
+    "completeTitle": { "zh-Hans": "完成服务", "en": "Complete Service" },
+    "completeContent": { "zh-Hans": "确认已完成本次陪诊服务？", "en": "Confirm this companion service is complete?" },
+    "completeConfirm": { "zh-Hans": "确认完成", "en": "Confirm Complete" },
+    "serviceCompleted": { "zh-Hans": "服务已完成", "en": "Service completed" },
+    "rejectTitle": { "zh-Hans": "确认拒单", "en": "Confirm Rejection" },
+    "rejectContent": { "zh-Hans": "拒绝后订单将取消，已支付的款项将退还给患者。确定要拒绝吗？", "en": "Rejecting will cancel the order and refund any payment to the patient. Confirm rejection?" },
+    "rejectConfirm": { "zh-Hans": "确认拒绝", "en": "Confirm Reject" },
+    "rejected": { "zh-Hans": "已拒绝", "en": "Rejected" },
+    "cancelAcceptedTitle": { "zh-Hans": "确认取消", "en": "Confirm Cancellation" },
+    "cancelAcceptedContent": { "zh-Hans": "取消后订单将退款给患者，确定要取消吗？", "en": "Cancelling will refund the patient. Confirm cancellation?" },
+    "cancelAcceptedConfirm": { "zh-Hans": "确认取消", "en": "Confirm Cancel" }
   },
+
   "companionDetail": {
-    "verified": {
-      "zh-Hans": "已认证",
-      "en": "Verified"
-    },
-    "unverified": {
-      "zh-Hans": "未认证",
-      "en": "Unverified"
-    },
-    "noRating": {
-      "zh-Hans": "暂无评分",
-      "en": "No rating"
-    },
-    "bioTitle": {
-      "zh-Hans": "个人简介",
-      "en": "Bio"
-    },
-    "noBio": {
-      "zh-Hans": "暂无简介",
-      "en": "No bio"
-    },
-    "serviceInfo": {
-      "zh-Hans": "服务信息",
-      "en": "Service Info"
-    },
-    "serviceArea": {
-      "zh-Hans": "服务区域",
-      "en": "Service Area"
-    },
-    "none": {
-      "zh-Hans": "暂无",
-      "en": "N/A"
-    },
-    "completedOrders": {
-      "zh-Hans": "已完成订单",
-      "en": "Completed Orders"
-    },
-    "experience": {
-      "zh-Hans": "从业时间",
-      "en": "Experience"
-    },
-    "expertise": {
-      "zh-Hans": "擅长领域",
-      "en": "Expertise"
-    },
-    "dimensionScores": {
-      "zh-Hans": "服务维度评分",
-      "en": "Dimension Scores"
-    },
-    "dimPunctuality": {
-      "zh-Hans": "守时",
-      "en": "Punctuality"
-    },
-    "dimProfessionalism": {
-      "zh-Hans": "专业",
-      "en": "Professionalism"
-    },
-    "dimCommunication": {
-      "zh-Hans": "沟通",
-      "en": "Communication"
-    },
-    "dimAttitude": {
-      "zh-Hans": "态度",
-      "en": "Attitude"
-    },
-    "reviewsTitle": {
-      "zh-Hans": "用户评价",
-      "en": "Reviews"
-    },
-    "emptyReviews": {
-      "zh-Hans": "期待第一条评价",
-      "en": "Be the first to review"
-    },
-    "book": {
-      "zh-Hans": "预约陪诊",
-      "en": "Book Companion"
-    },
-    "anonymousUser": {
-      "zh-Hans": "匿名用户",
-      "en": "Anonymous"
-    },
-    "loadFailed": {
-      "zh-Hans": "加载失败",
-      "en": "Load failed"
-    },
-    "ratingScore": {
-      "zh-Hans": "{score}分",
-      "en": "{score}",
-      "_params": [
-        "score"
-      ]
-    },
-    "ordersCount": {
-      "zh-Hans": "{count}单",
-      "en": "{count} orders",
-      "_params": [
-        "count"
-      ]
-    }
+    "verified": { "zh-Hans": "已认证", "en": "Verified" },
+    "unverified": { "zh-Hans": "未认证", "en": "Unverified" },
+    "noRating": { "zh-Hans": "暂无评分", "en": "No rating" },
+    "bioTitle": { "zh-Hans": "个人简介", "en": "Bio" },
+    "noBio": { "zh-Hans": "暂无简介", "en": "No bio" },
+    "serviceInfo": { "zh-Hans": "服务信息", "en": "Service Info" },
+    "serviceArea": { "zh-Hans": "服务区域", "en": "Service Area" },
+    "none": { "zh-Hans": "暂无", "en": "N/A" },
+    "completedOrders": { "zh-Hans": "已完成订单", "en": "Completed Orders" },
+    "experience": { "zh-Hans": "从业时间", "en": "Experience" },
+    "expertise": { "zh-Hans": "擅长领域", "en": "Expertise" },
+    "dimensionScores": { "zh-Hans": "服务维度评分", "en": "Dimension Scores" },
+    "dimPunctuality": { "zh-Hans": "守时", "en": "Punctuality" },
+    "dimProfessionalism": { "zh-Hans": "专业", "en": "Professionalism" },
+    "dimCommunication": { "zh-Hans": "沟通", "en": "Communication" },
+    "dimAttitude": { "zh-Hans": "态度", "en": "Attitude" },
+    "reviewsTitle": { "zh-Hans": "用户评价", "en": "Reviews" },
+    "emptyReviews": { "zh-Hans": "期待第一条评价", "en": "Be the first to review" },
+    "book": { "zh-Hans": "预约陪诊", "en": "Book Companion" },
+    "anonymousUser": { "zh-Hans": "匿名用户", "en": "Anonymous" },
+    "loadFailed": { "zh-Hans": "加载失败", "en": "Load failed" },
+    "ratingScore": { "zh-Hans": "{score}分", "en": "{score}", "_params": ["score"] },
+    "ordersCount": { "zh-Hans": "{count}单", "en": "{count} orders", "_params": ["count"] }
   },
+
   "certCard": {
-    "title": {
-      "zh-Hans": "陪诊师资质",
-      "en": "Companion Qualification"
-    },
-    "stateVerified": {
-      "zh-Hans": "已认证",
-      "en": "Verified"
-    },
-    "statePending": {
-      "zh-Hans": "临时证明补交中",
-      "en": "Temp proof resubmitting"
-    },
-    "stateUnverified": {
-      "zh-Hans": "未认证",
-      "en": "Unverified"
-    },
-    "labelName": {
-      "zh-Hans": "姓名",
-      "en": "Name"
-    },
-    "labelWorkId": {
-      "zh-Hans": "工号",
-      "en": "Work ID"
-    },
-    "labelQualifications": {
-      "zh-Hans": "资质",
-      "en": "Qualifications"
-    },
-    "labelVerifiedAt": {
-      "zh-Hans": "认证时间",
-      "en": "Verified At"
-    },
-    "qualSeparator": {
-      "zh-Hans": "、",
-      "en": ", "
-    },
-    "hintPending": {
-      "zh-Hans": "陪诊师正在补交临时证明，服务暂停受理。",
-      "en": "The companion is resubmitting temporary proof; service is paused."
-    },
-    "hintUnverified": {
-      "zh-Hans": "陪诊师资质未通过审核。",
-      "en": "The companion's qualification has not passed review."
-    },
-    "ariaHeader": {
-      "zh-Hans": "陪诊师资质，状态：{state}",
-      "en": "Companion qualification, status: {state}",
-      "_params": [
-        "state"
-      ]
-    },
-    "ariaBadge": {
-      "zh-Hans": "陪诊师资质状态：{state}",
-      "en": "Companion qualification status: {state}",
-      "_params": [
-        "state"
-      ]
-    },
-    "ariaName": {
-      "zh-Hans": "陪诊师化名：{name}",
-      "en": "Companion alias: {name}",
-      "_params": [
-        "name"
-      ]
-    },
-    "ariaWorkId": {
-      "zh-Hans": "陪诊师工号：{workId}",
-      "en": "Companion work ID: {workId}",
-      "_params": [
-        "workId"
-      ]
-    },
-    "ariaQualifications": {
-      "zh-Hans": "陪诊师资质：{qualifications}",
-      "en": "Companion qualifications: {qualifications}",
-      "_params": [
-        "qualifications"
-      ]
-    },
-    "ariaVerifiedAt": {
-      "zh-Hans": "认证时间：{time}",
-      "en": "Verified at: {time}",
-      "_params": [
-        "time"
-      ]
-    },
-    "ariaPendingHint": {
-      "zh-Hans": "陪诊师资质临时证明补交中，服务暂停受理",
-      "en": "Companion temporary proof resubmitting, service paused"
-    },
-    "ariaUnverifiedHint": {
-      "zh-Hans": "陪诊师资质未通过审核",
-      "en": "Companion qualification not approved"
-    },
-    "a11yStatePrefix": {
-      "zh-Hans": "状态：{state}",
-      "en": "Status: {state}",
-      "_params": [
-        "state"
-      ]
-    },
-    "a11ySeparator": {
-      "zh-Hans": "，",
-      "en": ". "
-    },
-    "a11yLabelSuffix": {
-      "zh-Hans": "证件原图不会在用户端展示",
-      "en": "Original certificate images are not shown on the user side"
-    },
-    "a11yNameProvided": {
-      "zh-Hans": "姓名：{name}",
-      "en": "Name: {name}",
-      "_params": [
-        "name"
-      ]
-    },
-    "a11yNameMissing": {
-      "zh-Hans": "姓名：未提供",
-      "en": "Name: not provided"
-    },
-    "a11yWorkIdProvided": {
-      "zh-Hans": "工号：{workId}",
-      "en": "Work ID: {workId}",
-      "_params": [
-        "workId"
-      ]
-    },
-    "a11yWorkIdMissing": {
-      "zh-Hans": "工号：未提供",
-      "en": "Work ID: not provided"
-    },
-    "a11yQualProvided": {
-      "zh-Hans": "资质：{quals}",
-      "en": "Qualifications: {quals}",
-      "_params": [
-        "quals"
-      ]
-    },
-    "a11yQualMissing": {
-      "zh-Hans": "资质：未提供",
-      "en": "Qualifications: not provided"
-    },
-    "a11yVerifiedAtProvided": {
-      "zh-Hans": "认证时间：{time}",
-      "en": "Verified at: {time}",
-      "_params": [
-        "time"
-      ]
-    },
-    "a11yVerifiedAtMissing": {
-      "zh-Hans": "认证时间：未提供",
-      "en": "Verified at: not provided"
-    },
-    "a11yVerifiedAtPending": {
-      "zh-Hans": "认证时间：待认证",
-      "en": "Verified at: pending"
-    }
+    "title": { "zh-Hans": "陪诊师资质", "en": "Companion Qualification" },
+    "stateVerified": { "zh-Hans": "已认证", "en": "Verified" },
+    "statePending": { "zh-Hans": "临时证明补交中", "en": "Temp proof resubmitting" },
+    "stateUnverified": { "zh-Hans": "未认证", "en": "Unverified" },
+    "labelName": { "zh-Hans": "姓名", "en": "Name" },
+    "labelWorkId": { "zh-Hans": "工号", "en": "Work ID" },
+    "labelQualifications": { "zh-Hans": "资质", "en": "Qualifications" },
+    "labelVerifiedAt": { "zh-Hans": "认证时间", "en": "Verified At" },
+    "qualSeparator": { "zh-Hans": "、", "en": ", " },
+    "hintPending": { "zh-Hans": "陪诊师正在补交临时证明，服务暂停受理。", "en": "The companion is resubmitting temporary proof; service is paused." },
+    "hintUnverified": { "zh-Hans": "陪诊师资质未通过审核。", "en": "The companion's qualification has not passed review." },
+    "ariaHeader": { "zh-Hans": "陪诊师资质，状态：{state}", "en": "Companion qualification, status: {state}", "_params": ["state"] },
+    "ariaBadge": { "zh-Hans": "陪诊师资质状态：{state}", "en": "Companion qualification status: {state}", "_params": ["state"] },
+    "ariaName": { "zh-Hans": "陪诊师化名：{name}", "en": "Companion alias: {name}", "_params": ["name"] },
+    "ariaWorkId": { "zh-Hans": "陪诊师工号：{workId}", "en": "Companion work ID: {workId}", "_params": ["workId"] },
+    "ariaQualifications": { "zh-Hans": "陪诊师资质：{qualifications}", "en": "Companion qualifications: {qualifications}", "_params": ["qualifications"] },
+    "ariaVerifiedAt": { "zh-Hans": "认证时间：{time}", "en": "Verified at: {time}", "_params": ["time"] },
+    "ariaPendingHint": { "zh-Hans": "陪诊师资质临时证明补交中，服务暂停受理", "en": "Companion temporary proof resubmitting, service paused" },
+    "ariaUnverifiedHint": { "zh-Hans": "陪诊师资质未通过审核", "en": "Companion qualification not approved" },
+    "a11yStatePrefix": { "zh-Hans": "状态：{state}", "en": "Status: {state}", "_params": ["state"] },
+    "a11ySeparator": { "zh-Hans": "，", "en": ". " },
+    "a11yLabelSuffix": { "zh-Hans": "证件原图不会在用户端展示", "en": "Original certificate images are not shown on the user side" },
+    "a11yNameProvided": { "zh-Hans": "姓名：{name}", "en": "Name: {name}", "_params": ["name"] },
+    "a11yNameMissing": { "zh-Hans": "姓名：未提供", "en": "Name: not provided" },
+    "a11yWorkIdProvided": { "zh-Hans": "工号：{workId}", "en": "Work ID: {workId}", "_params": ["workId"] },
+    "a11yWorkIdMissing": { "zh-Hans": "工号：未提供", "en": "Work ID: not provided" },
+    "a11yQualProvided": { "zh-Hans": "资质：{quals}", "en": "Qualifications: {quals}", "_params": ["quals"] },
+    "a11yQualMissing": { "zh-Hans": "资质：未提供", "en": "Qualifications: not provided" },
+    "a11yVerifiedAtProvided": { "zh-Hans": "认证时间：{time}", "en": "Verified at: {time}", "_params": ["time"] },
+    "a11yVerifiedAtMissing": { "zh-Hans": "认证时间：未提供", "en": "Verified at: not provided" },
+    "a11yVerifiedAtPending": { "zh-Hans": "认证时间：待认证", "en": "Verified at: pending" }
   },
+
+  "deleteAccount": {
+    "title": { "zh-Hans": "注销账号", "en": "Delete Account" },
+    "subtitle": { "zh-Hans": "此操作将永久删除您的账号数据", "en": "This will permanently delete your account data" },
+    "dataCardTitle": { "zh-Hans": "注销后以下数据将被清除", "en": "The following data will be cleared after deletion" },
+    "dataOrders": { "zh-Hans": "订单记录及服务历史", "en": "Order records and service history" },
+    "dataProfile": { "zh-Hans": "个人资料及实名信息", "en": "Profile and real-name information" },
+    "dataWallet": { "zh-Hans": "钱包余额及交易记录", "en": "Wallet balance and transaction records" },
+    "dataChat": { "zh-Hans": "聊天记录及评价信息", "en": "Chat records and reviews" },
+    "dataCert": { "zh-Hans": "陪诊师认证资料（如有）", "en": "Companion certification materials (if any)" },
+    "recoveryNotice": { "zh-Hans": "注销后 30 天内可联系客服恢复账号，超过 30 天数据将永久删除，不可找回。", "en": "You can contact support to restore your account within 30 days. After 30 days the data is permanently deleted and unrecoverable." },
+    "verifyPhone": { "zh-Hans": "验证手机号", "en": "Verify phone" },
+    "codePlaceholder": { "zh-Hans": "请输入验证码", "en": "Enter verification code" },
+    "getCode": { "zh-Hans": "获取验证码", "en": "Get Code" },
+    "confirmLabel": { "zh-Hans": "我已了解风险，确认注销账号", "en": "I understand the risks and confirm account deletion" },
+    "longPress": { "zh-Hans": "长按 3 秒确认注销", "en": "Long-press 3s to confirm deletion" },
+    "noPhone": { "zh-Hans": "未绑定手机号", "en": "No phone number bound" },
+    "sending": { "zh-Hans": "发送中...", "en": "Sending..." },
+    "codeSent": { "zh-Hans": "验证码已发送", "en": "Code sent" },
+    "sendFailed": { "zh-Hans": "发送失败，请稍后重试", "en": "Failed to send, please try again later" },
+    "deleting": { "zh-Hans": "注销中...", "en": "Deleting..." },
+    "deleted": { "zh-Hans": "账号已注销", "en": "Account deleted" },
+    "deleteFailed": { "zh-Hans": "注销失败，请稍后重试", "en": "Deletion failed, please try again later" }
+  },
+
+  "reviewWrite": {
+    "serviceRating": { "zh-Hans": "服务评分", "en": "Service Rating" },
+    "dimPunctuality": { "zh-Hans": "守时", "en": "Punctuality" },
+    "dimProfessionalism": { "zh-Hans": "专业", "en": "Professionalism" },
+    "dimCommunication": { "zh-Hans": "沟通", "en": "Communication" },
+    "dimAttitude": { "zh-Hans": "态度", "en": "Attitude" },
+    "scoreUnit": { "zh-Hans": "分", "en": " pts" },
+    "overall": { "zh-Hans": "总评分", "en": "Overall" },
+    "contentTitle": { "zh-Hans": "评价内容", "en": "Review Content" },
+    "contentPlaceholder": { "zh-Hans": "请分享您的陪诊体验，帮助其他患者做出选择...", "en": "Share your companion experience to help other patients decide..." },
+    "submit": { "zh-Hans": "提交评价", "en": "Submit Review" },
+    "contentRequired": { "zh-Hans": "请填写评价内容", "en": "Please enter review content" },
+    "contentTooShort": { "zh-Hans": "评价内容至少5个字", "en": "Review must be at least 5 characters" },
+    "submitSuccess": { "zh-Hans": "评价成功", "en": "Review submitted" },
+    "submitFailed": { "zh-Hans": "提交失败", "en": "Submission failed" }
+  },
+
   "error": {
-    "PHONE_REQUIRED": {
-      "zh-Hans": "请先绑定手机号",
-      "en": "Please bind your phone number first"
-    },
-    "REALNAME_REQUIRED": {
-      "zh-Hans": "请先完成实名认证",
-      "en": "Please complete real-name verification first",
-      "_note": "reserved"
-    },
-    "VERIFICATION_PENDING": {
-      "zh-Hans": "认证审核中，请稍候",
-      "en": "Verification in progress, please wait",
-      "_note": "reserved"
-    },
-    "VERIFICATION_REQUIRED": {
-      "zh-Hans": "该操作需通过资质认证",
-      "en": "This action requires verified qualification"
-    },
-    "PAYMENT_REQUIRED": {
-      "zh-Hans": "请先完成支付",
-      "en": "Please complete payment first"
-    },
-    "ORDER_HAS_UNPAID": {
-      "zh-Hans": "存在未支付订单，请先处理",
-      "en": "You have an unpaid order, please handle it first"
-    },
-    "ORDER_NOT_FOUND": {
-      "zh-Hans": "订单不存在",
-      "en": "Order not found"
-    },
-    "ORDER_TRANSITION_INVALID": {
-      "zh-Hans": "订单状态不允许该操作",
-      "en": "This action is not allowed in the current order status"
-    },
-    "SERVICE_PACKAGE_INVALID": {
-      "zh-Hans": "所选服务档位不存在或已下架",
-      "en": "The selected service package is unavailable"
-    },
-    "COMPANION_PROFILE_EXISTS": {
-      "zh-Hans": "陪诊师资料已存在",
-      "en": "Companion profile already exists"
-    },
-    "COMPANION_NOT_VERIFIED": {
-      "zh-Hans": "陪诊师尚未通过认证",
-      "en": "Companion is not yet verified"
-    },
-    "PAYMENT_REFUND_FAILED": {
-      "zh-Hans": "退款失败，请稍后重试",
-      "en": "Refund failed, please try again later"
-    },
-    "PAYMENT_PROVIDER_ERROR": {
-      "zh-Hans": "支付渠道异常，请稍后重试",
-      "en": "Payment provider error, please try again later"
-    },
-    "OTP_INVALID": {
-      "zh-Hans": "验证码错误或已过期，请重新获取",
-      "en": "Invalid or expired code, please request a new one"
-    },
-    "OTP_LOCKED": {
-      "zh-Hans": "验证码尝试过多，请稍后再试",
-      "en": "Too many attempts, please try again later"
-    },
-    "SMS_RATE_LIMITED": {
-      "zh-Hans": "发送过于频繁，请稍后再试",
-      "en": "Sending too frequently, please try again later"
-    },
-    "SHARE_F2_DISABLED": {
-      "zh-Hans": "该功能暂时关闭",
-      "en": "This feature is temporarily unavailable",
-      "_note": "运营火度门"
-    },
-    "SHARE_SESSIONS_READONLY": {
-      "zh-Hans": "当前为只读模式，暂不可操作",
-      "en": "Read-only mode, action unavailable",
-      "_note": "运营火度门"
-    },
-    "SHARE_F2_CANARY_NOT_WHITELISTED": {
-      "zh-Hans": "该功能灰度测试中，暂未对您开放",
-      "en": "This feature is in limited testing and not yet available to you",
-      "_note": "灰度白名单门"
-    }
+    "PHONE_REQUIRED": { "zh-Hans": "请先绑定手机号", "en": "Please bind your phone number first" },
+    "REALNAME_REQUIRED": { "zh-Hans": "请先完成实名认证", "en": "Please complete real-name verification first", "_note": "reserved" },
+    "VERIFICATION_PENDING": { "zh-Hans": "认证审核中，请稍候", "en": "Verification in progress, please wait", "_note": "reserved" },
+    "VERIFICATION_REQUIRED": { "zh-Hans": "该操作需通过资质认证", "en": "This action requires verified qualification" },
+    "PAYMENT_REQUIRED": { "zh-Hans": "请先完成支付", "en": "Please complete payment first" },
+    "ORDER_HAS_UNPAID": { "zh-Hans": "存在未支付订单，请先处理", "en": "You have an unpaid order, please handle it first" },
+    "ORDER_NOT_FOUND": { "zh-Hans": "订单不存在", "en": "Order not found" },
+    "ORDER_TRANSITION_INVALID": { "zh-Hans": "订单状态不允许该操作", "en": "This action is not allowed in the current order status" },
+    "SERVICE_PACKAGE_INVALID": { "zh-Hans": "所选服务档位不存在或已下架", "en": "The selected service package is unavailable" },
+    "COMPANION_PROFILE_EXISTS": { "zh-Hans": "陪诊师资料已存在", "en": "Companion profile already exists" },
+    "COMPANION_NOT_VERIFIED": { "zh-Hans": "陪诊师尚未通过认证", "en": "Companion is not yet verified" },
+    "PAYMENT_REFUND_FAILED": { "zh-Hans": "退款失败，请稍后重试", "en": "Refund failed, please try again later" },
+    "PAYMENT_PROVIDER_ERROR": { "zh-Hans": "支付渠道异常，请稍后重试", "en": "Payment provider error, please try again later" },
+    "OTP_INVALID": { "zh-Hans": "验证码错误或已过期，请重新获取", "en": "Invalid or expired code, please request a new one" },
+    "OTP_LOCKED": { "zh-Hans": "验证码尝试过多，请稍后再试", "en": "Too many attempts, please try again later" },
+    "SMS_RATE_LIMITED": { "zh-Hans": "发送过于频繁，请稍后再试", "en": "Sending too frequently, please try again later" },
+    "SHARE_F2_DISABLED": { "zh-Hans": "该功能暂时关闭", "en": "This feature is temporarily unavailable", "_note": "运营火度门" },
+    "SHARE_SESSIONS_READONLY": { "zh-Hans": "当前为只读模式，暂不可操作", "en": "Read-only mode, action unavailable", "_note": "运营火度门" },
+    "SHARE_F2_CANARY_NOT_WHITELISTED": { "zh-Hans": "该功能灰度测试中，暂未对您开放", "en": "This feature is in limited testing and not yet available to you", "_note": "灰度白名单门" }
   }
 }

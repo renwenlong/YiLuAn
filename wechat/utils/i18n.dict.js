@@ -2529,6 +2529,150 @@ module.exports = {
       "en": "Verified at: pending"
     }
   },
+  "deleteAccount": {
+    "title": {
+      "zh-Hans": "注销账号",
+      "en": "Delete Account"
+    },
+    "subtitle": {
+      "zh-Hans": "此操作将永久删除您的账号数据",
+      "en": "This will permanently delete your account data"
+    },
+    "dataCardTitle": {
+      "zh-Hans": "注销后以下数据将被清除",
+      "en": "The following data will be cleared after deletion"
+    },
+    "dataOrders": {
+      "zh-Hans": "订单记录及服务历史",
+      "en": "Order records and service history"
+    },
+    "dataProfile": {
+      "zh-Hans": "个人资料及实名信息",
+      "en": "Profile and real-name information"
+    },
+    "dataWallet": {
+      "zh-Hans": "钱包余额及交易记录",
+      "en": "Wallet balance and transaction records"
+    },
+    "dataChat": {
+      "zh-Hans": "聊天记录及评价信息",
+      "en": "Chat records and reviews"
+    },
+    "dataCert": {
+      "zh-Hans": "陪诊师认证资料（如有）",
+      "en": "Companion certification materials (if any)"
+    },
+    "recoveryNotice": {
+      "zh-Hans": "注销后 30 天内可联系客服恢复账号，超过 30 天数据将永久删除，不可找回。",
+      "en": "You can contact support to restore your account within 30 days. After 30 days the data is permanently deleted and unrecoverable."
+    },
+    "verifyPhone": {
+      "zh-Hans": "验证手机号",
+      "en": "Verify phone"
+    },
+    "codePlaceholder": {
+      "zh-Hans": "请输入验证码",
+      "en": "Enter verification code"
+    },
+    "getCode": {
+      "zh-Hans": "获取验证码",
+      "en": "Get Code"
+    },
+    "confirmLabel": {
+      "zh-Hans": "我已了解风险，确认注销账号",
+      "en": "I understand the risks and confirm account deletion"
+    },
+    "longPress": {
+      "zh-Hans": "长按 3 秒确认注销",
+      "en": "Long-press 3s to confirm deletion"
+    },
+    "noPhone": {
+      "zh-Hans": "未绑定手机号",
+      "en": "No phone number bound"
+    },
+    "sending": {
+      "zh-Hans": "发送中...",
+      "en": "Sending..."
+    },
+    "codeSent": {
+      "zh-Hans": "验证码已发送",
+      "en": "Code sent"
+    },
+    "sendFailed": {
+      "zh-Hans": "发送失败，请稍后重试",
+      "en": "Failed to send, please try again later"
+    },
+    "deleting": {
+      "zh-Hans": "注销中...",
+      "en": "Deleting..."
+    },
+    "deleted": {
+      "zh-Hans": "账号已注销",
+      "en": "Account deleted"
+    },
+    "deleteFailed": {
+      "zh-Hans": "注销失败，请稍后重试",
+      "en": "Deletion failed, please try again later"
+    }
+  },
+  "reviewWrite": {
+    "serviceRating": {
+      "zh-Hans": "服务评分",
+      "en": "Service Rating"
+    },
+    "dimPunctuality": {
+      "zh-Hans": "守时",
+      "en": "Punctuality"
+    },
+    "dimProfessionalism": {
+      "zh-Hans": "专业",
+      "en": "Professionalism"
+    },
+    "dimCommunication": {
+      "zh-Hans": "沟通",
+      "en": "Communication"
+    },
+    "dimAttitude": {
+      "zh-Hans": "态度",
+      "en": "Attitude"
+    },
+    "scoreUnit": {
+      "zh-Hans": "分",
+      "en": " pts"
+    },
+    "overall": {
+      "zh-Hans": "总评分",
+      "en": "Overall"
+    },
+    "contentTitle": {
+      "zh-Hans": "评价内容",
+      "en": "Review Content"
+    },
+    "contentPlaceholder": {
+      "zh-Hans": "请分享您的陪诊体验，帮助其他患者做出选择...",
+      "en": "Share your companion experience to help other patients decide..."
+    },
+    "submit": {
+      "zh-Hans": "提交评价",
+      "en": "Submit Review"
+    },
+    "contentRequired": {
+      "zh-Hans": "请填写评价内容",
+      "en": "Please enter review content"
+    },
+    "contentTooShort": {
+      "zh-Hans": "评价内容至少5个字",
+      "en": "Review must be at least 5 characters"
+    },
+    "submitSuccess": {
+      "zh-Hans": "评价成功",
+      "en": "Review submitted"
+    },
+    "submitFailed": {
+      "zh-Hans": "提交失败",
+      "en": "Submission failed"
+    }
+  },
   "error": {
     "PHONE_REQUIRED": {
       "zh-Hans": "请先绑定手机号",
