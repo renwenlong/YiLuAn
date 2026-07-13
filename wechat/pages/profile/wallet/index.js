@@ -2,9 +2,13 @@ var store = require('../../../store/index')
 var walletService = require('./services/wallet')
 var formatCurrency = require('../../../utils/formatCurrency').formatCurrency
 var logger = require('../../../utils/logger')
+var i18n = require('../../../utils/i18n')
+var i18nBehavior = require('../../../behaviors/i18n')
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'wallet'],
     role: 'patient',
     balance: '0.00',
     balanceText: '¥0.00',
@@ -49,7 +53,7 @@ Page({
           var amt = Number(t.amount) || 0
           return {
             id: t.id,
-            title: isRefund ? '订单退款' : (role === 'companion' ? '服务收入' : '订单支付'),
+            title: isRefund ? i18n.t('wallet.recordRefund') : (role === 'companion' ? i18n.t('wallet.recordIncome') : i18n.t('wallet.recordExpense')),
             time: t.created_at ? t.created_at.split('T')[0] : '',
             amount: t.amount ? t.amount.toFixed(2) : '0.00',
             amountText: formatCurrency(amt),
@@ -84,18 +88,18 @@ Page({
   onRecharge() {
     var amount = this.data.selectedAmount || Number(this.data.customAmount)
     if (!amount || amount <= 0) {
-      wx.showToast({ title: '请选择充值金额', icon: 'none' })
+      wx.showToast({ title: i18n.t('wallet.selectRechargeAmount'), icon: 'none' })
       return
     }
-    wx.showToast({ title: '充值功能开发中', icon: 'none' })
+    wx.showToast({ title: i18n.t('wallet.rechargeWip'), icon: 'none' })
   },
 
   onWithdraw() {
     var balance = parseFloat(this.data.balance)
     if (!balance || balance <= 0) {
-      wx.showToast({ title: '暂无可提现余额', icon: 'none' })
+      wx.showToast({ title: i18n.t('wallet.noWithdrawable'), icon: 'none' })
       return
     }
-    wx.showToast({ title: '提现功能开发中', icon: 'none' })
+    wx.showToast({ title: i18n.t('wallet.withdrawWip'), icon: 'none' })
   }
 })

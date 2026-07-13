@@ -908,6 +908,182 @@ module.exports = {
       "en": "Call failed"
     }
   },
+  "profile": {
+    "defaultUser": {
+      "zh-Hans": "用户",
+      "en": "User"
+    },
+    "avatarFallback": {
+      "zh-Hans": "用",
+      "en": "U"
+    },
+    "changeAvatar": {
+      "zh-Hans": "换",
+      "en": "Edit"
+    },
+    "unbindPhone": {
+      "zh-Hans": "未绑定手机",
+      "en": "Phone not bound"
+    },
+    "goBind": {
+      "zh-Hans": "去绑定",
+      "en": "Bind"
+    },
+    "menuEdit": {
+      "zh-Hans": "编辑资料",
+      "en": "Edit Profile"
+    },
+    "menuOrders": {
+      "zh-Hans": "我的订单",
+      "en": "My Orders"
+    },
+    "menuWallet": {
+      "zh-Hans": "我的钱包",
+      "en": "My Wallet"
+    },
+    "menuFamily": {
+      "zh-Hans": "我的家人",
+      "en": "My Family"
+    },
+    "menuEmergency": {
+      "zh-Hans": "紧急联系人",
+      "en": "Emergency Contacts"
+    },
+    "menuFollowup": {
+      "zh-Hans": "复诊提醒",
+      "en": "Follow-up Reminders"
+    },
+    "menuSettings": {
+      "zh-Hans": "设置",
+      "en": "Settings"
+    },
+    "logout": {
+      "zh-Hans": "退出登录",
+      "en": "Log Out"
+    },
+    "uploading": {
+      "zh-Hans": "上传中...",
+      "en": "Uploading..."
+    },
+    "avatarUpdated": {
+      "zh-Hans": "头像已更新",
+      "en": "Avatar updated"
+    },
+    "uploadFailed": {
+      "zh-Hans": "上传失败",
+      "en": "Upload failed"
+    },
+    "logoutConfirm": {
+      "zh-Hans": "确定要退出登录吗？",
+      "en": "Are you sure you want to log out?"
+    },
+    "aboutLogo": {
+      "zh-Hans": "医",
+      "en": "Y"
+    },
+    "aboutDesc": {
+      "zh-Hans": "医路安是一款专业的陪诊服务平台，致力于为患者提供贴心、专业的就医陪伴服务，让每一次就医都更安心。",
+      "en": "YiLuAn is a professional medical escort platform dedicated to caring, professional companionship so every visit is more reassuring."
+    },
+    "servicePhone": {
+      "zh-Hans": "客服电话",
+      "en": "Service Phone"
+    },
+    "officialEmail": {
+      "zh-Hans": "官方邮箱",
+      "en": "Official Email"
+    },
+    "userAgreement": {
+      "zh-Hans": "用户协议",
+      "en": "User Agreement"
+    },
+    "privacyPolicy": {
+      "zh-Hans": "隐私政策",
+      "en": "Privacy Policy"
+    }
+  },
+  "wallet": {
+    "balanceCompanion": {
+      "zh-Hans": "可提现余额(元)",
+      "en": "Withdrawable Balance (CNY)"
+    },
+    "balancePatient": {
+      "zh-Hans": "账户余额(元)",
+      "en": "Account Balance (CNY)"
+    },
+    "selectAmount": {
+      "zh-Hans": "选择充值金额",
+      "en": "Select Top-up Amount"
+    },
+    "customAmount": {
+      "zh-Hans": "自定义金额",
+      "en": "Custom Amount"
+    },
+    "inputAmount": {
+      "zh-Hans": "请输入充值金额",
+      "en": "Enter top-up amount"
+    },
+    "rechargeNow": {
+      "zh-Hans": "立即充值",
+      "en": "Top Up Now"
+    },
+    "totalIncome": {
+      "zh-Hans": "累计收入",
+      "en": "Total Income"
+    },
+    "withdrawn": {
+      "zh-Hans": "已提现",
+      "en": "Withdrawn"
+    },
+    "applyWithdraw": {
+      "zh-Hans": "申请提现",
+      "en": "Request Withdrawal"
+    },
+    "incomeDetail": {
+      "zh-Hans": "收入明细",
+      "en": "Income Details"
+    },
+    "expenseDetail": {
+      "zh-Hans": "消费明细",
+      "en": "Expense Details"
+    },
+    "noIncome": {
+      "zh-Hans": "暂无收入记录",
+      "en": "No income records"
+    },
+    "noExpense": {
+      "zh-Hans": "暂无消费记录",
+      "en": "No expense records"
+    },
+    "recordRefund": {
+      "zh-Hans": "订单退款",
+      "en": "Order Refund"
+    },
+    "recordIncome": {
+      "zh-Hans": "服务收入",
+      "en": "Service Income"
+    },
+    "recordExpense": {
+      "zh-Hans": "订单消费",
+      "en": "Order Payment"
+    },
+    "selectRechargeAmount": {
+      "zh-Hans": "请选择充值金额",
+      "en": "Please select a top-up amount"
+    },
+    "rechargeWip": {
+      "zh-Hans": "充值功能开发中",
+      "en": "Top-up feature coming soon"
+    },
+    "noWithdrawable": {
+      "zh-Hans": "暂无可提现余额",
+      "en": "No withdrawable balance"
+    },
+    "withdrawWip": {
+      "zh-Hans": "提现功能开发中",
+      "en": "Withdrawal feature coming soon"
+    }
+  },
   "home": {
     "title": {
       "zh-Hans": "首页",
