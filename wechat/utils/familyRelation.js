@@ -29,8 +29,27 @@ function relationLabel(value) {
   return RELATION_LABELS[value] || '其他'
 }
 
+// I18N-DEV-002B: i18n 现算版 (页面渲染时用)。
+// key = relation enum 值。未命中回退 relation.other。
+var _i18n = require('./i18n')
+function relationLabelI18n(value) {
+  var v = value || 'other'
+  var key = 'relation.' + v
+  var text = _i18n.t(key)
+  return text === key ? _i18n.t('relation.other') : text
+}
+
+// RELATION_OPTIONS 的 i18n label 现算版 (picker range 用)。
+function relationOptionsI18n() {
+  return RELATION_OPTIONS.map(function (o) {
+    return { value: o.value, label: relationLabelI18n(o.value) }
+  })
+}
+
 module.exports = {
   RELATION_LABELS,
   RELATION_OPTIONS,
   relationLabel,
+  relationLabelI18n,
+  relationOptionsI18n,
 }

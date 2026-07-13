@@ -1,6 +1,6 @@
 const { ORDER_STATUS, SERVICE_TYPES } = require('../../utils/constants')
 const { formatCurrency } = require('../../utils/formatCurrency')
-const { relationLabel } = require('../../utils/familyRelation')
+const { relationLabelI18n: relationLabel } = require('../../utils/familyRelation')
 const i18n = require('../../utils/i18n')
 const i18nBehavior = require('../../behaviors/i18n')
 

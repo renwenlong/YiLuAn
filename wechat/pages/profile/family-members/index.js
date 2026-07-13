@@ -5,16 +5,23 @@ const {
   updateFamilyMember,
   deleteFamilyMember,
 } = require('../../../services/familyMember')
-const { RELATION_OPTIONS, relationLabel } = require('../../../utils/familyRelation')
+const { RELATION_OPTIONS, relationLabel, relationLabelI18n, relationOptionsI18n } = require('../../../utils/familyRelation')
+const i18n = require('../../../utils/i18n')
+const i18nBehavior = require('../../../behaviors/i18n')
 
-const GENDER_OPTIONS = [
-  { value: 'unknown', label: '未知' },
-  { value: 'male', label: '男' },
-  { value: 'female', label: '女' },
-]
+function genderOptionsI18n() {
+  return [
+    { value: 'unknown', label: i18n.t('familyMembers.genderUnknown') },
+    { value: 'male', label: i18n.t('familyMembers.genderMale') },
+    { value: 'female', label: i18n.t('familyMembers.genderFemale') }
+  ]
+}
+const GENDER_OPTIONS = genderOptionsI18n()
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'familyMembers', 'relation'],
     members: [],
     loading: true,
     showForm: false,
@@ -28,7 +35,7 @@ Page({
       medical_notes: '',
     },
     relationOptions: RELATION_OPTIONS,
-    relationLabels: RELATION_OPTIONS.map(function (o) { return o.label }),
+    relationLabels: relationOptionsI18n().map(function (o) { return o.label }),
     relationIndex: RELATION_OPTIONS.length - 1, // default → other
     genderOptions: GENDER_OPTIONS,
     genderLabels: GENDER_OPTIONS.map(function (o) { return o.label }),
@@ -49,11 +56,14 @@ Page({
       const res = await listFamilyMembers()
       const items = (res && res.items) || []
       const enriched = items.map(function (m) {
-        return Object.assign({}, m, { relation_label: relationLabel(m.relation) })
+        return Object.assign({}, m, {
+          relation_label: relationLabelI18n(m.relation),
+          ageText: (m.age != null) ? i18n.t('familyMembers.ageUnit', { age: m.age }) : ''
+        })
       })
       this.setData({ members: enriched })
     } catch (e) {
-      wx.showToast({ title: '加载失败', icon: 'none' })
+      wx.showToast({ title: i18n.t('familyMembers.loadFailed'), icon: 'none' })
     } finally {
       this.setData({ loading: false })
     }
@@ -125,12 +135,12 @@ Page({
 
   _validate() {
     const f = this.data.form
-    if (!f.name || !f.name.trim()) return '请填写姓名'
-    if (f.name.trim().length > 50) return '姓名不超过 50 字'
-    if (f.phone && !/^1[3-9]\d{9}$/.test(f.phone)) return '请填写正确手机号'
+    if (!f.name || !f.name.trim()) return i18n.t('familyMembers.fillName')
+    if (f.name.trim().length > 50) return i18n.t('familyMembers.nameTooLong')
+    if (f.phone && !/^1[3-9]\d{9}$/.test(f.phone)) return i18n.t('familyMembers.invalidPhone')
     if (f.age !== '' && f.age !== null) {
       const n = Number(f.age)
-      if (!Number.isInteger(n) || n < 0 || n > 130) return '年龄需为 0-130 的整数'
+      if (!Number.isInteger(n) || n < 0 || n > 130) return i18n.t('familyMembers.invalidAge')
     }
     return null
   },
@@ -154,15 +164,15 @@ Page({
     try {
       if (this.data.editingId) {
         await updateFamilyMember(this.data.editingId, payload)
-        wx.showToast({ title: '已更新', icon: 'success' })
+        wx.showToast({ title: i18n.t('familyMembers.updated'), icon: 'success' })
       } else {
         await createFamilyMember(payload)
-        wx.showToast({ title: '已添加', icon: 'success' })
+        wx.showToast({ title: i18n.t('familyMembers.added'), icon: 'success' })
       }
       this.setData({ showForm: false, editingId: null })
       await this.loadMembers()
     } catch (e) {
-      let msg = '保存失败'
+      let msg = i18n.t('familyMembers.saveFailed')
       if (e && e.data && e.data.detail) {
         const d = e.data.detail
         msg = (d && d.message) || (typeof d === 'string' ? d : msg)
@@ -174,18 +184,18 @@ Page({
   async onDeleteTap(e) {
     const id = e.currentTarget.dataset.id
     const res = await wx.showModal({
-      title: '删除家人',
-      content: '确定要删除该家人档案吗？历史订单不会受影响。',
-      confirmText: '删除',
+      title: i18n.t('familyMembers.deleteTitle'),
+      content: i18n.t('familyMembers.deleteConfirm'),
+      confirmText: i18n.t('familyMembers.delete'),
       confirmColor: '#e53935',
     })
     if (!res.confirm) return
     try {
       await deleteFamilyMember(id)
-      wx.showToast({ title: '已删除', icon: 'success' })
+      wx.showToast({ title: i18n.t('familyMembers.deleted'), icon: 'success' })
       await this.loadMembers()
     } catch (err) {
-      wx.showToast({ title: '删除失败', icon: 'none' })
+      wx.showToast({ title: i18n.t('familyMembers.deleteFailed'), icon: 'none' })
     }
   },
 })
