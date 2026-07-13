@@ -56,7 +56,7 @@ Page({
         this._navigateAfterLogin(user)
       })
       .catch(err => {
-        logger.error('登录失败', logger.errorContext(err))
+        logger.error('Login failed', logger.errorContext(err))
         wx.showToast({ title: i18n.t('toast.loginFailed'), icon: 'none' })
       })
       .finally(() => {
@@ -131,7 +131,7 @@ Page({
         self._navigateAfterLogin(user)
       })
       .catch(function (err) {
-        logger.error('登录失败', Object.assign(logger.errorContext(err), { phase: 'verifyOTP' }))
+        logger.error('Login failed', Object.assign(logger.errorContext(err), { phase: 'verifyOTP' }))
         wx.showToast({ title: i18n.t('toast.codeWrongExpired'), icon: 'none' })
       })
       .finally(function () {

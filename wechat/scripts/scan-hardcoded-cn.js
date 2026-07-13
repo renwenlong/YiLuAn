@@ -43,6 +43,17 @@ function stripComments(line, ext) {
   return s
 }
 
+// 先在整份文件上 strip 跨行块注释，用等量换行替换以保持行号对齐。
+// 逐行 stripComments 无法处理跨 /* ... */ 与 <!-- ... --> 块，会误报注释中文。
+function stripBlockComments(text, ext) {
+  const replaceKeepLines = (src, re) =>
+    src.replace(re, (m) => m.replace(/[^\n]/g, ' '))
+  let s = text
+  if (ext === '.js') s = replaceKeepLines(s, /\/\*[\s\S]*?\*\//g)
+  s = replaceKeepLines(s, /<!--[\s\S]*?-->/g)
+  return s
+}
+
 function isAllowed(line) {
   const stripped = ALLOW_TOKENS.reduce((acc, t) => acc.split(t).join(''), line)
   return !CN.test(stripped)
@@ -70,7 +81,7 @@ function scan() {
   for (const f of files) {
     const rel = path.relative(ROOT, f)
     const ext = path.extname(f)
-    const lines = fs.readFileSync(f, 'utf8').split('\n')
+    const lines = stripBlockComments(fs.readFileSync(f, 'utf8'), ext).split('\n')
     for (let i = 0; i < lines.length; i++) {
       const stripped = stripComments(lines[i], ext)
       if (CN.test(stripped) && !isAllowed(stripped)) {

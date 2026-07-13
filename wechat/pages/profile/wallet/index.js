@@ -62,7 +62,7 @@ Page({
         })
       })
     } catch (e) {
-      logger.error('加载钱包失败', { err: e && (e.message || String(e)) })
+      logger.error('Failed to load wallet', { err: e && (e.message || String(e)) })
     }
   },
 

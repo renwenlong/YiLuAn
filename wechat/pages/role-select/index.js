@@ -50,7 +50,7 @@ Page({
         }
       })
       .catch(err => {
-        logger.error('设置角色失败', { err: err && (err.message || String(err)) })
+        logger.error('Failed to set role', { err: err && (err.message || String(err)) })
         wx.showToast({ title: i18n.t('toast.opFailed'), icon: 'none' })
       })
       .finally(() => {

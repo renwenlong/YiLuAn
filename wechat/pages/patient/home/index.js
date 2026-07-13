@@ -400,7 +400,7 @@ Page({
         })
       })
       .catch(function (err) {
-        logger.error('获取陪诊师失败', { err: err && (err.message || String(err)) })
+        logger.error('Failed to load companions', { err: err && (err.message || String(err)) })
         self.setData({ loadingCompanions: false, loadingMore: false })
       })
   },

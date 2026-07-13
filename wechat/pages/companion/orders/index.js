@@ -73,7 +73,7 @@ Page({
         })
       })
       .catch(err => {
-        logger.error('获取订单列表失败', { err: err && (err.message || String(err)) })
+        logger.error('Failed to load order list', { err: err && (err.message || String(err)) })
         wx.showToast({ title: i18n.t('order.loadFailed'), icon: 'none' })
       })
       .finally(() => {

@@ -281,7 +281,7 @@ Page({
         })
       })
       .catch(function (err) {
-        logger.error('加载陪诊师信息失败', { err: err && (err.message || String(err)) })
+        logger.error('Failed to load companion info', { err: err && (err.message || String(err)) })
       })
   },
 
@@ -325,7 +325,7 @@ Page({
         self.setData({ companionList: list, loadingCompanions: false })
       })
       .catch(function (err) {
-        logger.error('加载陪诊师列表失败', { err: err && (err.message || String(err)) })
+        logger.error('Failed to load companion list', { err: err && (err.message || String(err)) })
         self.setData({ loadingCompanions: false })
       })
   },

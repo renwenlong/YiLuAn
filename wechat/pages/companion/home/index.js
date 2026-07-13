@@ -62,7 +62,7 @@ Page({
         })
       })
       .catch(function (err) {
-        logger.error('获取统计失败', { err: err && (err.message || String(err)) })
+        logger.error('Failed to load companion stats', { err: err && (err.message || String(err)) })
       })
   },
 
@@ -84,7 +84,7 @@ Page({
         })
       })
       .catch(function (err) {
-        logger.error('获取待接单列表失败', { err: err && (err.message || String(err)) })
+        logger.error('Failed to load available orders', { err: err && (err.message || String(err)) })
       })
   },
 
