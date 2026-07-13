@@ -1,8 +1,11 @@
 // A21-06 + [B4]: 隐私协议元信息动态绑定，权威源：config/legal.js
 const { PRIVACY_UPDATED_AT, PRIVACY_EFFECTIVE_AT, PRIVACY_VERSION } = require('../config/legal')
+const i18nBehavior = require('../../../behaviors/i18n')
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['legal'],
     showBackTop: false,
     scrollToTop: false,
     updatedAt: PRIVACY_UPDATED_AT,

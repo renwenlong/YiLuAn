@@ -3059,5 +3059,43 @@ module.exports = {
       "en": "This feature is in limited testing and not yet available to you",
       "_note": "灰度白名单门"
     }
+  },
+  "legal": {
+    "updatedLabel": {
+      "zh-Hans": "更新日期：",
+      "en": "Updated: "
+    },
+    "effectiveLabel": {
+      "zh-Hans": "生效日期：",
+      "en": "Effective: "
+    },
+    "effectivePrefix": {
+      "zh-Hans": "生效日期",
+      "en": "Effective"
+    },
+    "lastUpdatedPrefix": {
+      "zh-Hans": "最近更新",
+      "en": "Last updated"
+    },
+    "termsTitle": {
+      "zh-Hans": "医路安用户协议",
+      "en": "YiLu’an User Agreement"
+    },
+    "privacyTitle": {
+      "zh-Hans": "医路安隐私政策",
+      "en": "YiLu’an Privacy Policy"
+    },
+    "termsScope": {
+      "zh-Hans": "本用户协议适用于医路安微信小程序和iOS应用。",
+      "en": "This User Agreement applies to the YiLu’an WeChat Mini Program and iOS app."
+    },
+    "privacyScope": {
+      "zh-Hans": "本隐私政策适用于医路安微信小程序和iOS应用。",
+      "en": "This Privacy Policy applies to the YiLu’an WeChat Mini Program and iOS app."
+    },
+    "backToTop": {
+      "zh-Hans": "顶部",
+      "en": "Top"
+    }
   }
 }
