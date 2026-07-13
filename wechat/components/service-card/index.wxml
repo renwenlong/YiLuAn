@@ -1,7 +1,7 @@
-<view class="service-card {{active ? 'active' : ''}}" wx:if="{{info.label}}">
+<view class="service-card {{active ? 'active' : ''}}" wx:if="{{label}}">
   <view class="service-info">
-    <text class="service-label">{{info.label}}</text>
-    <text class="service-desc">{{info.desc}}</text>
+    <text class="service-label">{{label}}</text>
+    <text class="service-desc">{{desc}}</text>
   </view>
   <text class="service-price">{{priceText}}</text>
 </view>

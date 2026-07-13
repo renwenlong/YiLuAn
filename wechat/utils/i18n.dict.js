@@ -218,6 +218,70 @@ module.exports = {
         "count"
       ],
       "_note": "English 单复数本期采 order(s) 折中 (PRD §7.5 已接受，AC-5 认可)"
+    },
+    "tabAll": {
+      "zh-Hans": "全部",
+      "en": "All"
+    },
+    "tabPending": {
+      "zh-Hans": "待接单",
+      "en": "Pending"
+    },
+    "tabInProgress": {
+      "zh-Hans": "进行中",
+      "en": "In Progress"
+    },
+    "tabCompleted": {
+      "zh-Hans": "已完成",
+      "en": "Completed"
+    },
+    "tabCancelled": {
+      "zh-Hans": "已取消",
+      "en": "Cancelled"
+    },
+    "noMore": {
+      "zh-Hans": "没有更多了",
+      "en": "No more"
+    },
+    "loadFailed": {
+      "zh-Hans": "加载失败",
+      "en": "Failed to load"
+    },
+    "emptyIcon": {
+      "zh-Hans": "单",
+      "en": "📋"
+    },
+    "rowHospital": {
+      "zh-Hans": "医院",
+      "en": "Hospital"
+    },
+    "rowTime": {
+      "zh-Hans": "时间",
+      "en": "Time"
+    },
+    "rowPatient": {
+      "zh-Hans": "患者",
+      "en": "Patient"
+    },
+    "rowActualPatient": {
+      "zh-Hans": "实际就诊人",
+      "en": "Actual Patient"
+    },
+    "payHint": {
+      "zh-Hans": "待支付",
+      "en": "To Pay"
+    },
+    "reviewHint": {
+      "zh-Hans": "待评价",
+      "en": "To Review"
+    },
+    "reviewedHint": {
+      "zh-Hans": "已评价",
+      "en": "Reviewed"
+    },
+    "statusUnknown": {
+      "zh-Hans": "未知",
+      "en": "Unknown"
     }
   },
   "orderStatus": {
@@ -277,6 +341,18 @@ module.exports = {
     "errand": {
       "zh-Hans": "代办跑腿",
       "en": "Errand Service"
+    },
+    "full_accompanyDesc": {
+      "zh-Hans": "挂号、候诊、就诊、取药全流程陪同",
+      "en": "Full-process escort: registration, waiting, consultation, medication pickup"
+    },
+    "half_accompanyDesc": {
+      "zh-Hans": "陪同就诊或取报告，按需半程服务",
+      "en": "Escort for consultation or report pickup, half-process on demand"
+    },
+    "errandDesc": {
+      "zh-Hans": "代取报告、代挂号、代取药等跑腿服务",
+      "en": "Errands: report/medication pickup, registration proxy, etc."
     }
   },
   "login": {

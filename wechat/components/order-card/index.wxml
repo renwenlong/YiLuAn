@@ -7,19 +7,19 @@
   </view>
   <view class="order-body">
     <view class="order-row">
-      <text class="order-label">医院</text>
+      <text class="order-label">{{t['order.rowHospital']}}</text>
       <text class="order-value">{{order.hospital_name}}</text>
     </view>
     <view class="order-row">
-      <text class="order-label">时间</text>
+      <text class="order-label">{{t['order.rowTime']}}</text>
       <text class="order-value">{{order.appointment_date}} {{order.appointment_time}}</text>
     </view>
     <view class="order-row" wx:if="{{order.patient_name}}">
-      <text class="order-label">患者</text>
+      <text class="order-label">{{t['order.rowPatient']}}</text>
       <text class="order-value">{{order.patient_name}}</text>
     </view>
     <view class="order-row" wx:if="{{familyMemberText}}">
-      <text class="order-label">实际就诊人</text>
+      <text class="order-label">{{t['order.rowActualPatient']}}</text>
       <text class="order-value">{{familyMemberText}}</text>
     </view>
     <view class="order-desc" wx:if="{{order.description}}">
@@ -28,8 +28,8 @@
   </view>
   <view class="order-footer">
     <text class="order-price">{{priceText}}</text>
-    <text class="pay-hint" wx:if="{{order.status === 'created' && order.payment_status === 'unpaid'}}">待支付</text>
-    <text class="review-hint" wx:if="{{order.status === 'completed'}}">待评价</text>
-    <text class="reviewed-hint" wx:if="{{order.status === 'reviewed'}}">已评价</text>
+    <text class="pay-hint" wx:if="{{order.status === 'created' && order.payment_status === 'unpaid'}}">{{t['order.payHint']}}</text>
+    <text class="review-hint" wx:if="{{order.status === 'completed'}}">{{t['order.reviewHint']}}</text>
+    <text class="reviewed-hint" wx:if="{{order.status === 'reviewed'}}">{{t['order.reviewedHint']}}</text>
   </view>
 </view>
