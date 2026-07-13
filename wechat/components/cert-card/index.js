@@ -22,6 +22,9 @@ var STATE_VERIFIED = 'verified'
 var STATE_PENDING_RESUBMIT = 'pending_resubmit'
 var STATE_UNVERIFIED = 'unverified'
 
+var i18n = require('../../utils/i18n')
+var i18nBehavior = require('../../behaviors/i18n')
+
 function _deriveState(cs) {
   if (!cs) return STATE_UNVERIFIED
   if (cs.ready === true) return STATE_VERIFIED
@@ -47,33 +50,46 @@ function _formatVerifiedAt(iso) {
 }
 
 function _stateLabel(state) {
-  if (state === STATE_VERIFIED) return '已认证'
-  if (state === STATE_PENDING_RESUBMIT) return '临时证明补交中'
-  return '未认证'
+  if (state === STATE_VERIFIED) return i18n.t('certCard.stateVerified')
+  if (state === STATE_PENDING_RESUBMIT) return i18n.t('certCard.statePending')
+  return i18n.t('certCard.stateUnverified')
 }
 
 function _joinQualifications(cs) {
   if (!cs || !Array.isArray(cs.companion_cert_qualifications) || cs.companion_cert_qualifications.length === 0) {
     return ''
   }
-  return cs.companion_cert_qualifications.filter(Boolean).join('、')
+  return cs.companion_cert_qualifications.filter(Boolean).join(i18n.t('certCard.qualSeparator'))
 }
 
 function _a11ySummary(cs) {
   var state = _deriveState(cs)
   var parts = [
-    '状态：' + _stateLabel(state),
-    cs && cs.companion_cert_pseudonym_name ? '姓名：' + cs.companion_cert_pseudonym_name : '姓名未提供',
-    cs && cs.companion_cert_work_id ? '工号：' + cs.companion_cert_work_id : '工号未提供',
-    _joinQualifications(cs) ? '资质：' + _joinQualifications(cs) : '资质未提供',
+    i18n.t('certCard.a11yStatePrefix', { state: _stateLabel(state) }),
+    cs && cs.companion_cert_pseudonym_name
+      ? i18n.t('certCard.a11yNameProvided', { name: cs.companion_cert_pseudonym_name })
+      : i18n.t('certCard.a11yNameMissing'),
+    cs && cs.companion_cert_work_id
+      ? i18n.t('certCard.a11yWorkIdProvided', { workId: cs.companion_cert_work_id })
+      : i18n.t('certCard.a11yWorkIdMissing'),
+    _joinQualifications(cs)
+      ? i18n.t('certCard.a11yQualProvided', { quals: _joinQualifications(cs) })
+      : i18n.t('certCard.a11yQualMissing'),
   ]
   var verifiedAt = _formatVerifiedAt(cs && cs.companion_cert_verified_at)
-  parts.push(verifiedAt ? '认证时间：' + verifiedAt : (state === STATE_VERIFIED ? '认证时间未提供' : '认证时间待核验'))
-  return parts.join('；')
+  parts.push(
+    verifiedAt
+      ? i18n.t('certCard.a11yVerifiedAtProvided', { time: verifiedAt })
+      : (state === STATE_VERIFIED
+          ? i18n.t('certCard.a11yVerifiedAtMissing')
+          : i18n.t('certCard.a11yVerifiedAtPending'))
+  )
+  return parts.join(i18n.t('certCard.a11ySeparator'))
 }
 
 function _a11yLabel(cs) {
-  return '陪诊师资质；' + _a11ySummary(cs) + '；证件原图不会在用户端展示。'
+  return i18n.t('certCard.title') + i18n.t('certCard.a11ySeparator') + _a11ySummary(cs)
+    + i18n.t('certCard.a11ySeparator') + i18n.t('certCard.a11yLabelSuffix')
 }
 
 // Wechat runtime registers component via global Component({...}).
@@ -85,6 +101,7 @@ function _a11yLabel(cs) {
 // from __tests__/components/rating-stars.test.js).
 if (typeof Component !== 'undefined') {
   Component({
+    behaviors: [i18nBehavior],
     properties: {
       /**
        * 4 信任卡之一 — companion_cert_status sub-object.
@@ -102,6 +119,14 @@ if (typeof Component !== 'undefined') {
             a11yQualifications: _joinQualifications(newVal),
             a11ySummary: _a11ySummary(newVal),
             a11yLabel: _a11yLabel(newVal),
+            ariaBadgeVerified: i18n.t('certCard.ariaBadge', { state: i18n.t('certCard.stateVerified') }),
+            ariaBadgePending: i18n.t('certCard.ariaBadge', { state: i18n.t('certCard.statePending') }),
+            ariaBadgeUnverified: i18n.t('certCard.ariaBadge', { state: i18n.t('certCard.stateUnverified') }),
+            ariaName: i18n.t('certCard.ariaName', { name: (newVal && newVal.companion_cert_pseudonym_name) || '' }),
+            ariaWorkId: i18n.t('certCard.ariaWorkId', { workId: (newVal && newVal.companion_cert_work_id) || '' }),
+            ariaVerifiedAt: i18n.t('certCard.ariaVerifiedAt', { time: _formatVerifiedAt(newVal && newVal.companion_cert_verified_at) }),
+            ariaQualifications: i18n.t('certCard.ariaQualifications', { quals: _joinQualifications(newVal) }),
+            ariaHeaderLabel: i18n.t('certCard.ariaHeader', { state: _stateLabel(state) }),
           })
         },
       },
@@ -114,6 +139,14 @@ if (typeof Component !== 'undefined') {
       a11yQualifications: '',
       a11ySummary: _a11ySummary(null),
       a11yLabel: _a11yLabel(null),
+      ariaBadgeVerified: i18n.t('certCard.ariaBadge', { state: i18n.t('certCard.stateVerified') }),
+      ariaBadgePending: i18n.t('certCard.ariaBadge', { state: i18n.t('certCard.statePending') }),
+      ariaBadgeUnverified: i18n.t('certCard.ariaBadge', { state: i18n.t('certCard.stateUnverified') }),
+      ariaName: i18n.t('certCard.ariaName', { name: '' }),
+      ariaWorkId: i18n.t('certCard.ariaWorkId', { workId: '' }),
+      ariaVerifiedAt: i18n.t('certCard.ariaVerifiedAt', { time: '' }),
+      ariaQualifications: i18n.t('certCard.ariaQualifications', { quals: '' }),
+      ariaHeaderLabel: i18n.t('certCard.ariaHeader', { state: _stateLabel(STATE_UNVERIFIED) }),
       // 状态字面常量给 wxml wx:if 用
       STATE_VERIFIED: STATE_VERIFIED,
       STATE_PENDING_RESUBMIT: STATE_PENDING_RESUBMIT,

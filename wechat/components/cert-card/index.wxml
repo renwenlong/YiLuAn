@@ -7,42 +7,42 @@
         (仅 qualifications 字段原文显, 后端医疗顾问 review 过)
 -->
 <view class="cert-card" data-testid="cert-card" aria-role="group" aria-label="{{a11yLabel}}">
-  <view class="cert-card__header" aria-role="text" aria-label="陪诊师资质，状态：{{a11yStateLabel}}">
-    <text class="cert-card__title">陪诊师资质</text>
+  <view class="cert-card__header" aria-role="text" aria-label="{{ariaHeaderLabel}}">
+    <text class="cert-card__title">{{t['certCard.title']}}</text>
     <!-- 3 状态徽章 -->
     <view
       wx:if="{{derivedState === STATE_VERIFIED}}"
       class="cert-card__badge cert-card__badge--verified"
       data-testid="cert-badge-verified"
       aria-role="text"
-      aria-label="陪诊师资质状态：已认证"
-    >已认证</view>
+      aria-label="{{ariaBadgeVerified}}"
+    >{{t['certCard.stateVerified']}}</view>
     <view
       wx:elif="{{derivedState === STATE_PENDING_RESUBMIT}}"
       class="cert-card__badge cert-card__badge--pending"
       data-testid="cert-badge-pending"
       aria-role="text"
-      aria-label="陪诊师资质状态：临时证明补交中"
-    >临时证明补交中</view>
+      aria-label="{{ariaBadgePending}}"
+    >{{t['certCard.statePending']}}</view>
     <view
       wx:else
       class="cert-card__badge cert-card__badge--unverified"
       data-testid="cert-badge-unverified"
       aria-role="text"
-      aria-label="陪诊师资质状态：未认证"
-    >未认证</view>
+      aria-label="{{ariaBadgeUnverified}}"
+    >{{t['certCard.stateUnverified']}}</view>
   </view>
 
   <view class="cert-card__body" wx:if="{{certStatus}}" aria-role="text" aria-label="{{a11ySummary}}">
     <!-- 字段 1: 化名 (永不出真名) -->
-    <view class="cert-card__row" wx:if="{{certStatus.companion_cert_pseudonym_name}}" aria-role="text" aria-label="陪诊师化名：{{certStatus.companion_cert_pseudonym_name}}">
-      <text class="cert-card__label">姓名</text>
+    <view class="cert-card__row" wx:if="{{certStatus.companion_cert_pseudonym_name}}" aria-role="text" aria-label="{{ariaName}}">
+      <text class="cert-card__label">{{t['certCard.labelName']}}</text>
       <text class="cert-card__value" data-testid="cert-pseudonym-name">{{certStatus.companion_cert_pseudonym_name}}</text>
     </view>
 
     <!-- 字段 2: 工号 -->
-    <view class="cert-card__row" wx:if="{{certStatus.companion_cert_work_id}}" aria-role="text" aria-label="陪诊师工号：{{certStatus.companion_cert_work_id}}">
-      <text class="cert-card__label">工号</text>
+    <view class="cert-card__row" wx:if="{{certStatus.companion_cert_work_id}}" aria-role="text" aria-label="{{ariaWorkId}}">
+      <text class="cert-card__label">{{t['certCard.labelWorkId']}}</text>
       <text class="cert-card__value" data-testid="cert-work-id">{{certStatus.companion_cert_work_id}}</text>
     </view>
 
@@ -51,9 +51,9 @@
       class="cert-card__row"
       wx:if="{{certStatus.companion_cert_qualifications && certStatus.companion_cert_qualifications.length > 0}}"
       aria-role="text"
-      aria-label="陪诊师资质：{{a11yQualifications}}"
+      aria-label="{{ariaQualifications}}"
     >
-      <text class="cert-card__label">资质</text>
+      <text class="cert-card__label">{{t['certCard.labelQualifications']}}</text>
       <view class="cert-card__tags" data-testid="cert-qualifications">
         <text
           class="cert-card__tag"
@@ -64,17 +64,17 @@
     </view>
 
     <!-- 字段 4: 认证时间 -->
-    <view class="cert-card__row" wx:if="{{verifiedAtDisplay}}" aria-role="text" aria-label="认证时间：{{verifiedAtDisplay}}">
-      <text class="cert-card__label">认证时间</text>
+    <view class="cert-card__row" wx:if="{{verifiedAtDisplay}}" aria-role="text" aria-label="{{ariaVerifiedAt}}">
+      <text class="cert-card__label">{{t['certCard.labelVerifiedAt']}}</text>
       <text class="cert-card__value" data-testid="cert-verified-at">{{verifiedAtDisplay}}</text>
     </view>
   </view>
 
   <!-- 空态文案 (3 状态各不同, 都不出现职业背书) -->
-  <view wx:if="{{derivedState === STATE_PENDING_RESUBMIT}}" class="cert-card__hint" aria-role="status" aria-label="陪诊师资质临时证明补交中，服务暂停受理">
-    陪诊师正在补交临时证明, 服务暂停受理.
+  <view wx:if="{{derivedState === STATE_PENDING_RESUBMIT}}" class="cert-card__hint" aria-role="status" aria-label="{{t['certCard.ariaPendingHint']}}">
+    {{t['certCard.hintPending']}}
   </view>
-  <view wx:elif="{{derivedState === STATE_UNVERIFIED}}" class="cert-card__hint" aria-role="status" aria-label="陪诊师资质未通过审核">
-    陪诊师资质未通过审核.
+  <view wx:elif="{{derivedState === STATE_UNVERIFIED}}" class="cert-card__hint" aria-role="status" aria-label="{{t['certCard.ariaUnverifiedHint']}}">
+    {{t['certCard.hintUnverified']}}
   </view>
 </view>
