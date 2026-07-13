@@ -7,10 +7,10 @@
       <view class="companion-header">
         <text class="companion-name">{{companion.name}}</text>
         <text class="companion-rating" wx:if="{{companion.rating > 0}}">★ {{companion.rating}}</text>
-        <text class="companion-rating no-rating" wx:else>暂无评分</text>
+        <text class="companion-rating no-rating" wx:else>{{t['companionCard.noRating']}}</text>
       </view>
       <view class="companion-meta">
-        <text class="meta-item">已完成 {{companion.completed_orders}} 单</text>
+        <text class="meta-item">{{completedText}}</text>
       </view>
       <view class="companion-areas" wx:if="{{companion.service_areas && companion.service_areas.length > 0}}">
         <text class="area-tag" wx:for="{{companion.service_areas}}" wx:key="*this">{{item}}</text>
@@ -18,6 +18,6 @@
     </view>
   </view>
   <view class="card-action" wx:if="{{showBook}}" catchtap="onBook">
-    <text class="book-btn">预约</text>
+    <text class="book-btn">{{t['companionCard.book']}}</text>
   </view>
 </view>

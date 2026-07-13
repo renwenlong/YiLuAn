@@ -4,9 +4,12 @@
 // at the top of any page that includes <network-banner />. Auto-hides when
 // degraded state clears.
 const degradation = require('../../utils/degradation')
+const i18nBehavior = require('../../behaviors/i18n')
 
 Component({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['networkBanner'],
     visible: false,
     reason: '',
   },
