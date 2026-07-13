@@ -23,7 +23,9 @@ function _log(level, msg, ctx) {
 }
 
 var STORAGE_KEY = 'language'
+/** @type {Array<'zh-Hans'|'en'>} */
 var SUPPORTED = ['zh-Hans', 'en']
+/** @type {'zh-Hans'|'en'} */
 var DEFAULT_LANG = 'zh-Hans'
 
 // ── 主字典镜像（key 集 == docs/i18n/dictionary.json，DEV-001 SSoT）──────────
