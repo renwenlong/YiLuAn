@@ -124,6 +124,8 @@ struct OrderRowView: View {
         case .accepted, .inProgress: return .blue
         case .completed, .reviewed: return .green
         case .cancelledByPatient, .cancelledByCompanion: return .red
+        case .rejectedByCompanion: return .red
+        case .expired: return .gray
         }
     }
 }
