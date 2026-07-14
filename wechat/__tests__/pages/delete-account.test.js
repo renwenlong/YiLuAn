@@ -23,9 +23,10 @@ describe('services/user - deleteAccount', () => {
     __mockWxRequest(400, { detail: 'Invalid verification code' })
     const { deleteAccount } = require('../../services/user')
 
-    await expect(deleteAccount('000000')).rejects.toEqual({
+    await expect(deleteAccount('000000')).rejects.toMatchObject({
       statusCode: 400,
-      data: { detail: 'Invalid verification code' }
+      data: { detail: 'Invalid verification code' },
+      localizedMessage: 'Invalid verification code'
     })
   })
 

@@ -1,6 +1,8 @@
 const config = require('../config/index')
 const { getAccessToken, setAccessToken, setRefreshToken, getRefreshToken, clearTokens } = require('../utils/token')
 const { sanitizeText } = require('../utils/sanitizeText')
+const i18n = require('../utils/i18n')
+const dict = require('../utils/i18n.dict')
 
 // Default request timeout (ms). wx.request defaults to 60s, which on flaky
 // 4G / hospital wifi looks like the app froze. 15s is responsive enough
@@ -59,10 +61,14 @@ function request({ url, method = 'GET', data, auth = true, timeout, _skipGuardHa
           } else if (code === 'VERIFICATION_REQUIRED') {
             _handleVerificationRequired(res.data, reject)
           } else {
-            reject({ statusCode: res.statusCode, data: res.data })
+            // I18N-DEV-005: 通用 error_code dispatcher — 附按当前语言的译文
+            const loc = _localizeError(res.data)
+            reject({ statusCode: res.statusCode, data: res.data, errorCode: loc.code, localizedMessage: loc.localized })
           }
         } else {
-          reject({ statusCode: res.statusCode, data: res.data })
+          // I18N-DEV-005: 非 400 / skipGuards 路径也附译文 (有 error_code 时)
+          const loc = _localizeError(res.data)
+          reject({ statusCode: res.statusCode, data: res.data, errorCode: loc.code, localizedMessage: loc.localized })
         }
       },
       fail(err) {
@@ -82,6 +88,23 @@ function _extractErrorCode(payload) {
     return detail.error_code
   }
   return null
+}
+
+// I18N-DEV-005 (ADR-0063 §7)：微信 error_code dispatcher。
+// 根据 error_code 映射主字典 error.<CODE> 译文，按当前语言取（英文模式取英文）。
+// 未覆盖码 / 无 code → 回退后端 detail 原文（中文）。
+// 返回 { code, localized, covered }，covered=false 时 localized 为后端原文。
+function _localizeError(payload) {
+  const code = _extractErrorCode(payload)
+  const detail = payload && payload.detail
+  const backendMsg = (detail && typeof detail === 'object' && detail.message)
+    ? detail.message
+    : (typeof detail === 'string' ? detail : '')
+  // 字典命中判定：error.<CODE> 存在且当前语言有值 (t() 未命中返回 key 本身)
+  const errorNs = (dict && dict.error) || {}
+  const covered = !!(code && errorNs[code])
+  const localized = covered ? i18n.t('error.' + code) : backendMsg
+  return { code: code, localized: localized, covered: covered }
 }
 
 // 遇到 PHONE_REQUIRED 统一弹窗 + 跳转绑定页，原调用者以 reject 结束（上层不必重复处理）

@@ -7,7 +7,7 @@ when ``PHONE_REQUIRED`` is returned), so they must remain stable.
 
 Naming: SCREAMING_SNAKE_CASE, prefixed by domain. Backwards-incompatible
 changes require updating the frontend dispatchers in:
-- ``wechat/services/request.js``
+- ``wechat/services/api.js`` (I18N-DEV-005: error_code → error.<CODE> i18n dispatcher; 旧误引 request.js 不存在)
 - ``ios/YiLuAn/Core/Networking/APIClient.swift``
 """
 
