@@ -66,68 +66,10 @@ struct ProfileView: View {
 
                     VStack(spacing: Spacing.md) {
                         // Account section
-                        VStack(spacing: 0) {
-                            MenuRow(icon: "person.crop.circle", title: loc.t("profile.profile")) {
-                                ProfileEditView()
-                            }
-
-                            if isCompanion {
-                                Divider().padding(.leading, 52)
-                                MenuRow(icon: "stethoscope", title: loc.t("profile.companionHomepage")) {
-                                    CompanionSelfProfileView()
-                                }
-                            }
-
-                            Divider().padding(.leading, 52)
-                            MenuRow(icon: "phone.badge.checkmark", title: loc.t("bindPhone.bindPhone")) {
-                                BindPhoneView()
-                            }
-
-                            Divider().padding(.leading, 52)
-                            MenuRow(icon: "wallet.pass", title: loc.t("profile.menuWallet")) {
-                                WalletView()
-                            }
-
-                            Divider().padding(.leading, 52)
-                            MenuRow(icon: "person.2", title: loc.t("profile.menuFamily")) {
-                                FamilyMembersView()
-                            }
-
-                            Divider().padding(.leading, 52)
-                            MenuRow(icon: "phone.circle.fill", title: loc.t("order.emergencyContact")) {
-                                EmergencyContactsView()
-                            }
-
-                            Divider().padding(.leading, 52)
-                            MenuRow(icon: "bell.badge", title: loc.t("profile.menuFollowup")) {
-                                FollowupRemindersView()
-                            }
-                        }
-                        .background(Color.bgCard)
-                        .cornerRadius(CornerRadius.lg)
-                        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
-                        .padding(.horizontal, Spacing.lg)
+                        accountMenuSection
 
                         // Features section
-                        VStack(spacing: 0) {
-                            MenuRow(icon: "bell.badge", title: loc.t("profile.messageNotifications")) {
-                                NotificationListView()
-                            }
-
-                            Divider().padding(.leading, 52)
-                            MenuRow(icon: "gearshape", title: loc.t("settings.title")) {
-                                SettingsView()
-                            }
-
-                            Divider().padding(.leading, 52)
-                            MenuRow(icon: "info.circle", title: loc.t("profile.aboutUs")) {
-                                AboutView()
-                            }
-                        }
-                        .background(Color.bgCard)
-                        .cornerRadius(CornerRadius.lg)
-                        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
-                        .padding(.horizontal, Spacing.lg)
+                        featuresMenuSection
 
                         // Logout button
                         Button {
@@ -157,6 +99,73 @@ struct ProfileView: View {
             .navigationTitle("")
             .navigationBarHidden(true)
         }
+    }
+
+    // 抽成计算属性减小 body 类型推断负担(避免 SwiftUI type-check timeout)
+    @ViewBuilder private var accountMenuSection: some View {
+        VStack(spacing: 0) {
+            MenuRow(icon: "person.crop.circle", title: loc.t("profile.profile")) {
+                ProfileEditView()
+            }
+
+            if isCompanion {
+                Divider().padding(.leading, 52)
+                MenuRow(icon: "stethoscope", title: loc.t("profile.companionHomepage")) {
+                    CompanionSelfProfileView()
+                }
+            }
+
+            Divider().padding(.leading, 52)
+            MenuRow(icon: "phone.badge.checkmark", title: loc.t("bindPhone.bindPhone")) {
+                BindPhoneView()
+            }
+
+            Divider().padding(.leading, 52)
+            MenuRow(icon: "wallet.pass", title: loc.t("profile.menuWallet")) {
+                WalletView()
+            }
+
+            Divider().padding(.leading, 52)
+            MenuRow(icon: "person.2", title: loc.t("profile.menuFamily")) {
+                FamilyMembersView()
+            }
+
+            Divider().padding(.leading, 52)
+            MenuRow(icon: "phone.circle.fill", title: loc.t("order.emergencyContact")) {
+                EmergencyContactsView()
+            }
+
+            Divider().padding(.leading, 52)
+            MenuRow(icon: "bell.badge", title: loc.t("profile.menuFollowup")) {
+                FollowupRemindersView()
+            }
+        }
+        .background(Color.bgCard)
+        .cornerRadius(CornerRadius.lg)
+        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+        .padding(.horizontal, Spacing.lg)
+    }
+
+    @ViewBuilder private var featuresMenuSection: some View {
+        VStack(spacing: 0) {
+            MenuRow(icon: "bell.badge", title: loc.t("profile.messageNotifications")) {
+                NotificationListView()
+            }
+
+            Divider().padding(.leading, 52)
+            MenuRow(icon: "gearshape", title: loc.t("settings.title")) {
+                SettingsView()
+            }
+
+            Divider().padding(.leading, 52)
+            MenuRow(icon: "info.circle", title: loc.t("profile.aboutUs")) {
+                AboutView()
+            }
+        }
+        .background(Color.bgCard)
+        .cornerRadius(CornerRadius.lg)
+        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+        .padding(.horizontal, Spacing.lg)
     }
 }
 
