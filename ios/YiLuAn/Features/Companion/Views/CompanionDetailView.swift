@@ -3,6 +3,7 @@ import SwiftUI
 struct CompanionDetailView: View {
     let companionId: String
     @StateObject private var viewModel = CompanionProfileViewModel()
+    @EnvironmentObject var loc: LocalizationManager
 
     /// P1-1：点击认证徽章后弹出证件预览 sheet
     @State private var showCertificationPreview = false
@@ -84,7 +85,7 @@ struct CompanionDetailView: View {
                                         .background(.white.opacity(0.28))
                                         .clipShape(Capsule())
                                     }
-                                    .accessibilityLabel("查看认证证件")
+                                    .accessibilityLabel(loc.t("companion.viewVerificationDocuments"))
                                 }
                             }
 
@@ -96,11 +97,11 @@ struct CompanionDetailView: View {
                     VStack(spacing: Spacing.md) {
                         // Stats row
                         HStack(spacing: 0) {
-                            statItem(value: String(companion.totalOrders), label: "完成订单")
+                            statItem(value: String(companion.totalOrders), label: loc.t("companion.completeOrder"))
                             Divider().frame(height: 30)
                             statItem(
                                 value: String(format: "%.1f", companion.avgRating),
-                                label: "服务评分"
+                                label: loc.t("reviewWrite.serviceRating")
                             )
                         }
                         .padding(.vertical, Spacing.lg)
@@ -113,7 +114,7 @@ struct CompanionDetailView: View {
                         // Service area
                         if let area = companion.serviceArea, !area.isEmpty {
                             VStack(alignment: .leading, spacing: Spacing.md) {
-                                Text("服务区域")
+                                Text(loc.t("profileEdit.serviceArea"))
                                     .font(.dsTitle)
                                     .foregroundStyle(Color.textPrimary)
 
@@ -136,7 +137,7 @@ struct CompanionDetailView: View {
                         // Bio
                         if let bio = companion.bio, !bio.isEmpty {
                             VStack(alignment: .leading, spacing: Spacing.md) {
-                                Text("个人简介")
+                                Text(loc.t("profileEdit.bio"))
                                     .font(.dsTitle)
                                     .foregroundStyle(Color.textPrimary)
                                 Text(bio)
@@ -168,7 +169,7 @@ struct CompanionDetailView: View {
                     NavigationLink {
                         CreateOrderView()
                     } label: {
-                        Text("预约陪诊")
+                        Text(loc.t("companionDetail.book"))
                             .font(.dsTitle)
                             .fontWeight(.semibold)
                     }
@@ -198,7 +199,7 @@ struct CompanionDetailView: View {
             }
         }
         .background(Color.bgPage)
-        .navigationTitle("陪诊师详情")
+        .navigationTitle(loc.t("companion.companionDetail"))
         .navigationBarTitleDisplayMode(.inline)
         .ignoresSafeArea(edges: .top)
         .task {
@@ -275,10 +276,10 @@ struct CompanionDetailView: View {
 
     private func verificationLabel(_ status: String) -> String {
         switch status {
-        case "verified": return "已认证"
-        case "pending": return "审核中"
-        case "rejected": return "未通过"
-        default: return "未认证"
+        case "verified": return loc.t("createOrder.verified")
+        case "pending": return loc.t("companion.underReview")
+        case "rejected": return loc.t("companion.notApproved")
+        default: return loc.t("companionDetail.unverified")
         }
     }
 
@@ -302,6 +303,7 @@ struct CertificationPreviewSheet: View {
     let certificationImageUrl: String?
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var loc: LocalizationManager
 
     var body: some View {
         NavigationStack {
@@ -318,7 +320,7 @@ struct CertificationPreviewSheet: View {
                     }
 
                     if let no = certificationNo, !no.isEmpty {
-                        Text("证件编号：\(no)")
+                        Text(loc.t("companion.documentNumber", no))
                             .font(.dsSubheadline)
                             .foregroundStyle(Color.textSecondary)
                     }
@@ -340,7 +342,7 @@ struct CertificationPreviewSheet: View {
                                     Image(systemName: "exclamationmark.triangle")
                                         .font(.system(size: 32))
                                         .foregroundStyle(Color.textHint)
-                                    Text("证件图加载失败")
+                                    Text(loc.t("companion.idImageLoadFailed"))
                                         .font(.dsBody)
                                         .foregroundStyle(Color.textSecondary)
                                 }
@@ -350,16 +352,16 @@ struct CertificationPreviewSheet: View {
                             }
                         }
                     } else {
-                        ContentUnavailableView("暂无证件图", systemImage: "photo")
+                        ContentUnavailableView(loc.t("companion.noIdImage"), systemImage: "photo")
                     }
                 }
                 .padding(Spacing.lg)
             }
-            .navigationTitle("认证证件")
+            .navigationTitle(loc.t("companion.verificationDocuments"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("完成") { dismiss() }
+                    Button(loc.t("companion.done")) { dismiss() }
                 }
             }
         }

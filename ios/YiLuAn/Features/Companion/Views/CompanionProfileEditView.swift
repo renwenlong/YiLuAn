@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct CompanionProfileEditView: View {
+    @EnvironmentObject var loc: LocalizationManager
     @StateObject private var viewModel = CompanionProfileViewModel()
     @Environment(\.dismiss) private var dismiss
 
@@ -8,15 +9,15 @@ struct CompanionProfileEditView: View {
         Form {
             // Verification status
             if let companion = viewModel.selectedCompanion {
-                Section("认证状态") {
+                Section(loc.t("companion.verificationStatus")) {
                     HStack {
-                        Text("状态")
+                        Text(loc.t("companion.status"))
                         Spacer()
                         verificationBadge(companion.verificationStatus)
                     }
                     if let realName = viewModel.selectedCompanion?.realName {
                         HStack {
-                            Text("实名")
+                            Text(loc.t("companion.realName"))
                             Spacer()
                             Text(realName)
                                 .foregroundStyle(.secondary)
@@ -25,16 +26,16 @@ struct CompanionProfileEditView: View {
                 }
             }
 
-            Section("服务信息") {
+            Section(loc.t("companionDetail.serviceInfo")) {
                 VStack(alignment: .leading) {
-                    Text("个人简介")
+                    Text(loc.t("profileEdit.bio"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     TextEditor(text: $viewModel.bio)
                         .frame(minHeight: 120)
                 }
 
-                TextField("服务区域", text: $viewModel.serviceArea)
+                TextField(loc.t("profileEdit.serviceArea"), text: $viewModel.serviceArea)
             }
 
             Section {
@@ -46,7 +47,7 @@ struct CompanionProfileEditView: View {
                         if viewModel.isLoading {
                             ProgressView()
                         } else {
-                            Text("保存")
+                            Text(loc.t("common.save"))
                         }
                         Spacer()
                     }
@@ -54,7 +55,7 @@ struct CompanionProfileEditView: View {
                 .disabled(viewModel.isLoading)
             }
         }
-        .navigationTitle("陪诊师信息")
+        .navigationTitle(loc.t("orderDetail.companionInfo"))
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await viewModel.loadOwnProfile()
@@ -62,11 +63,11 @@ struct CompanionProfileEditView: View {
         .onChange(of: viewModel.isSaved) { saved in
             if saved { dismiss() }
         }
-        .alert("错误", isPresented: .init(
+        .alert(loc.t("companion.error"), isPresented: .init(
             get: { viewModel.errorMessage != nil },
             set: { if !$0 { viewModel.errorMessage = nil } }
         )) {
-            Button("确定", role: .cancel) {}
+            Button(loc.t("companion.ok"), role: .cancel) {}
         } message: {
             Text(viewModel.errorMessage ?? "")
         }
@@ -76,19 +77,19 @@ struct CompanionProfileEditView: View {
     private func verificationBadge(_ status: String) -> some View {
         switch status {
         case "verified":
-            Label("已认证", systemImage: "checkmark.seal.fill")
+            Label(loc.t("createOrder.verified"), systemImage: "checkmark.seal.fill")
                 .font(.caption)
                 .foregroundStyle(.green)
         case "pending":
-            Label("审核中", systemImage: "clock.fill")
+            Label(loc.t("companion.underReview"), systemImage: "clock.fill")
                 .font(.caption)
                 .foregroundStyle(.orange)
         case "rejected":
-            Label("未通过", systemImage: "xmark.seal.fill")
+            Label(loc.t("companion.notApproved"), systemImage: "xmark.seal.fill")
                 .font(.caption)
                 .foregroundStyle(.red)
         default:
-            Label("未认证", systemImage: "questionmark.circle")
+            Label(loc.t("companionDetail.unverified"), systemImage: "questionmark.circle")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

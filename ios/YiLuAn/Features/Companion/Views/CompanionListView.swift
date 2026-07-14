@@ -2,10 +2,25 @@ import SwiftUI
 
 struct CompanionListView: View {
     @StateObject private var viewModel = CompanionProfileViewModel()
+    @EnvironmentObject var loc: LocalizationManager
     @State private var searchText = ""
     @State private var selectedArea = ""
 
+    // 注意: areaOptions 的城市名是传给后端的筛选 value(保持中文), 显示时经 areaDisplayKey 走字典
     private let areaOptions = ["全部", "北京", "上海", "广州", "深圳", "杭州", "成都"]
+
+    private func areaDisplayKey(_ area: String) -> String {
+        switch area {
+        case "全部": return "order.tabAll"
+        case "北京": return "profileEdit.defaultCity"
+        case "上海": return "companion.cityShanghai"
+        case "广州": return "companion.cityGuangzhou"
+        case "深圳": return "companion.cityShenzhen"
+        case "杭州": return "companion.cityHangzhou"
+        case "成都": return "companion.cityChengdu"
+        default: return area
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -17,7 +32,7 @@ struct CompanionListView: View {
                             selectedArea = area == "全部" ? "" : area
                             Task { await loadData() }
                         } label: {
-                            Text(area)
+                            Text(loc.t(areaDisplayKey(area)))
                                 .font(.subheadline)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 6)
@@ -44,7 +59,7 @@ struct CompanionListView: View {
                     Image(systemName: "person.2.slash")
                         .font(.largeTitle)
                         .foregroundStyle(.secondary)
-                    Text("暂无陪诊师")
+                    Text(loc.t("companion.noCompanions"))
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
@@ -63,18 +78,18 @@ struct CompanionListView: View {
                 }
             }
         }
-        .searchable(text: $searchText, prompt: "搜索陪诊师")
+        .searchable(text: $searchText, prompt: loc.t("companion.searchCompanion"))
         .onSubmit(of: .search) {
             Task { await loadData() }
         }
         .task {
             await loadData()
         }
-        .alert("错误", isPresented: .init(
+        .alert(loc.t("companion.error"), isPresented: .init(
             get: { viewModel.errorMessage != nil },
             set: { if !$0 { viewModel.errorMessage = nil } }
         )) {
-            Button("确定", role: .cancel) {}
+            Button(loc.t("companion.ok"), role: .cancel) {}
         } message: {
             Text(viewModel.errorMessage ?? "")
         }
@@ -133,7 +148,7 @@ struct CompanionListView: View {
                         .foregroundStyle(.orange)
                     Text(String(format: "%.1f", companion.avgRating))
                         .font(.caption)
-                    Text("(\(companion.totalOrders)单)")
+                    Text(loc.t("companion.orderCount", companion.totalOrders))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
