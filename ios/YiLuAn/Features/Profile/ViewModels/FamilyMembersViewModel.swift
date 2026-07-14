@@ -15,7 +15,7 @@ final class FamilyMembersViewModel: ObservableObject {
         do {
             members = try await FamilyMembersService.list()
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "加载失败"
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? LocalizationManager.shared.t("order.loadFailed")
         }
     }
 
@@ -34,7 +34,7 @@ final class FamilyMembersViewModel: ObservableObject {
             await load()
             return true
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "添加失败"
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? LocalizationManager.shared.t("emergencyContacts.addFailed")
             return false
         }
     }
@@ -44,7 +44,7 @@ final class FamilyMembersViewModel: ObservableObject {
             try await FamilyMembersService.delete(id: member.id)
             await load()
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "删除失败"
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? LocalizationManager.shared.t("emergencyContacts.deleteFailed")
         }
     }
 }

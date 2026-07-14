@@ -48,8 +48,19 @@ struct EmergencyHotlineResponse: Decodable {
 }
 
 /// 常用关系（与 wechat 一致；后端 free-form string，前端只是推荐选项）。
+/// value 存中文(后端 free-form 历史数据是中文, 兼容优先); display 走 relation.* key (稳定映射, 不用中文反查)。
 enum EmergencyRelationship {
-    static let presets: [String] = [
-        "配偶", "父母", "子女", "兄弟姐妹", "亲戚", "朋友", "其他",
+    /// (relationKey, 中文value) —— key 用于 loc 显示, value 存后端
+    static let presetPairs: [(key: String, value: String)] = [
+        ("relation.spouse", "配偶"),
+        ("relation.parent", "父母"),
+        ("relation.child", "子女"),
+        ("relation.sibling", "兄弟姐妹"),
+        ("relation.relative", "亲戚"),
+        ("relation.friend", "朋友"),
+        ("relation.other", "其他"),
     ]
+
+    /// 后端存的中文 value 列表(兼容旧调用)
+    static var presets: [String] { presetPairs.map(\.value) }
 }

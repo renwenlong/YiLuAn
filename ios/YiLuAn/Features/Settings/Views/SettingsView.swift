@@ -17,21 +17,21 @@ struct SettingsView: View {
 
     var body: some View {
         List {
-            Section("通用") {
+            Section(loc.t("settings.general")) {
                 NavigationLink {
                     PrivacyPolicyView()
                 } label: {
-                    Label("隐私政策", systemImage: "lock.shield")
+                    Label(loc.t("settings.privacyPolicy"), systemImage: "lock.shield")
                 }
 
                 NavigationLink {
                     TermsOfServiceView()
                 } label: {
-                    Label("用户协议", systemImage: "doc.text")
+                    Label(loc.t("settings.termsOfService"), systemImage: "doc.text")
                 }
 
                 HStack {
-                    Label("清除缓存", systemImage: "trash")
+                    Label(loc.t("settings.clearCache"), systemImage: "trash")
                     Spacer()
                     Text(viewModel.cacheSize)
                         .foregroundStyle(Color.textHint)
@@ -61,23 +61,23 @@ struct SettingsView: View {
                 }
             }
 
-            Section("角色") {
+            Section(loc.t("settings.role")) {
                 Button {
                     showRoleSwitchAlert = true
                 } label: {
                     HStack {
-                        Label("切换为\(switchTargetRole == .patient ? "患者" : "陪诊师")", systemImage: "arrow.left.arrow.right")
+                        Label(loc.t("settings.switchToRole", loc.t(switchTargetRole == .patient ? "role.patient" : "role.companion")), systemImage: "arrow.left.arrow.right")
                         Spacer()
-                        Text(currentRole == .patient ? "当前：患者" : "当前：陪诊师")
+                        Text(currentRole == .patient ? loc.t("settings.currentPatient") : loc.t("settings.currentCompanion"))
                             .font(.dsCaption)
                             .foregroundStyle(Color.textHint)
                     }
                 }
             }
 
-            Section("关于") {
+            Section(loc.t("settings.about")) {
                 HStack {
-                    Text("版本")
+                    Text(loc.t("settings.version"))
                     Spacer()
                     Text(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0")
                         .foregroundStyle(Color.textHint)
@@ -88,27 +88,27 @@ struct SettingsView: View {
                 NavigationLink {
                     DeleteAccountView()
                 } label: {
-                    Label("注销账号", systemImage: "person.crop.circle.badge.minus")
+                    Label(loc.t("settings.deleteAccount"), systemImage: "person.crop.circle.badge.minus")
                         .foregroundStyle(Color.danger)
                 }
             }
         }
-        .navigationTitle("设置")
+        .navigationTitle(loc.t("settings.title"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear { viewModel.calculateCacheSize() }
-        .alert("清除缓存", isPresented: $showClearCacheAlert) {
-            Button("取消", role: .cancel) {}
-            Button("清除", role: .destructive) { viewModel.clearCache() }
+        .alert(loc.t("settings.clearCache"), isPresented: $showClearCacheAlert) {
+            Button(loc.t("common.cancel"), role: .cancel) {}
+            Button(loc.t("settings.clear"), role: .destructive) { viewModel.clearCache() }
         } message: {
-            Text("确定要清除缓存吗？当前缓存大小：\(viewModel.cacheSize)")
+            Text(loc.t("settings.confirmClearCache", viewModel.cacheSize))
         }
-        .alert("切换角色", isPresented: $showRoleSwitchAlert) {
-            Button("取消", role: .cancel) {}
-            Button("切换") {
+        .alert(loc.t("dialog.switchRoleTitle"), isPresented: $showRoleSwitchAlert) {
+            Button(loc.t("common.cancel"), role: .cancel) {}
+            Button(loc.t("settings.switch")) {
                 Task { await authViewModel.switchRole(to: switchTargetRole) }
             }
         } message: {
-            Text("确定要切换为\(switchTargetRole == .patient ? "患者" : "陪诊师")身份吗？")
+            Text(loc.t("settings.confirmSwitchRole", loc.t(switchTargetRole == .patient ? "role.patient" : "role.companion")))
         }
     }
 }

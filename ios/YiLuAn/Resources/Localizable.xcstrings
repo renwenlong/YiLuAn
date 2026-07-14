@@ -566,7 +566,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "确定要清除缓存吗？当前缓存大小：\\(viewModel.cacheSize)"
+            "value": "确定要清除缓存吗？当前缓存大小：%@"
           }
         },
         "en": {
@@ -582,7 +582,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "确定要切换为\\(switchTargetRole == .patient ?"
+            "value": "确定要切换为%@身份吗？"
           }
         },
         "en": {
@@ -662,7 +662,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "继续按住 \\(viewModel.pressCountdown)s"
+            "value": "继续按住 %@s"
           }
         },
         "en": {
@@ -758,13 +758,13 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": ")身份吗？"
+            "value": "身份吗？"
           }
         },
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": ")?"
+            "value": "?"
           }
         }
       }
@@ -806,7 +806,7 @@
         "zh-Hans": {
           "stringUnit": {
             "state": "translated",
-            "value": "切换为\\(switchTargetRole == .patient ?"
+            "value": "切换为%@"
           }
         },
         "en": {

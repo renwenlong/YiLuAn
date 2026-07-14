@@ -3,6 +3,7 @@ import SwiftUI
 struct DeleteAccountView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @StateObject private var viewModel = SettingsViewModel()
+    @EnvironmentObject var loc: LocalizationManager
     @State private var showResult = false
 
     var body: some View {
@@ -13,9 +14,9 @@ struct DeleteAccountView: View {
                     Image(systemName: "exclamationmark.triangle.fill")
                         .font(.system(size: 48))
                         .foregroundStyle(Color.warning)
-                    Text("注销账号")
+                    Text(loc.t("settings.deleteAccount"))
                         .font(.title2.bold())
-                    Text("此操作不可恢复，请谨慎操作")
+                    Text(loc.t("settings.irreversibleWarning"))
                         .font(.dsSubheadline)
                         .foregroundStyle(Color.textHint)
                 }
@@ -23,13 +24,13 @@ struct DeleteAccountView: View {
 
                 // Data card
                 VStack(alignment: .leading, spacing: Spacing.md) {
-                    Text("注销后以下数据将被删除：")
+                    Text(loc.t("settings.dataToBeDeleted"))
                         .font(.dsHeadline)
-                    dataRow("订单记录和交易数据")
-                    dataRow("个人资料和认证信息")
-                    dataRow("钱包余额和支付信息")
-                    dataRow("聊天记录")
-                    dataRow("陪诊师认证资料")
+                    dataRow(loc.t("settings.orderAndTransactionData"))
+                    dataRow(loc.t("settings.profileAndCertInfo"))
+                    dataRow(loc.t("settings.walletAndPaymentInfo"))
+                    dataRow(loc.t("settings.chatHistory"))
+                    dataRow(loc.t("settings.companionCertMaterials"))
                 }
                 .padding()
                 .background(Color(.systemGray6))
@@ -39,7 +40,7 @@ struct DeleteAccountView: View {
                 HStack {
                     Image(systemName: "info.circle.fill")
                         .foregroundStyle(Color.warning)
-                    Text("注销后 30 天内可联系客服恢复账号")
+                    Text(loc.t("settings.recoverWithin30Days"))
                         .font(.dsSubheadline)
                 }
                 .padding()
@@ -49,11 +50,11 @@ struct DeleteAccountView: View {
 
                 // OTP verification
                 VStack(alignment: .leading, spacing: Spacing.md) {
-                    Text("验证身份")
+                    Text(loc.t("settings.verifyIdentity"))
                         .font(.dsHeadline)
 
                     HStack {
-                        TextField("输入6位验证码", text: $viewModel.otpCode)
+                        TextField(loc.t("settings.enter6DigitCode"), text: $viewModel.otpCode)
                             .keyboardType(.numberPad)
                             .textContentType(.oneTimeCode)
                             .onChange(of: viewModel.otpCode) { _, newValue in
@@ -66,7 +67,7 @@ struct DeleteAccountView: View {
                             guard let phone = authViewModel.currentUser?.phone else { return }
                             Task { await viewModel.sendOTP(phone: phone) }
                         } label: {
-                            Text(viewModel.otpCountdown > 0 ? "\(viewModel.otpCountdown)s" : "发送验证码")
+                            Text(viewModel.otpCountdown > 0 ? "\(viewModel.otpCountdown)s" : loc.t("settings.sendCode"))
                                 .font(.dsSubheadline)
                         }
                         .disabled(!viewModel.canSendOTP)
@@ -83,7 +84,7 @@ struct DeleteAccountView: View {
                     HStack(alignment: .top, spacing: Spacing.sm) {
                         Image(systemName: viewModel.isConfirmed ? "checkmark.square.fill" : "square")
                             .foregroundStyle(viewModel.isConfirmed ? Color.brand : Color.textHint)
-                        Text("我已阅读并理解注销账号的后果，确认注销")
+                        Text(loc.t("settings.confirmAccountDeletion"))
                             .font(.dsSubheadline)
                             .foregroundStyle(Color.textSecondary)
                             .multilineTextAlignment(.leading)
@@ -101,7 +102,7 @@ struct DeleteAccountView: View {
             }
             .padding()
         }
-        .navigationTitle("注销账号")
+        .navigationTitle(loc.t("settings.deleteAccount"))
         .navigationBarTitleDisplayMode(.inline)
         .onDisappear { viewModel.cleanup() }
     }
@@ -120,7 +121,7 @@ struct DeleteAccountView: View {
                     }
                 }
 
-                Text(viewModel.isPressing ? "继续按住 \(viewModel.pressCountdown)s" : "长按 3 秒确认注销")
+                Text(viewModel.isPressing ? loc.t("settings.holdCountdown", viewModel.pressCountdown) : loc.t("deleteAccount.longPress"))
                     .font(.dsHeadline)
                     .foregroundStyle(.white)
             }
