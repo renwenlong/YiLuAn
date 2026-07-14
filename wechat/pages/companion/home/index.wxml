@@ -1,25 +1,25 @@
 <view class="companion-home">
   <!-- Notification Badge -->
   <view class="notification-bar" wx:if="{{unreadCount > 0}}" bindtap="onNotificationTap">
-    <text class="notification-text">您有 {{unreadCount}} 条未读通知</text>
-    <text class="notification-link">查看</text>
+    <text class="notification-text">{{unreadNoticeText}}</text>
+    <text class="notification-link">{{t['companionHome.view']}}</text>
   </view>
 
   <!-- 数据统计 -->
   <view class="stats-row">
     <view class="stat-item" bindtap="onOpenOrdersTap">
       <text class="stat-value open-orders-value">{{stats.openOrders}}</text>
-      <text class="stat-label">未结订单</text>
+      <text class="stat-label">{{t['companionHome.openOrders']}}</text>
     </view>
     <view class="stat-divider"></view>
     <view class="stat-item">
       <text class="stat-value">{{stats.totalEarnings}}</text>
-      <text class="stat-label">累计收入(元)</text>
+      <text class="stat-label">{{t['companionHome.totalEarnings']}}</text>
     </view>
     <view class="stat-divider"></view>
     <view class="stat-item">
       <text class="stat-value">{{stats.rating != null ? stats.rating : '-'}}</text>
-      <text class="stat-label">评分</text>
+      <text class="stat-label">{{t['companionHome.rating']}}</text>
     </view>
   </view>
 
@@ -27,10 +27,10 @@
   <view class="section">
     <view class="section-header">
       <view class="section-title-wrap">
-        <text class="section-title">待接订单</text>
+        <text class="section-title">{{t['companionHome.pendingOrders']}}</text>
         <text class="pending-badge" wx:if="{{pendingTotal > 0}}">{{pendingTotal}}</text>
       </view>
-      <text class="section-link" bindtap="onViewAllPending">查看全部待接单</text>
+      <text class="section-link" bindtap="onViewAllPending">{{t['companionHome.viewAllPending']}}</text>
     </view>
     <view class="order-list" wx:if="{{pendingOrders.length > 0}}">
       <order-card
@@ -42,10 +42,10 @@
       />
     </view>
     <view class="view-more" wx:if="{{pendingTotal > 3}}" bindtap="onViewAllPending">
-      <text>查看全部 {{pendingTotal}} 条待接订单</text>
+      <text>{{viewAllPendingText}}</text>
     </view>
     <view class="empty-hint" wx:if="{{pendingOrders.length === 0}}">
-      <text>暂无待接订单</text>
+      <text>{{t['companionHome.noPending']}}</text>
     </view>
   </view>
 

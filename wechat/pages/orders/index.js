@@ -3,10 +3,14 @@ const { ORDER_STATUS } = require('../../utils/constants')
 const store = require('../../store/index')
 const router = require('../../utils/router')
 const logger = require('../../utils/logger')
+const i18n = require('../../utils/i18n')
+const i18nBehavior = require('../../behaviors/i18n')
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
-    tabs: ['全部', '待接单', '进行中', '已完成', '已取消'],
+    i18nScopes: ['common', 'order'],
+    tabs: [],
     activeTab: 0,
     orders: [],
     page: 1,
@@ -14,11 +18,26 @@ Page({
     loading: false
   },
 
+  // tabs 现算（支持语言切换重算）
+  _recalcTabs: function () {
+    this.setData({
+      tabs: [
+        i18n.t('order.tabAll'),
+        i18n.t('order.tabPending'),
+        i18n.t('order.tabInProgress'),
+        i18n.t('order.tabCompleted'),
+        i18n.t('order.tabCancelled')
+      ]
+    })
+  },
+
   onLoad() {
+    this._recalcTabs()
     this.loadOrders()
   },
 
   onShow() {
+    this._recalcTabs()
     this.setData({ page: 1, orders: [], hasMore: true })
     this.loadOrders()
   },
@@ -65,8 +84,8 @@ Page({
         })
       })
       .catch(err => {
-        logger.error('获取订单列表失败', { err: err && (err.message || String(err)) })
-        wx.showToast({ title: '加载失败', icon: 'none' })
+        logger.error('Failed to load order list', { err: err && (err.message || String(err)) })
+        wx.showToast({ title: i18n.t('order.loadFailed'), icon: 'none' })
       })
       .finally(() => {
         this.setData({ loading: false })

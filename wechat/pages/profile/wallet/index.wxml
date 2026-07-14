@@ -1,14 +1,14 @@
 <view class="wallet-page">
   <!-- 余额卡片 -->
   <view class="balance-card {{role === 'companion' ? 'companion-card' : ''}}">
-    <text class="balance-label">{{role === 'companion' ? '可提现余额(元)' : '账户余额(元)'}}</text>
+    <text class="balance-label">{{role === 'companion' ? t['wallet.balanceCompanion'] : t['wallet.balancePatient']}}</text>
     <text class="balance-value">{{balanceText}}</text>
   </view>
 
   <!-- 患者端：充值区域 -->
   <block wx:if="{{role !== 'companion'}}">
     <view class="recharge-section">
-      <view class="section-title">选择充值金额</view>
+      <view class="section-title">{{t['wallet.selectAmount']}}</view>
       <view class="amount-grid">
         <view
           class="amount-item {{selectedAmount === item ? 'active' : ''}}"
@@ -22,18 +22,18 @@
       </view>
 
       <view class="custom-amount">
-        <text class="custom-label">自定义金额</text>
+        <text class="custom-label">{{t['wallet.customAmount']}}</text>
         <input
           class="custom-input"
           type="digit"
-          placeholder="请输入充值金额"
+          placeholder="{{t['wallet.inputAmount']}}"
           value="{{customAmount}}"
           bindinput="onCustomInput"
           bindtap="onCustomTap"
         />
       </view>
 
-      <button class="recharge-btn" bindtap="onRecharge">立即充值</button>
+      <button class="recharge-btn" bindtap="onRecharge">{{t['wallet.rechargeNow']}}</button>
     </view>
   </block>
 
@@ -42,22 +42,22 @@
     <view class="withdraw-section">
       <view class="withdraw-info">
         <view class="withdraw-row">
-          <text class="withdraw-label">累计收入</text>
+          <text class="withdraw-label">{{t['wallet.totalIncome']}}</text>
           <text class="withdraw-value">{{totalIncomeText}}</text>
         </view>
         <view class="withdraw-row">
-          <text class="withdraw-label">已提现</text>
+          <text class="withdraw-label">{{t['wallet.withdrawn']}}</text>
           <text class="withdraw-value">{{withdrawnText}}</text>
         </view>
       </view>
-      <button class="withdraw-btn" bindtap="onWithdraw">申请提现</button>
+      <button class="withdraw-btn" bindtap="onWithdraw">{{t['wallet.applyWithdraw']}}</button>
     </view>
   </block>
 
   <!-- 明细记录 -->
   <view class="record-section">
     <view class="section-header">
-      <text class="section-title">{{role === 'companion' ? '收入明细' : '消费明细'}}</text>
+      <text class="section-title">{{role === 'companion' ? t['wallet.incomeDetail'] : t['wallet.expenseDetail']}}</text>
     </view>
     <block wx:if="{{records.length > 0}}">
       <view class="record-item" wx:for="{{records}}" wx:key="id">
@@ -71,7 +71,7 @@
       </view>
     </block>
     <view class="empty-hint" wx:else>
-      <text>{{role === 'companion' ? '暂无收入记录' : '暂无消费记录'}}</text>
+      <text>{{role === 'companion' ? t['wallet.noIncome'] : t['wallet.noExpense']}}</text>
     </view>
   </view>
 </view>

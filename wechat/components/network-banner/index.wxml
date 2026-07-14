@@ -1,5 +1,5 @@
 <view wx:if="{{visible}}" class="network-banner" bindtap="onTapRetry">
   <text class="network-banner__icon">⚠️</text>
-  <text class="network-banner__text">网络不稳定，部分功能可能受影响</text>
-  <text class="network-banner__action">点此重试</text>
+  <text class="network-banner__text">{{t['networkBanner.unstable']}}</text>
+  <text class="network-banner__action">{{t['networkBanner.retry']}}</text>
 </view>

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var loc: LocalizationManager
     @StateObject private var viewModel = SettingsViewModel()
     @State private var showClearCacheAlert = false
     @State private var showRoleSwitchAlert = false
@@ -37,6 +38,27 @@ struct SettingsView: View {
                 }
                 .contentShape(Rectangle())
                 .onTapGesture { showClearCacheAlert = true }
+            }
+
+            // I18N-DEV-003 (ADR-0063 §5.3)：语言切换入口。
+            // 本 Section 文案用 loc.t() 直接 i18n（新代码）；现有硬编码中文 003B 抽 key。
+            Section(loc.t("settings.language")) {
+                ForEach(LocalizationManager.Language.allCases) { lang in
+                    Button {
+                        loc.setLanguage(lang)
+                    } label: {
+                        HStack {
+                            Text(lang.displayName)
+                                .foregroundStyle(Color.textPrimary)
+                            Spacer()
+                            if lang == loc.currentLanguage {
+                                Image(systemName: "checkmark")
+                                    .foregroundStyle(Color.primary)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                }
             }
 
             Section("角色") {

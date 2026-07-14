@@ -17,17 +17,22 @@ const router = require('../../../utils/router')
 const { ORDER_STATUS, SERVICE_TYPES } = require('../../../utils/constants')
 const { formatPrice, formatDate } = require('../../../utils/format')
 const { formatCurrency } = require('../../../utils/formatCurrency')
-const { relationLabel } = require('../../../utils/familyRelation')
+const { relationLabelI18n: relationLabel } = require('../../../utils/familyRelation')
 const { isCountdownUrgent } = require('./utils/countdown')
+const i18n = require('../../../utils/i18n')
+const i18nBehavior = require('../../../behaviors/i18n')
 
-const PAYMENT_STATUS_MAP = {
-  unpaid: '待支付',
-  paid: '已支付',
-  refunded: '已退款'
+// 支付状态 → i18n key（渲染时现算）
+var PAYMENT_STATUS_KEY = {
+  unpaid: 'orderDetail.payUnpaid',
+  paid: 'orderDetail.payPaid',
+  refunded: 'orderDetail.payRefunded'
 }
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'orderDetail', 'orderStatus', 'serviceType'],
     order: null,
     loading: true,
     // AI-9: 操作锁，防止状态切换瞬间用户重复点击
@@ -36,6 +41,7 @@ Page({
     // + PRD-003 §5 AC-3 + PIPL/民法典电子合同合规要求, 不允许 "记住选择")
     contractAccepted: false,
     statusList: ORDER_STATUS,
+    statusLabelText: '',
     serviceLabel: '',
     paymentStatusLabel: '',
     paymentStatusClass: '',
@@ -100,7 +106,7 @@ Page({
       var now = Date.now()
       var diff = expTime - now
       if (diff <= 0) {
-        self.setData({ countdown: '已超时', countdownUrgent: false })
+        self.setData({ countdown: i18n.t('orderDetail.timedOut'), countdownUrgent: false })
         self._clearCountdown()
         self.loadOrder()
         return
@@ -108,7 +114,7 @@ Page({
       var hours = Math.floor(diff / 3600000)
       var minutes = Math.floor((diff % 3600000) / 60000)
       self.setData({
-        countdown: hours + '小时' + minutes + '分钟',
+        countdown: i18n.t('orderDetail.countdownHm', { hours: hours, minutes: minutes }),
         countdownUrgent: isCountdownUrgent(diff)
       })
     }
@@ -130,7 +136,11 @@ Page({
       // admin 改名改价后历史订单仍显示下单瞬间的看名称)，
       // 无快照 fallback 到 SERVICE_TYPES dict (兼容历史订单)。
       const svc = SERVICE_TYPES[order.service_type] || {}
-      const serviceLabel = order.service_name_snapshot || svc.label || order.service_type
+      var svcI18n = order.service_type ? i18n.t('serviceType.' + order.service_type) : ''
+      if (svcI18n === 'serviceType.' + order.service_type) svcI18n = ''
+      const serviceLabel = order.service_name_snapshot || svcI18n || svc.label || order.service_type
+      var statusI18n = order.status ? i18n.t('orderStatus.' + order.status) : ''
+      if (statusI18n === 'orderStatus.' + order.status) statusI18n = order.status
 
       var review = null
       if (order.status === 'reviewed' || order.status === 'completed') {
@@ -156,7 +166,8 @@ Page({
           timelineIndex: order.timeline_index
         },
         serviceLabel: serviceLabel,
-        paymentStatusLabel: PAYMENT_STATUS_MAP[paymentStatus] || paymentStatus,
+        statusLabelText: statusI18n,
+        paymentStatusLabel: i18n.t(PAYMENT_STATUS_KEY[paymentStatus] || '') || paymentStatus,
         paymentStatusClass: paymentStatus,
         familyRelationLabel: famLabel
       })
@@ -174,7 +185,7 @@ Page({
         this.onPay()
       }
     } catch (err) {
-      wx.showToast({ title: '加载失败', icon: 'none' })
+      wx.showToast({ title: i18n.t('orderDetail.loadFailed'), icon: 'none' })
     } finally {
       this.setData({ loading: false })
     }
@@ -204,7 +215,7 @@ Page({
     } catch (err) {
       // audit 失败不阻断 UI; 但提示用户网络可能不稳
       wx.showToast({
-        title: '合同确认网络异常,请检查后重试',
+        title: i18n.t('orderDetail.contractNetErr'),
         icon: 'none',
         duration: 2000
       })
@@ -234,25 +245,25 @@ Page({
                 showMenu: true,
               })
             } else {
-              wx.showToast({ title: '合同加载失败', icon: 'none' })
+              wx.showToast({ title: i18n.t('orderDetail.contractLoadFailed'), icon: 'none' })
             }
           },
           fail: function () {
-            wx.showToast({ title: '合同加载失败', icon: 'none' })
+            wx.showToast({ title: i18n.t('orderDetail.contractLoadFailed'), icon: 'none' })
           }
         })
       } else {
         // status != 'active' — 按 status 显示对应文案
-        var msg = '合同尚未生成,请稍后再查看'
+        var msg = i18n.t('orderDetail.contractNotReady')
         if (detail.status === 'generation_failed' || detail.status === 'generation_permanently_failed') {
-          msg = '合同生成失败,客服已介入处理'
+          msg = i18n.t('orderDetail.contractGenFailed')
         } else if (detail.status === 'manually_invalidated') {
-          msg = '合同已作废,请联系客服'
+          msg = i18n.t('orderDetail.contractVoided')
         }
         wx.showToast({ title: msg, icon: 'none', duration: 2500 })
       }
     } catch (err) {
-      wx.showToast({ title: '合同详情加载失败', icon: 'none' })
+      wx.showToast({ title: i18n.t('orderDetail.contractDetailFailed'), icon: 'none' })
     }
   },
 
@@ -265,10 +276,10 @@ Page({
    */
   onViewInsuranceTerms() {
     wx.showModal({
-      title: '陪诊责任险服务条款',
-      content: '本服务由医路安平台合作保险公司承保,保障范围包括陪诊期间意外医疗等. S3 灰度阶段保险条款为静态版本,正式版以理赔时实际生效条款为准. 如有问题请联系客服.',
+      title: i18n.t('orderDetail.insuranceTitle'),
+      content: i18n.t('orderDetail.insuranceContent'),
       showCancel: false,
-      confirmText: '我已了解'
+      confirmText: i18n.t('orderDetail.gotIt')
     })
   },
 
@@ -276,9 +287,9 @@ Page({
     var order = this.data.order
     var priceText = order.formattedPrice || formatCurrency(order.price)
     const res = await wx.showModal({
-      title: '确认支付',
-      content: '支付 ' + priceText,
-      confirmText: '确认支付',
+      title: i18n.t('orderDetail.confirmPay'),
+      content: i18n.t('orderDetail.payContent', { price: priceText }),
+      confirmText: i18n.t('orderDetail.confirmPay'),
       confirmColor: '#4CAF50'
     })
     if (!res.confirm) return
@@ -304,7 +315,7 @@ Page({
         })
       } else {
         // Payment failed
-        var msg = '支付失败'
+        var msg = i18n.t('orderDetail.payFailed')
         if (err && err.data && err.data.detail) msg = err.data.detail
         if (err && err.errMsg) msg = err.errMsg
         router.redirect({
@@ -318,9 +329,9 @@ Page({
 
   async onConfirmStart() {
     const res = await wx.showModal({
-      title: '确认开始服务',
-      content: '确认后服务正式开始，如需取消将退还50%费用',
-      confirmText: '确认开始',
+      title: i18n.t('orderDetail.confirmStartTitle'),
+      content: i18n.t('orderDetail.confirmStartContent'),
+      confirmText: i18n.t('orderDetail.confirmStartBtn'),
       confirmColor: '#4CAF50'
     })
     if (!res.confirm) return
@@ -329,10 +340,10 @@ Page({
     this.setData({ actionLoading: true })
     try {
       await orderAction(this.orderId, 'confirm-start')
-      wx.showToast({ title: '服务已开始', icon: 'success' })
+      wx.showToast({ title: i18n.t('orderDetail.serviceStarted'), icon: 'success' })
       this.loadOrder()
     } catch (err) {
-      var msg = '操作失败'
+      var msg = i18n.t('orderDetail.opFailed')
       if (err && err.data && err.data.detail) msg = err.data.detail
       wx.showToast({ title: msg, icon: 'none' })
     } finally {
@@ -342,14 +353,14 @@ Page({
 
   async onCancel() {
     var order = this.data.order
-    var content = '确定要取消该订单吗？'
+    var content = i18n.t('orderDetail.cancelConfirmDefault')
     if (order.payment_status === 'paid') {
-      content = '取消后将全额退款，确定要取消吗？'
+      content = i18n.t('orderDetail.cancelConfirmRefundFull')
     }
     const res = await wx.showModal({
-      title: '确认取消',
+      title: i18n.t('orderDetail.confirmCancelTitle'),
       content: content,
-      confirmText: '确认取消',
+      confirmText: i18n.t('orderDetail.confirmCancelBtn'),
       confirmColor: '#e53935'
     })
     if (!res.confirm) return
@@ -358,10 +369,10 @@ Page({
     this.setData({ actionLoading: true })
     try {
       await orderAction(this.orderId, 'cancel')
-      wx.showToast({ title: '已取消', icon: 'success' })
+      wx.showToast({ title: i18n.t('orderDetail.cancelled'), icon: 'success' })
       this.loadOrder()
     } catch (err) {
-      wx.showToast({ title: '操作失败', icon: 'none' })
+      wx.showToast({ title: i18n.t('orderDetail.opFailed'), icon: 'none' })
     } finally {
       this.setData({ actionLoading: false })
     }
@@ -369,11 +380,11 @@ Page({
 
   async onCancelInProgress() {
     var order = this.data.order
-    var content = '服务已开始，取消将退还50%费用，确定要取消吗？'
+    var content = i18n.t('orderDetail.cancelConfirmInProgress')
     const res = await wx.showModal({
-      title: '确认取消',
+      title: i18n.t('orderDetail.confirmCancelTitle'),
       content: content,
-      confirmText: '确认取消',
+      confirmText: i18n.t('orderDetail.confirmCancelBtn'),
       confirmColor: '#e53935'
     })
     if (!res.confirm) return
@@ -382,10 +393,10 @@ Page({
     this.setData({ actionLoading: true })
     try {
       await orderAction(this.orderId, 'cancel')
-      wx.showToast({ title: '已取消', icon: 'success' })
+      wx.showToast({ title: i18n.t('orderDetail.cancelled'), icon: 'success' })
       this.loadOrder()
     } catch (err) {
-      wx.showToast({ title: '操作失败', icon: 'none' })
+      wx.showToast({ title: i18n.t('orderDetail.opFailed'), icon: 'none' })
     } finally {
       this.setData({ actionLoading: false })
     }
@@ -428,10 +439,10 @@ Page({
 
     const noteRes = await new Promise((resolve) => {
       wx.showModal({
-        title: '创建复诊提醒',
-        content: '默认在 7 天后提醒。点击“确定”即创建。',
+        title: i18n.t('orderDetail.followupTitle'),
+        content: i18n.t('orderDetail.followupContent'),
         editable: true,
-        placeholderText: '备注（可选，如：取报告 / 复查血常规）',
+        placeholderText: i18n.t('orderDetail.followupPlaceholder'),
         success: (r) => resolve(r),
         fail: () => resolve({ confirm: false }),
       })
@@ -445,9 +456,9 @@ Page({
         remind_at: remindAt,
         note: (noteRes.content || '').slice(0, 140) || null,
       })
-      wx.showToast({ title: '已创建', icon: 'success' })
+      wx.showToast({ title: i18n.t('orderDetail.created'), icon: 'success' })
     } catch (e) {
-      wx.showToast({ title: '创建失败', icon: 'none' })
+      wx.showToast({ title: i18n.t('orderDetail.createFailed'), icon: 'none' })
     }
   },
 
@@ -495,7 +506,7 @@ Page({
         wx.makePhoneCall({ phoneNumber: result.phone_to_call })
       }
     } catch (err) {
-      var msg = '呼叫失败'
+      var msg = i18n.t('orderDetail.callFailed')
       if (err && err.data && err.data.detail) {
         var d = err.data.detail
         msg = (d && d.message) || (typeof d === 'string' ? d : msg)

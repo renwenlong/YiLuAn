@@ -1,0 +1,10 @@
+{
+  "name": "yiluan",
+  "version": "1.0.0",
+  "private": true,
+  "description": "医路安 (YiLuAn) monorepo 根。各端独立: wechat (微信小程序) / ios / backend / admin-v2 / admin-h5。本根 package.json 仅提供转发脚本，防误从仓库根跑 npx jest 触发冷缓存 hang。",
+  "scripts": {
+    "test": "cd wechat && npm test",
+    "test:wechat": "cd wechat && npm test"
+  }
+}

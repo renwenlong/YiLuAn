@@ -2,9 +2,13 @@ const { getCompanionDetail, getCompanionReviews } = require('../../services/comp
 const store = require('../../store/index')
 const router = require('../../utils/router')
 const analytics = require('../../utils/analytics')
+const i18n = require('../../utils/i18n')
+const i18nBehavior = require('../../behaviors/i18n')
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'companionDetail'],
     companion: null,
     reviews: [],
     loading: true
@@ -46,13 +50,15 @@ Page({
           punctuality: 0, professionalism: 0, communication: 0, attitude: 0
         }
       }
+      companion.ratingText = i18n.t('companionDetail.ratingScore', { score: companion.rating })
+      companion.ordersText = i18n.t('companionDetail.ordersCount', { count: companion.completedOrders || 0 })
       var rawReviews = (reviewsRes && reviewsRes.items) || []
       var reviews = rawReviews.map(function (r) {
         return {
           id: r.id,
           rating: r.rating,
           content: r.content,
-          userName: r.patient_name || '匿名用户',
+          userName: r.patient_name || i18n.t('companionDetail.anonymousUser'),
           date: r.created_at ? r.created_at.split('T')[0] : ''
         }
       })
@@ -61,7 +67,7 @@ Page({
         reviews: reviews
       })
     } catch (err) {
-      wx.showToast({ title: '加载失败', icon: 'none' })
+      wx.showToast({ title: i18n.t('companionDetail.loadFailed'), icon: 'none' })
     } finally {
       this.setData({ loading: false })
     }

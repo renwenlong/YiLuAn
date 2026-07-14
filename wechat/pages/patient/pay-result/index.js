@@ -1,7 +1,10 @@
 const router = require('../../../utils/router')
 const analytics = require('../../../utils/analytics')
+const i18nBehavior = require('../../../behaviors/i18n')
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'payResult'],
     status: 'success', // 'success' | 'fail' | 'cancel'
     orderId: '',
     errorMsg: ''

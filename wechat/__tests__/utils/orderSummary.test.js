@@ -10,6 +10,8 @@ const {
   summaryPatient,
 } = require('../../utils/orderSummary')
 
+const i18n = require('../../utils/i18n')
+
 describe('orderSummary 摘要模板钉死表（逐字符）', () => {
   test('分隔符为半角空格+全角圆点U+00B7+半角空格', () => {
     expect(SEP).toBe(' \u00B7 ')
@@ -61,6 +63,40 @@ describe('orderSummary 摘要模板钉死表（逐字符）', () => {
     test('非法日期 → 空串', () => {
       expect(summaryDate('2026/06/03', '上午')).toBe('')
       expect(summaryDate('', '上午')).toBe('')
+    })
+
+    // I18N-DEV-002C：英文态钉死 `{YYYY-MM-DD} {Wed} {Morning|Afternoon}`（帝君拍 A1，与 iOS 对称互锁）
+    describe('英文态 summaryDate（getCurrentLang=en）', () => {
+      afterEach(() => {
+        i18n.setLang('zh-Hans') // 复位，避免污染其他用例
+      })
+
+      test('钉死表英文示例：2026-06-03 Wed Morning', () => {
+        i18n.setLang('en')
+        expect(summaryDate('2026-06-03', '上午')).toBe('2026-06-03 Wed Morning')
+      })
+
+      test('下午 → Afternoon，周几英文缩写', () => {
+        i18n.setLang('en')
+        expect(summaryDate('2026-06-03', '下午')).toBe('2026-06-03 Wed Afternoon')
+      })
+
+      test('周一英文 Mon（getUTCDay 索引对齐）', () => {
+        i18n.setLang('en')
+        // 2026-01-05 是周一
+        expect(summaryDate('2026-01-05', '上午')).toBe('2026-01-05 Mon Morning')
+      })
+
+      test('日期固定 YYYY-MM-DD 补零（跨端一致，英文不改日期格式）', () => {
+        i18n.setLang('en')
+        expect(summaryDate('2026-01-05', '下午')).toBe('2026-01-05 Mon Afternoon')
+      })
+
+      test('非法日期英文态同样返空串', () => {
+        i18n.setLang('en')
+        expect(summaryDate('2026/06/03', '上午')).toBe('')
+        expect(summaryDate('', '上午')).toBe('')
+      })
     })
   })
 

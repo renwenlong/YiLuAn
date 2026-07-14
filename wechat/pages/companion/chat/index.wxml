@@ -22,7 +22,7 @@
           <text class="conversation-time">{{item.lastTime}}</text>
         </view>
         <view class="conversation-bottom">
-          <text class="last-message">{{item.lastMessage || '暂无消息'}}</text>
+          <text class="last-message">{{item.lastMessage || t['chat.noMessage']}}</text>
         </view>
       </view>
     </view>
@@ -30,10 +30,10 @@
 
   <view class="empty-state" wx:if="{{conversations.length === 0 && !loading}}">
     <view class="empty-icon">
-      <text class="empty-icon-text">消</text>
+      <text class="empty-icon-text">{{t['chat.emptyIcon']}}</text>
     </view>
-    <text class="empty-text">暂无消息</text>
-    <text class="empty-hint">接单后可与患者沟通</text>
+    <text class="empty-text">{{t['chat.noMessage']}}</text>
+    <text class="empty-hint">{{t['chat.companionEmptyHint']}}</text>
   </view>
 </view>
 

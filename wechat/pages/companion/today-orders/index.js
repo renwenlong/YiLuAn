@@ -1,8 +1,12 @@
 const router = require('../../../utils/router')
 const { getOrders } = require('../../../services/order')
+const i18n = require('../../../utils/i18n')
+const i18nBehavior = require('../../../behaviors/i18n')
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['order', 'common'],
     orders: [],
     loading: false
   },
@@ -29,7 +33,7 @@ Page({
       const inProgress = progressRes.items || []
       this.setData({ orders: [...inProgress, ...accepted] })
     } catch (err) {
-      wx.showToast({ title: '加载失败', icon: 'none' })
+      wx.showToast({ title: i18n.t('order.loadFailed'), icon: 'none' })
     } finally {
       this.setData({ loading: false })
     }

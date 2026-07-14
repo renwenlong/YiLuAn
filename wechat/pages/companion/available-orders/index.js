@@ -2,9 +2,13 @@ const { getOrders, orderAction } = require('../../../services/order')
 const store = require('../../../store/index')
 const router = require('../../../utils/router')
 const { formatDate } = require('../../../utils/format')
+const i18n = require('../../../utils/i18n')
+const i18nBehavior = require('../../../behaviors/i18n')
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'availableOrders'],
     orders: [],
     page: 1,
     hasMore: true,
@@ -42,7 +46,7 @@ Page({
         page: this.data.page + 1
       })
     } catch (err) {
-      wx.showToast({ title: '加载失败', icon: 'none' })
+      wx.showToast({ title: i18n.t('availableOrders.loadFailed'), icon: 'none' })
     } finally {
       this.setData({ loading: false })
     }
@@ -54,9 +58,9 @@ Page({
     var user = (state && state.user) || {}
     if (!user.phone) {
       wx.showModal({
-        title: '请先绑定手机号',
-        content: '接单前需要绑定手机号，方便患者联系您',
-        confirmText: '去绑定',
+        title: i18n.t('availableOrders.bindPhoneTitle'),
+        content: i18n.t('availableOrders.bindPhoneContent'),
+        confirmText: i18n.t('availableOrders.bindPhoneConfirm'),
         success: function (res) {
           if (res.confirm) {
             router.navigate({
@@ -71,9 +75,9 @@ Page({
 
     const { id } = e.currentTarget.dataset
     const res = await wx.showModal({
-      title: '确认接单',
-      content: '确定要接受该订单吗？',
-      confirmText: '确认接单',
+      title: i18n.t('availableOrders.acceptTitle'),
+      content: i18n.t('availableOrders.acceptContent'),
+      confirmText: i18n.t('availableOrders.acceptConfirm'),
       confirmColor: '#4CAF50'
     })
     if (!res.confirm) return
@@ -81,14 +85,14 @@ Page({
     this.setData({ loading: true })
     try {
       await orderAction(id, 'accept')
-      wx.showToast({ title: '接单成功', icon: 'success' })
+      wx.showToast({ title: i18n.t('availableOrders.acceptSuccess'), icon: 'success' })
       setTimeout(() => {
         router.redirect({
           url: `/pages/companion/order-detail/index?id=${id}`
         })
       }, 1000)
     } catch (err) {
-      wx.showToast({ title: '接单失败', icon: 'none' })
+      wx.showToast({ title: i18n.t('availableOrders.acceptFailed'), icon: 'none' })
     } finally {
       this.setData({ loading: false })
     }

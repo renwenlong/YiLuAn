@@ -2,9 +2,13 @@ const store = require('../../../store/index')
 const router = require('../../../utils/router')
 const { getOrders } = require('../../../services/order')
 const { getChatMessages } = require('../../../services/chat')
+const i18n = require('../../../utils/i18n')
+const i18nBehavior = require('../../../behaviors/i18n')
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'chat'],
     conversations: [],
     loading: false
   },
@@ -61,7 +65,7 @@ Page({
         }
         var update = {}
         update['conversations[' + idx + '].unreadCount'] = unread
-        update['conversations[' + idx + '].lastMessage'] = lastMsg.type === 'system' ? '[系统] ' + lastMsg.content : lastMsg.content
+        update['conversations[' + idx + '].lastMessage'] = lastMsg.type === 'system' ? i18n.t('chat.systemPrefix') + lastMsg.content : lastMsg.content
         update['conversations[' + idx + '].lastTime'] = (lastMsg.created_at || '').substring(0, 16).replace('T', ' ')
         self.setData(update)
       }).catch(function () {})
@@ -69,23 +73,23 @@ Page({
   },
 
   _orderToConversation(order) {
-    var name = '聊天'
+    var name = i18n.t('chat.defaultName')
     if (order.companion_name) {
-      name = '陪诊师·' + order.companion_name
+      name = i18n.t('chat.companionPrefix', { name: order.companion_name })
     }
     if (order.hospital_name) {
       name = name + ' - ' + order.hospital_name
     }
     var statusHints = {
-      created: '待接单',
-      completed: '订单已完成',
-      reviewed: '已评价'
+      created: i18n.t('chat.hintCreated'),
+      completed: i18n.t('chat.hintCompleted'),
+      reviewed: i18n.t('chat.hintReviewed')
     }
     return {
       id: order.id,
       name: name,
       status: order.status,
-      lastMessage: statusHints[order.status] || '点击进入聊天',
+      lastMessage: statusHints[order.status] || i18n.t('chat.tapToEnter'),
       lastTime: order.appointment_date || '',
       unreadCount: 0,
     }

@@ -6,10 +6,19 @@ const { SERVICE_TYPES } = require('../../../utils/constants')
 const store = require('../../../store/index')
 const router = require('../../../utils/router')
 const logger = require('../../../utils/logger')
+const i18n = require('../../../utils/i18n')
+const i18nBehavior = require('../../../behaviors/i18n')
+
+// 内部城市哨兵（不直接显示，显示走 cityDisplay + i18n）
+var CITY_LOCATING = '__LOCATING__'
+var CITY_UNSET = '__UNSET__'
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'home', 'city', 'toast'],
     city: '',
+    cityDisplay: '',
     hospitals: [],
     hospitalKeyword: '',
     companions: [],
@@ -21,7 +30,30 @@ Page({
     hasMore: true,
     showCityPicker: false,
     allCities: [],
-    locating: false
+    locating: false,
+    matchedTitle: ''
+  },
+
+  // 城市显示同步：哨兵→i18n，真城市名→原值
+  _syncCityDisplay: function () {
+    var c = this.data.city
+    var disp = c
+    if (c === CITY_LOCATING) {
+      disp = i18n.t('city.locating')
+    } else if (c === CITY_UNSET || !c) {
+      disp = i18n.t('common.notSet')
+    }
+    if (disp !== this.data.cityDisplay) {
+      this.setData({ cityDisplay: disp })
+    }
+  },
+
+  // 匹配标题同步（含医院名占位）
+  _syncMatchedTitle: function () {
+    var h = this.data.selectedHospital
+    if (h && h.name) {
+      this.setData({ matchedTitle: i18n.t('home.matchedAt', { name: h.name }) })
+    }
   },
 
   _page: 1,
@@ -51,6 +83,7 @@ Page({
     var state = store.getState()
     if (state && state.city) {
       this.setData({ city: state.city })
+      this._syncCityDisplay()
       this._onCityReady()
     } else {
       this._autoLocate()
@@ -58,9 +91,13 @@ Page({
   },
 
   onShow() {
+    // 语言可能在其他页切换，回首页重算 js 现算的显示串
+    this._syncCityDisplay()
+    this._syncMatchedTitle()
     var state = store.getState()
     if (state && state.city && state.city !== this.data.city) {
       this.setData({ city: state.city })
+      this._syncCityDisplay()
       this._fetchHospitals()
       this.fetchCompanions()
     }
@@ -73,7 +110,8 @@ Page({
 
   _autoLocate() {
     var self = this
-    self.setData({ city: '定位中...', locating: true })
+    self.setData({ city: CITY_LOCATING, locating: true })
+    self._syncCityDisplay()
     wx.authorize({
       scope: 'scope.userFuzzyLocation',
       success: function () {
@@ -87,23 +125,27 @@ Page({
                   self.setData({ city: city, locating: false })
                   store.setState({ city: city })
                 } else {
-                  self.setData({ city: '未设置', locating: false })
+                  self.setData({ city: CITY_UNSET, locating: false })
                 }
+                self._syncCityDisplay()
                 self._onCityReady()
               })
               .catch(function () {
-                self.setData({ city: '未设置', locating: false })
+                self.setData({ city: CITY_UNSET, locating: false })
+                self._syncCityDisplay()
                 self._onCityReady()
               })
           },
           fail: function () {
-            self.setData({ city: '未设置', locating: false })
+            self.setData({ city: CITY_UNSET, locating: false })
+            self._syncCityDisplay()
             self._onCityReady()
           }
         })
       },
       fail: function () {
-        self.setData({ city: '未设置', locating: false })
+        self.setData({ city: CITY_UNSET, locating: false })
+        self._syncCityDisplay()
         self._onCityReady()
       }
     })
@@ -112,7 +154,7 @@ Page({
   _fetchHospitals() {
     var self = this
     var params = { page_size: 3 }
-    var validCity = self.data.city && self.data.city !== '未设置' && self.data.city !== '定位中...'
+    var validCity = self.data.city && self.data.city !== CITY_UNSET && self.data.city !== CITY_LOCATING
     if (this.data.hospitalKeyword) {
       params.keyword = this.data.hospitalKeyword
       if (validCity) {
@@ -139,6 +181,7 @@ Page({
           var inferredCity = list[0].city
           self.setData({ city: inferredCity })
           store.setState({ city: inferredCity })
+          self._syncCityDisplay()
           self.fetchCompanions()
         }
       })
@@ -164,6 +207,7 @@ Page({
     } else {
       this.setData({ selectedHospital: { id: ds.id, name: ds.name } })
     }
+    this._syncMatchedTitle()
     this.fetchCompanions(this.data.selectedService)
   },
 
@@ -173,7 +217,7 @@ Page({
   },
 
   onCityTap() {
-    if (this.data.city === '定位中...') return
+    if (this.data.city === CITY_LOCATING) return
     var self = this
     self.setData({ showCityPicker: true })
     if (self.data.allCities.length === 0) {
@@ -207,28 +251,29 @@ Page({
                 if (city) {
                   self.setData({ city: city, showCityPicker: false, locating: false })
                   store.setState({ city: city })
+                  self._syncCityDisplay()
                   self._fetchHospitals()
                   self.fetchCompanions()
-                  wx.showToast({ title: '已定位到' + city, icon: 'none' })
+                  wx.showToast({ title: i18n.t('toast.locatedTo', { city: city }), icon: 'none' })
                 } else {
                   self.setData({ locating: false })
-                  wx.showToast({ title: '定位失败', icon: 'none' })
+                  wx.showToast({ title: i18n.t('toast.locateFailed'), icon: 'none' })
                 }
               })
               .catch(function () {
                 self.setData({ locating: false })
-                wx.showToast({ title: '定位失败', icon: 'none' })
+                wx.showToast({ title: i18n.t('toast.locateFailed'), icon: 'none' })
               })
           },
           fail: function () {
             self.setData({ locating: false })
-            wx.showToast({ title: '定位失败，请检查权限', icon: 'none' })
+            wx.showToast({ title: i18n.t('toast.locateFailedPerm'), icon: 'none' })
           }
         })
       },
       fail: function () {
         self.setData({ locating: false })
-        wx.showToast({ title: '请允许位置权限', icon: 'none' })
+        wx.showToast({ title: i18n.t('toast.needLocationPerm'), icon: 'none' })
       }
     })
   },
@@ -237,9 +282,10 @@ Page({
     var city = e.currentTarget.dataset.city
     this.setData({ city: city, showCityPicker: false, selectedHospital: null })
     store.setState({ city: city })
+    this._syncCityDisplay()
     this._fetchHospitals()
     this.fetchCompanions()
-    wx.showToast({ title: '已选择' + city, icon: 'none' })
+    wx.showToast({ title: i18n.t('toast.selectedCity', { city: city }), icon: 'none' })
   },
 
   _loadUsedCompanions() {
@@ -330,7 +376,7 @@ Page({
 
     var page = append ? this._page + 1 : 1
     var params = { page: page, page_size: pageSize }
-    var validCity = self.data.city && self.data.city !== '未设置' && self.data.city !== '定位中...'
+    var validCity = self.data.city && self.data.city !== CITY_UNSET && self.data.city !== CITY_LOCATING
     if (validCity) {
       params.city = self.data.city
     }
@@ -354,7 +400,7 @@ Page({
         })
       })
       .catch(function (err) {
-        logger.error('获取陪诊师失败', { err: err && (err.message || String(err)) })
+        logger.error('Failed to load companions', { err: err && (err.message || String(err)) })
         self.setData({ loadingCompanions: false, loadingMore: false })
       })
   },
@@ -371,15 +417,15 @@ Page({
     var hospital = this.data.selectedHospital
     var type = this.data.selectedService
     if (!hospital) {
-      wx.showToast({ title: '请先选择医院', icon: 'none' })
+      wx.showToast({ title: i18n.t('toast.selectHospitalFirst'), icon: 'none' })
       return
     }
     if (!type) {
-      wx.showToast({ title: '请先选择服务类型', icon: 'none' })
+      wx.showToast({ title: i18n.t('toast.selectServiceFirst'), icon: 'none' })
       return
     }
     if (!id) {
-      wx.showToast({ title: '请先选择陪诊师', icon: 'none' })
+      wx.showToast({ title: i18n.t('toast.selectCompanionFirst'), icon: 'none' })
       return
     }
     router.navigate({

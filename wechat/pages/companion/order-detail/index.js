@@ -4,9 +4,13 @@ const store = require('../../../store/index')
 const router = require('../../../utils/router')
 const { ORDER_STATUS, SERVICE_TYPES } = require('../../../utils/constants')
 const { formatPrice, formatDate } = require('../../../utils/format')
+const i18n = require('../../../utils/i18n')
+const i18nBehavior = require('../../../behaviors/i18n')
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'orderDetail', 'companionOrderDetail', 'serviceType', 'orderStatus'],
     order: null,
     loading: true,
     statusList: ORDER_STATUS,
@@ -56,7 +60,7 @@ Page({
         serviceLabel: serviceLabel
       })
     } catch (err) {
-      wx.showToast({ title: '加载失败', icon: 'none' })
+      wx.showToast({ title: i18n.t('orderDetail.loadFailed'), icon: 'none' })
     } finally {
       this.setData({ loading: false })
     }
@@ -69,9 +73,9 @@ Page({
     if (!u.phone) {
       var orderId = this.orderId
       wx.showModal({
-        title: '请先绑定手机号',
-        content: '接单前需要绑定手机号，方便患者联系您',
-        confirmText: '去绑定',
+        title: i18n.t('companionOrderDetail.bindPhoneTitle'),
+        content: i18n.t('companionOrderDetail.bindPhoneContent'),
+        confirmText: i18n.t('companionOrderDetail.bindPhoneConfirm'),
         success: function (res) {
           if (res.confirm) {
             router.navigate({
@@ -85,14 +89,14 @@ Page({
     }
 
     var order = this.data.order
-    var content = '确定要接受该订单吗？'
+    var content = i18n.t('companionOrderDetail.acceptConfirmDefault')
     if (order && order.payment_status === 'unpaid') {
-      content = '患者暂未支付，是否仍要接单？'
+      content = i18n.t('companionOrderDetail.acceptConfirmUnpaid')
     }
     const res = await wx.showModal({
-      title: '确认接单',
+      title: i18n.t('companionOrderDetail.confirmAcceptTitle'),
       content: content,
-      confirmText: '确认',
+      confirmText: i18n.t('common.confirm'),
       confirmColor: '#4CAF50'
     })
     if (!res.confirm) return
@@ -100,10 +104,10 @@ Page({
     this.setData({ loading: true })
     try {
       await orderAction(this.orderId, 'accept')
-      wx.showToast({ title: '接单成功', icon: 'success' })
+      wx.showToast({ title: i18n.t('companionOrderDetail.acceptSuccess'), icon: 'success' })
       this.loadOrder()
     } catch (err) {
-      wx.showToast({ title: '操作失败', icon: 'none' })
+      wx.showToast({ title: i18n.t('orderDetail.opFailed'), icon: 'none' })
     } finally {
       this.setData({ loading: false })
     }
@@ -111,9 +115,9 @@ Page({
 
   async onStart() {
     const res = await wx.showModal({
-      title: '通知患者',
-      content: '将通知患者确认开始服务，患者确认后服务正式开始',
-      confirmText: '确认通知',
+      title: i18n.t('companionOrderDetail.notifyPatientTitle'),
+      content: i18n.t('companionOrderDetail.notifyStartContent'),
+      confirmText: i18n.t('companionOrderDetail.notifyStartConfirm'),
       confirmColor: '#4CAF50'
     })
     if (!res.confirm) return
@@ -121,9 +125,9 @@ Page({
     this.setData({ loading: true })
     try {
       await orderAction(this.orderId, 'request-start')
-      wx.showToast({ title: '已通知患者，等待确认', icon: 'success' })
+      wx.showToast({ title: i18n.t('companionOrderDetail.notifiedWaiting'), icon: 'success' })
     } catch (err) {
-      wx.showToast({ title: '操作失败', icon: 'none' })
+      wx.showToast({ title: i18n.t('orderDetail.opFailed'), icon: 'none' })
     } finally {
       this.setData({ loading: false })
     }
@@ -131,9 +135,9 @@ Page({
 
   async onComplete() {
     const res = await wx.showModal({
-      title: '完成服务',
-      content: '确认已完成本次陪诊服务？',
-      confirmText: '确认完成',
+      title: i18n.t('companionOrderDetail.completeTitle'),
+      content: i18n.t('companionOrderDetail.completeContent'),
+      confirmText: i18n.t('companionOrderDetail.completeConfirm'),
       confirmColor: '#4CAF50'
     })
     if (!res.confirm) return
@@ -141,10 +145,10 @@ Page({
     this.setData({ loading: true })
     try {
       await orderAction(this.orderId, 'complete')
-      wx.showToast({ title: '服务已完成', icon: 'success' })
+      wx.showToast({ title: i18n.t('companionOrderDetail.serviceCompleted'), icon: 'success' })
       this.loadOrder()
     } catch (err) {
-      wx.showToast({ title: '操作失败', icon: 'none' })
+      wx.showToast({ title: i18n.t('orderDetail.opFailed'), icon: 'none' })
     } finally {
       this.setData({ loading: false })
     }
@@ -165,9 +169,9 @@ Page({
 
   async onReject() {
     const res = await wx.showModal({
-      title: '确认拒单',
-      content: '拒绝后订单将取消，已支付的款项将退还给患者。确定要拒绝吗？',
-      confirmText: '确认拒绝',
+      title: i18n.t('companionOrderDetail.rejectTitle'),
+      content: i18n.t('companionOrderDetail.rejectContent'),
+      confirmText: i18n.t('companionOrderDetail.rejectConfirm'),
       confirmColor: '#e53935'
     })
     if (!res.confirm) return
@@ -175,10 +179,10 @@ Page({
     this.setData({ loading: true })
     try {
       await orderAction(this.orderId, 'reject')
-      wx.showToast({ title: '已拒绝', icon: 'success' })
+      wx.showToast({ title: i18n.t('companionOrderDetail.rejected'), icon: 'success' })
       this.loadOrder()
     } catch (err) {
-      var msg = '操作失败'
+      var msg = i18n.t('orderDetail.opFailed')
       if (err && err.data && err.data.detail) msg = err.data.detail
       wx.showToast({ title: msg, icon: 'none' })
     } finally {
@@ -188,9 +192,9 @@ Page({
 
   async onCancelAccepted() {
     const res = await wx.showModal({
-      title: '确认取消',
-      content: '取消后订单将退款给患者，确定要取消吗？',
-      confirmText: '确认取消',
+      title: i18n.t('companionOrderDetail.cancelAcceptedTitle'),
+      content: i18n.t('companionOrderDetail.cancelAcceptedContent'),
+      confirmText: i18n.t('companionOrderDetail.cancelAcceptedConfirm'),
       confirmColor: '#e53935'
     })
     if (!res.confirm) return
@@ -198,10 +202,10 @@ Page({
     this.setData({ loading: true })
     try {
       await orderAction(this.orderId, 'cancel')
-      wx.showToast({ title: '已取消', icon: 'success' })
+      wx.showToast({ title: i18n.t('orderDetail.cancelled'), icon: 'success' })
       this.loadOrder()
     } catch (err) {
-      wx.showToast({ title: '操作失败', icon: 'none' })
+      wx.showToast({ title: i18n.t('orderDetail.opFailed'), icon: 'none' })
     } finally {
       this.setData({ loading: false })
     }

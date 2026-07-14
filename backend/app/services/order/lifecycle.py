@@ -211,7 +211,10 @@ class _OrderLifecycleMixin(_OrderServiceBase):
         if order.companion_id != user.id:
             raise ForbiddenException("Not your order")
         if order.status != OrderStatus.accepted:
-            raise BadRequestException("订单状态不允许请求开始服务")
+            raise BadRequestException(
+                "订单状态不允许请求开始服务",
+                error_code=error_codes.ORDER_TRANSITION_INVALID,
+            )
 
         companion_name = user.display_name or user.phone or "陪诊师"
         await self.notification_svc.notify_start_service_request(

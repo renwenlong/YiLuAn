@@ -54,6 +54,13 @@ global.wx = {
 // __wxConfig mock
 global.__wxConfig = { envVersion: 'develop' }
 
+// 小程序运行时全局构造器 mock（i18nBehavior 等模块顶层调用 Behavior）
+// I18N-DEV-002B: 页面挂 i18nBehavior 后被测试 require 会触发 behaviors/i18n.js
+// 顶层 Behavior({...})，jest 环境无此全局，需在此兜底返回定义对象。
+if (typeof global.Behavior === 'undefined') {
+  global.Behavior = function (def) { return def }
+}
+
 // Helper to reset storage between tests
 global.__resetWxStorage = () => {
   Object.keys(_storage).forEach(k => delete _storage[k])

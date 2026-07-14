@@ -3,9 +3,14 @@ const validate = require('../../utils/validate')
 const store = require('../../store/index')
 const router = require('../../utils/router')
 const logger = require('../../utils/logger')
+const i18n = require('../../utils/i18n')
+const i18nBehavior = require('../../behaviors/i18n')
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    // i18nBehavior 注入范围（静态文案）
+    i18nScopes: ['common', 'login'],
     loading: false,
     showPhoneLogin: false,
     phone: '',
@@ -40,7 +45,7 @@ Page({
   // ---- 微信登录 ----
   onLogin() {
     if (!this.data.agreed) {
-      wx.showToast({ title: '请先同意用户协议和隐私政策', icon: 'none' })
+      wx.showToast({ title: i18n.t('toast.agreeFirst'), icon: 'none' })
       return
     }
     if (this.data.loading) return
@@ -51,8 +56,8 @@ Page({
         this._navigateAfterLogin(user)
       })
       .catch(err => {
-        logger.error('登录失败', logger.errorContext(err))
-        wx.showToast({ title: '登录失败，请重试', icon: 'none' })
+        logger.error('Login failed', logger.errorContext(err))
+        wx.showToast({ title: i18n.t('toast.loginFailed'), icon: 'none' })
       })
       .finally(() => {
         this.setData({ loading: false })
@@ -71,7 +76,7 @@ Page({
   onSendOTP() {
     var phone = this.data.phone.trim()
     if (!validate.isValidPhone(phone)) {
-      wx.showToast({ title: '请输入正确的手机号', icon: 'none' })
+      wx.showToast({ title: i18n.t('toast.invalidPhone'), icon: 'none' })
       return
     }
     this.setData({ sendingOTP: true })
@@ -80,11 +85,11 @@ Page({
       .then(function () {
         self.setData({ sendingOTP: false, countdown: 60 })
         self._startCountdown()
-        wx.showToast({ title: '验证码已发送', icon: 'success' })
+        wx.showToast({ title: i18n.t('toast.codeSent'), icon: 'success' })
       })
       .catch(function () {
         self.setData({ sendingOTP: false })
-        wx.showToast({ title: '发送失败，请重试', icon: 'none' })
+        wx.showToast({ title: i18n.t('toast.sendFailed'), icon: 'none' })
       })
   },
 
@@ -103,17 +108,17 @@ Page({
 
   onPhoneLogin() {
     if (!this.data.agreed) {
-      wx.showToast({ title: '请先同意用户协议和隐私政策', icon: 'none' })
+      wx.showToast({ title: i18n.t('toast.agreeFirst'), icon: 'none' })
       return
     }
     var phone = this.data.phone.trim()
     if (!validate.isValidPhone(phone)) {
-      wx.showToast({ title: '请输入正确的手机号', icon: 'none' })
+      wx.showToast({ title: i18n.t('toast.invalidPhone'), icon: 'none' })
       return
     }
     var code = this.data.code.trim()
     if (!validate.isValidOTP(code)) {
-      wx.showToast({ title: '请输入6位验证码', icon: 'none' })
+      wx.showToast({ title: i18n.t('toast.inputCode6'), icon: 'none' })
       return
     }
 
@@ -126,8 +131,8 @@ Page({
         self._navigateAfterLogin(user)
       })
       .catch(function (err) {
-        logger.error('登录失败', Object.assign(logger.errorContext(err), { phase: 'verifyOTP' }))
-        wx.showToast({ title: '验证码错误或已过期', icon: 'none' })
+        logger.error('Login failed', Object.assign(logger.errorContext(err), { phase: 'verifyOTP' }))
+        wx.showToast({ title: i18n.t('toast.codeWrongExpired'), icon: 'none' })
       })
       .finally(function () {
         self.setData({ loading: false })

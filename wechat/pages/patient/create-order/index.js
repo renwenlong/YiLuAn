@@ -2,7 +2,7 @@ var createOrder = require('../../../services/order').createOrder
 var getCompanionDetail = require('../../../services/companion').getCompanionDetail
 var getCompanions = require('../../../services/companion').getCompanions
 var listFamilyMembers = require('../../../services/familyMember').listFamilyMembers
-var relationLabel = require('../../../utils/familyRelation').relationLabel
+var relationLabel = require('../../../utils/familyRelation').relationLabelI18n
 var SERVICE_TYPES = require('../../../utils/constants').SERVICE_TYPES
 var listPublicServicePackages = require('../../../services/servicePackages').listPublicServicePackages
 var formatCurrency = require('../../../utils/formatCurrency').formatCurrency
@@ -13,9 +13,13 @@ var store = require('../../../store/index')
 var logger = require('../../../utils/logger')
 var analytics = require('../../../utils/analytics')
 const router = require('../../../utils/router')
+const i18n = require('../../../utils/i18n')
+const i18nBehavior = require('../../../behaviors/i18n')
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'createOrder', 'serviceType', 'toast', 'dialog'],
     serviceType: '',
     serviceTypeName: '',
     servicePrice: 0,
@@ -24,6 +28,7 @@ Page({
     hospitalName: '',
     companionId: '',
     companion: null,
+    companionCompletedText: '',
     date: '',
     time: '',
     notes: '',
@@ -33,7 +38,7 @@ Page({
     loadingCompanions: false,
     // [F-05] family member picker (代他人下单)
     familyMembers: [],            // {id, name, relation, relation_label}
-    familyMemberOptions: ['本人'], // display labels for <picker>
+    familyMemberOptions: [i18n.t('createOrder.self')], // display labels for <picker>
     familyMemberIndex: 0,         // 0 = 本人
     familyMemberId: '',
     // [S2-INT-004 prelude] U-1 折叠分步状态机
@@ -43,9 +48,9 @@ Page({
     stepTitles: stepper.STEP_TITLES,
     // 服务类型列表（S2-REQ-003-P5b：onLoad 拉 /public/service-packages、降级 fallback）
     serviceTypes: [
-      { code: 'full_accompany', name: '全程陪诊', price: 299 },
-      { code: 'half_accompany', name: '半程陪诊', price: 199 },
-      { code: 'errand', name: '代办跑腿', price: 149 }
+      { code: 'full_accompany', name: i18n.t('serviceType.full_accompany'), price: 299 },
+      { code: 'half_accompany', name: i18n.t('serviceType.half_accompany'), price: 199 },
+      { code: 'errand', name: i18n.t('serviceType.errand'), price: 149 }
     ],
     // 服务档位是否使用了降级兼底（API 不可达，显示提示）
     servicePackagesFallback: false,
@@ -164,7 +169,7 @@ Page({
     }
     var state = store.getState ? store.getState() : null
     var user = (state && state.user) || {}
-    if (user.name) return { name: user.name, relation: '本人', age: user.age }
+    if (user.name) return { name: user.name, relation: i18n.t('createOrder.self'), age: user.age }
     return null
   },
 
@@ -195,7 +200,7 @@ Page({
   onNextStep: function () {
     var d = this.data
     if (!stepper.isStepFilled(d.currentStep, d)) {
-      wx.showToast({ title: '请先完成本步', icon: 'none' })
+      wx.showToast({ title: i18n.t('createOrder.finishStepFirst'), icon: 'none' })
       return
     }
     var next = Math.min(d.currentStep + 1, stepper.TOTAL_STEPS)
@@ -212,8 +217,8 @@ Page({
     if (!stepper.canNavigateTo(step, this.data)) return
     var self = this
     wx.showModal({
-      title: '是否回改？',
-      content: '下游已选数据将保留',
+      title: i18n.t('createOrder.confirmBack'),
+      content: i18n.t('createOrder.confirmBackContent'),
       success: function (res) {
         if (res.confirm) {
           self.setData({ currentStep: step }, self.recomputeSteps.bind(self))
@@ -234,7 +239,7 @@ Page({
     listFamilyMembers()
       .then(function (res) {
         var items = (res && res.items) || []
-        var options = ['本人'].concat(items.map(function (m) {
+        var options = [i18n.t('createOrder.self')].concat(items.map(function (m) {
           return m.name + '（' + relationLabel(m.relation) + '）'
         }))
         self.setData({
@@ -271,11 +276,12 @@ Page({
             rating: res.avg_rating || res.rating || 0,
             completed_orders: res.total_orders || 0,
             service_areas: res.service_area ? res.service_area.split('\u3001') : []
-          }
+          },
+          companionCompletedText: i18n.t('createOrder.completedOrders', { count: res.total_orders || 0 })
         })
       })
       .catch(function (err) {
-        logger.error('加载陪诊师信息失败', { err: err && (err.message || String(err)) })
+        logger.error('Failed to load companion info', { err: err && (err.message || String(err)) })
       })
   },
 
@@ -310,6 +316,7 @@ Page({
             name: item.real_name || item.display_name || '',
             rating: item.avg_rating || 0,
             completed_orders: item.total_orders || 0,
+            completedText: i18n.t('createOrder.completedOrders', { count: item.total_orders || 0 }),
             service_areas: item.service_area ? item.service_area.split('\u3001') : [],
             bio: item.bio || '',
             verified: item.verification_status === 'approved'
@@ -318,7 +325,7 @@ Page({
         self.setData({ companionList: list, loadingCompanions: false })
       })
       .catch(function (err) {
-        logger.error('加载陪诊师列表失败', { err: err && (err.message || String(err)) })
+        logger.error('Failed to load companion list', { err: err && (err.message || String(err)) })
         self.setData({ loadingCompanions: false })
       })
   },
@@ -337,6 +344,7 @@ Page({
       this.setData({
         companionId: selected.id,
         companion: selected,
+        companionCompletedText: selected.completedText || i18n.t('createOrder.completedOrders', { count: selected.completed_orders || 0 }),
         showCompanionPicker: false
       })
     }
@@ -350,15 +358,15 @@ Page({
     var d = this.data
     if (d.loading) return
     if (!d.serviceType) {
-      wx.showToast({ title: '缺少服务类型', icon: 'none' })
+      wx.showToast({ title: i18n.t('createOrder.missingService'), icon: 'none' })
       return
     }
     if (!d.hospitalId) {
-      wx.showToast({ title: '缺少医院信息', icon: 'none' })
+      wx.showToast({ title: i18n.t('createOrder.missingHospital'), icon: 'none' })
       return
     }
     if (!d.date || !d.time) {
-      wx.showToast({ title: '请选择日期和时间', icon: 'none' })
+      wx.showToast({ title: i18n.t('createOrder.selectDateTime'), icon: 'none' })
       return
     }
 
@@ -367,9 +375,9 @@ Page({
     var user = (state && state.user) || {}
     if (!user.phone) {
       wx.showModal({
-        title: '请先绑定手机号',
-        content: '下单前需要绑定手机号，方便陪诊师联系您',
-        confirmText: '去绑定',
+        title: i18n.t('createOrder.bindPhoneTitle'),
+        content: i18n.t('createOrder.bindPhoneContent'),
+        confirmText: i18n.t('createOrder.goBind'),
         success: function (res) {
           if (res.confirm) {
             var currentUrl = '/pages/patient/create-order/index'
@@ -403,7 +411,7 @@ Page({
         self.setData({ loading: false })
         // [funnel-4] 提交订单成功
         try { analytics.trackFunnel(analytics.FUNNEL_STEPS.ORDER_SUBMIT, { order_id: order && order.id ? String(order.id) : undefined, service_type: orderData.service_type, amount_cents: typeof d.servicePrice === 'number' ? Math.round(d.servicePrice * 100) : undefined }) } catch (_) {}
-        wx.showToast({ title: '订单创建成功', icon: 'success' })
+        wx.showToast({ title: i18n.t('createOrder.orderSuccess'), icon: 'success' })
         setTimeout(function () {
           router.redirect({
             url: '/pages/patient/order-detail/index?id=' + order.id + '&need_pay=1'
@@ -412,7 +420,7 @@ Page({
       })
       .catch(function (err) {
         self.setData({ loading: false })
-        var msg = '创建失败'
+        var msg = i18n.t('createOrder.createFailed')
         if (err && err.data && err.data.detail) msg = err.data.detail
         else if (err && err.message) msg = err.message
         wx.showToast({ title: msg, icon: 'none' })

@@ -13,6 +13,7 @@ import logging
 import uuid
 from decimal import Decimal
 
+from app.core import error_codes
 from app.exceptions import BadRequestException
 from app.models.order import RefundState
 from app.models.payment import Payment
@@ -42,11 +43,17 @@ class _PaymentRefundMixin(_PaymentServiceBase):
             order_id, "refund"
         )
         if existing_refund:
-            raise BadRequestException("该订单已退款，请勿重复操作")
+            raise BadRequestException(
+                "该订单已退款，请勿重复操作",
+                error_code=error_codes.REFUND_ALREADY_PROCESSED,
+            )
 
         original_pay = await self.repo.get_by_order_and_type(order_id, "pay")
         if not original_pay or original_pay.status != "success":
-            raise BadRequestException("原订单未支付成功，无法退款")
+            raise BadRequestException(
+                "原订单未支付成功，无法退款",
+                error_code=error_codes.REFUND_ORDER_NOT_PAID,
+            )
 
         refund_number = f"R{uuid.uuid4().hex[:16].upper()}"
         is_mock = isinstance(self.provider, MockPaymentProvider)

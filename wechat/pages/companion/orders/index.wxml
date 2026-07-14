@@ -26,7 +26,7 @@
   <!-- 空状态 -->
   <empty-state
     wx:if="{{orders.length === 0 && !loading}}"
-    message="暂无订单"
+    message="{{t['order.noOrders']}}"
   />
 
   <!-- 首次加载：骨架屏 -->
@@ -34,10 +34,10 @@
 
   <!-- 底部加载提示 -->
   <view class="load-more" wx:if="{{loading && orders.length > 0}}">
-    <text>加载中...</text>
+    <text>{{t['common.loading']}}</text>
   </view>
   <view class="load-more" wx:if="{{!hasMore && orders.length > 0}}">
-    <text>没有更多了</text>
+    <text>{{t['order.noMore']}}</text>
   </view>
 </view>
 

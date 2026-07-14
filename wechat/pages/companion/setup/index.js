@@ -5,9 +5,16 @@ var { isValidPhone, isValidOTP } = require('../../../utils/validate')
 var { SERVICE_TYPES } = require('../../../utils/constants')
 var store = require('../../../store/index')
 const router = require('../../../utils/router')
+const i18nBehavior = require('../../../behaviors/i18n')
+const i18n = require('../../../utils/i18n')
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'companionSetup', 'serviceType'],
+    // 动态串 (behavior 注入 t 后由 _refreshDynamicText 计算)
+    cityWrap: '',
+    selectedHospitalCountText: '',
     realName: '',
     bio: '',
     certifications: '',
@@ -49,9 +56,22 @@ Page({
 
   _searchTimer: null,
 
+  // 计算依赖 city / 选中数量的动态 UI 串 (city 非'定位中'占位时才拼括号)
+  _refreshDynamicText() {
+    var city = this.data.city
+    var showCity = city && !this.data.locating
+    this.setData({
+      cityWrap: showCity ? i18n.t('companionSetup.cityWrap', { city: city }) : '',
+      selectedHospitalCountText: this.data.selectedHospitalIds.length > 0
+        ? i18n.t('companionSetup.selectedHospitalCount', { count: this.data.selectedHospitalIds.length })
+        : ''
+    })
+  },
+
   onLoad() {
     var types = Object.keys(SERVICE_TYPES).map(function (key) {
-      return { key: key, label: SERVICE_TYPES[key].label }
+      var label = i18n.t('serviceType.' + key)
+      return { key: key, label: label === 'serviceType.' + key ? SERVICE_TYPES[key].label : label }
     })
     var state = store.getState()
     var user = (state && state.user) || {}
@@ -65,7 +85,8 @@ Page({
 
   _autoLocate() {
     var self = this
-    self.setData({ city: '定位中...', locating: true })
+    self.setData({ city: '', locating: true })
+    self._refreshDynamicText()
     wx.authorize({
       scope: 'scope.userFuzzyLocation',
       success: function () {
@@ -81,17 +102,20 @@ Page({
                 } else {
                   self.setData({ city: '', locating: false })
                 }
+                self._refreshDynamicText()
                 self._loadFilters()
                 self._loadHospitals()
               })
               .catch(function () {
                 self.setData({ city: '', locating: false })
+                self._refreshDynamicText()
                 self._loadFilters()
                 self._loadHospitals()
               })
           },
           fail: function () {
             self.setData({ city: '', locating: false })
+            self._refreshDynamicText()
             self._loadFilters()
             self._loadHospitals()
           }
@@ -99,6 +123,7 @@ Page({
       },
       fail: function () {
         self.setData({ city: '', locating: false })
+        self._refreshDynamicText()
         self._loadFilters()
         self._loadHospitals()
       }
@@ -108,13 +133,13 @@ Page({
   _loadFilters() {
     var self = this
     var params = {}
-    if (self.data.city && self.data.city !== '定位中...') params.city = self.data.city
+    if (self.data.city && !self.data.locating) params.city = self.data.city
     getHospitalFilters(params)
       .then(function (res) {
         var rawDistricts = res.districts || []
-        var districts = ['不限'].concat(rawDistricts)
-        var levels = ['不限'].concat(res.levels || [])
-        var tags = ['不限'].concat(res.tags || [])
+        var districts = [i18n.t('companionSetup.filterDistrict')].concat(rawDistricts)
+        var levels = [i18n.t('companionSetup.filterLevel')].concat(res.levels || [])
+        var tags = [i18n.t('companionSetup.filterTag')].concat(res.tags || [])
         self.setData({
           serviceDistricts: rawDistricts,
           allDistricts: districts,
@@ -134,7 +159,7 @@ Page({
     var self = this
     self.setData({ loadingHospitals: true })
     var params = { page_size: 100 }
-    if (self.data.city && self.data.city !== '定位中...') params.city = self.data.city
+    if (self.data.city && !self.data.locating) params.city = self.data.city
     if (self.data.hospitalKeyword) params.keyword = self.data.hospitalKeyword
     if (self.data.filterDistrict) params.district = self.data.filterDistrict
     if (self.data.filterLevel) params.level = self.data.filterLevel
@@ -170,18 +195,18 @@ Page({
 
   onSendOTP() {
     if (!isValidPhone(this.data.phone)) {
-      wx.showToast({ title: '请输入正确手机号', icon: 'none' })
+      wx.showToast({ title: i18n.t('companionSetup.toastPhoneInvalid'), icon: 'none' })
       return
     }
     var self = this
     self.setData({ sendingOTP: true })
     sendOTP(self.data.phone)
       .then(function () {
-        wx.showToast({ title: '验证码已发送', icon: 'success' })
+        wx.showToast({ title: i18n.t('companionSetup.toastCodeSent'), icon: 'success' })
         self._startCountdown()
       })
       .catch(function () {
-        wx.showToast({ title: '发送失败', icon: 'none' })
+        wx.showToast({ title: i18n.t('companionSetup.toastSendFailed'), icon: 'none' })
       })
       .finally(function () {
         self.setData({ sendingOTP: false })
@@ -203,7 +228,7 @@ Page({
 
   onBindPhone() {
     if (!isValidPhone(this.data.phone) || !isValidOTP(this.data.code)) {
-      wx.showToast({ title: '请检查手机号和验证码', icon: 'none' })
+      wx.showToast({ title: i18n.t('companionSetup.toastCheckPhoneCode'), icon: 'none' })
       return
     }
     var self = this
@@ -214,11 +239,11 @@ Page({
         var user = Object.assign({}, state.user, { phone: self.data.phone })
         store.setState({ user: user })
         self.setData({ phoneBound: true, bindingPhone: false })
-        wx.showToast({ title: '手机号验证成功', icon: 'success' })
+        wx.showToast({ title: i18n.t('companionSetup.toastPhoneVerified'), icon: 'success' })
       })
       .catch(function () {
         self.setData({ bindingPhone: false })
-        wx.showToast({ title: '验证失败，请重试', icon: 'none' })
+        wx.showToast({ title: i18n.t('companionSetup.toastVerifyFailedRetry'), icon: 'none' })
       })
   },
 
@@ -298,20 +323,21 @@ Page({
       map[ids[i]] = true
     }
     this.setData({ selectedHospitalIds: ids, hospitalIdMap: map })
+    this._refreshDynamicText()
   },
 
   onSubmit() {
     var d = this.data
     if (!d.realName.trim()) {
-      wx.showToast({ title: '请输入真实姓名', icon: 'none' })
+      wx.showToast({ title: i18n.t('companionSetup.toastNeedRealName'), icon: 'none' })
       return
     }
     if (!d.phoneBound) {
-      wx.showToast({ title: '请先验证手机号', icon: 'none' })
+      wx.showToast({ title: i18n.t('companionSetup.toastNeedPhone'), icon: 'none' })
       return
     }
     if (d.selectedServiceTypes.length === 0) {
-      wx.showToast({ title: '请至少选择一种服务类型', icon: 'none' })
+      wx.showToast({ title: i18n.t('companionSetup.toastNeedServiceType'), icon: 'none' })
       return
     }
 
@@ -323,7 +349,7 @@ Page({
       bio: d.bio || undefined,
       certifications: d.certifications || undefined,
       service_area: d.selectedDistricts.length > 0 ? d.selectedDistricts.join('、') : undefined,
-      service_city: d.city && d.city !== '定位中...' ? d.city : undefined,
+      service_city: d.city && !d.locating ? d.city : undefined,
       service_hospitals: d.selectedHospitalIds.length > 0 ? d.selectedHospitalIds.join(',') : undefined
     }
     applyCompanion(body)
@@ -332,14 +358,14 @@ Page({
         var state = store.getState()
         var user = Object.assign({}, state.user, res)
         store.setState({ user: user })
-        wx.showToast({ title: '注册成功', icon: 'success' })
+        wx.showToast({ title: i18n.t('companionSetup.toastRegisterSuccess'), icon: 'success' })
         setTimeout(function () {
           router.relaunch({ url: '/pages/companion/home/index' })
         }, 1500)
       })
       .catch(function (err) {
         self.setData({ saving: false })
-        var msg = '注册失败'
+        var msg = i18n.t('companionSetup.toastRegisterFailed')
         if (err && err.data && err.data.detail) msg = err.data.detail
         else if (err && err.message) msg = err.message
         wx.showToast({ title: msg, icon: 'none' })

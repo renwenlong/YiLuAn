@@ -1,7 +1,7 @@
 <view class="notification-page">
   <view class="header-bar" wx:if="{{unreadCount > 0}}">
-    <text class="unread-text">{{unreadCount}} 条未读</text>
-    <text class="mark-all-btn" bindtap="onMarkAllRead">全部已读</text>
+    <text class="unread-text">{{unreadCountText}}</text>
+    <text class="mark-all-btn" bindtap="onMarkAllRead">{{t['notification.markAll']}}</text>
   </view>
 
   <view class="notification-list" wx:if="{{notifications.length > 0}}">
@@ -27,11 +27,11 @@
     <view class="empty-state-icon-wrap">
       <text class="empty-state-icon-text">🔔</text>
     </view>
-    <text class="empty-title">暂无通知</text>
-    <text class="empty-desc">有新消息时会第一时间通知您</text>
+    <text class="empty-title">{{t['notification.empty']}}</text>
+    <text class="empty-desc">{{t['notification.emptyDesc']}}</text>
   </view>
 
   <view class="loading-state" wx:if="{{loading}}">
-    <text>加载中...</text>
+    <text>{{t['common.loading']}}</text>
   </view>
 </view>

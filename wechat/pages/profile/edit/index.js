@@ -4,9 +4,13 @@ const { getHospitals, getHospitalFilters } = require('../../../services/hospital
 const { SERVICE_TYPES } = require('../../../utils/constants')
 const store = require('../../../store/index')
 const router = require('../../../utils/router')
+const i18n = require('../../../utils/i18n')
+const i18nBehavior = require('../../../behaviors/i18n')
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'profileEdit', 'serviceType', 'city'],
     role: '',
     emergency_contact: '',
     emergency_phone: '',
@@ -16,6 +20,8 @@ Page({
     service_area: '',
     // service types
     serviceTypeList: [],
+    cityWrapText: '',
+    selectedHospitalsText: '',
     selectedServiceTypes: [],
     serviceTypeMap: {},
     // hospitals
@@ -51,7 +57,7 @@ Page({
 
     if (role === 'companion') {
       var types = Object.keys(SERVICE_TYPES).map(function (key) {
-        return { key: key, label: SERVICE_TYPES[key].label }
+        return { key: key, label: i18n.t('serviceType.' + key) }
       })
       this.setData({ serviceTypeList: types })
     }
@@ -78,7 +84,7 @@ Page({
         })
     } else if (role === 'companion') {
       var state = store.getState()
-      var city = (state && state.city) || '北京'
+      var city = (state && state.city) || i18n.t('profileEdit.defaultCity')
       getMyProfile()
         .then((profile) => {
           var hospitalIds = profile.service_hospitals ? profile.service_hospitals.split(',').filter(Boolean) : []
@@ -158,9 +164,9 @@ Page({
     getHospitalFilters(params)
       .then(function (res) {
         var rawDistricts = res.districts || []
-        var districts = ['不限'].concat(rawDistricts)
-        var levels = ['不限'].concat(res.levels || [])
-        var tags = ['不限'].concat(res.tags || [])
+        var districts = [i18n.t('profileEdit.unlimited')].concat(rawDistricts)
+        var levels = [i18n.t('profileEdit.unlimited')].concat(res.levels || [])
+        var tags = [i18n.t('profileEdit.unlimited')].concat(res.tags || [])
         self.setData({
           serviceDistricts: rawDistricts,
           allDistricts: districts,
@@ -296,19 +302,19 @@ Page({
       updatePatientProfile(patientData)
         .then(() => {
           this.setData({ saving: false })
-          wx.showToast({ title: '保存成功', icon: 'success' })
+          wx.showToast({ title: i18n.t('profileEdit.saveSuccess'), icon: 'success' })
           setTimeout(function() {
             router.back()
           }, 1500)
         })
         .catch(() => {
           this.setData({ saving: false })
-          wx.showToast({ title: '保存失败', icon: 'none' })
+          wx.showToast({ title: i18n.t('profileEdit.saveFailed'), icon: 'none' })
         })
     } else if (role === 'companion') {
       if (this.data.selectedServiceTypes.length === 0) {
         this.setData({ saving: false })
-        wx.showToast({ title: '请至少选择一种服务类型', icon: 'none' })
+        wx.showToast({ title: i18n.t('profileEdit.selectServiceType'), icon: 'none' })
         return
       }
       var companionData = {
@@ -333,16 +339,16 @@ Page({
           }
           var user = Object.assign({}, state.user, companionFields)
           store.setState({ user: user })
-          wx.showToast({ title: '保存成功', icon: 'success' })
+          wx.showToast({ title: i18n.t('profileEdit.saveSuccess'), icon: 'success' })
           setTimeout(function() {
             router.back()
           }, 1500)
         })
         .catch((err) => {
           this.setData({ saving: false })
-          var msg = '保存失败'
+          var msg = i18n.t('profileEdit.saveFailed')
           if (err && err.data && err.data.detail) {
-            msg = typeof err.data.detail === 'string' ? err.data.detail : '保存失败，请重试'
+            msg = typeof err.data.detail === 'string' ? err.data.detail : i18n.t('profileEdit.saveFailedRetry')
           }
           wx.showToast({ title: msg, icon: 'none' })
         })

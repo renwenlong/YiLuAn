@@ -26,9 +26,9 @@
   <!-- P-07: 空状态 -->
   <empty-state
     wx:if="{{orders.length === 0 && !loading}}"
-    text="暂无订单"
-    hint="下单后可在此查看进度"
-    icon="单"
+    text="{{t['order.noOrders']}}"
+    hint="{{t['order.emptyHint']}}"
+    icon="{{t['order.emptyIcon']}}"
   />
 
   <!-- 首次加载：骨架屏（取代 loading-overlay，不挡 UI） -->
@@ -36,10 +36,10 @@
 
   <!-- 底部加载提示（P-06: 文案统一为 加载中） -->
   <view class="load-more" wx:if="{{loading && orders.length > 0}}">
-    <text class="polish-loading">加载中</text>
+    <text class="polish-loading">{{t['common.loading']}}</text>
   </view>
   <view class="load-more" wx:if="{{!hasMore && orders.length > 0}}">
-    <text>没有更多了</text>
+    <text>{{t['order.noMore']}}</text>
   </view>
 </view>
 

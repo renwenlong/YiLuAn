@@ -4,9 +4,15 @@ const { getUnreadCount } = require('../../../services/notification')
 const store = require('../../../store/index')
 const router = require('../../../utils/router')
 const logger = require('../../../utils/logger')
+const i18n = require('../../../utils/i18n')
+const i18nBehavior = require('../../../behaviors/i18n')
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'companionHome'],
+    unreadNoticeText: '',
+    viewAllPendingText: '',
     stats: {
       openOrders: 0,
       totalEarnings: 0,
@@ -34,7 +40,10 @@ Page({
     getUnreadCount()
       .then(function (res) {
         var count = res.count || (res.data && res.data.count) || 0
-        self.setData({ unreadCount: count })
+        self.setData({
+          unreadCount: count,
+          unreadNoticeText: count > 0 ? i18n.t('companionHome.unreadNotice', { count: count }) : ''
+        })
       })
       .catch(function () {})
   },
@@ -53,7 +62,7 @@ Page({
         })
       })
       .catch(function (err) {
-        logger.error('获取统计失败', { err: err && (err.message || String(err)) })
+        logger.error('Failed to load companion stats', { err: err && (err.message || String(err)) })
       })
   },
 
@@ -68,10 +77,14 @@ Page({
       .then(function (res) {
         var list = res.items ? res.items : (res.data && res.data.items ? res.data.items : [])
         var total = res.total || (res.data && res.data.total) || list.length
-        self.setData({ pendingOrders: list, pendingTotal: total })
+        self.setData({
+          pendingOrders: list,
+          pendingTotal: total,
+          viewAllPendingText: i18n.t('companionHome.viewAllPendingCount', { count: total })
+        })
       })
       .catch(function (err) {
-        logger.error('获取待接单列表失败', { err: err && (err.message || String(err)) })
+        logger.error('Failed to load available orders', { err: err && (err.message || String(err)) })
       })
   },
 

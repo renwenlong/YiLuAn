@@ -22,6 +22,10 @@
 let _state = {
   isAuthenticated: false,
   user: null,
+  // I18N-DEV-002 AC-1: 当前界面语言 'zh-Hans'|'en'。真源，i18nBehavior 订阅此字段。
+  // 初值 undefined，由 app.js onLaunch 经 i18n.resolveDefaultLang() 落定，避免此处
+  // 硬编码默认覆盖用户已存的语言偏好。
+  language: undefined,
 }
 
 let _listeners = []
@@ -104,7 +108,13 @@ function subscribeSelector(selector, listener, opts) {
 }
 
 function reset() {
-  _state = { isAuthenticated: false, user: null }
+  // I18N-DEV-002 AC-1.1（胡桃 review footgun）：reset() 用于登出，历史是硬编码
+  // baseline 会静默丢掉 language → i18nBehavior selector 触发 → UI 跳回默认语言。
+  // 修法：登出不应改语言，reset 后从 Storage 重读补回 language（用户偏好持久化，
+  // 与登录态解耦）。取不到时保持 undefined（不强塞默认，交 onLaunch 判定）。
+  let _lang
+  try { _lang = wx.getStorageSync('language') } catch (e) { _lang = undefined }
+  _state = { isAuthenticated: false, user: null, language: _lang || undefined }
   // 购买后向兼容：触发所有订阅者，保持旧行为
   for (let i = 0; i < _listeners.length; i++) {
     try { _listeners[i](_state) } catch (_) {}
@@ -142,6 +152,10 @@ const selectUnreadCount = function (s) { return s.unreadCount || 0 }
 const selectLastNotification = function (s) { return s.lastNotification || null }
 /** @type {Selector} */
 const selectCity = function (s) { return s.city || null }
+/** @type {Selector} */
+// I18N-DEV-002 AC-2: i18nBehavior 用此 selector 订阅语言变化
+// eslint-disable-next-line no-unused-vars
+const selectLanguage = function (s) { return s.language || 'zh-Hans' }
 
 // ── internal ────────────────────────────────────────────────────────────────
 
@@ -172,6 +186,7 @@ module.exports = {
   selectUnreadCount: selectUnreadCount,
   selectLastNotification: selectLastNotification,
   selectCity: selectCity,
+  selectLanguage: selectLanguage,
   // 测试 helper
   _listenerCount: function () { return _listeners.length + _selectorEntries.length },
   _clearAllListeners: _clearAllListeners,

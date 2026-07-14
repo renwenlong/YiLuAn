@@ -3,31 +3,31 @@
     <!-- Patient Fields -->
     <block wx:if="{{role === 'patient'}}">
       <view class="form-group">
-        <text class="form-label">紧急联系人</text>
+        <text class="form-label">{{t['profileEdit.emergencyContact']}}</text>
         <input
           class="form-input"
-          placeholder="请输入紧急联系人姓名"
+          placeholder="{{t['profileEdit.emergencyContactPlaceholder']}}"
           value="{{emergency_contact}}"
           data-field="emergency_contact"
           bindinput="onInputChange"
         />
       </view>
       <view class="form-group">
-        <text class="form-label">紧急联系电话</text>
+        <text class="form-label">{{t['profileEdit.emergencyPhone']}}</text>
         <input
           class="form-input"
           type="number"
-          placeholder="请输入紧急联系电话"
+          placeholder="{{t['profileEdit.emergencyPhonePlaceholder']}}"
           value="{{emergency_phone}}"
           data-field="emergency_phone"
           bindinput="onInputChange"
         />
       </view>
       <view class="form-group">
-        <text class="form-label">病情备注</text>
+        <text class="form-label">{{t['profileEdit.medicalNotes']}}</text>
         <textarea
           class="form-textarea"
-          placeholder="请输入病情备注信息"
+          placeholder="{{t['profileEdit.medicalNotesPlaceholder']}}"
           value="{{medical_notes}}"
           data-field="medical_notes"
           bindinput="onInputChange"
@@ -40,7 +40,7 @@
     <block wx:if="{{role === 'companion'}}">
       <!-- 服务类型 -->
       <view class="form-group">
-        <text class="form-label">服务类型 <text class="required">*</text></text>
+        <text class="form-label">{{t['profileEdit.serviceType']}} <text class="required">*</text></text>
         <view class="tag-select-list">
           <view
             class="tag-select-item {{serviceTypeMap[item.key] ? 'selected' : ''}}"
@@ -57,10 +57,10 @@
 
       <!-- 认证资质 -->
       <view class="form-group">
-        <text class="form-label">认证资质</text>
+        <text class="form-label">{{t['profileEdit.certifications']}}</text>
         <textarea
           class="form-textarea form-textarea-sm"
-          placeholder="请输入资质证书信息，如护士证、健康管理师证等"
+          placeholder="{{t['profileEdit.certificationsPlaceholder']}}"
           value="{{certifications}}"
           data-field="certifications"
           bindinput="onInputChange"
@@ -70,10 +70,10 @@
       </view>
 
       <view class="form-group">
-        <text class="form-label">个人简介</text>
+        <text class="form-label">{{t['profileEdit.bio']}}</text>
         <textarea
           class="form-textarea"
-          placeholder="请输入个人简介"
+          placeholder="{{t['profileEdit.bioPlaceholder']}}"
           value="{{bio}}"
           data-field="bio"
           bindinput="onInputChange"
@@ -82,8 +82,8 @@
       </view>
 
       <view class="form-group">
-        <text class="form-label">服务区域{{city && city !== '定位中...' ? '（' + city + '）' : ''}}</text>
-        <text class="form-hint" wx:if="{{serviceDistricts.length === 0}}">加载中...</text>
+        <text class="form-label">{{t['profileEdit.serviceArea']}}{{cityWrapText}}</text>
+        <text class="form-hint" wx:if="{{serviceDistricts.length === 0}}">{{t['common.loading']}}</text>
         <view class="district-select-list" wx:if="{{serviceDistricts.length > 0}}">
           <view
             class="district-select-item {{districtMap[item] ? 'selected' : ''}}"
@@ -100,13 +100,13 @@
 
       <!-- 服务医院 -->
       <view class="form-group">
-        <text class="form-label">服务医院{{city && city !== '定位中...' ? '（' + city + '）' : ''}}</text>
+        <text class="form-label">{{t['profileEdit.serviceHospital']}}{{cityWrapText}}</text>
 
         <!-- 搜索框 -->
         <view class="search-bar">
           <input
             class="search-input"
-            placeholder="搜索医院名称"
+            placeholder="{{t['profileEdit.searchHospital']}}"
             value="{{hospitalKeyword}}"
             bindinput="onHospitalSearch"
           />
@@ -117,26 +117,26 @@
           <view class="filter-row">
             <picker wx:if="{{allDistricts.length > 1}}" mode="selector" range="{{allDistricts}}" value="{{districtIndex}}" bindchange="onFilterDistrictChange" class="filter-picker-wrap">
               <view class="filter-picker">
-                <text class="filter-picker-text">{{districtIndex === 0 ? '区县' : allDistricts[districtIndex]}}</text>
+                <text class="filter-picker-text">{{districtIndex === 0 ? t['profileEdit.filterDistrict'] : allDistricts[districtIndex]}}</text>
                 <text class="filter-picker-arrow">▼</text>
               </view>
             </picker>
             <picker wx:if="{{allLevels.length > 1}}" mode="selector" range="{{allLevels}}" value="{{levelIndex}}" bindchange="onFilterLevelChange" class="filter-picker-wrap">
               <view class="filter-picker">
-                <text class="filter-picker-text">{{levelIndex === 0 ? '资质' : allLevels[levelIndex]}}</text>
+                <text class="filter-picker-text">{{levelIndex === 0 ? t['profileEdit.filterLevel'] : allLevels[levelIndex]}}</text>
                 <text class="filter-picker-arrow">▼</text>
               </view>
             </picker>
             <picker wx:if="{{allTags.length > 1}}" mode="selector" range="{{allTags}}" value="{{tagIndex}}" bindchange="onFilterTagChange" class="filter-picker-wrap">
               <view class="filter-picker">
-                <text class="filter-picker-text">{{tagIndex === 0 ? '专科' : allTags[tagIndex]}}</text>
+                <text class="filter-picker-text">{{tagIndex === 0 ? t['profileEdit.filterTag'] : allTags[tagIndex]}}</text>
                 <text class="filter-picker-arrow">▼</text>
               </view>
             </picker>
           </view>
         </view>
 
-        <text class="form-hint" wx:if="{{loadingHospitals}}">加载中...</text>
+        <text class="form-hint" wx:if="{{loadingHospitals}}">{{t['common.loading']}}</text>
         <view class="hospital-select-list" wx:if="{{!loadingHospitals && allHospitals.length > 0}}">
           <view
             class="hospital-select-item {{hospitalIdMap[item.id] ? 'selected' : ''}}"
@@ -155,20 +155,20 @@
             <text class="hospital-select-check" wx:if="{{hospitalIdMap[item.id]}}">✓</text>
           </view>
         </view>
-        <text class="form-hint" wx:if="{{!loadingHospitals && allHospitals.length === 0}}">暂无医院数据</text>
+        <text class="form-hint" wx:if="{{!loadingHospitals && allHospitals.length === 0}}">{{t['profileEdit.noHospitalData']}}</text>
 
-        <text class="selected-count" wx:if="{{selectedHospitalIds.length > 0}}">已选 {{selectedHospitalIds.length}} 家医院</text>
+        <text class="selected-count" wx:if="{{selectedHospitalIds.length > 0}}">{{selectedHospitalsText}}</text>
       </view>
     </block>
 
     <view class="btn-section">
       <button class="btn-save" bindtap="onSave" disabled="{{saving}}">
-        {{saving ? '保存中...' : '保存'}}
+        {{saving ? t['common.loading'] : t['common.save']}}
       </button>
     </view>
   </view>
 
   <view class="loading-section" wx:if="{{loading}}">
-    <text>加载中...</text>
+    <text>{{t['common.loading']}}</text>
   </view>
 </view>

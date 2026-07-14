@@ -12,8 +12,8 @@
     />
     <view class="profile-name-row">
       <text class="profile-name">{{companion.name}}</text>
-      <text wx:if="{{companion.is_verified}}" class="verified-badge">已认证</text>
-      <text wx:else class="unverified-badge">未认证</text>
+      <text wx:if="{{companion.is_verified}}" class="verified-badge">{{t['companionDetail.verified']}}</text>
+      <text wx:else class="unverified-badge">{{t['companionDetail.unverified']}}</text>
       <!--
         S3-DEV-003-TRUST-UI-WX AC#3: 删除 '已认证·{{certificationType}}'
         职业背书徽章 (例 '已认证·护士执业证' 隐含医疗权威背书).
@@ -24,37 +24,37 @@
     </view>
     <view class="profile-rating" wx:if="{{companion.rating > 0}}">
       <rating-stars value="{{companion.rating}}" readonly="{{true}}" />
-      <text class="rating-text">{{companion.rating}}分</text>
+      <text class="rating-text">{{companion.ratingText}}</text>
     </view>
     <view class="profile-rating" wx:else>
-      <text class="rating-text no-rating-text">暂无评分</text>
+      <text class="rating-text no-rating-text">{{t['companionDetail.noRating']}}</text>
     </view>
   </view>
 
   <!-- Bio -->
   <view class="detail-section">
-    <view class="section-title">个人简介</view>
-    <text class="bio-text">{{companion.bio || '暂无简介'}}</text>
+    <view class="section-title">{{t['companionDetail.bioTitle']}}</view>
+    <text class="bio-text">{{companion.bio || t['companionDetail.noBio']}}</text>
   </view>
 
   <!-- Service Info -->
   <view class="detail-section">
-    <view class="section-title">服务信息</view>
+    <view class="section-title">{{t['companionDetail.serviceInfo']}}</view>
     <view class="info-row">
-      <text class="info-label">服务区域</text>
-      <text class="info-value">{{companion.serviceArea || '暂无'}}</text>
+      <text class="info-label">{{t['companionDetail.serviceArea']}}</text>
+      <text class="info-value">{{companion.serviceArea || t['companionDetail.none']}}</text>
     </view>
     <view class="info-row">
-      <text class="info-label">已完成订单</text>
-      <text class="info-value">{{companion.completedOrders || 0}}单</text>
+      <text class="info-label">{{t['companionDetail.completedOrders']}}</text>
+      <text class="info-value">{{companion.ordersText}}</text>
     </view>
     <view class="info-row">
-      <text class="info-label">从业时间</text>
-      <text class="info-value">{{companion.experience || '暂无'}}</text>
+      <text class="info-label">{{t['companionDetail.experience']}}</text>
+      <text class="info-value">{{companion.experience || t['companionDetail.none']}}</text>
     </view>
 
     <view class="service-areas" wx:if="{{companion.serviceAreas && companion.serviceAreas.length > 0}}">
-      <text class="info-label">擅长领域</text>
+      <text class="info-label">{{t['companionDetail.expertise']}}</text>
       <view class="tag-list">
         <text class="tag" wx:for="{{companion.serviceAreas}}" wx:key="*this">{{item}}</text>
       </view>
@@ -63,30 +63,30 @@
 
   <!-- F-04: Multi-dimension scores -->
   <view class="detail-section" wx:if="{{companion.dimensionScores}}">
-    <view class="section-title">服务维度评分</view>
+    <view class="section-title">{{t['companionDetail.dimensionScores']}}</view>
     <view class="dimension-bar">
-      <text class="dimension-name">守时</text>
+      <text class="dimension-name">{{t['companionDetail.dimPunctuality']}}</text>
       <view class="bar-track">
         <view class="bar-fill" style="width: {{companion.dimensionScores.punctuality * 20}}%;"></view>
       </view>
       <text class="dimension-num">{{companion.dimensionScores.punctuality}}</text>
     </view>
     <view class="dimension-bar">
-      <text class="dimension-name">专业</text>
+      <text class="dimension-name">{{t['companionDetail.dimProfessionalism']}}</text>
       <view class="bar-track">
         <view class="bar-fill" style="width: {{companion.dimensionScores.professionalism * 20}}%;"></view>
       </view>
       <text class="dimension-num">{{companion.dimensionScores.professionalism}}</text>
     </view>
     <view class="dimension-bar">
-      <text class="dimension-name">沟通</text>
+      <text class="dimension-name">{{t['companionDetail.dimCommunication']}}</text>
       <view class="bar-track">
         <view class="bar-fill" style="width: {{companion.dimensionScores.communication * 20}}%;"></view>
       </view>
       <text class="dimension-num">{{companion.dimensionScores.communication}}</text>
     </view>
     <view class="dimension-bar">
-      <text class="dimension-name">态度</text>
+      <text class="dimension-name">{{t['companionDetail.dimAttitude']}}</text>
       <view class="bar-track">
         <view class="bar-fill" style="width: {{companion.dimensionScores.attitude * 20}}%;"></view>
       </view>
@@ -96,7 +96,7 @@
 
   <!-- Reviews -->
   <view class="detail-section">
-    <view class="section-title">用户评价 ({{reviews.length}})</view>
+    <view class="section-title">{{t['companionDetail.reviewsTitle']}} ({{reviews.length}})</view>
     <view class="review-list" wx:if="{{reviews.length > 0}}">
       <view class="review-item" wx:for="{{reviews}}" wx:key="id">
         <view class="review-header">
@@ -109,7 +109,7 @@
     </view>
     <view class="empty-reviews">
       <text class="empty-reviews-icon">💬</text>
-      <text>期待第一条评价</text>
+      <text>{{t['companionDetail.emptyReviews']}}</text>
     </view>
   </view>
 
@@ -118,6 +118,6 @@
 
   <!-- Book Button -->
   <view class="book-bar">
-    <button class="btn-book" bindtap="onBook">预约陪诊</button>
+    <button class="btn-book" bindtap="onBook">{{t['companionDetail.book']}}</button>
   </view>
 </view>

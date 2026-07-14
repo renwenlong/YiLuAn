@@ -3,12 +3,14 @@ const {
   listMyFollowupReminders,
   cancelFollowupReminder,
 } = require('../../../services/followupReminder')
+const i18n = require('../../../utils/i18n')
+const i18nBehavior = require('../../../behaviors/i18n')
 
-const STATUS_LABEL = {
-  pending: '待提醒',
-  sent: '已发送',
-  cancelled: '已取消',
-  failed: '发送失败',
+const STATUS_KEY = {
+  pending: 'followupReminders.statusPending',
+  sent: 'followupReminders.statusSent',
+  cancelled: 'followupReminders.statusCancelled',
+  failed: 'followupReminders.statusFailed',
 }
 
 function fmt(ts) {
@@ -21,7 +23,9 @@ function fmt(ts) {
 }
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'followupReminders'],
     items: [],
     loading: true,
   },
@@ -35,16 +39,18 @@ Page({
     try {
       const res = await listMyFollowupReminders()
       const items = ((res && res.items) || []).map(function (r) {
+        var short = r.order_id ? r.order_id.slice(0, 8) : ''
         return Object.assign({}, r, {
           remind_at_display: fmt(r.remind_at),
-          status_label: STATUS_LABEL[r.status] || r.status,
+          status_label: STATUS_KEY[r.status] ? i18n.t(STATUS_KEY[r.status]) : r.status,
           can_cancel: r.status === 'pending',
-          order_short: r.order_id ? r.order_id.slice(0, 8) : '',
+          order_short: short,
+          order_no_text: i18n.t('followupReminders.orderNo', { no: short }),
         })
       })
       this.setData({ items })
     } catch (e) {
-      wx.showToast({ title: '加载失败', icon: 'none' })
+      wx.showToast({ title: i18n.t('followupReminders.loadFailed'), icon: 'none' })
     } finally {
       this.setData({ loading: false })
     }
@@ -55,8 +61,8 @@ Page({
     if (!id) return
     const res = await new Promise((resolve) => {
       wx.showModal({
-        title: '取消提醒',
-        content: '确定要取消该提醒吗？',
+        title: i18n.t('followupReminders.cancelTitle'),
+        content: i18n.t('followupReminders.cancelConfirm'),
         success: (r) => resolve(r),
         fail: () => resolve({ confirm: false }),
       })
@@ -64,10 +70,10 @@ Page({
     if (!res.confirm) return
     try {
       await cancelFollowupReminder(id)
-      wx.showToast({ title: '已取消', icon: 'success' })
+      wx.showToast({ title: i18n.t('followupReminders.cancelled'), icon: 'success' })
       this.load()
     } catch (e) {
-      wx.showToast({ title: '取消失败', icon: 'none' })
+      wx.showToast({ title: i18n.t('followupReminders.cancelFailed'), icon: 'none' })
     }
   },
 })

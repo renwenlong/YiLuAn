@@ -3,11 +3,15 @@ const { getOrderDetail, orderAction } = require('../../../services/order')
 const ws = require('./services/websocket')
 const store = require('../../../store/index')
 const router = require('../../../utils/router')
+const i18n = require('../../../utils/i18n')
+const i18nBehavior = require('../../../behaviors/i18n')
 
 const HISTORY_PAGE_SIZE = 30
 
 Page({
+  behaviors: [i18nBehavior],
   data: {
+    i18nScopes: ['common', 'chat'],
     messages: [],
     inputValue: '',
     orderId: '',
@@ -70,7 +74,7 @@ Page({
       })
       this.scrollToBottom()
     } catch (err) {
-      wx.showToast({ title: '加载消息失败', icon: 'none' })
+      wx.showToast({ title: i18n.t('chat.loadMsgFailed'), icon: 'none' })
     }
   },
 
@@ -112,7 +116,7 @@ Page({
       })
     } catch (err) {
       this.setData({ loadingMore: false })
-      wx.showToast({ title: '加载历史失败', icon: 'none' })
+      wx.showToast({ title: i18n.t('chat.loadHistoryFailed'), icon: 'none' })
     }
   },
 
@@ -127,7 +131,7 @@ Page({
         this.scrollToBottom()
       },
       onError: () => {
-        wx.showToast({ title: '连接断开，正在重连...', icon: 'none', duration: 2000 })
+        wx.showToast({ title: i18n.t('chat.reconnecting'), icon: 'none', duration: 2000 })
       }
     })
   },
@@ -168,15 +172,15 @@ Page({
   onAcceptOrder() {
     var self = this
     wx.showModal({
-      title: '确认接单',
-      content: '确定接受此订单吗？',
+      title: i18n.t('chat.confirmAcceptTitle'),
+      content: i18n.t('chat.confirmAcceptContent'),
       success: function (res) {
         if (!res.confirm) return
         orderAction(self.data.orderId, 'accept').then(function () {
-          wx.showToast({ title: '已接单', icon: 'success' })
+          wx.showToast({ title: i18n.t('chat.accepted'), icon: 'success' })
           self.setData({ orderStatus: 'accepted' })
         }).catch(function () {
-          wx.showToast({ title: '接单失败', icon: 'none' })
+          wx.showToast({ title: i18n.t('chat.acceptFailed'), icon: 'none' })
         })
       }
     })

@@ -5,25 +5,25 @@
       <view class="user-avatar" bindtap="onAvatarTap">
         <image wx:if="{{user.avatar}}" src="{{user.avatar}}" class="avatar-img" />
         <view wx:else class="avatar-placeholder">
-          <text>{{user.name[0] || '用'}}</text>
+          <text>{{user.name[0] || t['profile.avatarFallback']}}</text>
         </view>
         <view class="avatar-edit-hint">
-          <text>换</text>
+          <text>{{t['profile.changeAvatar']}}</text>
         </view>
       </view>
       <view class="user-detail">
         <view class="user-name-row">
-          <text class="user-name">{{user.name || '用户'}}</text>
-          <text wx:if="{{user.role === 'companion'}}" class="role-badge companion-badge">陪诊师</text>
-          <text wx:elif="{{user.role === 'patient'}}" class="role-badge patient-badge">患者</text>
+          <text class="user-name">{{user.name || t['profile.defaultUser']}}</text>
+          <text wx:if="{{user.role === 'companion'}}" class="role-badge companion-badge">{{t['role.companion']}}</text>
+          <text wx:elif="{{user.role === 'patient'}}" class="role-badge patient-badge">{{t['role.patient']}}</text>
         </view>
 
         <view class="user-phone" wx:if="{{user.phone}}">
           <text class="phone-text">{{user.phone}}</text>
         </view>
         <view class="user-phone bind-phone" wx:else bindtap="onBindPhone">
-          <text class="phone-text unbind">未绑定手机</text>
-          <text class="bind-btn">去绑定</text>
+          <text class="phone-text unbind">{{t['profile.unbindPhone']}}</text>
+          <text class="bind-btn">{{t['profile.goBind']}}</text>
         </view>
       </view>
     </view>
@@ -32,26 +32,26 @@
   <!-- Menu List -->
   <view class="menu-section">
     <view class="menu-item" data-target="/pages/profile/edit/index" bindtap="onMenuTap">
-      <text class="menu-text">编辑资料</text>
+      <text class="menu-text">{{t['profile.menuEdit']}}</text>
       <text class="menu-arrow">></text>
     </view>
     <view class="menu-item" data-target="/pages/companion/orders/index" bindtap="onMenuTap">
-      <text class="menu-text">我的订单</text>
+      <text class="menu-text">{{t['profile.menuOrders']}}</text>
       <text class="menu-arrow">></text>
     </view>
     <view class="menu-item" data-target="/pages/profile/wallet/index" bindtap="onMenuTap">
-      <text class="menu-text">我的钱包</text>
+      <text class="menu-text">{{t['profile.menuWallet']}}</text>
       <text class="menu-arrow">></text>
     </view>
     <view class="menu-item" data-target="/pages/profile/settings/index" bindtap="onMenuTap">
-      <text class="menu-text">设置</text>
+      <text class="menu-text">{{t['profile.menuSettings']}}</text>
       <text class="menu-arrow">></text>
     </view>
   </view>
 
   <!-- Logout -->
   <view class="logout-section">
-    <button class="logout-btn" bindtap="onLogout">退出登录</button>
+    <button class="logout-btn" bindtap="onLogout">{{t['profile.logout']}}</button>
   </view>
 </view>
 

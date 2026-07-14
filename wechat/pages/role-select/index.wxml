@@ -1,24 +1,24 @@
 <view class="role-select-page">
   <view class="page-header">
-    <text class="title">选择您的身份</text>
-    <text class="subtitle">请选择您的使用身份，后续可在设置中更改</text>
+    <text class="title">{{t['role.selectTitle']}}</text>
+    <text class="subtitle">{{t['role.selectSubtitle']}}</text>
   </view>
 
   <view class="role-cards">
     <view class="role-card" data-role="patient" bindtap="onSelectRole">
       <view class="role-icon patient-icon">
-        <text class="icon-text">患</text>
+        <text class="icon-text">{{t['role.patientBadge']}}</text>
       </view>
-      <text class="role-name">我是患者</text>
-      <text class="role-desc">寻找专业陪诊师</text>
+      <text class="role-name">{{t['role.iamPatient']}}</text>
+      <text class="role-desc">{{t['role.patientDesc']}}</text>
     </view>
 
     <view class="role-card" data-role="companion" bindtap="onSelectRole">
       <view class="role-icon companion-icon">
-        <text class="icon-text">陪</text>
+        <text class="icon-text">{{t['role.companionBadge']}}</text>
       </view>
-      <text class="role-name">我是陪诊师</text>
-      <text class="role-desc">接单赚取收入</text>
+      <text class="role-name">{{t['role.iamCompanion']}}</text>
+      <text class="role-desc">{{t['role.companionDesc']}}</text>
     </view>
   </view>
 

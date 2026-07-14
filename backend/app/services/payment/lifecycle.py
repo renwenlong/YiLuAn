@@ -14,6 +14,7 @@ import logging
 import uuid
 from decimal import Decimal
 
+from app.core import error_codes
 from app.exceptions import BadRequestException
 from app.models.order import PaymentState
 from app.models.payment import Payment
@@ -45,7 +46,10 @@ class _PaymentLifecycleMixin(_PaymentServiceBase):
 
         existing = await self.repo.get_by_order_and_type(order_id, "pay")
         if existing and existing.status == "success":
-            raise BadRequestException("订单已支付，请勿重复操作")
+            raise BadRequestException(
+                "订单已支付，请勿重复操作",
+                error_code=error_codes.PAYMENT_ALREADY_PAID,
+            )
 
         # D-058 F2: same-order retry while a prepay is still ``pending`` and
         # we already have a cached sign payload -> return it verbatim,
