@@ -43,6 +43,10 @@ final class WalletViewModelTests: XCTestCase {
     }
 
     func testWalletTransactionTypeLabels() throws {
+        // I18N-DEV-003B-5: typeLabel 走 LocalizationManager,测试固定为中文以保证断言确定性
+        LocalizationManager.shared.setLanguage(.zhHans)
+        defer { LocalizationManager.shared.setLanguage(.zhHans) }
+
         let paymentJSON = """
         {"id":"1","type":"payment","amount":299.00,"description":"全程陪诊","created_at":"2026-04-15T10:00:00Z"}
         """.data(using: .utf8)!

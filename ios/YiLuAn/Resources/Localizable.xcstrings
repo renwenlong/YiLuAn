@@ -497,6 +497,358 @@
         }
       }
     },
+    "settings.chatHistory": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "聊天记录"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chat History"
+          }
+        }
+      }
+    },
+    "settings.clear": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "清除"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear"
+          }
+        }
+      }
+    },
+    "settings.companionCertMaterials": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "陪诊师认证资料"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Companion Certification Materials"
+          }
+        }
+      }
+    },
+    "settings.confirmAccountDeletion": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我已阅读并理解注销账号的后果，确认注销"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "I have read and understood the consequences of account deletion and confirm"
+          }
+        }
+      }
+    },
+    "settings.confirmClearCache": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确定要清除缓存吗？当前缓存大小：%@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Clear the cache? Current cache size: %@"
+          }
+        }
+      }
+    },
+    "settings.confirmSwitchRole": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确定要切换为%@身份吗？"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Are you sure you want to switch to %@?"
+          }
+        }
+      }
+    },
+    "settings.currentCompanion": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前：陪诊师"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current: Companion"
+          }
+        }
+      }
+    },
+    "settings.currentPatient": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "当前：患者"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Current: Patient"
+          }
+        }
+      }
+    },
+    "settings.dataToBeDeleted": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "注销后以下数据将被删除："
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "The following data will be deleted after account deletion:"
+          }
+        }
+      }
+    },
+    "settings.enter6DigitCode": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "输入6位验证码"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter 6-digit code"
+          }
+        }
+      }
+    },
+    "settings.holdCountdown": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "继续按住 %@s"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep holding %@s"
+          }
+        }
+      }
+    },
+    "settings.irreversibleWarning": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "此操作不可恢复，请谨慎操作"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "This action is irreversible. Please proceed with caution."
+          }
+        }
+      }
+    },
+    "settings.orderAndTransactionData": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "订单记录和交易数据"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Order records and transaction data"
+          }
+        }
+      }
+    },
+    "settings.profileAndCertInfo": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "个人资料和认证信息"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile and certification info"
+          }
+        }
+      }
+    },
+    "settings.recoverWithin30Days": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "注销后 30 天内可联系客服恢复账号"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can contact support to restore your account within 30 days of deletion"
+          }
+        }
+      }
+    },
+    "settings.role": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "角色"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Role"
+          }
+        }
+      }
+    },
+    "settings.roleQuestionSuffix": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "身份吗？"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "?"
+          }
+        }
+      }
+    },
+    "settings.sendCode": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "发送验证码"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send Code"
+          }
+        }
+      }
+    },
+    "settings.switch": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切换"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch"
+          }
+        }
+      }
+    },
+    "settings.switchToRole": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "切换为%@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch to %@"
+          }
+        }
+      }
+    },
+    "settings.verifyIdentity": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "验证身份"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verify Identity"
+          }
+        }
+      }
+    },
+    "settings.walletAndPaymentInfo": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "钱包余额和支付信息"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wallet balance and payment info"
+          }
+        }
+      }
+    },
     "role.patient": {
       "localizations": {
         "zh-Hans": {
@@ -4625,6 +4977,262 @@
         }
       }
     },
+    "profile.aboutIntro": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "医路安是专业的医疗陪诊服务平台，致力于为患者提供温暖、专业的就医陪伴服务。我们连接需要医院陪诊的患者与专业陪诊师，让就医不再孤单。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "YiLuAn is a professional medical escort platform dedicated to warm, professional companionship for patients. We connect patients who need hospital companionship with professional companions, so no one faces medical visits alone."
+          }
+        }
+      }
+    },
+    "profile.aboutUs": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关于我们"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "About Us"
+          }
+        }
+      }
+    },
+    "profile.companionHomepage": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "陪诊师主页"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Companion Homepage"
+          }
+        }
+      }
+    },
+    "profile.contactUs": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "联系我们"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contact Us"
+          }
+        }
+      }
+    },
+    "profile.copyright": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "© 2026 医路安科技有限公司"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "© 2026 YiLuAn Technology Co., Ltd."
+          }
+        }
+      }
+    },
+    "profile.details": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "详细资料"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Details"
+          }
+        }
+      }
+    },
+    "profile.messageNotifications": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "消息通知"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Message Notifications"
+          }
+        }
+      }
+    },
+    "profile.nicknameNotSet": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未设置昵称"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No nickname set"
+          }
+        }
+      }
+    },
+    "profile.ourServices": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我们的服务"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Our Services"
+          }
+        }
+      }
+    },
+    "profile.profile": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "个人资料"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Profile"
+          }
+        }
+      }
+    },
+    "profile.serviceTiersDescription": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "• 全程陪诊（¥299）— 全程陪同就医\\n• 半程陪诊（¥199）— 部分环节陪同\\n• 代办跑腿（¥149）— 代取报告等"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "• Full Accompaniment (¥299) — full medical visit support\n• Half Accompaniment (¥199) — partial support\n• Errand Service (¥149) — report pickup and more"
+          }
+        }
+      }
+    },
+    "profile.setNicknameToRegister": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请设置您的昵称以完成注册"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set your nickname to complete registration"
+          }
+        }
+      }
+    },
+    "profile.setProfile": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "设置个人资料"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set Up Profile"
+          }
+        }
+      }
+    },
+    "profile.supportContactInfo": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "客服电话：400-888-0000\\n客服邮箱：support@yiluan.app\\n工作时间：周一至周五 9:00-18:00"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Support hotline: 400-888-0000\nSupport email: support@yiluan.app\nHours: Mon–Fri 9:00–18:00"
+          }
+        }
+      }
+    },
+    "profile.updateAvatar": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更换头像"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Change Avatar"
+          }
+        }
+      }
+    },
+    "profile.versionPrefix": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "版本 \\(Bundle.main.infoDictionary?["
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Version %@"
+          }
+        }
+      }
+    },
     "wallet.balanceCompanion": {
       "localizations": {
         "zh-Hans": {
@@ -4945,6 +5553,102 @@
         }
       }
     },
+    "wallet.accountBalanceYuan": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "账户余额（元）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Account Balance (¥)"
+          }
+        }
+      }
+    },
+    "wallet.income": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "收入"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Income"
+          }
+        }
+      }
+    },
+    "wallet.noTransactions": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂无交易记录"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No transactions yet"
+          }
+        }
+      }
+    },
+    "wallet.pay": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "支付"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pay"
+          }
+        }
+      }
+    },
+    "wallet.refund": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "退款"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Refund"
+          }
+        }
+      }
+    },
+    "wallet.transactionHistory": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "交易记录"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Transaction History"
+          }
+        }
+      }
+    },
     "bindPhone.submitting": {
       "localizations": {
         "zh-Hans": {
@@ -5133,6 +5837,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "Binding failed, please try again later"
+          }
+        }
+      }
+    },
+    "bindPhone.bindPhone": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "绑定手机号"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bind Phone Number"
+          }
+        }
+      }
+    },
+    "bindPhone.phoneBoundSuccess": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手机号已成功绑定"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phone number bound successfully"
           }
         }
       }
@@ -5825,6 +6561,102 @@
         }
       }
     },
+    "emergencyContacts.addFailed": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加失败"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Add failed"
+          }
+        }
+      }
+    },
+    "emergencyContacts.editContact": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "编辑联系人"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Edit Contact"
+          }
+        }
+      }
+    },
+    "emergencyContacts.emergencyCallNotice": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "紧急联系人会在你触发紧急呼叫时显示，并由你选择拨打。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Emergency contacts appear when you trigger an emergency call, and you choose whom to dial."
+          }
+        }
+      }
+    },
+    "emergencyContacts.maxCurrentCount": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最多 3 位 · 当前 \\(viewModel.contacts.count)/3"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up to 3 · Currently %@/3"
+          }
+        }
+      }
+    },
+    "emergencyContacts.maxOneTapCall": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最多 3 位，服务进行中可一键呼叫"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up to 3 contacts; call with one tap during service"
+          }
+        }
+      }
+    },
+    "emergencyContacts.updateFailed": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "更新失败"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Update failed"
+          }
+        }
+      }
+    },
     "familyMembers.hint": {
       "localizations": {
         "zh-Hans": {
@@ -6349,6 +7181,102 @@
           "stringUnit": {
             "state": "translated",
             "value": "Failed to delete"
+          }
+        }
+      }
+    },
+    "familyMembers.medicalNotes": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "就医备注"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medical Notes"
+          }
+        }
+      }
+    },
+    "familyMembers.ageOptional": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "年龄（可选）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Age (optional)"
+          }
+        }
+      }
+    },
+    "familyMembers.addToBookForFamily": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加后，可在下单时为家人预约陪诊"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Once added, you can book companion service for family members when ordering"
+          }
+        }
+      }
+    },
+    "familyMembers.phoneOptional": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手机号（可选）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phone Number (optional)"
+          }
+        }
+      }
+    },
+    "familyMembers.notFilled": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未填"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not filled"
+          }
+        }
+      }
+    },
+    "familyMembers.allergyChronicOther": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "过敏 / 慢病 / 其它"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allergies / Chronic conditions / Other"
           }
         }
       }

@@ -4,6 +4,7 @@ import SwiftUI
 /// 限制：最多 3 个联系人；超出/重复手机后端返回 409。
 struct EmergencyContactsView: View {
     @StateObject private var viewModel = EmergencyContactsViewModel()
+    @EnvironmentObject var loc: LocalizationManager
     @State private var sheetMode: SheetMode?
 
     enum SheetMode: Identifiable {
@@ -28,7 +29,7 @@ struct EmergencyContactsView: View {
                 contactList
             }
         }
-        .navigationTitle("紧急联系人")
+        .navigationTitle(loc.t("order.emergencyContact"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -44,7 +45,7 @@ struct EmergencyContactsView: View {
             switch mode {
             case .create:
                 EmergencyContactEditSheet(
-                    title: "添加紧急联系人",
+                    title: loc.t("emergencyContacts.addTitle"),
                     initial: nil
                 ) { name, phone, relationship in
                     let ok = await viewModel.create(name: name, phone: phone, relationship: relationship)
@@ -52,7 +53,7 @@ struct EmergencyContactsView: View {
                 }
             case .edit(let contact):
                 EmergencyContactEditSheet(
-                    title: "编辑联系人",
+                    title: loc.t("emergencyContacts.editContact"),
                     initial: contact
                 ) { name, phone, relationship in
                     let ok = await viewModel.update(id: contact.id, name: name, phone: phone, relationship: relationship)
@@ -60,8 +61,8 @@ struct EmergencyContactsView: View {
                 }
             }
         }
-        .alert("提示", isPresented: .constant(viewModel.errorMessage != nil)) {
-            Button("好") { viewModel.errorMessage = nil }
+        .alert(loc.t("dialog.tip"), isPresented: .constant(viewModel.errorMessage != nil)) {
+            Button(loc.t("order.ok")) { viewModel.errorMessage = nil }
         } message: {
             Text(viewModel.errorMessage ?? "")
         }
@@ -73,9 +74,9 @@ struct EmergencyContactsView: View {
             Image(systemName: "person.crop.circle.badge.exclamationmark")
                 .font(.system(size: 48))
                 .foregroundColor(.secondary)
-            Text("还没有紧急联系人")
+            Text(loc.t("emergencyContacts.empty"))
                 .foregroundColor(.secondary)
-            Text("最多 3 位，服务进行中可一键呼叫")
+            Text(loc.t("emergencyContacts.maxOneTapCall"))
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
@@ -101,7 +102,7 @@ struct EmergencyContactsView: View {
                     }
                 }
             } footer: {
-                Text("最多 3 位 · 当前 \(viewModel.contacts.count)/3")
+                Text(loc.t("emergencyContacts.maxCurrentCount", viewModel.contacts.count))
                     .font(.caption)
             }
         }
@@ -136,6 +137,7 @@ private struct EmergencyContactEditSheet: View {
     let onSave: (_ name: String, _ phone: String, _ relationship: String) async -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var loc: LocalizationManager
     @State private var name = ""
     @State private var phone = ""
     @State private var relationship = "配偶"
@@ -144,18 +146,18 @@ private struct EmergencyContactEditSheet: View {
     var body: some View {
         NavigationView {
             Form {
-                Section("基本信息") {
-                    TextField("姓名", text: $name)
-                    TextField("手机号", text: $phone)
+                Section(loc.t("companion.basicInfo")) {
+                    TextField(loc.t("orderDetail.nameLabel"), text: $name)
+                    TextField(loc.t("login.phone"), text: $phone)
                         .keyboardType(.numberPad)
-                    Picker("关系", selection: $relationship) {
-                        ForEach(EmergencyRelationship.presets, id: \.self) { r in
-                            Text(r).tag(r)
+                    Picker(loc.t("emergencyContacts.relationLabel"), selection: $relationship) {
+                        ForEach(EmergencyRelationship.presetPairs, id: \.value) { pair in
+                            Text(loc.t(pair.key)).tag(pair.value)
                         }
                     }
                 }
                 Section {
-                    Text("紧急联系人会在你触发紧急呼叫时显示，并由你选择拨打。")
+                    Text(loc.t("emergencyContacts.emergencyCallNotice"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -164,10 +166,10 @@ private struct EmergencyContactEditSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button(loc.t("common.cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
+                    Button(loc.t("common.save")) {
                         guard !submitting, isValid else { return }
                         submitting = true
                         Task {

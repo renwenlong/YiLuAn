@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ProfileSetupView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var loc: LocalizationManager
     @State private var displayName = ""
     @State private var isLoading = false
     @State private var errorMessage: String?
@@ -14,15 +15,15 @@ struct ProfileSetupView: View {
                 .font(.system(size: 72))
                 .foregroundStyle(Color.brand)
 
-            Text("设置个人资料")
+            Text(loc.t("profile.setProfile"))
                 .font(.title2.bold())
 
-            Text("请设置您的昵称以完成注册")
+            Text(loc.t("profile.setNicknameToRegister"))
                 .font(.dsSubheadline)
                 .foregroundStyle(.secondary)
 
             VStack(spacing: Spacing.lg) {
-                TextField("请输入昵称", text: $displayName)
+                TextField(loc.t("profileSetup.inputNicknameToast"), text: $displayName)
                     .padding()
                     .background(Color(.systemGray6))
                     .cornerRadius(CornerRadius.lg)
@@ -42,7 +43,7 @@ struct ProfileSetupView: View {
                             ProgressView()
                                 .tint(.white)
                         }
-                        Text("完成设置")
+                        Text(loc.t("profileSetup.finishSetup"))
                     }
                     .frame(maxWidth: .infinity)
                     .padding()

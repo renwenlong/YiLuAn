@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ProfileView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var loc: LocalizationManager
 
     private var isCompanion: Bool {
         authViewModel.currentUser?.role == .companion
@@ -11,141 +12,12 @@ struct ProfileView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 0) {
-                    // Hero header with gradient
-                    ZStack(alignment: .bottomLeading) {
-                        AppGradient.primary
-                            .frame(height: 180)
-                            .ignoresSafeArea(edges: .top)
-
-                        HStack(spacing: Spacing.lg) {
-                            // Avatar
-                            ZStack {
-                                Circle()
-                                    .fill(AppGradient.primary)
-                                    .frame(width: 64, height: 64)
-
-                                Text(String(authViewModel.currentUser?.displayName?.prefix(1) ?? "用"))
-                                    .font(.dsH1)
-                                    .foregroundStyle(.white)
-                            }
-                            .overlay(
-                                Circle()
-                                    .stroke(.white, lineWidth: 3)
-                            )
-                            .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(authViewModel.currentUser?.displayName ?? "未设置昵称")
-                                    .font(.dsTitle)
-                                    .foregroundStyle(.white)
-
-                                if let phone = authViewModel.currentUser?.phone {
-                                    Text(phone)
-                                        .font(.dsSubheadline)
-                                        .foregroundStyle(.white.opacity(0.7))
-                                }
-                            }
-
-                            Spacer()
-
-                            if isCompanion {
-                                Text("陪诊师")
-                                    .font(.dsSmall)
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 4)
-                                    .background(.white.opacity(0.2))
-                                    .clipShape(Capsule())
-                            }
-                        }
-                        .padding(.horizontal, Spacing.xl)
-                        .padding(.bottom, Spacing.xl)
-                    }
+                    heroHeader
 
                     VStack(spacing: Spacing.md) {
-                        // Account section
-                        VStack(spacing: 0) {
-                            MenuRow(icon: "person.crop.circle", title: "个人资料") {
-                                ProfileEditView()
-                            }
-
-                            if isCompanion {
-                                Divider().padding(.leading, 52)
-                                MenuRow(icon: "stethoscope", title: "陪诊师主页") {
-                                    CompanionSelfProfileView()
-                                }
-                            }
-
-                            Divider().padding(.leading, 52)
-                            MenuRow(icon: "phone.badge.checkmark", title: "绑定手机号") {
-                                BindPhoneView()
-                            }
-
-                            Divider().padding(.leading, 52)
-                            MenuRow(icon: "wallet.pass", title: "我的钱包") {
-                                WalletView()
-                            }
-
-                            Divider().padding(.leading, 52)
-                            MenuRow(icon: "person.2", title: "我的家人") {
-                                FamilyMembersView()
-                            }
-
-                            Divider().padding(.leading, 52)
-                            MenuRow(icon: "phone.circle.fill", title: "紧急联系人") {
-                                EmergencyContactsView()
-                            }
-
-                            Divider().padding(.leading, 52)
-                            MenuRow(icon: "bell.badge", title: "复诊提醒") {
-                                FollowupRemindersView()
-                            }
-                        }
-                        .background(Color.bgCard)
-                        .cornerRadius(CornerRadius.lg)
-                        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
-                        .padding(.horizontal, Spacing.lg)
-
-                        // Features section
-                        VStack(spacing: 0) {
-                            MenuRow(icon: "bell.badge", title: "消息通知") {
-                                NotificationListView()
-                            }
-
-                            Divider().padding(.leading, 52)
-                            MenuRow(icon: "gearshape", title: "设置") {
-                                SettingsView()
-                            }
-
-                            Divider().padding(.leading, 52)
-                            MenuRow(icon: "info.circle", title: "关于我们") {
-                                AboutView()
-                            }
-                        }
-                        .background(Color.bgCard)
-                        .cornerRadius(CornerRadius.lg)
-                        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
-                        .padding(.horizontal, Spacing.lg)
-
-                        // Logout button
-                        Button {
-                            authViewModel.signOut()
-                        } label: {
-                            Text("退出登录")
-                                .font(.dsBody)
-                                .foregroundStyle(Color.danger)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                        }
-                        .background(Color.bgCard)
-                        .cornerRadius(CornerRadius.lg)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: CornerRadius.lg)
-                                .stroke(Color.danger.opacity(0.2), lineWidth: 1)
-                        )
-                        .padding(.horizontal, Spacing.lg)
-                        .padding(.top, Spacing.sm)
+                        accountMenuSection
+                        featuresMenuSection
+                        logoutButton
                     }
                     .padding(.top, Spacing.lg)
                     .padding(.bottom, 120)
@@ -156,6 +28,147 @@ struct ProfileView: View {
             .navigationTitle("")
             .navigationBarHidden(true)
         }
+    }
+
+    // 抽成子视图减小 body 类型推断负担(避免 SwiftUI type-check timeout)
+    @ViewBuilder private var heroHeader: some View {
+        ZStack(alignment: .bottomLeading) {
+            AppGradient.primary
+                .frame(height: 180)
+                .ignoresSafeArea(edges: .top)
+
+            HStack(spacing: Spacing.lg) {
+                // Avatar
+                ZStack {
+                    Circle()
+                        .fill(AppGradient.primary)
+                        .frame(width: 64, height: 64)
+
+                    Text(authViewModel.currentUser?.displayName.map { String($0.prefix(1)) } ?? loc.t("profile.avatarFallback"))
+                        .font(.dsH1)
+                        .foregroundStyle(.white)
+                }
+                .overlay(
+                    Circle()
+                        .stroke(.white, lineWidth: 3)
+                )
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(authViewModel.currentUser?.displayName ?? loc.t("profile.nicknameNotSet"))
+                        .font(.dsTitle)
+                        .foregroundStyle(.white)
+
+                    if let phone = authViewModel.currentUser?.phone {
+                        Text(phone)
+                            .font(.dsSubheadline)
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                }
+
+                Spacer()
+
+                if isCompanion {
+                    Text(loc.t("role.companion"))
+                        .font(.dsSmall)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(.white.opacity(0.2))
+                        .clipShape(Capsule())
+                }
+            }
+            .padding(.horizontal, Spacing.xl)
+            .padding(.bottom, Spacing.xl)
+        }
+    }
+
+    @ViewBuilder private var logoutButton: some View {
+        Button {
+            authViewModel.signOut()
+        } label: {
+            Text(loc.t("settings.logout"))
+                .font(.dsBody)
+                .foregroundStyle(Color.danger)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+        }
+        .background(Color.bgCard)
+        .cornerRadius(CornerRadius.lg)
+        .overlay(
+            RoundedRectangle(cornerRadius: CornerRadius.lg)
+                .stroke(Color.danger.opacity(0.2), lineWidth: 1)
+        )
+        .padding(.horizontal, Spacing.lg)
+        .padding(.top, Spacing.sm)
+    }
+
+    // 抽成计算属性减小 body 类型推断负担(避免 SwiftUI type-check timeout)
+    @ViewBuilder private var accountMenuSection: some View {
+        VStack(spacing: 0) {
+            MenuRow(icon: "person.crop.circle", title: loc.t("profile.profile")) {
+                ProfileEditView()
+            }
+
+            if isCompanion {
+                Divider().padding(.leading, 52)
+                MenuRow(icon: "stethoscope", title: loc.t("profile.companionHomepage")) {
+                    CompanionSelfProfileView()
+                }
+            }
+
+            Divider().padding(.leading, 52)
+            MenuRow(icon: "phone.badge.checkmark", title: loc.t("bindPhone.bindPhone")) {
+                BindPhoneView()
+            }
+
+            Divider().padding(.leading, 52)
+            MenuRow(icon: "wallet.pass", title: loc.t("profile.menuWallet")) {
+                WalletView()
+            }
+
+            Divider().padding(.leading, 52)
+            MenuRow(icon: "person.2", title: loc.t("profile.menuFamily")) {
+                FamilyMembersView()
+            }
+
+            Divider().padding(.leading, 52)
+            MenuRow(icon: "phone.circle.fill", title: loc.t("order.emergencyContact")) {
+                EmergencyContactsView()
+            }
+
+            Divider().padding(.leading, 52)
+            MenuRow(icon: "bell.badge", title: loc.t("profile.menuFollowup")) {
+                FollowupRemindersView()
+            }
+        }
+        .background(Color.bgCard)
+        .cornerRadius(CornerRadius.lg)
+        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+        .padding(.horizontal, Spacing.lg)
+    }
+
+    @ViewBuilder private var featuresMenuSection: some View {
+        VStack(spacing: 0) {
+            MenuRow(icon: "bell.badge", title: loc.t("profile.messageNotifications")) {
+                NotificationListView()
+            }
+
+            Divider().padding(.leading, 52)
+            MenuRow(icon: "gearshape", title: loc.t("settings.title")) {
+                SettingsView()
+            }
+
+            Divider().padding(.leading, 52)
+            MenuRow(icon: "info.circle", title: loc.t("profile.aboutUs")) {
+                AboutView()
+            }
+        }
+        .background(Color.bgCard)
+        .cornerRadius(CornerRadius.lg)
+        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 2)
+        .padding(.horizontal, Spacing.lg)
     }
 }
 

@@ -20,7 +20,7 @@ final class EmergencyContactsViewModel: ObservableObject {
         do {
             contacts = try await EmergencyService.listContacts()
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "加载失败"
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? LocalizationManager.shared.t("order.loadFailed")
         }
     }
 
@@ -35,7 +35,7 @@ final class EmergencyContactsViewModel: ObservableObject {
             await load()
             return true
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "添加失败"
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? LocalizationManager.shared.t("emergencyContacts.addFailed")
             return false
         }
     }
@@ -51,7 +51,7 @@ final class EmergencyContactsViewModel: ObservableObject {
             await load()
             return true
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "更新失败"
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? LocalizationManager.shared.t("emergencyContacts.updateFailed")
             return false
         }
     }
@@ -61,7 +61,7 @@ final class EmergencyContactsViewModel: ObservableObject {
             try await EmergencyService.deleteContact(id: contact.id)
             await load()
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "删除失败"
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? LocalizationManager.shared.t("emergencyContacts.deleteFailed")
         }
     }
 }
