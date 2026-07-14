@@ -177,6 +177,6 @@ struct CompanionListView: View {
 #Preview {
     NavigationStack {
         CompanionListView()
-            .navigationTitle(loc.t("companion.companionList"))
+            .navigationTitle("陪诊师列表")
     }
 }
