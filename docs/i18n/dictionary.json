@@ -22,7 +22,8 @@
     "notSet":   { "zh-Hans": "未设置", "en": "Not Set" },
     "notBound": { "zh-Hans": "未绑定", "en": "Not Bound" },
     "retry":    { "zh-Hans": "重试",   "en": "Retry" },
-    "noMore":   { "zh-Hans": "没有更多了", "en": "No more" }
+    "noMore":   { "zh-Hans": "没有更多了", "en": "No more" },
+    "gotIt":    { "zh-Hans": "知道了", "en": "Got it" }
   },
 
   "settings": {
@@ -88,7 +89,12 @@
     "payHint":       { "zh-Hans": "待支付", "en": "To Pay" },
     "reviewHint":    { "zh-Hans": "待评价", "en": "To Review" },
     "reviewedHint":  { "zh-Hans": "已评价", "en": "Reviewed" },
-    "statusUnknown": { "zh-Hans": "未知", "en": "Unknown" }
+    "statusUnknown": { "zh-Hans": "未知", "en": "Unknown" },
+    "distance":      { "zh-Hans": "距离", "en": "Distance" },
+    "price":         { "zh-Hans": "价格", "en": "Price" },
+    "sort":          { "zh-Hans": "排序", "en": "Sort" },
+    "noAcceptableOrders": { "zh-Hans": "暂无可接订单", "en": "No available orders" },
+    "acceptableOrders":   { "zh-Hans": "可接订单", "en": "Available Orders" }
   },
 
   "orderStatus": {
