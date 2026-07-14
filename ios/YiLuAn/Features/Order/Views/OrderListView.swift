@@ -2,10 +2,13 @@ import SwiftUI
 
 struct OrderListView: View {
     @StateObject private var viewModel = OrderViewModel()
+    @EnvironmentObject var loc: LocalizationManager
     @State private var selectedTab = 0
     let isCompanion: Bool
 
-    private let tabs = ["全部", "待接单", "进行中", "已完成"]
+    private var tabs: [String] {
+        [loc.t("order.tabAll"), loc.t("order.tabPending"), loc.t("order.tabInProgress"), loc.t("order.tabCompleted")]
+    }
     private let statusMap: [Int: String?] = [
         0: nil,
         1: "created",
@@ -49,7 +52,7 @@ struct OrderListView: View {
                 Spacer()
             } else if viewModel.orders.isEmpty {
                 Spacer()
-                Text("暂无订单")
+                Text(loc.t("order.noOrders"))
                     .foregroundStyle(.secondary)
                 Spacer()
             } else {
@@ -66,7 +69,7 @@ struct OrderListView: View {
                 }
             }
         }
-        .navigationTitle(isCompanion ? "我的订单" : "我的订单")
+        .navigationTitle(loc.t("order.myOrders"))
         .task { await loadOrders() }
     }
 
@@ -94,7 +97,7 @@ struct OrderRowView: View {
                     .cornerRadius(4)
             }
 
-            Text(order.hospitalName ?? "未知医院")
+            Text(order.hospitalName ?? loc.t("chat.unknownHospital"))
                 .font(.subheadline.bold())
 
             HStack {

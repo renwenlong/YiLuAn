@@ -7009,6 +7009,22 @@
         }
       }
     },
+    "chat.unknownHospital": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未知医院"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unknown hospital"
+          }
+        }
+      }
+    },
     "city.locating": {
       "localizations": {
         "zh-Hans": {

@@ -498,7 +498,8 @@
     "viewOrderDetail":{ "zh-Hans": "查看订单详情", "en": "View Order Details" },
     "acceptOrder": { "zh-Hans": "接受订单", "en": "Accept Order" },
     "patientPrefix":{ "zh-Hans": "患者·{name}", "en": "Patient·{name}", "_params": ["name"] },
-    "companionEmptyHint":{ "zh-Hans": "接单后可与患者沟通", "en": "Chat with patients after accepting orders" }
+    "companionEmptyHint":{ "zh-Hans": "接单后可与患者沟通", "en": "Chat with patients after accepting orders" },
+    "unknownHospital":{ "zh-Hans": "未知医院", "en": "Unknown hospital" }
   },
 
   "city": {
