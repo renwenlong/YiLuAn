@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct CompanionSelfProfileView: View {
+    @EnvironmentObject var loc: LocalizationManager
     @StateObject private var viewModel = CompanionProfileViewModel()
 
     var body: some View {
@@ -12,7 +13,7 @@ struct CompanionSelfProfileView: View {
                         .font(.system(size: 80))
                         .foregroundStyle(Color.brand)
 
-                    Text(viewModel.selectedCompanion?.realName ?? "加载中...")
+                    Text(viewModel.selectedCompanion?.realName ?? loc.t("common.loading"))
                         .font(.title2.bold())
 
                     if let status = viewModel.selectedCompanion?.verificationStatus {
@@ -30,11 +31,11 @@ struct CompanionSelfProfileView: View {
                 // Stats
                 if let stats = viewModel.stats {
                     HStack(spacing: 0) {
-                        statItem(value: String(format: "%.1f", stats.avgRating), label: "评分")
+                        statItem(value: String(format: "%.1f", stats.avgRating), label: loc.t("companionHome.rating"))
                         Divider().frame(height: 40)
-                        statItem(value: "\(stats.totalOrders)", label: "总订单")
+                        statItem(value: "\(stats.totalOrders)", label: loc.t("companion.totalOrders"))
                         Divider().frame(height: 40)
-                        statItem(value: String(format: "¥%.0f", stats.totalEarnings), label: "总收入")
+                        statItem(value: String(format: "¥%.0f", stats.totalEarnings), label: loc.t("companion.totalIncome"))
                     }
                     .padding()
                     .background(Color(.systemGray6))
@@ -45,11 +46,11 @@ struct CompanionSelfProfileView: View {
                 // Profile Info
                 VStack(alignment: .leading, spacing: Spacing.lg) {
                     if let bio = viewModel.selectedCompanion?.bio, !bio.isEmpty {
-                        infoSection(title: "个人简介", content: bio)
+                        infoSection(title: loc.t("profileEdit.bio"), content: bio)
                     }
 
                     if let area = viewModel.selectedCompanion?.serviceArea, !area.isEmpty {
-                        infoSection(title: "服务区域", content: area)
+                        infoSection(title: loc.t("profileEdit.serviceArea"), content: area)
                     }
                 }
                 .padding(.horizontal)
@@ -58,7 +59,7 @@ struct CompanionSelfProfileView: View {
                 NavigationLink {
                     CompanionProfileEditView()
                 } label: {
-                    Text("编辑资料")
+                    Text(loc.t("profile.menuEdit"))
                         .frame(maxWidth: .infinity)
                         .padding()
                         .background(Color.brand)
@@ -68,7 +69,7 @@ struct CompanionSelfProfileView: View {
                 .padding(.horizontal)
             }
         }
-        .navigationTitle("我的主页")
+        .navigationTitle(loc.t("companion.myProfile"))
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await viewModel.loadOwnProfile()
@@ -122,10 +123,10 @@ struct CompanionSelfProfileView: View {
 
     private func verificationLabel(_ status: String) -> String {
         switch status {
-        case "verified": return "已认证"
-        case "pending": return "审核中"
-        case "rejected": return "未通过"
-        default: return "未认证"
+        case "verified": return loc.t("createOrder.verified")
+        case "pending": return loc.t("companion.underReview")
+        case "rejected": return loc.t("companion.notApproved")
+        default: return loc.t("companionDetail.unverified")
         }
     }
 }
