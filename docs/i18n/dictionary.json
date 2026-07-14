@@ -863,6 +863,19 @@
     "defaultIcon": { "zh-Hans": "空", "en": "∅" }
   },
 
+  "companion": {
+    "underReview": { "zh-Hans": "审核中", "en": "Under review" },
+    "notApproved": { "zh-Hans": "未通过", "en": "Not approved" },
+    "viewVerificationDocuments": { "zh-Hans": "查看认证证件", "en": "View Verification Documents" },
+    "completeOrder": { "zh-Hans": "完成订单", "en": "Complete Order" },
+    "companionDetail": { "zh-Hans": "陪诊师详情", "en": "Companion Details" },
+    "documentNumber": { "zh-Hans": "证件编号：{no}", "en": "Document No.: {no}", "_params": ["no"] },
+    "idImageLoadFailed": { "zh-Hans": "证件图加载失败", "en": "Failed to load ID image" },
+    "noIdImage": { "zh-Hans": "暂无证件图", "en": "No ID image" },
+    "verificationDocuments": { "zh-Hans": "认证证件", "en": "Verification Documents" },
+    "done": { "zh-Hans": "完成", "en": "Done" }
+  },
+
   "error": {
     "PHONE_REQUIRED":                 { "zh-Hans": "请先绑定手机号",           "en": "Please bind your phone number first" },
     "REALNAME_REQUIRED":              { "zh-Hans": "请先完成实名认证",         "en": "Please complete real-name verification first", "_note": "reserved" },
