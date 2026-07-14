@@ -3,6 +3,7 @@ import SwiftUI
 /// [F-07] 我的复诊提醒列表（按 remind_at 升序）。
 struct FollowupRemindersView: View {
     @StateObject private var viewModel = FollowupRemindersViewModel()
+    @EnvironmentObject var loc: LocalizationManager
 
     var body: some View {
         Group {
@@ -13,9 +14,9 @@ struct FollowupRemindersView: View {
                     Image(systemName: "bell.badge")
                         .font(.system(size: 48))
                         .foregroundColor(.secondary)
-                    Text("还没有复诊提醒")
+                    Text(loc.t("followupReminders.empty"))
                         .foregroundColor(.secondary)
-                    Text("在已完成订单详情中可以创建复诊提醒")
+                    Text(loc.t("order.createReminderFromCompleted"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -40,14 +41,14 @@ struct FollowupRemindersView: View {
                                     .foregroundColor(.secondary)
                                     .lineLimit(3)
                             }
-                            Text("订单 #\(r.orderId.prefix(8))")
+                            Text(loc.t("order.orderNo", String(r.orderId.prefix(8))))
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
                         .padding(.vertical, 4)
                         .swipeActions {
                             if r.canCancel {
-                                Button("取消", role: .destructive) {
+                                Button(loc.t("common.cancel"), role: .destructive) {
                                     Task { await viewModel.cancel(r) }
                                 }
                             }
@@ -56,10 +57,10 @@ struct FollowupRemindersView: View {
                 }
             }
         }
-        .navigationTitle("我的复诊提醒")
+        .navigationTitle(loc.t("order.myFollowUpReminders"))
         .navigationBarTitleDisplayMode(.inline)
-        .alert("提示", isPresented: .constant(viewModel.errorMessage != nil)) {
-            Button("好") { viewModel.errorMessage = nil }
+        .alert(loc.t("dialog.tip"), isPresented: .constant(viewModel.errorMessage != nil)) {
+            Button(loc.t("order.ok")) { viewModel.errorMessage = nil }
         } message: {
             Text(viewModel.errorMessage ?? "")
         }
@@ -94,6 +95,7 @@ struct FollowupReminderCreateSheet: View {
 
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = FollowupRemindersViewModel()
+    @EnvironmentObject var loc: LocalizationManager
     @State private var remindAt: Date = Calendar.current.date(byAdding: .day, value: 7, to: Date()) ?? Date()
     @State private var note: String = ""
     @State private var submitting = false
@@ -101,33 +103,33 @@ struct FollowupReminderCreateSheet: View {
     var body: some View {
         NavigationView {
             Form {
-                Section("提醒时间") {
+                Section(loc.t("order.reminderTime")) {
                     DatePicker(
-                        "提醒时间",
+                        loc.t("order.reminderTime"),
                         selection: $remindAt,
                         in: Date()...,
                         displayedComponents: [.date, .hourAndMinute]
                     )
                     .environment(\.locale, Locale(identifier: "zh_CN"))
                 }
-                Section("备注") {
-                    TextField("如：复诊取报告、复查血常规…（最多 140 字）", text: $note, axis: .vertical)
+                Section(loc.t("orderDetail.notesLabel")) {
+                    TextField(loc.t("order.notesExample"), text: $note, axis: .vertical)
                         .lineLimit(2...5)
                 }
                 Section {
-                    Text("到点后会以微信订阅消息推送到你（订阅消息授权请在小程序内完成）。")
+                    Text(loc.t("order.subscribeMessageNotice"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
             }
-            .navigationTitle("创建复诊提醒")
+            .navigationTitle(loc.t("orderDetail.createFollowup"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button(loc.t("common.cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("创建") {
+                    Button(loc.t("order.create")) {
                         guard !submitting else { return }
                         submitting = true
                         Task {
@@ -146,8 +148,8 @@ struct FollowupReminderCreateSheet: View {
                     .disabled(submitting || remindAt <= Date())
                 }
             }
-            .alert("提示", isPresented: .constant(viewModel.errorMessage != nil)) {
-                Button("好") { viewModel.errorMessage = nil }
+            .alert(loc.t("dialog.tip"), isPresented: .constant(viewModel.errorMessage != nil)) {
+                Button(loc.t("order.ok")) { viewModel.errorMessage = nil }
             } message: {
                 Text(viewModel.errorMessage ?? "")
             }

@@ -12,6 +12,7 @@ struct EmergencyCallSheet: View {
     let orderId: String
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var loc: LocalizationManager
     @State private var contacts: [EmergencyContact] = []
     @State private var hotline: String = ""
     @State private var isLoading = true
@@ -27,15 +28,15 @@ struct EmergencyCallSheet: View {
                     listContent
                 }
             }
-            .navigationTitle("紧急呼叫")
+            .navigationTitle(loc.t("orderDetail.emergencyCall"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("关闭") { dismiss() }
+                    Button(loc.t("common.close")) { dismiss() }
                 }
             }
-            .alert("提示", isPresented: .constant(errorMessage != nil)) {
-                Button("好") { errorMessage = nil }
+            .alert(loc.t("dialog.tip"), isPresented: .constant(errorMessage != nil)) {
+                Button(loc.t("order.ok")) { errorMessage = nil }
             } message: {
                 Text(errorMessage ?? "")
             }
@@ -45,15 +46,15 @@ struct EmergencyCallSheet: View {
 
     private var listContent: some View {
         List {
-            Section(header: Text("紧急联系人").font(.caption)) {
+            Section(header: Text(loc.t("order.emergencyContact")).font(.caption)) {
                 if contacts.isEmpty {
-                    Text("还没有添加紧急联系人")
+                    Text(loc.t("order.noEmergencyContactAdded"))
                         .foregroundColor(.secondary)
                         .font(.subheadline)
                     NavigationLink {
                         EmergencyContactsView()
                     } label: {
-                        Label("去添加", systemImage: "plus.circle")
+                        Label(loc.t("orderDetail.goAdd"), systemImage: "plus.circle")
                     }
                 } else {
                     ForEach(contacts) { c in
@@ -68,7 +69,7 @@ struct EmergencyCallSheet: View {
                 }
             }
 
-            Section(header: Text("平台客服").font(.caption)) {
+            Section(header: Text(loc.t("order.platformSupport")).font(.caption)) {
                 Button {
                     Task { await triggerHotline() }
                 } label: {
@@ -76,7 +77,7 @@ struct EmergencyCallSheet: View {
                         Image(systemName: "phone.fill.arrow.up.right")
                             .foregroundColor(.red)
                         VStack(alignment: .leading) {
-                            Text("呼叫平台客服")
+                            Text(loc.t("order.callPlatformSupport"))
                                 .font(.headline)
                             if !hotline.isEmpty {
                                 Text(hotline)
@@ -93,7 +94,7 @@ struct EmergencyCallSheet: View {
             }
 
             Section {
-                Text("点击后将立即拨打对应号码，并向后台记录一条紧急事件用于审计与回溯。")
+                Text(loc.t("order.emergencyCallAuditNotice"))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -146,7 +147,7 @@ struct EmergencyCallSheet: View {
                 placeCall(to: resp.phoneToCall)
             }
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "呼叫失败"
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? loc.t("orderDetail.callFailed")
         }
     }
 

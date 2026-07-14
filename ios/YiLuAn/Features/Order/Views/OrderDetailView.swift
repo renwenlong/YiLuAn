@@ -6,6 +6,7 @@ struct OrderDetailView: View {
     let isCompanion: Bool
 
     @StateObject private var viewModel = OrderViewModel()
+    @EnvironmentObject var loc: LocalizationManager
     /// P1-2: 完成订单查评价状态，用于决定“去评价” / “已评价”的孕讗。
     @StateObject private var reviewViewModel = ReviewViewModel()
     @State private var showCancelAlert = false
@@ -48,7 +49,7 @@ struct OrderDetailView: View {
                 // AI-9: 用 redacted(.placeholder) 做骨架，避免首次 ProgressView 白屏
                 skeletonContent
                     .redacted(reason: .placeholder)
-                    .accessibilityLabel("加载中")
+                    .accessibilityLabel(loc.t("order.loading"))
             } else if let order = viewModel.currentOrder {
                 ScrollView {
                     VStack(spacing: Spacing.lg) {
@@ -64,11 +65,11 @@ struct OrderDetailView: View {
                     .padding(Spacing.lg)
                 }
             } else {
-                Text("订单不存在")
+                Text(loc.t("error.ORDER_NOT_FOUND"))
                     .foregroundStyle(.secondary)
             }
         }
-        .navigationTitle("订单详情")
+        .navigationTitle(loc.t("order.orderDetail"))
         .navigationBarTitleDisplayMode(.inline)
         .task { await viewModel.loadOrder(id: orderId) }
         // P1-2: 订单进入完成/已评价状态后，拉取评价以决定展示“写评价”还是“已评价摘要”
@@ -78,17 +79,17 @@ struct OrderDetailView: View {
                 await reviewViewModel.loadReview(orderId: orderId)
             }
         }
-        .alert("确认取消", isPresented: $showCancelAlert) {
-            Button("取消", role: .cancel) {}
-            Button("确认取消", role: .destructive) {
+        .alert(loc.t("companionOrderDetail.cancelAcceptedTitle"), isPresented: $showCancelAlert) {
+            Button(loc.t("common.cancel"), role: .cancel) {}
+            Button(loc.t("companionOrderDetail.cancelAcceptedTitle"), role: .destructive) {
                 Task { await performAction("cancel") }
             }
         } message: {
-            Text("确定要取消该订单吗？")
+            Text(loc.t("companionOrderDetail.cancelAcceptedContent"))
         }
-        .alert("确认操作", isPresented: $showActionAlert) {
-            Button("取消", role: .cancel) {}
-            Button("确认") {
+        .alert(loc.t("order.confirmAction"), isPresented: $showActionAlert) {
+            Button(loc.t("common.cancel"), role: .cancel) {}
+            Button(loc.t("common.confirm")) {
                 Task { await performAction(pendingAction) }
             }
         } message: {
@@ -140,10 +141,10 @@ struct OrderDetailView: View {
 
                 // 假信息卡
                 VStack(alignment: .leading, spacing: Spacing.md) {
-                    skeletonRow("服务类型", "陪诊服务 — 全程")
-                    skeletonRow("医院", "XX 市第 X 人民医院")
-                    skeletonRow("预约日期", "2025-XX-XX")
-                    skeletonRow("费用", "¥ XXX.00")
+                    skeletonRow(loc.t("createOrder.stepService"), loc.t("order.companionServiceFull"))
+                    skeletonRow(loc.t("order.hospital"), loc.t("order.hospitalPlaceholder"))
+                    skeletonRow(loc.t("order.appointmentDate"), "2025-XX-XX")
+                    skeletonRow(loc.t("orderDetail.feeLabel"), "¥ XXX.00")
                 }
                 .padding(Spacing.lg)
                 .frame(maxWidth: .infinity)
@@ -186,45 +187,45 @@ struct OrderDetailView: View {
     private func orderInfoCard(_ order: Order) -> some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             // S2-REQ-003-P5c: 优先显示 snapshot 名称 (admin 改名后历史订单仍显示下单时名称)
-            infoRow("服务类型", order.serviceNameSnapshot ?? order.serviceType.displayName)
-            infoRow("医院", order.hospitalName ?? "未知")
-            infoRow("预约日期", order.appointmentDate)
+            infoRow(loc.t("createOrder.stepService"), order.serviceNameSnapshot ?? order.serviceType.displayName)
+            infoRow(loc.t("order.hospital"), order.hospitalName ?? loc.t("order.statusUnknown"))
+            infoRow(loc.t("order.appointmentDate"), order.appointmentDate)
             if let time = order.appointmentTime {
-                infoRow("预约时间", time)
+                infoRow(loc.t("orderDetail.appointmentTime"), time)
             }
-            infoRow("费用", CurrencyFormatter.cnyWithUnit(order.price), isPrice: true)
+            infoRow(loc.t("orderDetail.feeLabel"), CurrencyFormatter.cnyWithUnit(order.price), isPrice: true)
             if let desc = order.description, !desc.isEmpty {
-                infoRow("备注", desc)
+                infoRow(loc.t("orderDetail.notesLabel"), desc)
             }
             if let companionName = order.companionName {
-                infoRow("陪诊师", companionName)
+                infoRow(loc.t("role.companion"), companionName)
             }
             if let patientName = order.patientName {
-                infoRow("患者", patientName)
+                infoRow(loc.t("role.patient"), patientName)
             }
             // F-05: 代他人下单 — 重点提示陪诊师“实际就诊人”与账户不同
             if let fm = order.familyMember {
                 let relLabel: String = {
                     switch fm.relation ?? "other" {
-                    case "self": return "本人"
-                    case "parent": return "父母"
-                    case "spouse": return "配偶"
-                    case "child": return "子女"
-                    case "sibling": return "兄弟姐妹"
-                    case "grandparent": return "祖父母"
-                    case "relative": return "亲戚"
-                    case "friend": return "朋友"
-                    default: return "其他"
+                    case "self": return loc.t("createOrder.self")
+                    case "parent": return loc.t("relation.parent")
+                    case "spouse": return loc.t("relation.spouse")
+                    case "child": return loc.t("relation.child")
+                    case "sibling": return loc.t("relation.sibling")
+                    case "grandparent": return loc.t("relation.grandparent")
+                    case "relative": return loc.t("relation.relative")
+                    case "friend": return loc.t("relation.friend")
+                    default: return loc.t("relation.other")
                     }
                 }()
                 let phoneSuffix = (fm.phone?.isEmpty == false) ? " · \(fm.phone!)" : ""
-                infoRow("实际就诊人", "\(fm.name)（\(relLabel)）\(phoneSuffix)")
+                infoRow(loc.t("order.rowActualPatient"), "\(fm.name)（\(relLabel)）\(phoneSuffix)")
             }
             // [F-05] 代他人下单：后端 OrderResponse.family_member 非空时呈现
             if let fm = order.familyMember {
-                infoRow("实际就诊人", "\(fm.name)（\(FamilyRelation.label(for: fm.relation))）")
+                infoRow(loc.t("order.rowActualPatient"), "\(fm.name)（\(FamilyRelation.label(for: fm.relation))）")
                 if let phone = fm.phone, !phone.isEmpty {
-                    infoRow("联系电话", phone)
+                    infoRow(loc.t("orderDetail.phoneLabel"), phone)
                 }
             }
         }
@@ -268,7 +269,7 @@ struct OrderDetailView: View {
                 Button(role: .destructive) {
                     showCancelAlert = true
                 } label: {
-                    actionLabel("取消订单")
+                    actionLabel(loc.t("orderDetail.cancelOrder"))
                 }
                 .buttonStyle(.bordered)
                 .disabled(actionInProgress)
@@ -310,7 +311,7 @@ struct OrderDetailView: View {
                         showPaymentResult = true
                     }
                 } label: {
-                    actionLabel(actionInProgress ? "处理中..." : "立即支付", showProgress: actionInProgress)
+                    actionLabel(actionInProgress ? loc.t("orderDetail.processing") : loc.t("orderDetail.payNow"), showProgress: actionInProgress)
                 }
                 .buttonStyle(.borderedProminent)
                 // disabled =
@@ -332,7 +333,7 @@ struct OrderDetailView: View {
                 } label: {
                     HStack {
                         Image(systemName: "exclamationmark.triangle.fill")
-                        Text("紧急呼叫")
+                        Text(loc.t("orderDetail.emergencyCall"))
                     }
                     .frame(maxWidth: .infinity, minHeight: minTapSide)
                 }
@@ -348,7 +349,7 @@ struct OrderDetailView: View {
                 } label: {
                     HStack {
                         Image(systemName: "bell.badge")
-                        Text("创建复诊提醒")
+                        Text(loc.t("orderDetail.createFollowup"))
                     }
                     .frame(maxWidth: .infinity, minHeight: minTapSide)
                 }
@@ -371,7 +372,7 @@ struct OrderDetailView: View {
             // 已评价：展示评分摘要
             VStack(alignment: .leading, spacing: Spacing.sm) {
                 HStack {
-                    Text("我的评价")
+                    Text(loc.t("order.myReview"))
                         .font(.subheadline.bold())
                     Spacer()
                     HStack(spacing: 2) {
@@ -399,7 +400,7 @@ struct OrderDetailView: View {
             } label: {
                 HStack {
                     Image(systemName: "square.and.pencil")
-                    Text("写评价")
+                    Text(loc.t("orderDetail.writeReview"))
                 }
                 .frame(maxWidth: .infinity, minHeight: minTapSide)
             }
@@ -422,22 +423,22 @@ struct OrderDetailView: View {
                     Image(systemName: contractAccepted ? "checkmark.square.fill" : "square")
                         .font(.title3)
                         .foregroundColor(contractAccepted ? .green : .secondary)
-                        .accessibilityLabel(contractAccepted ? "已勾选合同同意" : "未勾选合同同意")
+                        .accessibilityLabel(contractAccepted ? loc.t("order.contractAgreed") : loc.t("order.contractNotAgreed"))
                 }
                 .buttonStyle(.plain)
 
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) {
-                        Text("我已阅读并同意")
+                        Text(loc.t("login.agreementPre"))
                             .font(.subheadline)
-                        Button("《医路安陪诊服务合同》") {
+                        Button(loc.t("orderDetail.contractLink")) {
                             Task { await viewContract(contractId: contractId) }
                         }
                         .font(.subheadline)
                         .foregroundColor(.green)
                     }
                     if hasInsurance {
-                        Button("《陪诊责任险服务条款》") {
+                        Button(loc.t("orderDetail.insuranceLink")) {
                             showInsuranceTermsAlert = true
                         }
                         .font(.subheadline)
@@ -447,7 +448,7 @@ struct OrderDetailView: View {
                 Spacer()
             }
             if !contractAccepted {
-                Text("勾选上方同意后可继续支付")
+                Text(loc.t("orderDetail.contractHint"))
                     .font(.caption)
                     .foregroundColor(.orange)
                     .padding(.leading, 32)
@@ -456,18 +457,18 @@ struct OrderDetailView: View {
         .padding(Spacing.md)
         .background(Color(.systemGray6))
         .cornerRadius(8)
-        .alert("合同状态", isPresented: .init(
+        .alert(loc.t("order.contractStatus"), isPresented: .init(
             get: { contractStatusAlertMessage != nil },
             set: { if !$0 { contractStatusAlertMessage = nil } }
         )) {
-            Button("知道了", role: .cancel) { }
+            Button(loc.t("common.gotIt"), role: .cancel) { }
         } message: {
             Text(contractStatusAlertMessage ?? "")
         }
-        .alert("陪诊责任险服务条款", isPresented: $showInsuranceTermsAlert) {
-            Button("我已了解", role: .cancel) { }
+        .alert(loc.t("orderDetail.insuranceTitle"), isPresented: $showInsuranceTermsAlert) {
+            Button(loc.t("orderDetail.gotIt"), role: .cancel) { }
         } message: {
-            Text("本服务由医路安平台合作保险公司承保,保障范围包括陪诊期间意外医疗等. S3 灰度阶段保险条款为静态版本,正式版以理赔时实际生效条款为准. 如有问题请联系客服.")
+            Text(loc.t("orderDetail.insuranceContent"))
         }
     }
 
@@ -481,7 +482,7 @@ struct OrderDetailView: View {
             _ = try await contractService.acceptContract(contractId: contractId)
         } catch {
             // 失败 toast 但不回滚 contractAccepted — 服务端 cron 兜底
-            contractStatusAlertMessage = "合同确认网络异常,请检查后重试"
+            contractStatusAlertMessage = loc.t("orderDetail.contractNetErr")
         }
     }
 
@@ -496,7 +497,7 @@ struct OrderDetailView: View {
                 contractStatusAlertMessage = detail.status.userFacingMessage
             }
         } catch {
-            contractStatusAlertMessage = "合同详情加载失败,请稍后重试"
+            contractStatusAlertMessage = loc.t("order.contractLoadFailed")
         }
     }
 
@@ -508,7 +509,7 @@ struct OrderDetailView: View {
                     pendingAction = "accept"
                     showActionAlert = true
                 } label: {
-                    actionLabel(actionInProgress && pendingAction == "accept" ? "处理中..." : "接受订单",
+                    actionLabel(actionInProgress && pendingAction == "accept" ? loc.t("orderDetail.processing") : loc.t("chat.acceptOrder"),
                                 showProgress: actionInProgress && pendingAction == "accept")
                 }
                 .buttonStyle(.borderedProminent)
@@ -518,7 +519,7 @@ struct OrderDetailView: View {
                     pendingAction = "reject"
                     showActionAlert = true
                 } label: {
-                    actionLabel("拒绝订单")
+                    actionLabel(loc.t("order.rejectOrder"))
                 }
                 .buttonStyle(.bordered)
                 .disabled(actionInProgress)
@@ -529,7 +530,7 @@ struct OrderDetailView: View {
                     pendingAction = "start"
                     showActionAlert = true
                 } label: {
-                    actionLabel(actionInProgress && pendingAction == "start" ? "处理中..." : "直接开始服务",
+                    actionLabel(actionInProgress && pendingAction == "start" ? loc.t("orderDetail.processing") : loc.t("order.startServiceDirectly"),
                                 showProgress: actionInProgress && pendingAction == "start")
                 }
                 .buttonStyle(.borderedProminent)
@@ -539,7 +540,7 @@ struct OrderDetailView: View {
                     pendingAction = "request-start"
                     showActionAlert = true
                 } label: {
-                    actionLabel("请求患者确认开始")
+                    actionLabel(loc.t("order.requestPatientConfirmStart"))
                 }
                 .buttonStyle(.bordered)
                 .disabled(actionInProgress)
@@ -550,7 +551,7 @@ struct OrderDetailView: View {
                     pendingAction = "complete"
                     showActionAlert = true
                 } label: {
-                    actionLabel(actionInProgress && pendingAction == "complete" ? "处理中..." : "完成服务",
+                    actionLabel(actionInProgress && pendingAction == "complete" ? loc.t("orderDetail.processing") : loc.t("companionOrderDetail.complete"),
                                 showProgress: actionInProgress && pendingAction == "complete")
                 }
                 .buttonStyle(.borderedProminent)
@@ -584,12 +585,12 @@ struct OrderDetailView: View {
 
     private var actionMessage: String {
         switch pendingAction {
-        case "accept": return "确定要接受该订单吗？"
-        case "reject": return "确定要拒绝该订单吗？拒绝后系统将自动退款给患者。"
-        case "start": return "确认开始为患者提供陪诊服务？"
-        case "request-start": return "向患者发送开始服务的确认请求？"
-        case "complete": return "确认已完成本次陪诊服务？"
-        default: return "确认操作？"
+        case "accept": return loc.t("companionOrderDetail.acceptConfirmDefault")
+        case "reject": return loc.t("order.confirmRejectRefund")
+        case "start": return loc.t("order.confirmStartService")
+        case "request-start": return loc.t("order.sendStartConfirmToPatient")
+        case "complete": return loc.t("companionOrderDetail.completeContent")
+        default: return loc.t("order.confirmActionQuestion")
         }
     }
 }

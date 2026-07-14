@@ -22,7 +22,9 @@
     "notSet":   { "zh-Hans": "未设置", "en": "Not Set" },
     "notBound": { "zh-Hans": "未绑定", "en": "Not Bound" },
     "retry":    { "zh-Hans": "重试",   "en": "Retry" },
-    "noMore":   { "zh-Hans": "没有更多了", "en": "No more" }
+    "noMore":   { "zh-Hans": "没有更多了", "en": "No more" },
+    "gotIt":    { "zh-Hans": "知道了", "en": "Got it" },
+    "close":    { "zh-Hans": "关闭", "en": "Close" }
   },
 
   "settings": {
@@ -88,7 +90,44 @@
     "payHint":       { "zh-Hans": "待支付", "en": "To Pay" },
     "reviewHint":    { "zh-Hans": "待评价", "en": "To Review" },
     "reviewedHint":  { "zh-Hans": "已评价", "en": "Reviewed" },
-    "statusUnknown": { "zh-Hans": "未知", "en": "Unknown" }
+    "statusUnknown": { "zh-Hans": "未知", "en": "Unknown" },
+    "distance":      { "zh-Hans": "距离", "en": "Distance" },
+    "price":         { "zh-Hans": "价格", "en": "Price" },
+    "sort":          { "zh-Hans": "排序", "en": "Sort" },
+    "noAcceptableOrders": { "zh-Hans": "暂无可接订单", "en": "No available orders" },
+    "acceptableOrders":   { "zh-Hans": "可接订单", "en": "Available Orders" },
+    "createOrder":   { "zh-Hans": "创建订单", "en": "Create Order" },
+    "serviceListDowngraded": { "zh-Hans": "服务列表已降级，使用默认 3 档", "en": "Service list downgraded; using the default 3 tiers" },
+    "loading": { "zh-Hans": "加载中", "en": "Loading" },
+    "orderDetail": { "zh-Hans": "订单详情", "en": "Order Details" },
+    "confirmAction": { "zh-Hans": "确认操作", "en": "Confirm Action" },
+    "companionServiceFull": { "zh-Hans": "陪诊服务 — 全程", "en": "Companion Service — Full" },
+    "hospitalPlaceholder": { "zh-Hans": "XX 市第 X 人民医院", "en": "XX City No. X People's Hospital" },
+    "appointmentDate": { "zh-Hans": "预约日期", "en": "Appointment Date" },
+    "myReview": { "zh-Hans": "我的评价", "en": "My Review" },
+    "contractAgreed": { "zh-Hans": "已勾选合同同意", "en": "Contract agreement checked" },
+    "contractNotAgreed": { "zh-Hans": "未勾选合同同意", "en": "Contract agreement not checked" },
+    "contractStatus": { "zh-Hans": "合同状态", "en": "Contract Status" },
+    "contractLoadFailed": { "zh-Hans": "合同详情加载失败,请稍后重试", "en": "Failed to load contract details. Please try again later." },
+    "rejectOrder": { "zh-Hans": "拒绝订单", "en": "Reject Order" },
+    "startServiceDirectly": { "zh-Hans": "直接开始服务", "en": "Start Service Directly" },
+    "requestPatientConfirmStart": { "zh-Hans": "请求患者确认开始", "en": "Request Patient to Confirm Start" },
+    "confirmRejectRefund": { "zh-Hans": "确定要拒绝该订单吗？拒绝后系统将自动退款给患者。", "en": "Are you sure you want to reject this order? The system will automatically refund the patient." },
+    "confirmStartService": { "zh-Hans": "确认开始为患者提供陪诊服务？", "en": "Confirm starting companion service for the patient?" },
+    "sendStartConfirmToPatient": { "zh-Hans": "向患者发送开始服务的确认请求？", "en": "Send a start-service confirmation request to the patient?" },
+    "confirmActionQuestion": { "zh-Hans": "确认操作？", "en": "Confirm this action?" },
+    "ok": { "zh-Hans": "好", "en": "OK" },
+    "noEmergencyContactAdded": { "zh-Hans": "还没有添加紧急联系人", "en": "No emergency contacts added yet" },
+    "platformSupport": { "zh-Hans": "平台客服", "en": "Platform Support" },
+    "callPlatformSupport": { "zh-Hans": "呼叫平台客服", "en": "Call Platform Support" },
+    "emergencyCallAuditNotice": { "zh-Hans": "点击后将立即拨打对应号码，并向后台记录一条紧急事件用于审计与回溯。", "en": "Tapping will immediately dial the number and log an emergency event for audit and traceability." },
+    "createReminderFromCompleted": { "zh-Hans": "在已完成订单详情中可以创建复诊提醒", "en": "You can create follow-up reminders from completed order details" },
+    "myFollowUpReminders": { "zh-Hans": "我的复诊提醒", "en": "My Follow-up Reminders" },
+    "reminderTime": { "zh-Hans": "提醒时间", "en": "Reminder Time" },
+    "notesExample": { "zh-Hans": "如：复诊取报告、复查血常规…（最多 140 字）", "en": "e.g. follow-up report pickup, blood recheck… (up to 140 characters)" },
+    "subscribeMessageNotice": { "zh-Hans": "到点后会以微信订阅消息推送到你（订阅消息授权请在小程序内完成）。", "en": "You'll be notified via WeChat subscription message at the scheduled time (authorize subscription messages in the Mini Program)." },
+    "create": { "zh-Hans": "创建", "en": "Create" },
+    "orderNo": { "zh-Hans": "订单 #{no}", "en": "Order #{no}", "_params": ["no"] }
   },
 
   "orderStatus": {
@@ -498,7 +537,8 @@
     "viewOrderDetail":{ "zh-Hans": "查看订单详情", "en": "View Order Details" },
     "acceptOrder": { "zh-Hans": "接受订单", "en": "Accept Order" },
     "patientPrefix":{ "zh-Hans": "患者·{name}", "en": "Patient·{name}", "_params": ["name"] },
-    "companionEmptyHint":{ "zh-Hans": "接单后可与患者沟通", "en": "Chat with patients after accepting orders" }
+    "companionEmptyHint":{ "zh-Hans": "接单后可与患者沟通", "en": "Chat with patients after accepting orders" },
+    "unknownHospital":{ "zh-Hans": "未知医院", "en": "Unknown hospital" }
   },
 
   "city": {

@@ -16,9 +16,9 @@ enum AvailableOrdersSort: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .time: return "时间"
-        case .distance: return "距离"
-        case .price: return "价格"
+        case .time: return LocalizationManager.shared.t("order.rowTime")
+        case .distance: return LocalizationManager.shared.t("order.distance")
+        case .price: return LocalizationManager.shared.t("order.price")
         }
     }
 }
@@ -31,6 +31,7 @@ enum AvailableOrdersSort: String, CaseIterable, Identifiable {
 /// - 接单成功 → toast + 列表移除该订单；失败 → 走 `viewModel.errorMessage` 错误提示
 struct AvailableOrdersView: View {
     @StateObject private var viewModel = OrderViewModel()
+    @EnvironmentObject var loc: LocalizationManager
 
     /// 正在 accept 的 order id，UI 上禁用按钮、显示 ProgressView
     @State private var acceptingOrderId: String?
@@ -45,7 +46,7 @@ struct AvailableOrdersView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 // P1-3: 顶部排序筛选条
-                Picker("排序", selection: $sort) {
+                Picker(loc.t("order.sort"), selection: $sort) {
                     ForEach(AvailableOrdersSort.allCases) { option in
                         Text(option.label).tag(option)
                     }
@@ -62,7 +63,7 @@ struct AvailableOrdersView: View {
                         ProgressView()
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else if viewModel.orders.isEmpty {
-                        ContentUnavailableView("暂无可接订单", systemImage: "tray")
+                        ContentUnavailableView(loc.t("order.noAcceptableOrders"), systemImage: "tray")
                     } else {
                         List(viewModel.orders) { order in
                             AvailableOrderRow(
@@ -79,30 +80,30 @@ struct AvailableOrdersView: View {
                     }
                 }
             }
-            .navigationTitle("可接订单")
+            .navigationTitle(loc.t("order.acceptableOrders"))
             .task {
                 await reload(sort: sort)
             }
             .alert(
-                "确认接单",
+                loc.t("chat.confirmAcceptTitle"),
                 isPresented: Binding(
                     get: { pendingAcceptOrderId != nil },
                     set: { if !$0 { pendingAcceptOrderId = nil } }
                 ),
                 presenting: pendingAcceptOrderId
             ) { orderId in
-                Button("取消", role: .cancel) {
+                Button(loc.t("common.cancel"), role: .cancel) {
                     pendingAcceptOrderId = nil
                 }
-                Button("确认接单") {
+                Button(loc.t("chat.confirmAcceptTitle")) {
                     Task { await acceptOrder(id: orderId) }
                 }
             } message: { _ in
-                Text("确定要接受该订单吗？")
+                Text(loc.t("companionOrderDetail.acceptConfirmDefault"))
             }
             .overlay(alignment: .top) {
                 if showSuccessToast {
-                    Text("接单成功")
+                    Text(loc.t("companionOrderDetail.acceptSuccess"))
                         .font(.subheadline.bold())
                         .foregroundStyle(.white)
                         .padding(.horizontal, 16)
@@ -117,14 +118,14 @@ struct AvailableOrdersView: View {
             .phoneRequiredAlert($viewModel.phoneRequiredMessage)
             .verificationRequiredAlert($viewModel.verificationRequiredMessage)
             .alert(
-                "操作失败",
+                loc.t("orderDetail.opFailed"),
                 isPresented: Binding(
                     get: { viewModel.errorMessage != nil },
                     set: { if !$0 { viewModel.errorMessage = nil } }
                 ),
                 presenting: viewModel.errorMessage
             ) { _ in
-                Button("知道了", role: .cancel) { viewModel.errorMessage = nil }
+                Button(loc.t("common.gotIt"), role: .cancel) { viewModel.errorMessage = nil }
             } message: { msg in
                 Text(msg)
             }
@@ -168,6 +169,7 @@ private struct AvailableOrderRow: View {
     let isAccepting: Bool
     let anyAccepting: Bool
     let onAccept: () -> Void
+    @EnvironmentObject var loc: LocalizationManager
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -183,7 +185,7 @@ private struct AvailableOrderRow: View {
                         .controlSize(.small)
                         .frame(minWidth: 64, minHeight: 36)
                 } else {
-                    Text("接单")
+                    Text(loc.t("availableOrders.accept"))
                         .font(.subheadline.bold())
                         .frame(minWidth: 64, minHeight: 36)
                 }

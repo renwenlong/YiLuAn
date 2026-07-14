@@ -15,7 +15,7 @@ final class FollowupRemindersViewModel: ObservableObject {
         do {
             reminders = try await FollowupReminderService.list()
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "加载失败"
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? LocalizationManager.shared.t("order.loadFailed")
         }
     }
 
@@ -24,7 +24,7 @@ final class FollowupRemindersViewModel: ObservableObject {
             try await FollowupReminderService.cancel(id: r.id)
             await load()
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "取消失败"
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? LocalizationManager.shared.t("followupReminders.cancelFailed")
         }
     }
 
@@ -34,7 +34,7 @@ final class FollowupRemindersViewModel: ObservableObject {
             await load()
             return true
         } catch {
-            errorMessage = (error as? LocalizedError)?.errorDescription ?? "创建失败"
+            errorMessage = (error as? LocalizedError)?.errorDescription ?? LocalizationManager.shared.t("createOrder.createFailed")
             return false
         }
     }

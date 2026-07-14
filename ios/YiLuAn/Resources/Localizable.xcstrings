@@ -193,6 +193,38 @@
         }
       }
     },
+    "common.gotIt": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "知道了"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Got it"
+          }
+        }
+      }
+    },
+    "common.close": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "关闭"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Close"
+          }
+        }
+      }
+    },
     "settings.title": {
       "localizations": {
         "zh-Hans": {
@@ -1101,6 +1133,598 @@
           "stringUnit": {
             "state": "translated",
             "value": "Unknown"
+          }
+        }
+      }
+    },
+    "order.distance": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "距离"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Distance"
+          }
+        }
+      }
+    },
+    "order.price": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "价格"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Price"
+          }
+        }
+      }
+    },
+    "order.sort": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "排序"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sort"
+          }
+        }
+      }
+    },
+    "order.noAcceptableOrders": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "暂无可接订单"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No available orders"
+          }
+        }
+      }
+    },
+    "order.acceptableOrders": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "可接订单"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Available Orders"
+          }
+        }
+      }
+    },
+    "order.createOrder": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "创建订单"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create Order"
+          }
+        }
+      }
+    },
+    "order.serviceListDowngraded": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "服务列表已降级，使用默认 3 档"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Service list downgraded; using the default 3 tiers"
+          }
+        }
+      }
+    },
+    "order.loading": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "加载中"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading"
+          }
+        }
+      }
+    },
+    "order.orderDetail": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "订单详情"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Order Details"
+          }
+        }
+      }
+    },
+    "order.confirmAction": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确认操作"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm Action"
+          }
+        }
+      }
+    },
+    "order.companionServiceFull": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "陪诊服务 — 全程"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Companion Service — Full"
+          }
+        }
+      }
+    },
+    "order.hospitalPlaceholder": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "XX 市第 X 人民医院"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "XX City No. X People's Hospital"
+          }
+        }
+      }
+    },
+    "order.appointmentDate": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "预约日期"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Appointment Date"
+          }
+        }
+      }
+    },
+    "order.myReview": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我的评价"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "My Review"
+          }
+        }
+      }
+    },
+    "order.contractAgreed": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "已勾选合同同意"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contract agreement checked"
+          }
+        }
+      }
+    },
+    "order.contractNotAgreed": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未勾选合同同意"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contract agreement not checked"
+          }
+        }
+      }
+    },
+    "order.contractStatus": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "合同状态"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contract Status"
+          }
+        }
+      }
+    },
+    "order.contractLoadFailed": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "合同详情加载失败,请稍后重试"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to load contract details. Please try again later."
+          }
+        }
+      }
+    },
+    "order.rejectOrder": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "拒绝订单"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reject Order"
+          }
+        }
+      }
+    },
+    "order.startServiceDirectly": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "直接开始服务"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Start Service Directly"
+          }
+        }
+      }
+    },
+    "order.requestPatientConfirmStart": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请求患者确认开始"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Request Patient to Confirm Start"
+          }
+        }
+      }
+    },
+    "order.confirmRejectRefund": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确定要拒绝该订单吗？拒绝后系统将自动退款给患者。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Are you sure you want to reject this order? The system will automatically refund the patient."
+          }
+        }
+      }
+    },
+    "order.confirmStartService": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确认开始为患者提供陪诊服务？"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm starting companion service for the patient?"
+          }
+        }
+      }
+    },
+    "order.sendStartConfirmToPatient": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "向患者发送开始服务的确认请求？"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Send a start-service confirmation request to the patient?"
+          }
+        }
+      }
+    },
+    "order.confirmActionQuestion": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "确认操作？"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Confirm this action?"
+          }
+        }
+      }
+    },
+    "order.ok": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "好"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "OK"
+          }
+        }
+      }
+    },
+    "order.noEmergencyContactAdded": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "还没有添加紧急联系人"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "No emergency contacts added yet"
+          }
+        }
+      }
+    },
+    "order.platformSupport": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "平台客服"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Platform Support"
+          }
+        }
+      }
+    },
+    "order.callPlatformSupport": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "呼叫平台客服"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Call Platform Support"
+          }
+        }
+      }
+    },
+    "order.emergencyCallAuditNotice": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "点击后将立即拨打对应号码，并向后台记录一条紧急事件用于审计与回溯。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tapping will immediately dial the number and log an emergency event for audit and traceability."
+          }
+        }
+      }
+    },
+    "order.createReminderFromCompleted": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "在已完成订单详情中可以创建复诊提醒"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You can create follow-up reminders from completed order details"
+          }
+        }
+      }
+    },
+    "order.myFollowUpReminders": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "我的复诊提醒"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "My Follow-up Reminders"
+          }
+        }
+      }
+    },
+    "order.reminderTime": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "提醒时间"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reminder Time"
+          }
+        }
+      }
+    },
+    "order.notesExample": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "如：复诊取报告、复查血常规…（最多 140 字）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "e.g. follow-up report pickup, blood recheck… (up to 140 characters)"
+          }
+        }
+      }
+    },
+    "order.subscribeMessageNotice": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "到点后会以微信订阅消息推送到你（订阅消息授权请在小程序内完成）。"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "You'll be notified via WeChat subscription message at the scheduled time (authorize subscription messages in the Mini Program)."
+          }
+        }
+      }
+    },
+    "order.create": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "创建"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create"
+          }
+        }
+      }
+    },
+    "order.orderNo": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "订单 #%@"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Order #%@"
           }
         }
       }
@@ -7005,6 +7629,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "Chat with patients after accepting orders"
+          }
+        }
+      }
+    },
+    "chat.unknownHospital": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未知医院"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unknown hospital"
           }
         }
       }
