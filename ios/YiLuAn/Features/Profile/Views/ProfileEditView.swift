@@ -4,6 +4,7 @@ import PhotosUI
 struct ProfileEditView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @StateObject private var viewModel = ProfileViewModel()
+    @EnvironmentObject var loc: LocalizationManager
     @State private var selectedItem: PhotosPickerItem?
     @State private var displayName: String = ""
     @Environment(\.dismiss) private var dismiss
@@ -21,7 +22,7 @@ struct ProfileEditView: View {
                             matching: .images,
                             photoLibrary: .shared()
                         ) {
-                            Text("更换头像")
+                            Text(loc.t("profile.updateAvatar"))
                                 .font(.footnote)
                         }
                     }
@@ -31,27 +32,27 @@ struct ProfileEditView: View {
             }
 
             // Display name
-            Section("基本信息") {
+            Section(loc.t("companion.basicInfo")) {
                 HStack {
-                    Text("昵称")
+                    Text(loc.t("profileSetup.nickname"))
                     Spacer()
-                    TextField("请输入昵称", text: $displayName)
+                    TextField(loc.t("profileSetup.inputNicknameToast"), text: $displayName)
                         .multilineTextAlignment(.trailing)
                 }
             }
 
             // Role-specific profile links
-            Section("详细资料") {
+            Section(loc.t("profile.details")) {
                 if authViewModel.currentUser?.role == .patient {
-                    NavigationLink("患者信息") {
+                    NavigationLink(loc.t("companionOrderDetail.patientInfo")) {
                         PatientProfileEditView()
                     }
                     // F-05: 代他人下单
-                    NavigationLink("我的家人") {
+                    NavigationLink(loc.t("profile.menuFamily")) {
                         FamilyMembersView()
                     }
                 } else if authViewModel.currentUser?.role == .companion {
-                    NavigationLink("陪诊师信息") {
+                    NavigationLink(loc.t("orderDetail.companionInfo")) {
                         CompanionProfileEditView()
                     }
                 }
@@ -67,7 +68,7 @@ struct ProfileEditView: View {
                         if viewModel.isLoading {
                             ProgressView()
                         } else {
-                            Text("保存")
+                            Text(loc.t("common.save"))
                         }
                         Spacer()
                     }
@@ -75,7 +76,7 @@ struct ProfileEditView: View {
                 .disabled(viewModel.isLoading)
             }
         }
-        .navigationTitle("编辑资料")
+        .navigationTitle(loc.t("profile.menuEdit"))
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             displayName = authViewModel.currentUser?.displayName ?? ""
@@ -84,11 +85,11 @@ struct ProfileEditView: View {
             guard let newItem else { return }
             Task { await handleImageSelection(newItem) }
         }
-        .alert("提示", isPresented: .init(
+        .alert(loc.t("dialog.tip"), isPresented: .init(
             get: { viewModel.errorMessage != nil },
             set: { if !$0 { viewModel.errorMessage = nil } }
         )) {
-            Button("确定", role: .cancel) {}
+            Button(loc.t("companion.ok"), role: .cancel) {}
         } message: {
             Text(viewModel.errorMessage ?? "")
         }

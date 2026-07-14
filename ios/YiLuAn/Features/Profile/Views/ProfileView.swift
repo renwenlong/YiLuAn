@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ProfileView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var loc: LocalizationManager
 
     private var isCompanion: Bool {
         authViewModel.currentUser?.role == .companion
@@ -24,7 +25,7 @@ struct ProfileView: View {
                                     .fill(AppGradient.primary)
                                     .frame(width: 64, height: 64)
 
-                                Text(String(authViewModel.currentUser?.displayName?.prefix(1) ?? "用"))
+                                Text(String(authViewModel.currentUser?.displayName?.prefix(1) ?? Character(loc.t("profile.avatarFallback"))))
                                     .font(.dsH1)
                                     .foregroundStyle(.white)
                             }
@@ -35,7 +36,7 @@ struct ProfileView: View {
                             .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
 
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(authViewModel.currentUser?.displayName ?? "未设置昵称")
+                                Text(authViewModel.currentUser?.displayName ?? loc.t("profile.nicknameNotSet"))
                                     .font(.dsTitle)
                                     .foregroundStyle(.white)
 
@@ -49,7 +50,7 @@ struct ProfileView: View {
                             Spacer()
 
                             if isCompanion {
-                                Text("陪诊师")
+                                Text(loc.t("role.companion"))
                                     .font(.dsSmall)
                                     .fontWeight(.medium)
                                     .foregroundStyle(.white)
@@ -66,39 +67,39 @@ struct ProfileView: View {
                     VStack(spacing: Spacing.md) {
                         // Account section
                         VStack(spacing: 0) {
-                            MenuRow(icon: "person.crop.circle", title: "个人资料") {
+                            MenuRow(icon: "person.crop.circle", title: loc.t("profile.profile")) {
                                 ProfileEditView()
                             }
 
                             if isCompanion {
                                 Divider().padding(.leading, 52)
-                                MenuRow(icon: "stethoscope", title: "陪诊师主页") {
+                                MenuRow(icon: "stethoscope", title: loc.t("profile.companionHomepage")) {
                                     CompanionSelfProfileView()
                                 }
                             }
 
                             Divider().padding(.leading, 52)
-                            MenuRow(icon: "phone.badge.checkmark", title: "绑定手机号") {
+                            MenuRow(icon: "phone.badge.checkmark", title: loc.t("bindPhone.bindPhone")) {
                                 BindPhoneView()
                             }
 
                             Divider().padding(.leading, 52)
-                            MenuRow(icon: "wallet.pass", title: "我的钱包") {
+                            MenuRow(icon: "wallet.pass", title: loc.t("profile.menuWallet")) {
                                 WalletView()
                             }
 
                             Divider().padding(.leading, 52)
-                            MenuRow(icon: "person.2", title: "我的家人") {
+                            MenuRow(icon: "person.2", title: loc.t("profile.menuFamily")) {
                                 FamilyMembersView()
                             }
 
                             Divider().padding(.leading, 52)
-                            MenuRow(icon: "phone.circle.fill", title: "紧急联系人") {
+                            MenuRow(icon: "phone.circle.fill", title: loc.t("order.emergencyContact")) {
                                 EmergencyContactsView()
                             }
 
                             Divider().padding(.leading, 52)
-                            MenuRow(icon: "bell.badge", title: "复诊提醒") {
+                            MenuRow(icon: "bell.badge", title: loc.t("profile.menuFollowup")) {
                                 FollowupRemindersView()
                             }
                         }
@@ -109,17 +110,17 @@ struct ProfileView: View {
 
                         // Features section
                         VStack(spacing: 0) {
-                            MenuRow(icon: "bell.badge", title: "消息通知") {
+                            MenuRow(icon: "bell.badge", title: loc.t("profile.messageNotifications")) {
                                 NotificationListView()
                             }
 
                             Divider().padding(.leading, 52)
-                            MenuRow(icon: "gearshape", title: "设置") {
+                            MenuRow(icon: "gearshape", title: loc.t("settings.title")) {
                                 SettingsView()
                             }
 
                             Divider().padding(.leading, 52)
-                            MenuRow(icon: "info.circle", title: "关于我们") {
+                            MenuRow(icon: "info.circle", title: loc.t("profile.aboutUs")) {
                                 AboutView()
                             }
                         }
@@ -132,7 +133,7 @@ struct ProfileView: View {
                         Button {
                             authViewModel.signOut()
                         } label: {
-                            Text("退出登录")
+                            Text(loc.t("settings.logout"))
                                 .font(.dsBody)
                                 .foregroundStyle(Color.danger)
                                 .frame(maxWidth: .infinity)

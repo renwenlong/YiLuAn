@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct AboutView: View {
+    @EnvironmentObject var loc: LocalizationManager
     var body: some View {
         ScrollView {
             VStack(spacing: Spacing.xl) {
@@ -12,7 +13,7 @@ struct AboutView: View {
                     .foregroundStyle(Color.brand)
 
                 VStack(spacing: Spacing.sm) {
-                    Text("医路安")
+                    Text(loc.t("login.appName"))
                         .font(.title.bold())
                     Text("YiLuAn")
                         .font(.dsSubheadline)
@@ -20,38 +21,38 @@ struct AboutView: View {
                 }
 
                 // Version
-                Text("版本 \(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0")")
+                Text(loc.t("profile.versionPrefix") + " " + (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"))
                     .font(.dsCaption)
                     .foregroundStyle(Color.textHint)
 
                 // Description
                 VStack(alignment: .leading, spacing: Spacing.lg) {
                     descriptionSection(
-                        title: "关于我们",
-                        content: "医路安是专业的医疗陪诊服务平台，致力于为患者提供温暖、专业的就医陪伴服务。我们连接需要医院陪诊的患者与专业陪诊师，让就医不再孤单。"
+                        title: loc.t("profile.aboutUs"),
+                        content: loc.t("profile.aboutIntro")
                     )
 
                     descriptionSection(
-                        title: "我们的服务",
-                        content: "• 全程陪诊（¥299）— 全程陪同就医\n• 半程陪诊（¥199）— 部分环节陪同\n• 代办跑腿（¥149）— 代取报告等"
+                        title: loc.t("profile.ourServices"),
+                        content: loc.t("profile.serviceTiersDescription")
                     )
 
                     descriptionSection(
-                        title: "联系我们",
-                        content: "客服电话：400-888-0000\n客服邮箱：support@yiluan.app\n工作时间：周一至周五 9:00-18:00"
+                        title: loc.t("profile.contactUs"),
+                        content: loc.t("profile.supportContactInfo")
                     )
                 }
                 .padding(.horizontal)
 
                 Spacer()
 
-                Text("© 2026 医路安科技有限公司")
+                Text(loc.t("profile.copyright"))
                     .font(.dsCaption)
                     .foregroundStyle(Color.textHint)
                     .padding(.bottom)
             }
         }
-        .navigationTitle("关于我们")
+        .navigationTitle(loc.t("profile.aboutUs"))
         .navigationBarTitleDisplayMode(.inline)
     }
 

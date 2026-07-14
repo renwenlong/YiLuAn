@@ -14,10 +14,11 @@ struct WalletTransaction: Decodable, Identifiable {
     let createdAt: Date
 
     var typeLabel: String {
+        let loc = LocalizationManager.shared
         switch type {
-        case "payment": return "支付"
-        case "income": return "收入"
-        case "refund": return "退款"
+        case "payment": return loc.t("wallet.pay")
+        case "income": return loc.t("wallet.income")
+        case "refund": return loc.t("wallet.refund")
         default: return type
         }
     }
@@ -100,13 +101,14 @@ class WalletViewModel: ObservableObject {
 
 struct WalletView: View {
     @StateObject private var viewModel = WalletViewModel()
+    @EnvironmentObject var loc: LocalizationManager
 
     var body: some View {
         ScrollView {
             VStack(spacing: Spacing.lg) {
                 // Balance Card
                 VStack(spacing: Spacing.lg) {
-                    Text("账户余额（元）")
+                    Text(loc.t("wallet.accountBalanceYuan"))
                         .font(.dsSubheadline)
                         .foregroundStyle(.white.opacity(0.8))
                     Text(CurrencyFormatter.cny(viewModel.summary?.balance ?? 0))
@@ -115,7 +117,7 @@ struct WalletView: View {
 
                     HStack(spacing: Spacing.xxl) {
                         VStack(spacing: Spacing.xs) {
-                            Text("总收入")
+                            Text(loc.t("companion.totalIncome"))
                                 .font(.dsCaption)
                                 .foregroundStyle(.white.opacity(0.7))
                             Text(CurrencyFormatter.cnyWithUnit(viewModel.summary?.totalIncome ?? 0))
@@ -123,7 +125,7 @@ struct WalletView: View {
                                 .foregroundStyle(.white)
                         }
                         VStack(spacing: Spacing.xs) {
-                            Text("已提现")
+                            Text(loc.t("wallet.withdrawn"))
                                 .font(.dsCaption)
                                 .foregroundStyle(.white.opacity(0.7))
                             Text(CurrencyFormatter.cnyWithUnit(viewModel.summary?.withdrawn ?? 0))
@@ -146,12 +148,12 @@ struct WalletView: View {
 
                 // Transactions
                 VStack(alignment: .leading, spacing: Spacing.md) {
-                    Text("交易记录")
+                    Text(loc.t("wallet.transactionHistory"))
                         .font(.dsHeadline)
                         .padding(.horizontal)
 
                     if viewModel.transactions.isEmpty && !viewModel.isLoading {
-                        Text("暂无交易记录")
+                        Text(loc.t("wallet.noTransactions"))
                             .font(.dsBody)
                             .foregroundStyle(Color.textHint)
                             .frame(maxWidth: .infinity, minHeight: 100)
@@ -167,7 +169,7 @@ struct WalletView: View {
             }
             .padding(.top)
         }
-        .navigationTitle("钱包")
+        .navigationTitle(loc.t("order.wallet"))
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await viewModel.loadSummary()

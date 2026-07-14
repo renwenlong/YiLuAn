@@ -2,6 +2,7 @@ import SwiftUI
 
 struct BindPhoneView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var loc: LocalizationManager
     @Environment(\.dismiss) private var dismiss
     @State private var phone = ""
     @State private var otpCode = ""
@@ -15,24 +16,24 @@ struct BindPhoneView: View {
 
     var body: some View {
         Form {
-            Section("手机号") {
+            Section(loc.t("login.phone")) {
                 HStack {
                     Text("+86")
                         .foregroundStyle(.secondary)
-                    TextField("请输入手机号", text: $phone)
+                    TextField(loc.t("login.inputPhone"), text: $phone)
                         .keyboardType(.phonePad)
                 }
             }
 
-            Section("验证码") {
+            Section(loc.t("login.codeLabel")) {
                 HStack {
-                    TextField("请输入6位验证码", text: $otpCode)
+                    TextField(loc.t("login.inputCode"), text: $otpCode)
                         .keyboardType(.numberPad)
 
                     Button {
                         Task { await sendOTP() }
                     } label: {
-                        Text(otpCountdown > 0 ? "\(otpCountdown)s" : "获取验证码")
+                        Text(otpCountdown > 0 ? "\(otpCountdown)s" : loc.t("login.getCode"))
                             .font(.dsSubheadline)
                     }
                     .disabled(phone.count != 11 || otpCountdown > 0 || isSendingOTP)
@@ -56,7 +57,7 @@ struct BindPhoneView: View {
                         if isBinding {
                             ProgressView()
                         } else {
-                            Text("绑定手机号")
+                            Text(loc.t("bindPhone.bindPhone"))
                         }
                         Spacer()
                     }
@@ -64,12 +65,12 @@ struct BindPhoneView: View {
                 .disabled(phone.count != 11 || otpCode.count != 6 || isBinding)
             }
         }
-        .navigationTitle("绑定手机号")
+        .navigationTitle(loc.t("bindPhone.bindPhone"))
         .navigationBarTitleDisplayMode(.inline)
-        .alert("绑定成功", isPresented: $showSuccess) {
-            Button("确定") { dismiss() }
+        .alert(loc.t("bindPhone.bindSuccess"), isPresented: $showSuccess) {
+            Button(loc.t("companion.ok")) { dismiss() }
         } message: {
-            Text("手机号已成功绑定")
+            Text(loc.t("bindPhone.phoneBoundSuccess"))
         }
     }
 
