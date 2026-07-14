@@ -80,6 +80,7 @@ struct OrderListView: View {
 
 struct OrderRowView: View {
     let order: Order
+    @EnvironmentObject var loc: LocalizationManager
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
