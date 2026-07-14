@@ -538,7 +538,9 @@
     "acceptOrder": { "zh-Hans": "接受订单", "en": "Accept Order" },
     "patientPrefix":{ "zh-Hans": "患者·{name}", "en": "Patient·{name}", "_params": ["name"] },
     "companionEmptyHint":{ "zh-Hans": "接单后可与患者沟通", "en": "Chat with patients after accepting orders" },
-    "unknownHospital":{ "zh-Hans": "未知医院", "en": "Unknown hospital" }
+    "unknownHospital":{ "zh-Hans": "未知医院", "en": "Unknown hospital" },
+    "pendingAssignment": { "zh-Hans": "待分配", "en": "Pending assignment" },
+    "unknownPatient": { "zh-Hans": "未知患者", "en": "Unknown patient" }
   },
 
   "city": {
@@ -836,7 +838,8 @@
     "unreadCount": { "zh-Hans": "{count} 条未读", "en": "{count} unread", "_params": ["count"] },
     "markAll": { "zh-Hans": "全部已读", "en": "Mark All Read" },
     "empty": { "zh-Hans": "暂无通知", "en": "No notifications" },
-    "emptyDesc": { "zh-Hans": "有新消息时会第一时间通知您", "en": "We'll notify you as soon as there's news" }
+    "emptyDesc": { "zh-Hans": "有新消息时会第一时间通知您", "en": "We'll notify you as soon as there's news" },
+    "notification": { "zh-Hans": "通知", "en": "Notifications" }
   },
 
   "tabBar": {

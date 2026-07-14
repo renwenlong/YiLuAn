@@ -4,6 +4,7 @@ struct ChatRoomView: View {
     let orderId: String
     let currentUserId: String
     @StateObject private var viewModel = ChatViewModel()
+    @EnvironmentObject var loc: LocalizationManager
     @State private var inputText = ""
 
     var body: some View {
@@ -33,7 +34,7 @@ struct ChatRoomView: View {
             Divider()
 
             HStack(spacing: 12) {
-                TextField("输入消息...", text: $inputText)
+                TextField(loc.t("chat.inputPlaceholder"), text: $inputText)
                     .textFieldStyle(.roundedBorder)
 
                 Button {
@@ -51,7 +52,7 @@ struct ChatRoomView: View {
             }
             .padding()
         }
-        .navigationTitle("聊天")
+        .navigationTitle(loc.t("chat.title"))
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await viewModel.loadMessages(orderId: orderId)
