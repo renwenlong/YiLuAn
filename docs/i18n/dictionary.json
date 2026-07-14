@@ -23,7 +23,8 @@
     "notBound": { "zh-Hans": "未绑定", "en": "Not Bound" },
     "retry":    { "zh-Hans": "重试",   "en": "Retry" },
     "noMore":   { "zh-Hans": "没有更多了", "en": "No more" },
-    "gotIt":    { "zh-Hans": "知道了", "en": "Got it" }
+    "gotIt":    { "zh-Hans": "知道了", "en": "Got it" },
+    "close":    { "zh-Hans": "关闭", "en": "Close" }
   },
 
   "settings": {
@@ -114,7 +115,19 @@
     "confirmRejectRefund": { "zh-Hans": "确定要拒绝该订单吗？拒绝后系统将自动退款给患者。", "en": "Are you sure you want to reject this order? The system will automatically refund the patient." },
     "confirmStartService": { "zh-Hans": "确认开始为患者提供陪诊服务？", "en": "Confirm starting companion service for the patient?" },
     "sendStartConfirmToPatient": { "zh-Hans": "向患者发送开始服务的确认请求？", "en": "Send a start-service confirmation request to the patient?" },
-    "confirmActionQuestion": { "zh-Hans": "确认操作？", "en": "Confirm this action?" }
+    "confirmActionQuestion": { "zh-Hans": "确认操作？", "en": "Confirm this action?" },
+    "ok": { "zh-Hans": "好", "en": "OK" },
+    "noEmergencyContactAdded": { "zh-Hans": "还没有添加紧急联系人", "en": "No emergency contacts added yet" },
+    "platformSupport": { "zh-Hans": "平台客服", "en": "Platform Support" },
+    "callPlatformSupport": { "zh-Hans": "呼叫平台客服", "en": "Call Platform Support" },
+    "emergencyCallAuditNotice": { "zh-Hans": "点击后将立即拨打对应号码，并向后台记录一条紧急事件用于审计与回溯。", "en": "Tapping will immediately dial the number and log an emergency event for audit and traceability." },
+    "createReminderFromCompleted": { "zh-Hans": "在已完成订单详情中可以创建复诊提醒", "en": "You can create follow-up reminders from completed order details" },
+    "myFollowUpReminders": { "zh-Hans": "我的复诊提醒", "en": "My Follow-up Reminders" },
+    "reminderTime": { "zh-Hans": "提醒时间", "en": "Reminder Time" },
+    "notesExample": { "zh-Hans": "如：复诊取报告、复查血常规…（最多 140 字）", "en": "e.g. follow-up report pickup, blood recheck… (up to 140 characters)" },
+    "subscribeMessageNotice": { "zh-Hans": "到点后会以微信订阅消息推送到你（订阅消息授权请在小程序内完成）。", "en": "You'll be notified via WeChat subscription message at the scheduled time (authorize subscription messages in the Mini Program)." },
+    "create": { "zh-Hans": "创建", "en": "Create" },
+    "orderNo": { "zh-Hans": "订单 #{no}", "en": "Order #{no}", "_params": ["no"] }
   },
 
   "orderStatus": {
