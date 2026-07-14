@@ -171,7 +171,7 @@ struct OrderDetailView: View {
     private func statusHeader(_ order: Order) -> some View {
         HStack {
             VStack(alignment: .leading) {
-                Text(order.status.displayName)
+                Text(loc.t("orderStatus." + order.status.rawValue))
                     .font(.title2.bold())
                 Text(order.orderNumber)
                     .font(.caption)
@@ -187,7 +187,7 @@ struct OrderDetailView: View {
     private func orderInfoCard(_ order: Order) -> some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             // S2-REQ-003-P5c: 优先显示 snapshot 名称 (admin 改名后历史订单仍显示下单时名称)
-            infoRow(loc.t("createOrder.stepService"), order.serviceNameSnapshot ?? order.serviceType.displayName)
+            infoRow(loc.t("createOrder.stepService"), order.serviceNameSnapshot ?? loc.t("serviceType." + order.serviceType.rawValue))
             infoRow(loc.t("order.hospital"), order.hospitalName ?? loc.t("order.statusUnknown"))
             infoRow(loc.t("order.appointmentDate"), order.appointmentDate)
             if let time = order.appointmentTime {

@@ -89,7 +89,7 @@ struct OrderRowView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Text(order.status.displayName)
+                Text(loc.t("orderStatus." + order.status.rawValue))
                     .font(.caption)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 2)
@@ -102,7 +102,7 @@ struct OrderRowView: View {
                 .font(.subheadline.bold())
 
             HStack {
-                Text(order.serviceType.displayName)
+                Text(loc.t("serviceType." + order.serviceType.rawValue))
                     .font(.caption)
                 Spacer()
                 Text(order.appointmentDate)
