@@ -1201,6 +1201,38 @@
         }
       }
     },
+    "order.createOrder": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "创建订单"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Create Order"
+          }
+        }
+      }
+    },
+    "order.serviceListDowngraded": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "服务列表已降级，使用默认 3 档"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Service list downgraded; using the default 3 tiers"
+          }
+        }
+      }
+    },
     "orderStatus.created": {
       "localizations": {
         "zh-Hans": {

@@ -94,7 +94,9 @@
     "price":         { "zh-Hans": "价格", "en": "Price" },
     "sort":          { "zh-Hans": "排序", "en": "Sort" },
     "noAcceptableOrders": { "zh-Hans": "暂无可接订单", "en": "No available orders" },
-    "acceptableOrders":   { "zh-Hans": "可接订单", "en": "Available Orders" }
+    "acceptableOrders":   { "zh-Hans": "可接订单", "en": "Available Orders" },
+    "createOrder":   { "zh-Hans": "创建订单", "en": "Create Order" },
+    "serviceListDowngraded": { "zh-Hans": "服务列表已降级，使用默认 3 档", "en": "Service list downgraded; using the default 3 tiers" }
   },
 
   "orderStatus": {

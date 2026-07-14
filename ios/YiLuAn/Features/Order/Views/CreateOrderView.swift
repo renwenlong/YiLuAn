@@ -11,6 +11,7 @@ import SwiftUI
 /// - submit 按钮 sticky 底部，置灰条件 = `!StepperState.canSubmit(data)`
 struct CreateOrderView: View {
     @StateObject private var viewModel = OrderViewModel()
+    @EnvironmentObject var loc: LocalizationManager
     @Environment(\.dismiss) private var dismiss
 
     // MARK: - State
@@ -136,7 +137,7 @@ struct CreateOrderView: View {
                             stepIndex: 4,
                             summary: OrderSummary.summaryPatient(
                                 patientName: currentUserName,
-                                relation: selectedFamilyMemberId == nil ? "本人" : familyRelation(),
+                                relation: selectedFamilyMemberId == nil ? loc.t("createOrder.self") : familyRelation(),
                                 age: currentUserAge
                             )
                         ) {
@@ -148,7 +149,7 @@ struct CreateOrderView: View {
 
                 submitArea
             }
-            .navigationTitle("创建订单")
+            .navigationTitle(loc.t("order.createOrder"))
             .navigationBarTitleDisplayMode(.inline)
             .phoneRequiredAlert($viewModel.phoneRequiredMessage)
             .task {
@@ -157,20 +158,20 @@ struct CreateOrderView: View {
                 await loadServicePackages()
             }
             .alert(
-                "是否回改？",
+                loc.t("createOrder.confirmBack"),
                 isPresented: Binding(
                     get: { navigateBackTargetStep != nil },
                     set: { if !$0 { navigateBackTargetStep = nil } }
                 ),
                 presenting: navigateBackTargetStep
             ) { step in
-                Button("取消", role: .cancel) { navigateBackTargetStep = nil }
-                Button("确认") {
+                Button(loc.t("common.cancel"), role: .cancel) { navigateBackTargetStep = nil }
+                Button(loc.t("common.confirm")) {
                     currentStep = step
                     navigateBackTargetStep = nil
                 }
             } message: { _ in
-                Text("下游已选数据将保留")
+                Text(loc.t("createOrder.confirmBackContent"))
             }
         }
     }
@@ -222,7 +223,7 @@ struct CreateOrderView: View {
                     .lineLimit(tokens.summaryClamp)
                     .multilineTextAlignment(.trailing)
             } else if state == .collapsed {
-                Text("未选择")
+                Text(loc.t("createOrder.notSelected"))
                     .font(.system(size: tokens.metaFont))
                     .foregroundStyle(Color(.tertiaryLabel))
             }
@@ -272,7 +273,7 @@ struct CreateOrderView: View {
     private var hugeFontToggle: some View {
         HStack {
             Spacer()
-            Text("巨字号")
+            Text(loc.t("createOrder.hugeFont"))
                 .font(.system(size: tokens.metaFont))
                 .foregroundStyle(.secondary)
             Toggle("", isOn: $hugeFont)
@@ -288,7 +289,7 @@ struct CreateOrderView: View {
     private var serviceSelectionBody: some View {
         VStack(spacing: 8) {
             if servicePackagesIsFallback {
-                Text("服务列表已降级，使用默认 3 档")
+                Text(loc.t("order.serviceListDowngraded"))
                     .font(.system(size: tokens.bodyFont * 0.85))
                     .foregroundStyle(.orange)
                     .padding(.bottom, 4)
@@ -344,7 +345,7 @@ struct CreateOrderView: View {
     private var hospitalSelectionBody: some View {
         VStack(spacing: 12) {
             HStack {
-                TextField("搜索医院名称", text: $hospitalSearchText)
+                TextField(loc.t("profileEdit.searchHospital"), text: $hospitalSearchText)
                     .textFieldStyle(.roundedBorder)
                     .font(.system(size: tokens.bodyFont))
                 Button {
@@ -368,7 +369,7 @@ struct CreateOrderView: View {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
                     Text(hospitalName).font(.system(size: tokens.bodyFont, weight: .semibold))
                     Spacer()
-                    Button("更换") {
+                    Button(loc.t("createOrder.change")) {
                         hospitalId = ""
                         hospitalName = ""
                         departmentList = []
@@ -382,8 +383,8 @@ struct CreateOrderView: View {
 
                 // 科室（可选）
                 if !departmentList.isEmpty {
-                    Picker("科室（可选）", selection: $department) {
-                        Text("不选择科室").tag("")
+                    Picker(loc.t("createOrder.department"), selection: $department) {
+                        Text(loc.t("createOrder.noDepartment")).tag("")
                         ForEach(departmentList, id: \.self) { d in
                             Text(d).tag(d)
                         }
@@ -466,7 +467,7 @@ struct CreateOrderView: View {
     private var dateTimeBody: some View {
         VStack(spacing: 12) {
             DatePicker(
-                "日期",
+                loc.t("createOrder.stepDate"),
                 selection: $appointmentDate,
                 displayedComponents: .date
             )
@@ -474,12 +475,12 @@ struct CreateOrderView: View {
             .font(.system(size: tokens.bodyFont))
 
             HStack {
-                Text("时段")
+                Text(loc.t("createOrder.period"))
                     .font(.system(size: tokens.bodyFont))
                     .foregroundStyle(.secondary)
                 Spacer()
                 ForEach(["上午", "下午"], id: \.self) { p in
-                    Button(p) {
+                    Button(p == "上午" ? loc.t("createOrder.morning") : loc.t("createOrder.afternoon")) {
                         period = p
                     }
                     .padding(.horizontal, 24)
@@ -504,11 +505,11 @@ struct CreateOrderView: View {
     private var confirmBody: some View {
         VStack(alignment: .leading, spacing: 12) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("给谁下单")
+                Text(loc.t("createOrder.orderFor"))
                     .font(.system(size: tokens.bodyFont))
                     .foregroundStyle(.secondary)
-                Picker("给谁下单", selection: $selectedFamilyMemberId) {
-                    Text("本人").tag(String?.none)
+                Picker(loc.t("createOrder.orderFor"), selection: $selectedFamilyMemberId) {
+                    Text(loc.t("createOrder.self")).tag(String?.none)
                     ForEach(familyMembers) { m in
                         Text("\(m.name)（\(m.relationLabel)）").tag(String?.some(m.id))
                     }
@@ -519,7 +520,7 @@ struct CreateOrderView: View {
             .background(Color(.systemGray6))
             .cornerRadius(12)
 
-            TextField("备注（可选）", text: $description, axis: .vertical)
+            TextField(loc.t("createOrder.notesOptional"), text: $description, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
                 .lineLimit(3...6)
                 .font(.system(size: tokens.bodyFont))
@@ -538,7 +539,7 @@ struct CreateOrderView: View {
         Button {
             advanceToNextStep()
         } label: {
-            Text("下一步")
+            Text(loc.t("createOrder.nextStep"))
                 .font(.system(size: tokens.bodyFont, weight: .semibold))
                 .frame(maxWidth: .infinity)
                 .frame(height: tokens.primaryBtnH)
@@ -576,7 +577,7 @@ struct CreateOrderView: View {
     }
 
     private func buildSubmitButtonText() -> String {
-        var s = "确认下单"
+        var s = loc.t("createOrder.confirmOrder")
         if let svc = selectedService {
             s += " ¥\(NSDecimalNumber(decimal: svc.price).intValue)"
         }
