@@ -284,4 +284,50 @@ describe('services/api', () => {
       expect(r.reason.statusCode).toBe(0)
     }
   })
+
+  // I18N-DEV-005: error_code dispatcher — 按语言取译文 + 未覆盖码回退中文
+  describe('error_code i18n dispatcher (I18N-DEV-005)', () => {
+    const i18n = require('../../utils/i18n')
+    afterEach(() => { i18n.setLang('zh-Hans') })
+
+    test('英文模式: 覆盖码 (ORDER_TRANSITION_INVALID) reject 附英文 localizedMessage', async () => {
+      wx.setStorageSync('yiluan_access_token', 'tok')
+      i18n.setLang('en')
+      __mockWxRequest(400, { detail: { error_code: 'ORDER_TRANSITION_INVALID', message: '订单状态不允许该操作' } })
+      await expect(request({ url: 'orders/x/start', method: 'POST' })).rejects.toMatchObject({
+        statusCode: 400,
+        errorCode: 'ORDER_TRANSITION_INVALID',
+        localizedMessage: 'This action is not allowed in the current order status',
+      })
+    })
+
+    test('中文模式: 覆盖码 reject 附中文 localizedMessage', async () => {
+      wx.setStorageSync('yiluan_access_token', 'tok')
+      i18n.setLang('zh-Hans')
+      __mockWxRequest(400, { detail: { error_code: 'REFUND_ALREADY_PROCESSED', message: '后端原文' } })
+      await expect(request({ url: 'refund', method: 'POST' })).rejects.toMatchObject({
+        errorCode: 'REFUND_ALREADY_PROCESSED',
+        localizedMessage: '该订单已退款，请勿重复操作',
+      })
+    })
+
+    test('未覆盖码 (字典无此 error.CODE): 回退后端 detail 原文', async () => {
+      wx.setStorageSync('yiluan_access_token', 'tok')
+      i18n.setLang('en')
+      __mockWxRequest(400, { detail: { error_code: 'SOME_UNKNOWN_CODE', message: '后端未覆盖原文' } })
+      await expect(request({ url: 'x', method: 'POST' })).rejects.toMatchObject({
+        errorCode: 'SOME_UNKNOWN_CODE',
+        localizedMessage: '后端未覆盖原文',
+      })
+    })
+
+    test('无 error_code (detail 为 string): localizedMessage 回退 detail 原文', async () => {
+      wx.setStorageSync('yiluan_access_token', 'tok')
+      i18n.setLang('en')
+      __mockWxRequest(500, { detail: 'Internal Server Error' })
+      await expect(request({ url: 'x', method: 'GET' })).rejects.toMatchObject({
+        localizedMessage: 'Internal Server Error',
+      })
+    })
+  })
 })
