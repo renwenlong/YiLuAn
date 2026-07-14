@@ -3,15 +3,16 @@ import SwiftUI
 struct OTPInputView: View {
     let phone: String
     @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var loc: LocalizationManager
     @State private var code = ""
     @FocusState private var isFocused: Bool
 
     var body: some View {
         VStack(spacing: 32) {
             VStack(spacing: 8) {
-                Text("输入验证码")
+                Text(loc.t("login.enterCode"))
                     .font(.title2.bold())
-                Text("验证码已发送至 +86 \(phone)")
+                Text(loc.t("otp.sentTo", phone))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -59,4 +60,5 @@ struct OTPInputView: View {
 #Preview {
     OTPInputView(phone: "13800138000")
         .environmentObject(AuthViewModel())
+        .environmentObject(LocalizationManager.shared)
 }

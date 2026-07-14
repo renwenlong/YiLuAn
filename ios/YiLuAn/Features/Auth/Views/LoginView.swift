@@ -3,6 +3,7 @@ import AuthenticationServices
 
 struct LoginView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var loc: LocalizationManager
     @State private var phone = ""
     @State private var showOTPInput = false
     @State private var agreedToTerms = false
@@ -38,7 +39,7 @@ struct LoginView: View {
                             .font(.dsHero)
                             .foregroundStyle(Color.textPrimary)
 
-                        Text("专业陪诊，安心就医")
+                        Text(loc.t("login.tagline"))
                             .font(.dsBody)
                             .foregroundStyle(Color.textSecondary)
                     }
@@ -53,7 +54,7 @@ struct LoginView: View {
                                 .foregroundStyle(Color.textHint)
                                 .frame(width: 40)
 
-                            TextField("请输入手机号", text: $phone)
+                            TextField(loc.t("login.inputPhone"), text: $phone)
                                 .keyboardType(.phonePad)
                                 .font(.dsBody)
                         }
@@ -73,7 +74,7 @@ struct LoginView: View {
                                 }
                             }
                         } label: {
-                            Text("获取验证码")
+                            Text(loc.t("login.getCode"))
                                 .font(.dsTitle)
                                 .fontWeight(.semibold)
                                 .frame(maxWidth: .infinity)
@@ -134,19 +135,19 @@ struct LoginView: View {
                                     .foregroundStyle(agreedToTerms ? Color.brand : Color.textHint)
                             }
 
-                            Text("我已阅读并同意")
+                            Text(loc.t("login.agreementPre"))
                                 .font(.dsCaption)
                                 .foregroundStyle(Color.textSecondary)
                             +
-                            Text("《用户协议》")
+                            Text(loc.t("login.userAgreement"))
                                 .font(.dsCaption)
                                 .foregroundStyle(Color.brand)
                             +
-                            Text("和")
+                            Text(loc.t("login.and"))
                                 .font(.dsCaption)
                                 .foregroundStyle(Color.textSecondary)
                             +
-                            Text("《隐私政策》")
+                            Text(loc.t("login.privacyPolicy"))
                                 .font(.dsCaption)
                                 .foregroundStyle(Color.brand)
                         }
