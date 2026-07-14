@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ChatListView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var loc: LocalizationManager
     @StateObject private var viewModel = OrderViewModel()
 
     private var chatOrders: [Order] {
@@ -17,7 +18,7 @@ struct ChatListView: View {
                     ProgressView()
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if chatOrders.isEmpty {
-                    ContentUnavailableView("暂无消息", systemImage: "message.fill")
+                    ContentUnavailableView(loc.t("chat.noMessage"), systemImage: "message.fill")
                 } else {
                     List(chatOrders) { order in
                         NavigationLink {
@@ -35,7 +36,7 @@ struct ChatListView: View {
                     }
                 }
             }
-            .navigationTitle("消息")
+            .navigationTitle(loc.t("tabBar.chat"))
             .task {
                 await viewModel.loadOrders()
             }
@@ -50,11 +51,11 @@ struct ChatListView: View {
 
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
-                    Text(order.hospitalName ?? "未知医院")
+                    Text(order.hospitalName ?? loc.t("chat.unknownHospital"))
                         .font(.headline)
                         .lineLimit(1)
                     Spacer()
-                    Text(order.status.displayName)
+                    Text(loc.t("orderStatus." + order.status.rawValue))
                         .font(.caption)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 2)
@@ -65,8 +66,8 @@ struct ChatListView: View {
 
                 let isPatient = authViewModel.currentUser?.role == .patient
                 let contactName = isPatient
-                    ? (order.companionName ?? "待分配")
-                    : (order.patientName ?? "未知患者")
+                    ? (order.companionName ?? loc.t("chat.pendingAssignment"))
+                    : (order.patientName ?? loc.t("chat.unknownPatient"))
                 Text(contactName)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

@@ -7649,6 +7649,38 @@
         }
       }
     },
+    "chat.pendingAssignment": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "待分配"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pending assignment"
+          }
+        }
+      }
+    },
+    "chat.unknownPatient": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未知患者"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Unknown patient"
+          }
+        }
+      }
+    },
     "city.locating": {
       "localizations": {
         "zh-Hans": {
@@ -11645,6 +11677,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "We'll notify you as soon as there's news"
+          }
+        }
+      }
+    },
+    "notification.notification": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "通知"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Notifications"
           }
         }
       }

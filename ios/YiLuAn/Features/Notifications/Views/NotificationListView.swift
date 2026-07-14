@@ -2,6 +2,7 @@ import SwiftUI
 
 struct NotificationListView: View {
     @StateObject private var viewModel = NotificationViewModel()
+    @EnvironmentObject var loc: LocalizationManager
 
     var body: some View {
         List {
@@ -14,11 +15,11 @@ struct NotificationListView: View {
                     }
             }
         }
-        .navigationTitle("通知")
+        .navigationTitle(loc.t("notification.notification"))
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 if viewModel.unreadCount > 0 {
-                    Button("全部已读") {
+                    Button(loc.t("notification.markAll")) {
                         Task { await viewModel.markAllRead() }
                     }
                 }
@@ -38,7 +39,7 @@ struct NotificationListView: View {
         }
         .overlay {
             if viewModel.notifications.isEmpty && !viewModel.isLoading {
-                ContentUnavailableView("暂无通知", systemImage: "bell.slash")
+                ContentUnavailableView(loc.t("notification.empty"), systemImage: "bell.slash")
             }
         }
     }
