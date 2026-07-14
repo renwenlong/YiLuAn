@@ -44,7 +44,7 @@ struct ProfileView: View {
                         .fill(AppGradient.primary)
                         .frame(width: 64, height: 64)
 
-                    Text(String(authViewModel.currentUser?.displayName?.prefix(1) ?? Character(loc.t("profile.avatarFallback"))))
+                    Text(authViewModel.currentUser?.displayName.map { String($0.prefix(1)) } ?? loc.t("profile.avatarFallback"))
                         .font(.dsH1)
                         .foregroundStyle(.white)
                 }
