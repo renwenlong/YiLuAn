@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct PrivacyPolicyView: View {
+    @EnvironmentObject var loc: LocalizationManager
     @State private var showBackToTop = false
 
     var body: some View {
@@ -9,11 +10,11 @@ struct PrivacyPolicyView: View {
                 VStack(alignment: .leading, spacing: Spacing.lg) {
                     Color.clear.frame(height: 0).id("top")
 
-                    Text("医路安隐私政策")
+                    Text(loc.t("legal.privacyTitle"))
                         .font(.title2.bold())
                         .frame(maxWidth: .infinity)
 
-                    Text("更新日期：2026年4月10日 | 生效日期：2026年4月10日")
+                    Text(loc.t("legal.updatedLabel") + "2026-04-10 | " + loc.t("legal.effectiveLabel") + "2026-04-10")
                         .font(.dsCaption)
                         .foregroundStyle(Color.textHint)
                         .frame(maxWidth: .infinity)
@@ -111,7 +112,7 @@ struct PrivacyPolicyView: View {
                         VStack(spacing: 2) {
                             Image(systemName: "arrow.up")
                                 .font(.system(size: 14, weight: .bold))
-                            Text("顶部")
+                            Text(loc.t("legal.backToTop"))
                                 .font(.system(size: 9))
                         }
                         .foregroundStyle(Color.brand)
@@ -126,7 +127,7 @@ struct PrivacyPolicyView: View {
                 }
             }
         }
-        .navigationTitle("隐私政策")
+        .navigationTitle(loc.t("settings.privacyPolicy"))
         .navigationBarTitleDisplayMode(.inline)
     }
 

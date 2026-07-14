@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct TermsOfServiceView: View {
+    @EnvironmentObject var loc: LocalizationManager
     @State private var showBackToTop = false
 
     var body: some View {
@@ -9,11 +10,11 @@ struct TermsOfServiceView: View {
                 VStack(alignment: .leading, spacing: Spacing.lg) {
                     Color.clear.frame(height: 0).id("top")
 
-                    Text("医路安用户协议")
+                    Text(loc.t("legal.termsTitle"))
                         .font(.title2.bold())
                         .frame(maxWidth: .infinity)
 
-                    Text("更新日期：2026年4月10日 | 生效日期：2026年4月10日")
+                    Text(loc.t("legal.updatedLabel") + "2026-04-10 | " + loc.t("legal.effectiveLabel") + "2026-04-10")
                         .font(.dsCaption)
                         .foregroundStyle(Color.textHint)
                         .frame(maxWidth: .infinity)
@@ -109,7 +110,7 @@ struct TermsOfServiceView: View {
                         VStack(spacing: 2) {
                             Image(systemName: "arrow.up")
                                 .font(.system(size: 14, weight: .bold))
-                            Text("顶部")
+                            Text(loc.t("legal.backToTop"))
                                 .font(.system(size: 9))
                         }
                         .foregroundStyle(Color.brand)
@@ -124,7 +125,7 @@ struct TermsOfServiceView: View {
                 }
             }
         }
-        .navigationTitle("用户协议")
+        .navigationTitle(loc.t("settings.termsOfService"))
         .navigationBarTitleDisplayMode(.inline)
     }
 
