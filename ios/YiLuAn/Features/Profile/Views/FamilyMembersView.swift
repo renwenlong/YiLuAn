@@ -4,6 +4,7 @@ import SwiftUI
 /// 下单页 picker 与详情展示在后续 iOS 迭代中补全（追踪：TD-IOS-FAMILY-PICKER）。
 struct FamilyMembersView: View {
     @StateObject private var viewModel = FamilyMembersViewModel()
+    @EnvironmentObject var loc: LocalizationManager
     @State private var showingCreate = false
 
     var body: some View {
@@ -15,9 +16,9 @@ struct FamilyMembersView: View {
                     Image(systemName: "person.2.fill")
                         .font(.system(size: 48))
                         .foregroundColor(.secondary)
-                    Text("还没有添加家人")
+                    Text(loc.t("familyMembers.empty"))
                         .foregroundColor(.secondary)
-                    Text("添加后，可在下单时为家人预约陪诊")
+                    Text(loc.t("familyMembers.addToBookForFamily"))
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
@@ -57,7 +58,7 @@ struct FamilyMembersView: View {
                 }
             }
         }
-        .navigationTitle("我的家人")
+        .navigationTitle(loc.t("profile.menuFamily"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
@@ -75,8 +76,8 @@ struct FamilyMembersView: View {
                 if ok { showingCreate = false }
             }
         }
-        .alert("提示", isPresented: .constant(viewModel.errorMessage != nil)) {
-            Button("好") { viewModel.errorMessage = nil }
+        .alert(loc.t("dialog.tip"), isPresented: .constant(viewModel.errorMessage != nil)) {
+            Button(loc.t("order.ok")) { viewModel.errorMessage = nil }
         } message: {
             Text(viewModel.errorMessage ?? "")
         }
@@ -89,6 +90,7 @@ private struct FamilyMemberCreateSheet: View {
                  _ gender: String, _ age: Int?, _ notes: String?) async -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var loc: LocalizationManager
     @State private var name = ""
     @State private var relation = "parent"
     @State private var phone = ""
@@ -97,43 +99,39 @@ private struct FamilyMemberCreateSheet: View {
     @State private var notes = ""
     @State private var submitting = false
 
-    private let relations: [(String, String)] = [
-        ("parent", "父母"), ("spouse", "配偶"), ("child", "子女"),
-        ("sibling", "兄弟姐妹"), ("grandparent", "祖父母"),
-        ("relative", "亲戚"), ("friend", "朋友"), ("other", "其他"),
-    ]
+    // 复用 FamilyRelation.allCases(Model 层 computed, label 已走 loc 字典) —— 不重复定义硬编码中文
 
     var body: some View {
         NavigationView {
             Form {
-                Section("基本信息") {
-                    TextField("姓名", text: $name)
-                    Picker("关系", selection: $relation) {
-                        ForEach(relations, id: \.0) { Text($0.1).tag($0.0) }
+                Section(loc.t("companion.basicInfo")) {
+                    TextField(loc.t("orderDetail.nameLabel"), text: $name)
+                    Picker(loc.t("emergencyContacts.relationLabel"), selection: $relation) {
+                        ForEach(FamilyRelation.allCases, id: \.value) { Text($0.label).tag($0.value) }
                     }
-                    Picker("性别", selection: $gender) {
-                        Text("未填").tag("unknown")
-                        Text("男").tag("male")
-                        Text("女").tag("female")
+                    Picker(loc.t("familyMembers.genderLabel"), selection: $gender) {
+                        Text(loc.t("familyMembers.notFilled")).tag("unknown")
+                        Text(loc.t("familyMembers.genderMale")).tag("male")
+                        Text(loc.t("familyMembers.genderFemale")).tag("female")
                     }
-                    TextField("年龄（可选）", text: $ageText)
+                    TextField(loc.t("familyMembers.ageOptional"), text: $ageText)
                         .keyboardType(.numberPad)
-                    TextField("手机号（可选）", text: $phone)
+                    TextField(loc.t("familyMembers.phoneOptional"), text: $phone)
                         .keyboardType(.numberPad)
                 }
-                Section("就医备注") {
-                    TextField("过敏 / 慢病 / 其它", text: $notes, axis: .vertical)
+                Section(loc.t("familyMembers.medicalNotes")) {
+                    TextField(loc.t("familyMembers.allergyChronicOther"), text: $notes, axis: .vertical)
                         .lineLimit(2...5)
                 }
             }
-            .navigationTitle("添加家人")
+            .navigationTitle(loc.t("familyMembers.addTitle"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button(loc.t("common.cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
+                    Button(loc.t("common.save")) {
                         guard !submitting else { return }
                         submitting = true
                         Task {

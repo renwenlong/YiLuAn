@@ -6353,6 +6353,102 @@
         }
       }
     },
+    "familyMembers.medicalNotes": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "就医备注"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medical Notes"
+          }
+        }
+      }
+    },
+    "familyMembers.ageOptional": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "年龄（可选）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Age (optional)"
+          }
+        }
+      }
+    },
+    "familyMembers.addToBookForFamily": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "添加后，可在下单时为家人预约陪诊"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Once added, you can book companion service for family members when ordering"
+          }
+        }
+      }
+    },
+    "familyMembers.phoneOptional": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "手机号（可选）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Phone Number (optional)"
+          }
+        }
+      }
+    },
+    "familyMembers.notFilled": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "未填"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Not filled"
+          }
+        }
+      }
+    },
+    "familyMembers.allergyChronicOther": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "过敏 / 慢病 / 其它"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Allergies / Chronic conditions / Other"
+          }
+        }
+      }
+    },
     "relation.self": {
       "localizations": {
         "zh-Hans": {

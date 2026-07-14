@@ -448,7 +448,13 @@
     "deleteTitle":     { "zh-Hans": "删除家人", "en": "Delete Family Member" },
     "deleteConfirm":   { "zh-Hans": "确定要删除该家人档案吗？历史订单不会受影响。", "en": "Delete this family member? Past orders are unaffected." },
     "deleted":         { "zh-Hans": "已删除", "en": "Deleted" },
-    "deleteFailed":    { "zh-Hans": "删除失败", "en": "Failed to delete" }
+    "deleteFailed":    { "zh-Hans": "删除失败", "en": "Failed to delete" },
+    "medicalNotes": { "zh-Hans": "就医备注", "en": "Medical Notes" },
+    "ageOptional": { "zh-Hans": "年龄（可选）", "en": "Age (optional)" },
+    "addToBookForFamily": { "zh-Hans": "添加后，可在下单时为家人预约陪诊", "en": "Once added, you can book companion service for family members when ordering" },
+    "phoneOptional": { "zh-Hans": "手机号（可选）", "en": "Phone Number (optional)" },
+    "notFilled": { "zh-Hans": "未填", "en": "Not filled" },
+    "allergyChronicOther": { "zh-Hans": "过敏 / 慢病 / 其它", "en": "Allergies / Chronic conditions / Other" }
   },
   "relation": {
     "self":        { "zh-Hans": "本人", "en": "Myself" },
