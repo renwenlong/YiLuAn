@@ -12,83 +12,12 @@ struct ProfileView: View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 0) {
-                    // Hero header with gradient
-                    ZStack(alignment: .bottomLeading) {
-                        AppGradient.primary
-                            .frame(height: 180)
-                            .ignoresSafeArea(edges: .top)
-
-                        HStack(spacing: Spacing.lg) {
-                            // Avatar
-                            ZStack {
-                                Circle()
-                                    .fill(AppGradient.primary)
-                                    .frame(width: 64, height: 64)
-
-                                Text(String(authViewModel.currentUser?.displayName?.prefix(1) ?? Character(loc.t("profile.avatarFallback"))))
-                                    .font(.dsH1)
-                                    .foregroundStyle(.white)
-                            }
-                            .overlay(
-                                Circle()
-                                    .stroke(.white, lineWidth: 3)
-                            )
-                            .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
-
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(authViewModel.currentUser?.displayName ?? loc.t("profile.nicknameNotSet"))
-                                    .font(.dsTitle)
-                                    .foregroundStyle(.white)
-
-                                if let phone = authViewModel.currentUser?.phone {
-                                    Text(phone)
-                                        .font(.dsSubheadline)
-                                        .foregroundStyle(.white.opacity(0.7))
-                                }
-                            }
-
-                            Spacer()
-
-                            if isCompanion {
-                                Text(loc.t("role.companion"))
-                                    .font(.dsSmall)
-                                    .fontWeight(.medium)
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 4)
-                                    .background(.white.opacity(0.2))
-                                    .clipShape(Capsule())
-                            }
-                        }
-                        .padding(.horizontal, Spacing.xl)
-                        .padding(.bottom, Spacing.xl)
-                    }
+                    heroHeader
 
                     VStack(spacing: Spacing.md) {
-                        // Account section
                         accountMenuSection
-
-                        // Features section
                         featuresMenuSection
-
-                        // Logout button
-                        Button {
-                            authViewModel.signOut()
-                        } label: {
-                            Text(loc.t("settings.logout"))
-                                .font(.dsBody)
-                                .foregroundStyle(Color.danger)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                        }
-                        .background(Color.bgCard)
-                        .cornerRadius(CornerRadius.lg)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: CornerRadius.lg)
-                                .stroke(Color.danger.opacity(0.2), lineWidth: 1)
-                        )
-                        .padding(.horizontal, Spacing.lg)
-                        .padding(.top, Spacing.sm)
+                        logoutButton
                     }
                     .padding(.top, Spacing.lg)
                     .padding(.bottom, 120)
@@ -99,6 +28,80 @@ struct ProfileView: View {
             .navigationTitle("")
             .navigationBarHidden(true)
         }
+    }
+
+    // 抽成子视图减小 body 类型推断负担(避免 SwiftUI type-check timeout)
+    @ViewBuilder private var heroHeader: some View {
+        ZStack(alignment: .bottomLeading) {
+            AppGradient.primary
+                .frame(height: 180)
+                .ignoresSafeArea(edges: .top)
+
+            HStack(spacing: Spacing.lg) {
+                // Avatar
+                ZStack {
+                    Circle()
+                        .fill(AppGradient.primary)
+                        .frame(width: 64, height: 64)
+
+                    Text(String(authViewModel.currentUser?.displayName?.prefix(1) ?? Character(loc.t("profile.avatarFallback"))))
+                        .font(.dsH1)
+                        .foregroundStyle(.white)
+                }
+                .overlay(
+                    Circle()
+                        .stroke(.white, lineWidth: 3)
+                )
+                .shadow(color: .black.opacity(0.15), radius: 8, x: 0, y: 4)
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(authViewModel.currentUser?.displayName ?? loc.t("profile.nicknameNotSet"))
+                        .font(.dsTitle)
+                        .foregroundStyle(.white)
+
+                    if let phone = authViewModel.currentUser?.phone {
+                        Text(phone)
+                            .font(.dsSubheadline)
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                }
+
+                Spacer()
+
+                if isCompanion {
+                    Text(loc.t("role.companion"))
+                        .font(.dsSmall)
+                        .fontWeight(.medium)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(.white.opacity(0.2))
+                        .clipShape(Capsule())
+                }
+            }
+            .padding(.horizontal, Spacing.xl)
+            .padding(.bottom, Spacing.xl)
+        }
+    }
+
+    @ViewBuilder private var logoutButton: some View {
+        Button {
+            authViewModel.signOut()
+        } label: {
+            Text(loc.t("settings.logout"))
+                .font(.dsBody)
+                .foregroundStyle(Color.danger)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 14)
+        }
+        .background(Color.bgCard)
+        .cornerRadius(CornerRadius.lg)
+        .overlay(
+            RoundedRectangle(cornerRadius: CornerRadius.lg)
+                .stroke(Color.danger.opacity(0.2), lineWidth: 1)
+        )
+        .padding(.horizontal, Spacing.lg)
+        .padding(.top, Spacing.sm)
     }
 
     // 抽成计算属性减小 body 类型推断负担(避免 SwiftUI type-check timeout)
