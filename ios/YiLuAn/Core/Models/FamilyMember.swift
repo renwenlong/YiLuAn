@@ -34,32 +34,21 @@ struct FamilyMemberRequest: Encodable {
 
 /// Mirrors backend FamilyRelation enum.
 enum FamilyRelation {
-    static let allCases: [(value: String, label: String)] = [
-        ("parent", "父母"),
-        ("spouse", "配偶"),
-        ("child", "子女"),
-        ("sibling", "兄弟姐妹"),
-        ("grandparent", "祖父母"),
-        ("relative", "亲戚"),
-        ("friend", "朋友"),
-        ("other", "其他"),
+    /// relation code 列表(显示文案经 loc 字典, 避免 Model 层硬编码中文 C 盲区)
+    static let allValues: [String] = [
+        "parent", "spouse", "child", "sibling",
+        "grandparent", "relative", "friend", "other",
     ]
 
-    private static let map: [String: String] = [
-        "self": "本人",
-        "parent": "父母",
-        "spouse": "配偶",
-        "child": "子女",
-        "sibling": "兄弟姐妹",
-        "grandparent": "祖父母",
-        "relative": "亲戚",
-        "friend": "朋友",
-        "other": "其他",
-    ]
+    /// (value, 本地化 label) 对 —— label 运行时走字典(shared 单例, Model 无 @EnvironmentObject scope)
+    static var allCases: [(value: String, label: String)] {
+        allValues.map { ($0, label(for: $0)) }
+    }
 
     static func label(for value: String?) -> String {
-        guard let v = value, let label = map[v] else { return "其他" }
-        return label
+        let loc = LocalizationManager.shared
+        guard let v = value else { return loc.t("relation.other") }
+        return loc.t("relation.\(v)")
     }
 }
 
@@ -69,10 +58,11 @@ enum FamilyGender: String, CaseIterable {
     case female
 
     var label: String {
+        let loc = LocalizationManager.shared
         switch self {
-        case .unknown: return "未知"
-        case .male: return "男"
-        case .female: return "女"
+        case .unknown: return loc.t("familyMembers.genderUnknown")
+        case .male: return loc.t("familyMembers.genderMale")
+        case .female: return loc.t("familyMembers.genderFemale")
         }
     }
 }
