@@ -96,7 +96,25 @@
     "noAcceptableOrders": { "zh-Hans": "暂无可接订单", "en": "No available orders" },
     "acceptableOrders":   { "zh-Hans": "可接订单", "en": "Available Orders" },
     "createOrder":   { "zh-Hans": "创建订单", "en": "Create Order" },
-    "serviceListDowngraded": { "zh-Hans": "服务列表已降级，使用默认 3 档", "en": "Service list downgraded; using the default 3 tiers" }
+    "serviceListDowngraded": { "zh-Hans": "服务列表已降级，使用默认 3 档", "en": "Service list downgraded; using the default 3 tiers" },
+    "loading": { "zh-Hans": "加载中", "en": "Loading" },
+    "orderDetail": { "zh-Hans": "订单详情", "en": "Order Details" },
+    "confirmAction": { "zh-Hans": "确认操作", "en": "Confirm Action" },
+    "companionServiceFull": { "zh-Hans": "陪诊服务 — 全程", "en": "Companion Service — Full" },
+    "hospitalPlaceholder": { "zh-Hans": "XX 市第 X 人民医院", "en": "XX City No. X People's Hospital" },
+    "appointmentDate": { "zh-Hans": "预约日期", "en": "Appointment Date" },
+    "myReview": { "zh-Hans": "我的评价", "en": "My Review" },
+    "contractAgreed": { "zh-Hans": "已勾选合同同意", "en": "Contract agreement checked" },
+    "contractNotAgreed": { "zh-Hans": "未勾选合同同意", "en": "Contract agreement not checked" },
+    "contractStatus": { "zh-Hans": "合同状态", "en": "Contract Status" },
+    "contractLoadFailed": { "zh-Hans": "合同详情加载失败,请稍后重试", "en": "Failed to load contract details. Please try again later." },
+    "rejectOrder": { "zh-Hans": "拒绝订单", "en": "Reject Order" },
+    "startServiceDirectly": { "zh-Hans": "直接开始服务", "en": "Start Service Directly" },
+    "requestPatientConfirmStart": { "zh-Hans": "请求患者确认开始", "en": "Request Patient to Confirm Start" },
+    "confirmRejectRefund": { "zh-Hans": "确定要拒绝该订单吗？拒绝后系统将自动退款给患者。", "en": "Are you sure you want to reject this order? The system will automatically refund the patient." },
+    "confirmStartService": { "zh-Hans": "确认开始为患者提供陪诊服务？", "en": "Confirm starting companion service for the patient?" },
+    "sendStartConfirmToPatient": { "zh-Hans": "向患者发送开始服务的确认请求？", "en": "Send a start-service confirmation request to the patient?" },
+    "confirmActionQuestion": { "zh-Hans": "确认操作？", "en": "Confirm this action?" }
   },
 
   "orderStatus": {
