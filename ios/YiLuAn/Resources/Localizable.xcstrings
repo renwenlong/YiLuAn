@@ -1601,6 +1601,38 @@
         }
       }
     },
+    "login.enterCode": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "输入验证码"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enter Code"
+          }
+        }
+      }
+    },
+    "login.tagline": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "专业陪诊，安心就医"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Professional escort, worry-free care"
+          }
+        }
+      }
+    },
     "otp.sentTo": {
       "localizations": {
         "zh-Hans": {

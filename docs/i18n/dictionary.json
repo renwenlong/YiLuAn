@@ -131,7 +131,9 @@
     "agreementPre":{ "zh-Hans": "我已阅读并同意", "en": "I have read and agree to the" },
     "userAgreement":{ "zh-Hans": "《用户协议》", "en": "User Agreement" },
     "and":         { "zh-Hans": "和",             "en": "and" },
-    "privacyPolicy":{ "zh-Hans": "《隐私政策》", "en": "Privacy Policy" }
+    "privacyPolicy":{ "zh-Hans": "《隐私政策》", "en": "Privacy Policy" },
+    "enterCode":   { "zh-Hans": "输入验证码", "en": "Enter Code" },
+    "tagline":     { "zh-Hans": "专业陪诊，安心就医", "en": "Professional escort, worry-free care" }
   },
 
   "otp": {

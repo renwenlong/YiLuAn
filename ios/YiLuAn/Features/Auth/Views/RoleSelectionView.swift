@@ -2,26 +2,27 @@ import SwiftUI
 
 struct RoleSelectionView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
+    @EnvironmentObject var loc: LocalizationManager
 
     var body: some View {
         VStack(spacing: 32) {
             Spacer()
 
-            Text("选择您的角色")
+            Text(loc.t("role.selectTitle"))
                 .font(.title.bold())
-            Text("请选择您使用医路安的方式")
+            Text(loc.t("role.selectSubtitle"))
                 .foregroundStyle(.secondary)
 
             VStack(spacing: 16) {
                 roleCard(
-                    title: "我是患者",
-                    subtitle: "需要陪诊服务",
+                    title: loc.t("role.iamPatient"),
+                    subtitle: loc.t("role.patientDesc"),
                     icon: "person.fill",
                     role: .patient
                 )
                 roleCard(
-                    title: "我是陪诊师",
-                    subtitle: "提供陪诊服务",
+                    title: loc.t("role.iamCompanion"),
+                    subtitle: loc.t("role.companionDesc"),
                     icon: "stethoscope",
                     role: .companion
                 )
@@ -68,4 +69,5 @@ struct RoleSelectionView: View {
 #Preview {
     RoleSelectionView()
         .environmentObject(AuthViewModel())
+        .environmentObject(LocalizationManager.shared)
 }
