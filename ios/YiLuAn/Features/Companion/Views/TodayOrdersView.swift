@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TodayOrdersView: View {
     @StateObject private var viewModel = OrderViewModel()
+    @EnvironmentObject var loc: LocalizationManager
 
     private var todayOrders: [Order] {
         let today = ISO8601DateFormatter().string(from: Date()).prefix(10)
@@ -21,7 +22,7 @@ struct TodayOrdersView: View {
     var body: some View {
         List {
             if !inProgressOrders.isEmpty {
-                Section("进行中") {
+                Section(loc.t("order.tabInProgress")) {
                     ForEach(inProgressOrders) { order in
                         NavigationLink(destination: OrderDetailView(orderId: order.id, isCompanion: true)) {
                             OrderRowView(order: order)
@@ -31,7 +32,7 @@ struct TodayOrdersView: View {
             }
 
             if !acceptedOrders.isEmpty {
-                Section("已接单") {
+                Section(loc.t("order.tabAccepted")) {
                     ForEach(acceptedOrders) { order in
                         NavigationLink(destination: OrderDetailView(orderId: order.id, isCompanion: true)) {
                             OrderRowView(order: order)
@@ -42,10 +43,10 @@ struct TodayOrdersView: View {
         }
         .overlay {
             if !viewModel.isLoading && todayOrders.isEmpty {
-                ContentUnavailableView("今日暂无订单", systemImage: "calendar.badge.exclamationmark")
+                ContentUnavailableView(loc.t("companion.noOrdersToday"), systemImage: "calendar.badge.exclamationmark")
             }
         }
-        .navigationTitle("今日订单")
+        .navigationTitle(loc.t("companion.todayOrders"))
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await viewModel.loadOrders(status: "accepted")

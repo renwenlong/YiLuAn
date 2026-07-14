@@ -3,6 +3,7 @@ import SwiftUI
 struct CompanionHomeView: View {
     @StateObject private var profileViewModel = CompanionProfileViewModel()
     @StateObject private var orderViewModel = OrderViewModel()
+    @EnvironmentObject var loc: LocalizationManager
 
     var body: some View {
         NavigationStack {
@@ -12,19 +13,19 @@ struct CompanionHomeView: View {
                     HStack(spacing: 20) {
                         NavigationLink(destination: TodayOrdersView()) {
                             statCard(
-                                title: "今日订单",
+                                title: loc.t("companion.todayOrders"),
                                 value: "\(profileViewModel.stats?.todayOrders ?? 0)"
                             )
                         }
                         .buttonStyle(.plain)
                         statCard(
-                            title: "评分",
+                            title: loc.t("companionHome.rating"),
                             value: profileViewModel.stats.map {
                                 String(format: "%.1f", $0.avgRating)
                             } ?? "--"
                         )
                         statCard(
-                            title: "总订单",
+                            title: loc.t("companion.totalOrders"),
                             value: "\(profileViewModel.stats?.totalOrders ?? 0)"
                         )
                     }
@@ -33,10 +34,10 @@ struct CompanionHomeView: View {
                     // Recent orders
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
-                            Text("我的订单")
+                            Text(loc.t("order.myOrders"))
                                 .font(.headline)
                             Spacer()
-                            NavigationLink("查看全部") {
+                            NavigationLink(loc.t("companion.viewAll")) {
                                 OrderListView(isCompanion: true)
                             }
                             .font(.subheadline)
@@ -47,7 +48,7 @@ struct CompanionHomeView: View {
                             ProgressView()
                                 .frame(maxWidth: .infinity, minHeight: 100)
                         } else if orderViewModel.orders.isEmpty {
-                            Text("暂无订单")
+                            Text(loc.t("order.noOrders"))
                                 .foregroundStyle(.secondary)
                                 .frame(maxWidth: .infinity, minHeight: 100)
                         } else {
@@ -67,7 +68,7 @@ struct CompanionHomeView: View {
                 }
                 .padding(.top)
             }
-            .navigationTitle("陪诊师工作台")
+            .navigationTitle(loc.t("companion.workbench"))
             .task {
                 await profileViewModel.loadStats()
                 await orderViewModel.loadOrders()

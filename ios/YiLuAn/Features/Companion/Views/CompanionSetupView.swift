@@ -4,6 +4,7 @@ struct CompanionSetupView: View {
     @EnvironmentObject var authViewModel: AuthViewModel
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel = CompanionProfileViewModel()
+    @EnvironmentObject var loc: LocalizationManager
 
     @State private var realName = ""
     @State private var idNumber = ""
@@ -16,13 +17,13 @@ struct CompanionSetupView: View {
 
     var body: some View {
         Form {
-            Section("基本信息") {
-                TextField("真实姓名（必填）", text: $realName)
-                TextField("身份证号（选填）", text: $idNumber)
+            Section(loc.t("companion.basicInfo")) {
+                TextField(loc.t("companion.realNameRequired"), text: $realName)
+                TextField(loc.t("companion.idNumberOptional"), text: $idNumber)
                     .keyboardType(.asciiCapable)
             }
 
-            Section("服务类型（至少选一项）") {
+            Section(loc.t("companion.serviceTypeMin")) {
                 ForEach(ServiceType.allCases, id: \.self) { type in
                     Button {
                         if selectedServiceTypes.contains(type) {
@@ -49,11 +50,11 @@ struct CompanionSetupView: View {
                 }
             }
 
-            Section("服务区域") {
-                TextField("例如：朝阳区、东城区", text: $serviceArea)
+            Section(loc.t("profileEdit.serviceArea")) {
+                TextField(loc.t("companion.districtExample"), text: $serviceArea)
             }
 
-            Section("个人简介") {
+            Section(loc.t("profileEdit.bio")) {
                 TextEditor(text: $bio)
                     .frame(minHeight: 80)
             }
@@ -75,7 +76,7 @@ struct CompanionSetupView: View {
                         if isSubmitting {
                             ProgressView()
                         } else {
-                            Text("提交申请")
+                            Text(loc.t("companion.submitApplication"))
                                 .bold()
                         }
                         Spacer()
@@ -84,13 +85,13 @@ struct CompanionSetupView: View {
                 .disabled(!canSubmit || isSubmitting)
             }
         }
-        .navigationTitle("陪诊师入驻")
+        .navigationTitle(loc.t("companion.onboarding"))
         .navigationBarTitleDisplayMode(.inline)
         .phoneRequiredAlert($viewModel.phoneRequiredMessage)
-        .alert("申请已提交", isPresented: $showSuccess) {
-            Button("确定") { dismiss() }
+        .alert(loc.t("companion.applicationSubmitted"), isPresented: $showSuccess) {
+            Button(loc.t("companion.ok")) { dismiss() }
         } message: {
-            Text("您的陪诊师入驻申请已提交，审核通过后即可开始接单。")
+            Text(loc.t("companion.onboardingSubmitted"))
         }
     }
 
