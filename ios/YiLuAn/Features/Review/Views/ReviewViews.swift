@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct WriteReviewView: View {
+    @EnvironmentObject var loc: LocalizationManager
     let orderId: String
     @StateObject private var viewModel = ReviewViewModel()
     @Environment(\.dismiss) private var dismiss
@@ -10,7 +11,7 @@ struct WriteReviewView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("评分") {
+                Section(loc.t("review.ratingSection")) {
                     HStack {
                         ForEach(1...5, id: \.self) { star in
                             Image(systemName: star <= rating ? "star.fill" : "star")
@@ -21,7 +22,7 @@ struct WriteReviewView: View {
                     .font(.title2)
                 }
 
-                Section("评价内容") {
+                Section(loc.t("review.contentSection")) {
                     TextEditor(text: $content)
                         .frame(minHeight: 100)
                 }
@@ -32,14 +33,14 @@ struct WriteReviewView: View {
                     }
                 }
             }
-            .navigationTitle("写评价")
+            .navigationTitle(loc.t("review.writeTitle"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("取消") { dismiss() }
+                    Button(loc.t("common.cancel")) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("提交") {
+                    Button(loc.t("common.submit")) {
                         Task {
                             await viewModel.submitReview(
                                 orderId: orderId, rating: rating, content: content
@@ -55,6 +56,7 @@ struct WriteReviewView: View {
 }
 
 struct ReviewListView: View {
+    @EnvironmentObject var loc: LocalizationManager
     let companionId: String
     @StateObject private var viewModel = ReviewViewModel()
 
@@ -65,11 +67,11 @@ struct ReviewListView: View {
                     .padding(.vertical, 4)
             }
         }
-        .navigationTitle("评价列表")
+        .navigationTitle(loc.t("review.listTitle"))
         .task { await viewModel.loadCompanionReviews(companionId: companionId) }
         .overlay {
             if viewModel.reviews.isEmpty && !viewModel.isLoading {
-                ContentUnavailableView("暂无评价", systemImage: "star.slash")
+                ContentUnavailableView(loc.t("review.empty"), systemImage: "star.slash")
             }
         }
     }
@@ -77,12 +79,13 @@ struct ReviewListView: View {
 
 /// 单条评价展示行，在评价列表与 CompanionDetail 嵌入区间复用。
 struct ReviewRowView: View {
+    @EnvironmentObject var loc: LocalizationManager
     let review: Review
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(review.patientName ?? "患者")
+                Text(review.patientName ?? loc.t("review.patient"))
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 Spacer()
@@ -107,6 +110,7 @@ struct ReviewRowView: View {
 /// 不使用 `List`（避免与外部 ScrollView 产生嵌套滚动 / 高度不确定的问题），
 /// 与小程序 `wechat/pages/companion-detail/index.wxml` 底部的评价区行为对齐。
 struct CompanionReviewSection: View {
+    @EnvironmentObject var loc: LocalizationManager
     let companionId: String
     /// 嵌入页面只展示前 N 条；点击“查看全部” push 完整 ReviewListView。
     let previewLimit: Int = 5
@@ -116,12 +120,12 @@ struct CompanionReviewSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Spacing.md) {
             HStack(alignment: .firstTextBaseline) {
-                Text("用户评价")
+                Text(loc.t("review.userReviews"))
                     .font(.dsTitle)
                     .foregroundStyle(Color.textPrimary)
                 Spacer()
                 if viewModel.total > 0 {
-                    Text("共 \(viewModel.total) 条")
+                    Text(loc.t("review.totalCount", "\(viewModel.total)"))
                         .font(.dsSmall)
                         .foregroundStyle(Color.textHint)
                 }
@@ -135,7 +139,7 @@ struct CompanionReviewSection: View {
                     Image(systemName: "star.slash")
                         .font(.system(size: 28))
                         .foregroundStyle(Color.textHint)
-                    Text("暂无评价")
+                    Text(loc.t("review.empty"))
                         .font(.dsBody)
                         .foregroundStyle(Color.textSecondary)
                 }
@@ -154,7 +158,7 @@ struct CompanionReviewSection: View {
                         ReviewListView(companionId: companionId)
                     } label: {
                         HStack {
-                            Text("查看全部评价")
+                            Text(loc.t("review.viewAll"))
                             Image(systemName: "chevron.right")
                         }
                         .font(.dsSubheadline)

@@ -50,7 +50,7 @@ final class ShareOTPViewModel: ObservableObject {
 
     func sendOTP() async {
         guard !phone.isEmpty else {
-            stage = .failure(message: "请输入手机号")
+            stage = .failure(message: LocalizationManager.shared.t("share.errPhoneRequired"))
             return
         }
         stage = .sendingOTP
@@ -58,7 +58,7 @@ final class ShareOTPViewModel: ObservableObject {
             let resp = try await ShareService.sendShareOTP(token: shareToken, phone: phone)
             stage = .enterOTP(maskedPhone: resp.maskedPhone, expiresIn: resp.expiresIn)
         } catch {
-            stage = .failure(message: extractMessage(from: error, default: "验证码下发失败，请稍后重试"))
+            stage = .failure(message: extractMessage(from: error, default: LocalizationManager.shared.t("share.errOtpSendFailed")))
         }
     }
 
@@ -66,7 +66,7 @@ final class ShareOTPViewModel: ObservableObject {
 
     func exchangeSession() async {
         guard otp.count == 6 else {
-            stage = .failure(message: "请输入 6 位验证码")
+            stage = .failure(message: LocalizationManager.shared.t("share.errOtpRequired"))
             return
         }
         stage = .exchanging
@@ -82,7 +82,7 @@ final class ShareOTPViewModel: ObservableObject {
                 .init(orderId: resp.orderId, scope: resp.shareScope)
             )
         } catch {
-            stage = .failure(message: extractMessage(from: error, default: "验证失败，请检查验证码"))
+            stage = .failure(message: extractMessage(from: error, default: LocalizationManager.shared.t("share.errVerifyFailed")))
         }
     }
 
