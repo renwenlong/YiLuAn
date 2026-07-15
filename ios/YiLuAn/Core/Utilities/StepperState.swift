@@ -60,13 +60,17 @@ enum StepperState {
     /// 步骤数固定 4（钉死，与微信 STEP_TITLES.length 互锁）
     static let totalSteps: Int = 4
 
-    /// 步骤命名（与微信 `STEP_TITLES` 逐字符一致；AC#25 必测）
-    static let stepTitles: [String] = [
-        "服务类型",
-        "医院",
-        "日期",
-        "患者 & 陪诊师确认",
-    ]
+    /// 步骤命名（i18n: 与微信 createOrder.step* 同源 key，AC#25 契约演进为同源字典语义等价）。
+    /// static var computed 每次访问走 loc.t，切语言实时（同 003B-5 FamilyRelation 模式）。
+    static var stepTitles: [String] {
+        let loc = LocalizationManager.shared
+        return [
+            loc.t("createOrder.stepService"),
+            loc.t("createOrder.stepHospital"),
+            loc.t("createOrder.stepDate"),
+            loc.t("createOrder.stepPatient"),
+        ]
+    }
 
     /// 各步骤「是否已填」判定。
     /// 注意：科室(department)为可选，不参与第②步完成判定（与微信端 isStepFilled 同源）。
@@ -161,8 +165,8 @@ enum StepperState {
         return .cleared(dept) // 不存在 → 清空
     }
 
-    /// 科室冲突 toast 文案（钉死 · §五，与微信 departmentConflictToast 逐字符一致）。
+    /// 科室冲突 toast 文案（i18n: stepper.deptConflictToast，插值 {dept}）。
     static func departmentConflictToast(clearedDept: String) -> String {
-        "原科室\"\(clearedDept)\"在该院区不可用，已为您清空，请重新选择"
+        LocalizationManager.shared.t("stepper.deptConflictToast", clearedDept)
     }
 }

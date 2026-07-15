@@ -9,18 +9,18 @@ struct PhoneRequiredAlertModifier: ViewModifier {
     func body(content: Content) -> some View {
         content
             .alert(
-                "请先绑定手机号",
+                LocalizationManager.shared.t("errorGuide.phoneRequiredTitle"),
                 isPresented: Binding(
                     get: { message != nil },
                     set: { if !$0 { message = nil } }
                 ),
                 presenting: message
             ) { _ in
-                Button("去绑定") {
+                Button(LocalizationManager.shared.t("errorGuide.phoneRequiredCta")) {
                     message = nil
                     showBindPhone = true
                 }
-                Button("取消", role: .cancel) {
+                Button(LocalizationManager.shared.t("common.cancel"), role: .cancel) {
                     message = nil
                 }
             } message: { msg in
@@ -57,14 +57,14 @@ struct PaymentRequiredAlertModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content.alert(
-            "订单尚未支付",
+            LocalizationManager.shared.t("errorGuide.paymentRequiredTitle"),
             isPresented: Binding(
                 get: { message != nil },
                 set: { if !$0 { message = nil } }
             ),
             presenting: message
         ) { _ in
-            Button("知道了", role: .cancel) { message = nil }
+            Button(LocalizationManager.shared.t("common.gotIt"), role: .cancel) { message = nil }
         } message: { msg in
             Text(msg)
         }
@@ -77,14 +77,14 @@ struct VerificationRequiredAlertModifier: ViewModifier {
 
     func body(content: Content) -> some View {
         content.alert(
-            "资质审核中",
+            LocalizationManager.shared.t("errorGuide.verificationRequiredTitle"),
             isPresented: Binding(
                 get: { message != nil },
                 set: { if !$0 { message = nil } }
             ),
             presenting: message
         ) { _ in
-            Button("知道了", role: .cancel) { message = nil }
+            Button(LocalizationManager.shared.t("common.gotIt"), role: .cancel) { message = nil }
         } message: { msg in
             Text(msg)
         }

@@ -901,6 +901,7 @@
   },
 
   "tabBar": {
+    "availableOrders": { "zh-Hans": "接单", "en": "Available Orders" },
     "workbench": { "zh-Hans": "工作台", "en": "Workbench" },
     "home": { "zh-Hans": "首页", "en": "Home" },
     "orders": { "zh-Hans": "订单", "en": "Orders" },
@@ -1127,5 +1128,34 @@
     "a11yHintHasLink":    { "zh-Hans": "包含可查看详情链接。", "en": "Contains a link to view details." },
     "a11yHintNoAction":   { "zh-Hans": "状态卡片, 不需要额外操作。", "en": "Status card, no action needed." },
     "wsAuthFailed":       { "zh-Hans": "WS 鉴权失败 (code {code}): {reason}", "en": "WS auth failed (code {code}): {reason}", "_params": ["code", "reason"] }
+  },
+
+  "errorGuide": {
+    "phoneRequiredTitle":        { "zh-Hans": "请先绑定手机号", "en": "Please bind your phone first" },
+    "phoneRequiredCta":          { "zh-Hans": "去绑定手机号", "en": "Bind phone" },
+    "verificationRequiredTitle": { "zh-Hans": "资质审核中", "en": "Credentials under review" },
+    "verificationRequiredCta":   { "zh-Hans": "查看进度", "en": "View progress" },
+    "paymentRequiredTitle":      { "zh-Hans": "订单尚未支付", "en": "Order unpaid" },
+    "paymentRequiredCta":        { "zh-Hans": "去支付", "en": "Pay now" }
+  },
+
+  "stepper": {
+    "deptConflictToast":  { "zh-Hans": "原科室\"{dept}\"在该院区不可用，已为您清空，请重新选择", "en": "Department \"{dept}\" is not available at this campus and has been cleared; please reselect" }
+  },
+
+  "orderSummary": {
+    "weekSun": { "zh-Hans": "周日", "en": "Sun" },
+    "weekMon": { "zh-Hans": "周一", "en": "Mon" },
+    "weekTue": { "zh-Hans": "周二", "en": "Tue" },
+    "weekWed": { "zh-Hans": "周三", "en": "Wed" },
+    "weekThu": { "zh-Hans": "周四", "en": "Thu" },
+    "weekFri": { "zh-Hans": "周五", "en": "Fri" },
+    "weekSat": { "zh-Hans": "周六", "en": "Sat" },
+    "ageYears": { "zh-Hans": "{age}岁", "en": "{age} years" }
+  },
+
+  "shareScope": {
+    "full":         { "zh-Hans": "完整分享（位置+进度+影像+摘要）", "en": "Full share (location+progress+images+summary)" },
+    "progressOnly": { "zh-Hans": "仅进度", "en": "Progress only" }
   }
 }

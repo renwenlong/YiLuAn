@@ -9,9 +9,10 @@ enum ShareScope: String, Codable, CaseIterable {
     case progressOnly = "progress_only"
 
     var displayName: String {
+        let loc = LocalizationManager.shared
         switch self {
-        case .full: return "完整分享（位置+进度+影像+摘要）"
-        case .progressOnly: return "仅进度"
+        case .full: return loc.t("shareScope.full")
+        case .progressOnly: return loc.t("shareScope.progressOnly")
         }
     }
 }
