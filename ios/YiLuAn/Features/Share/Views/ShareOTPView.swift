@@ -9,6 +9,7 @@ import SwiftUI
 ///   - 微信端：jscode2session 自动拿 openid，零交互
 ///   - iOS 端 / 外部浏览器：必须手输手机号 + OTP（短信 fallback）
 struct ShareOTPView: View {
+    @EnvironmentObject var loc: LocalizationManager
     @StateObject private var viewModel: ShareOTPViewModel
     @Environment(\.dismiss) private var dismiss
 
@@ -40,11 +41,11 @@ struct ShareOTPView: View {
                     case .enterPhone:
                         phoneInput
                     case .sendingOTP:
-                        loadingView(text: "正在下发验证码…")
+                        loadingView(text: loc.t("share.sendingOtp"))
                     case .enterOTP(let masked, let expiresIn):
                         otpInput(maskedPhone: masked, expiresIn: expiresIn)
                     case .exchanging:
-                        loadingView(text: "正在验证…")
+                        loadingView(text: loc.t("share.verifying"))
                     case .success(let s):
                         successView(orderId: s.orderId, scope: s.scope)
                     case .failure(let msg):
@@ -54,7 +55,7 @@ struct ShareOTPView: View {
                 Spacer()
             }
             .padding()
-            .navigationTitle("家属浏览订单")
+            .navigationTitle(loc.t("share.title"))
             .navigationBarTitleDisplayMode(.inline)
             .navigationDestination(isPresented: $navigateToOrderView) {
                 if let active = ShareSessionStore.activeSession() {
@@ -68,9 +69,9 @@ struct ShareOTPView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("查看陪诊订单进度")
+            Text(loc.t("share.viewProgress"))
                 .font(.title2.weight(.semibold))
-            Text("为保护订单隐私，需通过短信验证码确认你是被授权的家属")
+            Text(loc.t("share.privacyHint"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -78,10 +79,10 @@ struct ShareOTPView: View {
 
     private var phoneInput: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("接收验证码的手机号")
+            Text(loc.t("share.phoneLabel"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            TextField("请输入手机号", text: $viewModel.phone)
+            TextField(loc.t("share.phonePlaceholder"), text: $viewModel.phone)
                 .textFieldStyle(.roundedBorder)
                 .keyboardType(.numberPad)
                 .textContentType(.telephoneNumber)
@@ -90,7 +91,7 @@ struct ShareOTPView: View {
             Button {
                 Task { await viewModel.sendOTP() }
             } label: {
-                Text("获取验证码")
+                Text(loc.t("share.getOtp"))
                     .font(.body.weight(.semibold))
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
@@ -105,29 +106,29 @@ struct ShareOTPView: View {
     private func otpInput(maskedPhone: String, expiresIn: Int) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("验证码已发送至")
+                Text(loc.t("share.otpSentTo"))
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Text(maskedPhone)
                     .font(.body.weight(.semibold))
                 if expiresIn > 0 {
-                    Text("\(expiresIn / 60) 分钟内有效")
+                    Text(loc.t("share.validForMinutes", "\(expiresIn / 60)"))
                         .font(.caption)
                         .foregroundStyle(.tertiary)
                 }
             }
 
-            Text("6 位短信验证码")
+            Text(loc.t("share.otpLabel"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            TextField("请输入 6 位验证码", text: $viewModel.otp)
+            TextField(loc.t("share.otpPlaceholder"), text: $viewModel.otp)
                 .textFieldStyle(.roundedBorder)
                 .keyboardType(.numberPad)
                 .textContentType(.oneTimeCode)
                 .font(.body)
 
             HStack {
-                Button("重新输入手机号") {
+                Button(loc.t("share.reenterPhone")) {
                     viewModel.resetToEnterPhone()
                 }
                 .font(.subheadline)
@@ -135,7 +136,7 @@ struct ShareOTPView: View {
                 Button {
                     Task { await viewModel.exchangeSession() }
                 } label: {
-                    Text("验证")
+                    Text(loc.t("share.verify"))
                         .font(.body.weight(.semibold))
                         .padding(.horizontal, 32)
                         .frame(height: 44)
@@ -159,9 +160,9 @@ struct ShareOTPView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                Text("验证成功").font(.body.weight(.semibold))
+                Text(loc.t("share.verifySuccess")).font(.body.weight(.semibold))
             }
-            Text("即将跳转到订单详情（\(scope.displayName)）…")
+            Text(loc.t("share.redirecting", scope.displayName))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -181,7 +182,7 @@ struct ShareOTPView: View {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
                 Text(message).font(.subheadline)
             }
-            Button("返回重试") {
+            Button(loc.t("share.retry")) {
                 viewModel.resetToEnterOTP()
             }
             .buttonStyle(.bordered)

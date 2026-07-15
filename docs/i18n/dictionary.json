@@ -1006,5 +1006,66 @@
     "termsScope":         { "zh-Hans": "本用户协议适用于医路安微信小程序和iOS应用。", "en": "This User Agreement applies to the YiLu’an WeChat Mini Program and iOS app." },
     "privacyScope":       { "zh-Hans": "本隐私政策适用于医路安微信小程序和iOS应用。", "en": "This Privacy Policy applies to the YiLu’an WeChat Mini Program and iOS app." },
     "backToTop":          { "zh-Hans": "顶部", "en": "Top" }
+  },
+
+  "share": {
+    "title":              { "zh-Hans": "家属浏览订单", "en": "View Order" },
+    "viewProgress":       { "zh-Hans": "查看陪诊订单进度", "en": "View Companion Order Progress" },
+    "privacyHint":        { "zh-Hans": "为保护订单隐私，需通过短信验证码确认你是被授权的家属", "en": "To protect order privacy, please verify via SMS code that you are an authorized family member" },
+    "phoneLabel":         { "zh-Hans": "接收验证码的手机号", "en": "Phone number to receive the code" },
+    "phonePlaceholder":   { "zh-Hans": "请输入手机号", "en": "Enter phone number" },
+    "getOtp":             { "zh-Hans": "获取验证码", "en": "Get Code" },
+    "otpSentTo":          { "zh-Hans": "验证码已发送至", "en": "Code sent to" },
+    "validForMinutes":    { "zh-Hans": "{n} 分钟内有效", "en": "Valid for {n} minute(s)" },
+    "otpLabel":           { "zh-Hans": "6 位短信验证码", "en": "6-digit SMS code" },
+    "otpPlaceholder":     { "zh-Hans": "请输入 6 位验证码", "en": "Enter 6-digit code" },
+    "reenterPhone":       { "zh-Hans": "重新输入手机号", "en": "Re-enter phone" },
+    "verify":             { "zh-Hans": "验证", "en": "Verify" },
+    "verifySuccess":      { "zh-Hans": "验证成功", "en": "Verified" },
+    "redirecting":        { "zh-Hans": "即将跳转到订单详情（{scope}）…", "en": "Redirecting to order detail ({scope})…" },
+    "retry":              { "zh-Hans": "返回重试", "en": "Back to Retry" },
+    "sendingOtp":         { "zh-Hans": "正在下发验证码…", "en": "Sending code…" },
+    "verifying":          { "zh-Hans": "正在验证…", "en": "Verifying…" },
+    "errPhoneRequired":   { "zh-Hans": "请输入手机号", "en": "Please enter phone number" },
+    "errOtpSendFailed":   { "zh-Hans": "验证码下发失败，请稍后重试", "en": "Failed to send code, please try again later" },
+    "errOtpRequired":     { "zh-Hans": "请输入 6 位验证码", "en": "Please enter the 6-digit code" },
+    "errVerifyFailed":    { "zh-Hans": "验证失败，请检查验证码", "en": "Verification failed, please check the code" }
+  },
+
+  "shareOrder": {
+    "title":                    { "zh-Hans": "订单进度", "en": "Order Progress" },
+    "linkExpired":              { "zh-Hans": "查看链接已过期", "en": "View Link Expired" },
+    "linkExpiredHint":          { "zh-Hans": "share_session 30 分钟有效期已过，请重新通过短信验证码进入", "en": "The 30-minute session has expired, please re-enter via SMS code" },
+    "liveConnected":            { "zh-Hans": "实时连接中", "en": "Live" },
+    "liveDisconnected":         { "zh-Hans": "实时连接断开（{code}）; 可下拉刷新重试", "en": "Live connection lost ({code}); pull to refresh" },
+    "sectionOrder":             { "zh-Hans": "订单", "en": "Order" },
+    "orderNumber":              { "zh-Hans": "订单号", "en": "Order No." },
+    "status":                   { "zh-Hans": "状态", "en": "Status" },
+    "serviceType":              { "zh-Hans": "服务类型", "en": "Service Type" },
+    "sectionAppointment":       { "zh-Hans": "预约", "en": "Appointment" },
+    "date":                     { "zh-Hans": "日期", "en": "Date" },
+    "time":                     { "zh-Hans": "时段", "en": "Time" },
+    "hospital":                 { "zh-Hans": "医院", "en": "Hospital" },
+    "sectionPatientCompanion":  { "zh-Hans": "患者 & 陪诊师", "en": "Patient & Companion" },
+    "patient":                  { "zh-Hans": "患者", "en": "Patient" },
+    "companion":                { "zh-Hans": "陪诊师", "en": "Companion" },
+    "unassigned":               { "zh-Hans": "未指派", "en": "Unassigned" },
+    "sectionValueAdded":        { "zh-Hans": "增值内容", "en": "Value-added" },
+    "canViewImages":            { "zh-Hans": "可查看就诊影像", "en": "Medical images available" },
+    "canViewAISummary":         { "zh-Hans": "可查看 AI 就诊摘要", "en": "AI visit summary available" },
+    "sectionTimeline":          { "zh-Hans": "进度时间线", "en": "Timeline" },
+    "piiHint":                  { "zh-Hans": "出于隐私保护，患者电话 / 身份证 / 病情描述对家属侧不可见", "en": "For privacy, patient phone / ID / condition details are hidden from family members" }
+  },
+
+  "review": {
+    "ratingSection":      { "zh-Hans": "评分", "en": "Rating" },
+    "contentSection":     { "zh-Hans": "评价内容", "en": "Review Content" },
+    "writeTitle":         { "zh-Hans": "写评价", "en": "Write Review" },
+    "listTitle":          { "zh-Hans": "评价列表", "en": "Reviews" },
+    "empty":              { "zh-Hans": "暂无评价", "en": "No reviews yet" },
+    "patient":            { "zh-Hans": "患者", "en": "Patient" },
+    "userReviews":        { "zh-Hans": "用户评价", "en": "User Reviews" },
+    "totalCount":         { "zh-Hans": "共 {total} 条", "en": "{total} total" },
+    "viewAll":            { "zh-Hans": "查看全部评价", "en": "View all reviews" }
   }
 }

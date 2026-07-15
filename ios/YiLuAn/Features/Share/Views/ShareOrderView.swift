@@ -10,6 +10,7 @@ import SwiftUI
 ///
 /// **S2-INT-006 #2 增量**：iOS WS share topic 订阅 — 计算退入页面时 disconnect。
 struct ShareOrderView: View {
+    @EnvironmentObject var loc: LocalizationManager
     let shareSession: ShareSessionStore.SavedSession
 
     @State private var order: ShareOrderResponse?
@@ -45,7 +46,7 @@ struct ShareOrderView: View {
                 }
                 .padding()
             }
-            .navigationTitle("订单进度")
+            .navigationTitle(loc.t("shareOrder.title"))
             .navigationBarTitleDisplayMode(.inline)
             .task {
                 await loadOrder()
@@ -66,7 +67,7 @@ struct ShareOrderView: View {
     private var loadingView: some View {
         HStack(spacing: 12) {
             ProgressView()
-            Text("加载中…").foregroundStyle(.secondary)
+            Text(loc.t("common.loading")).foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, alignment: .center)
         .padding(.vertical, 64)
@@ -78,7 +79,7 @@ struct ShareOrderView: View {
                 .font(.largeTitle)
                 .foregroundStyle(.orange)
             Text(msg).font(.subheadline).multilineTextAlignment(.center)
-            Button("重试") { Task { await loadOrder() } }
+            Button(loc.t("common.retry")) { Task { await loadOrder() } }
                 .buttonStyle(.borderedProminent)
         }
         .frame(maxWidth: .infinity)
@@ -90,13 +91,13 @@ struct ShareOrderView: View {
             Image(systemName: "clock.badge.exclamationmark")
                 .font(.largeTitle)
                 .foregroundStyle(.orange)
-            Text("查看链接已过期")
+            Text(loc.t("shareOrder.linkExpired"))
                 .font(.headline)
-            Text("share_session 30 分钟有效期已过，请重新通过短信验证码进入")
+            Text(loc.t("shareOrder.linkExpiredHint"))
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-            Button("关闭") { dismiss() }
+            Button(loc.t("common.close")) { dismiss() }
                 .buttonStyle(.bordered)
         }
         .frame(maxWidth: .infinity)
@@ -112,50 +113,50 @@ struct ShareOrderView: View {
         if wsAuthOK {
             HStack(spacing: 4) {
                 Circle().fill(.green).frame(width: 6, height: 6)
-                Text("实时连接中").font(.caption).foregroundStyle(.secondary)
+                Text(loc.t("shareOrder.liveConnected")).font(.caption).foregroundStyle(.secondary)
             }
         } else if let msg = wsClosedMessage {
             Text(msg).font(.caption).foregroundStyle(.orange)
         }
 
-        section(title: "订单") {
-            row("订单号", order.orderNumber)
-            row("状态", order.status)
-            row("服务类型", order.serviceType)
+        section(title: loc.t("shareOrder.sectionOrder")) {
+            row(loc.t("shareOrder.orderNumber"), order.orderNumber)
+            row(loc.t("shareOrder.status"), order.status)
+            row(loc.t("shareOrder.serviceType"), order.serviceType)
         }
 
-        section(title: "预约") {
-            row("日期", order.appointmentDate)
-            row("时段", order.appointmentTime)
+        section(title: loc.t("shareOrder.sectionAppointment")) {
+            row(loc.t("shareOrder.date"), order.appointmentDate)
+            row(loc.t("shareOrder.time"), order.appointmentTime)
             if let hospital = order.hospitalName {
-                row("医院", hospital)
+                row(loc.t("shareOrder.hospital"), hospital)
             }
         }
 
-        section(title: "患者 & 陪诊师") {
+        section(title: loc.t("shareOrder.sectionPatientCompanion")) {
             if let masked = order.patientNameMasked {
-                row("患者", masked)
+                row(loc.t("shareOrder.patient"), masked)
             }
             if let companion = order.companion {
                 if let name = companion.name {
-                    row("陪诊师", name)
+                    row(loc.t("shareOrder.companion"), name)
                 }
             } else {
-                row("陪诊师", "未指派")
+                row(loc.t("shareOrder.companion"), loc.t("shareOrder.unassigned"))
             }
         }
 
         // scope 闸门：scope=full 时显示影像 / AI 摘要入口
         // scope=progress_only 时仅显示 timeline
         if order.canViewImages || order.canViewAISummary {
-            section(title: "增值内容") {
+            section(title: loc.t("shareOrder.sectionValueAdded")) {
                 if order.canViewImages {
-                    Label("可查看就诊影像", systemImage: "photo")
+                    Label(loc.t("shareOrder.canViewImages"), systemImage: "photo")
                         .font(.subheadline)
                         .foregroundStyle(.blue)
                 }
                 if order.canViewAISummary {
-                    Label("可查看 AI 就诊摘要", systemImage: "doc.text.magnifyingglass")
+                    Label(loc.t("shareOrder.canViewAISummary"), systemImage: "doc.text.magnifyingglass")
                         .font(.subheadline)
                         .foregroundStyle(.blue)
                 }
@@ -163,13 +164,13 @@ struct ShareOrderView: View {
         }
 
         if let timeline = order.timeline, !timeline.isEmpty {
-            section(title: "进度时间线") {
+            section(title: loc.t("shareOrder.sectionTimeline")) {
                 timelineView(timeline)
             }
         }
 
         // PII 提示（§2.5 后端已脱敏）
-        Text("出于隐私保护，患者电话 / 身份证 / 病情描述对家属侧不可见")
+        Text(loc.t("shareOrder.piiHint"))
             .font(.caption)
             .foregroundStyle(.tertiary)
             .padding(.top, 8)
@@ -269,7 +270,7 @@ struct ShareOrderView: View {
                     ShareSessionStore.clear()
                     loadState = .sessionExpired
                 } else {
-                    wsClosedMessage = "实时连接断开（\(code)）; 可下拉刷新重试"
+                    wsClosedMessage = loc.t("shareOrder.liveDisconnected", "\(code)")
                 }
             }
         }
