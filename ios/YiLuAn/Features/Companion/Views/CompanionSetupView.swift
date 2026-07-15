@@ -33,7 +33,7 @@ struct CompanionSetupView: View {
                         }
                     } label: {
                         HStack {
-                            Text(type.displayName)
+                            Text(loc.t("serviceType." + type.rawValue))
                                 .foregroundStyle(Color.textPrimary)
                             Spacer()
                             Text("¥\(type.price)")

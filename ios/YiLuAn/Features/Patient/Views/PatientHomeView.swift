@@ -125,7 +125,7 @@ struct PatientHomeView: View {
                     .foregroundStyle(Color.brand)
             }
 
-            Text(service.displayName)
+            Text(loc.t("serviceType." + service.rawValue))
                 .font(.dsSubheadline)
                 .fontWeight(.medium)
                 .foregroundStyle(Color.textPrimary)
