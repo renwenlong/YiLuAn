@@ -89,6 +89,25 @@ iOS 现状核验：13 Feature 模块已覆盖上述功能面（Auth/Chat/Compani
 - 🔵 FCM 系统级离线推送（一期后置，补时 APNs 共性一起）
 - 🔵 支付资质申请流程（搁置，待帝君后续启动）
 
+## 三端 Share/Precheck 对齐（帝君 2026-07-15 14:48 追加约束）
+
+**帝君拍：iOS 补齐本期一起做 + Precheck/Share 安卓纳入一期。**
+
+物理核验三端完整度（main HEAD `5c106e2`）：
+
+| 端 | Share | Precheck |
+|---|---|---|
+| iOS | ✅ 完整（ShareOrderView/ShareOTPView + Service + WS + Store） | ✅ 完整 |
+| 小程序 | ⚠️ service 层齐但**无页面入口** | ✅ 有（订单详情页信任卡+WS） |
+| 安卓 | 🆕 一期做 | 🆕 一期做 |
+
+**补齐口径（三端拉齐至一致）**：
+- 安卓：Share + Precheck 均纳入一期（对齐 iOS 完整实现）
+- **小程序：补 Share 页面入口**（service 层已有，仅缺 UI 入口）——从需求 §6 「独立后置」**提升为本期**
+- iOS：Share/Precheck 本已完整，无额外补齐（若后续发现细节 gap 同期补）
+
+**三端 Share/Precheck 行为一致** 入 Epic 验收门槛。
+
 ## 待 PM 立 epic
 
 方向已定，交 PM（凝光）立安卓 epic：
