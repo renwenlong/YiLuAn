@@ -12625,6 +12625,22 @@
         }
       }
     },
+    "tabBar.availableOrders": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "接单"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Available Orders"
+          }
+        }
+      }
+    },
     "tabBar.workbench": {
       "localizations": {
         "zh-Hans": {
@@ -15661,6 +15677,278 @@
           "stringUnit": {
             "state": "translated",
             "value": "WS auth failed (code %@): %@"
+          }
+        }
+      }
+    },
+    "errorGuide.phoneRequiredTitle": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "请先绑定手机号"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Please bind your phone first"
+          }
+        }
+      }
+    },
+    "errorGuide.phoneRequiredCta": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "去绑定手机号"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bind phone"
+          }
+        }
+      }
+    },
+    "errorGuide.verificationRequiredTitle": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "资质审核中"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Credentials under review"
+          }
+        }
+      }
+    },
+    "errorGuide.verificationRequiredCta": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "查看进度"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "View progress"
+          }
+        }
+      }
+    },
+    "errorGuide.paymentRequiredTitle": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "订单尚未支付"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Order unpaid"
+          }
+        }
+      }
+    },
+    "errorGuide.paymentRequiredCta": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "去支付"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pay now"
+          }
+        }
+      }
+    },
+    "stepper.deptConflictToast": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "原科室\"%@\"在该院区不可用，已为您清空，请重新选择"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Department \"%@\" is not available at this campus and has been cleared; please reselect"
+          }
+        }
+      }
+    },
+    "orderSummary.weekSun": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "周日"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sun"
+          }
+        }
+      }
+    },
+    "orderSummary.weekMon": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "周一"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Mon"
+          }
+        }
+      }
+    },
+    "orderSummary.weekTue": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "周二"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tue"
+          }
+        }
+      }
+    },
+    "orderSummary.weekWed": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "周三"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wed"
+          }
+        }
+      }
+    },
+    "orderSummary.weekThu": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "周四"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Thu"
+          }
+        }
+      }
+    },
+    "orderSummary.weekFri": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "周五"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fri"
+          }
+        }
+      }
+    },
+    "orderSummary.weekSat": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "周六"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sat"
+          }
+        }
+      }
+    },
+    "orderSummary.ageYears": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@岁"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ years"
+          }
+        }
+      }
+    },
+    "shareScope.full": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "完整分享（位置+进度+影像+摘要）"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Full share (location+progress+images+summary)"
+          }
+        }
+      }
+    },
+    "shareScope.progressOnly": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "仅进度"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Progress only"
           }
         }
       }

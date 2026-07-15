@@ -6,17 +6,38 @@ import XCTest
 /// **与微信 `wechat/__tests__/utils/stepperState.test.js` 逐 case 对齐**。
 final class StepperStateTests: XCTestCase {
 
+    override func setUp() {
+        super.setUp()
+        // I18N-DEV-003B-9: stepTitles/deptConflictToast 走 loc.t, 固定 zh-Hans 保断言确定性(F类, 对齐 WalletViewModelTests 惯例).
+        LocalizationManager.shared.setLanguage(.zhHans)
+    }
+
+    override func tearDown() {
+        LocalizationManager.shared.setLanguage(.zhHans)
+        super.tearDown()
+    }
+
     // MARK: - 步骤数与命名（钉死 4 步互锁）
 
     func testTotalStepsIsFour() {
         XCTAssertEqual(StepperState.totalSteps, 4)
     }
 
-    func testStepTitlesAreCharForCharIdenticalToWechat() {
+    func testStepTitlesI18nSameSourceKeysBothLanguages() {
+        // AC#25 契约演进(PM裁定 d9f00f63): 从「字面逐字符一致」→「同源字典语义等价」。
+        // iOS stepTitles 走 createOrder.step* (与微信同源 key), 各语言态文案一致。
+        let loc = LocalizationManager.shared
+        loc.setLanguage(.zhHans)
         XCTAssertEqual(
             StepperState.stepTitles,
-            ["服务类型", "医院", "日期", "患者 & 陪诊师确认"]
+            ["服务类型", "医院", "日期", "患者与陪诊师"]
         )
+        loc.setLanguage(.en)
+        XCTAssertEqual(
+            StepperState.stepTitles,
+            ["Service Type", "Hospital", "Date", "Patient & Companion"]
+        )
+        loc.setLanguage(.zhHans)
     }
 
     // MARK: - isStepFilled 各步完成判定

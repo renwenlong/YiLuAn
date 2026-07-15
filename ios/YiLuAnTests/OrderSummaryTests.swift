@@ -7,6 +7,17 @@ import XCTest
 /// 任一字符不符 → fail，与 iOS 端互锁。
 final class OrderSummaryTests: XCTestCase {
 
+    override func setUp() {
+        super.setUp()
+        // I18N-DEV-003B-9: weekLabels/ageYears 走 loc.t, 固定 zh-Hans 保断言确定性(F类).
+        LocalizationManager.shared.setLanguage(.zhHans)
+    }
+
+    override func tearDown() {
+        LocalizationManager.shared.setLanguage(.zhHans)
+        super.tearDown()
+    }
+
     // MARK: - 分隔符（半角空格 + 全角圆点 U+00B7 + 半角空格）
 
     func testSeparatorIsSpacePlusMiddleDotPlusSpace() {

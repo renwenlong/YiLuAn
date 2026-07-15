@@ -34,10 +34,11 @@ enum ErrorCodeGuideCardType: Equatable {
 
     /// 主标题
     var title: String {
+        let loc = LocalizationManager.shared
         switch self {
-        case .phoneRequired: return "请先绑定手机号"
-        case .verificationRequired: return "资质审核中"
-        case .paymentRequired: return "订单尚未支付"
+        case .phoneRequired: return loc.t("errorGuide.phoneRequiredTitle")
+        case .verificationRequired: return loc.t("errorGuide.verificationRequiredTitle")
+        case .paymentRequired: return loc.t("errorGuide.paymentRequiredTitle")
         }
     }
 
@@ -70,10 +71,11 @@ enum ErrorCodeGuideCardType: Equatable {
 
     /// CTA 按钮文案
     var ctaTitle: String {
+        let loc = LocalizationManager.shared
         switch self {
-        case .phoneRequired: return "去绑定手机号"
-        case .verificationRequired: return "查看进度"
-        case .paymentRequired: return "去支付"
+        case .phoneRequired: return loc.t("errorGuide.phoneRequiredCta")
+        case .verificationRequired: return loc.t("errorGuide.verificationRequiredCta")
+        case .paymentRequired: return loc.t("errorGuide.paymentRequiredCta")
         }
     }
 }
@@ -125,7 +127,7 @@ struct ErrorCodeGuideCard: View {
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(.textHint)
                     }
-                    .accessibilityLabel("关闭")
+                    .accessibilityLabel(LocalizationManager.shared.t("common.close"))
                 }
                 Text(message)
                     .font(.system(size: 14))

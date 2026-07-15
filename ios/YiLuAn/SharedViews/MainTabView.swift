@@ -1,28 +1,29 @@
 import SwiftUI
 
 struct MainTabView: View {
+    @EnvironmentObject var loc: LocalizationManager
     @EnvironmentObject var authViewModel: AuthViewModel
 
     var body: some View {
         TabView {
             if authViewModel.currentUser?.role == .patient {
                 PatientHomeView()
-                    .tabItem { Label("首页", systemImage: "house.fill") }
+                    .tabItem { Label(loc.t("tabBar.home"), systemImage: "house.fill") }
                 NavigationStack { OrderListView(isCompanion: false) }
-                    .tabItem { Label("订单", systemImage: "list.clipboard") }
+                    .tabItem { Label(loc.t("tabBar.orders"), systemImage: "list.clipboard") }
                 ChatListView()
-                    .tabItem { Label("消息", systemImage: "message.fill") }
+                    .tabItem { Label(loc.t("tabBar.chat"), systemImage: "message.fill") }
                 ProfileView()
-                    .tabItem { Label("我的", systemImage: "person.fill") }
+                    .tabItem { Label(loc.t("tabBar.profile"), systemImage: "person.fill") }
             } else {
                 CompanionHomeView()
-                    .tabItem { Label("首页", systemImage: "house.fill") }
+                    .tabItem { Label(loc.t("tabBar.home"), systemImage: "house.fill") }
                 AvailableOrdersView()
-                    .tabItem { Label("接单", systemImage: "tray.full.fill") }
+                    .tabItem { Label(loc.t("tabBar.availableOrders"), systemImage: "tray.full.fill") }
                 ChatListView()
-                    .tabItem { Label("消息", systemImage: "message.fill") }
+                    .tabItem { Label(loc.t("tabBar.chat"), systemImage: "message.fill") }
                 ProfileView()
-                    .tabItem { Label("我的", systemImage: "person.fill") }
+                    .tabItem { Label(loc.t("tabBar.profile"), systemImage: "person.fill") }
             }
         }
     }

@@ -13,8 +13,15 @@ enum OrderSummary {
     static let separator: String = " \u{00B7} "
 
     /// 星期映射：固定「周X」（周一…周日，非「星期X」）
-    /// 与微信 `WEEK_LABELS` 同源：index 0 = 周日
-    static let weekLabels: [String] = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"]
+    /// 与微信 `WEEK_LABELS` 同源：index 0 = 周日。i18n: orderSummary.week*。
+    static var weekLabels: [String] {
+        let loc = LocalizationManager.shared
+        return [
+            loc.t("orderSummary.weekSun"), loc.t("orderSummary.weekMon"), loc.t("orderSummary.weekTue"),
+            loc.t("orderSummary.weekWed"), loc.t("orderSummary.weekThu"), loc.t("orderSummary.weekFri"),
+            loc.t("orderSummary.weekSat"),
+        ]
+    }
 
     /// ① 服务类型：`{服务名} · ¥{价格}`
     /// 服务名取选项原文；价格为整数无小数（与微信 Math.round 同步语义）。
@@ -94,6 +101,6 @@ enum OrderSummary {
         // 与微信 Math.round(Number(age) || 0) 同源：nil → 0
         let a = max(0, age ?? 0)
         let rel = relation ?? ""
-        return masked + separator + rel + separator + "\(a)岁"
+        return masked + separator + rel + separator + LocalizationManager.shared.t("orderSummary.ageYears", "\(a)")
     }
 }
