@@ -21,15 +21,16 @@ enum ContractStatus: String, Codable {
 
     /// 给用户看的状态文案 (status != .active 时使用).
     var userFacingMessage: String {
+        let loc = LocalizationManager.shared
         switch self {
         case .pendingGeneration, .generating:
-            return "合同生成中,请稍后查看"
+            return loc.t("contract.statusGenerating")
         case .active:
             return ""  // signed URL 直接打开 PDF, 不显示文案
         case .generationFailed, .generationPermanentlyFailed:
-            return "合同生成失败,客服已介入处理"
+            return loc.t("contract.statusFailed")
         case .manuallyInvalidated:
-            return "合同已作废,请联系客服"
+            return loc.t("contract.statusInvalidated")
         }
     }
 }

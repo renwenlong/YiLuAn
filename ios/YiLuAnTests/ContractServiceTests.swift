@@ -10,6 +10,18 @@ import XCTest
 /// - ContractDetailResponse Codable (含 nullable signedUrl)
 final class ContractServiceTests: XCTestCase {
 
+    override func setUp() {
+        super.setUp()
+        // I18N-BUG-003-CONTRACTSERVICE-USERFACING-CN: userFacingMessage 走 loc.t,
+        // 固定 zh-Hans 保断言确定性 (F 类, 对齐 003B-7/9 惯例).
+        LocalizationManager.shared.setLanguage(.zhHans)
+    }
+
+    override func tearDown() {
+        LocalizationManager.shared.setLanguage(.zhHans)
+        super.tearDown()
+    }
+
     // MARK: - Endpoint construction (S3 CONTRACT-API)
 
     func testContractAcceptEndpoint() {

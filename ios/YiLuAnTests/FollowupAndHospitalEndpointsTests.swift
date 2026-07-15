@@ -4,6 +4,18 @@ import XCTest
 /// [F-07] / Hospital extras endpoint wiring.
 final class FollowupAndHospitalEndpointsTests: XCTestCase {
 
+    override func setUp() {
+        super.setUp()
+        // I18N-BUG-003-CONTRACTSERVICE-USERFACING-CN: FollowupReminder.statusLabel 走 loc.t,
+        // 固定 zh-Hans 保断言确定性 (F 类).
+        LocalizationManager.shared.setLanguage(.zhHans)
+    }
+
+    override func tearDown() {
+        LocalizationManager.shared.setLanguage(.zhHans)
+        super.tearDown()
+    }
+
     // MARK: - F-07 Followup Reminders
 
     func testCreateFollowupReminderEndpoint() {
