@@ -22,18 +22,20 @@ enum PaymentStatus: String {
     }
 
     var title: String {
+        let loc = LocalizationManager.shared
         switch self {
-        case .success: return "支付成功"
-        case .fail: return "支付失败"
-        case .cancel: return "支付取消"
+        case .success: return loc.t("payResult.successTitle")
+        case .fail: return loc.t("payResult.failTitle")
+        case .cancel: return loc.t("payResult.cancelTitle")
         }
     }
 
     var defaultDescription: String {
+        let loc = LocalizationManager.shared
         switch self {
-        case .success: return "您的订单已支付，请等待陪诊师接单"
-        case .fail: return "支付遇到问题，请重试"
-        case .cancel: return "您已取消支付，订单尚未完成"
+        case .success: return loc.t("payResult.successDesc")
+        case .fail: return loc.t("payResult.failDesc")
+        case .cancel: return loc.t("payResult.cancelDesc")
         }
     }
 }
@@ -42,6 +44,7 @@ struct PaymentResultView: View {
     let status: PaymentStatus
     let orderId: String?
     let errorMessage: String?
+    @EnvironmentObject var loc: LocalizationManager
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -72,13 +75,13 @@ struct PaymentResultView: View {
                 switch status {
                 case .success:
                     if orderId != nil {
-                        primaryButton("查看订单") { dismiss() }
+                        primaryButton(loc.t("payResult.viewOrder")) { dismiss() }
                     }
-                    secondaryButton("返回首页") { dismiss() }
+                    secondaryButton(loc.t("payResult.goHome")) { dismiss() }
 
                 case .fail, .cancel:
-                    primaryButton("重新支付") { dismiss() }
-                    secondaryButton(status == .fail ? "查看订单" : "返回订单") { dismiss() }
+                    primaryButton(loc.t("payResult.retry")) { dismiss() }
+                    secondaryButton(status == .fail ? loc.t("payResult.viewOrder") : loc.t("payResult.backToOrder")) { dismiss() }
                 }
             }
             .padding(.horizontal, Spacing.xxl)

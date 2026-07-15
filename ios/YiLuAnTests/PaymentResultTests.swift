@@ -3,6 +3,18 @@ import XCTest
 
 final class PaymentResultTests: XCTestCase {
 
+    // Copy 抽 key 后 title/defaultDescription 走 LocalizationManager，
+    // 固定 zh-Hans 保证断言确定性（对齐 WalletViewModelTests / ShareOTPViewModelTests 惯例）。
+    override func setUp() {
+        super.setUp()
+        LocalizationManager.shared.setLanguage(.zhHans)
+    }
+
+    override func tearDown() {
+        LocalizationManager.shared.setLanguage(.zhHans)
+        super.tearDown()
+    }
+
     // MARK: - PaymentStatus Tests
 
     func testSuccessStatusProperties() {

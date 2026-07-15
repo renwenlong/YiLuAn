@@ -28,6 +28,7 @@ struct OrderPrecheckSummaryView: View {
     var onPrecheckReadyChanged: ((Bool) -> Void)?
 
     @StateObject private var viewModel: PrecheckViewModel
+    @EnvironmentObject var loc: LocalizationManager
 
     init(
         orderId: String,
@@ -43,7 +44,7 @@ struct OrderPrecheckSummaryView: View {
             header
 
             if viewModel.isLoading && viewModel.summary == nil {
-                ProgressView("加载信任卡...")
+                ProgressView(loc.t("precheck.loading"))
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, 20)
             } else if let summary = viewModel.summary {
@@ -71,7 +72,7 @@ struct OrderPrecheckSummaryView: View {
 
     private var header: some View {
         HStack {
-            Text("订单准备状态")
+            Text(loc.t("precheck.title"))
                 .font(.headline)
             Spacer()
             wsStatusIndicator
@@ -81,11 +82,11 @@ struct OrderPrecheckSummaryView: View {
     @ViewBuilder
     private var wsStatusIndicator: some View {
         if viewModel.wsConnected {
-            Label("实时", systemImage: "dot.radiowaves.left.and.right")
+            Label(loc.t("precheck.live"), systemImage: "dot.radiowaves.left.and.right")
                 .font(.caption)
                 .foregroundStyle(.green)
         } else if viewModel.isPollingFallback {
-            Label("轮询中", systemImage: "arrow.triangle.2.circlepath")
+            Label(loc.t("precheck.polling"), systemImage: "arrow.triangle.2.circlepath")
                 .font(.caption)
                 .foregroundStyle(.orange)
         } else {
@@ -99,29 +100,29 @@ struct OrderPrecheckSummaryView: View {
     private func cardsList(_ summary: OrderPrecheckSummary) -> some View {
         VStack(spacing: 8) {
             PrecheckCardView(
-                title: "服务合同",
+                title: loc.t("precheck.cardContract"),
                 ready: summary.contractStatus.ready,
                 summaryLine: contractSummaryLine(summary.contractStatus),
                 detailLink: summary.contractStatus.contractPdfUrl.map { url in
-                    PrecheckDetailLink(label: "查看合同 PDF", url: url)
+                    PrecheckDetailLink(label: loc.t("precheck.viewContractPdf"), url: url)
                 }
             )
             PrecheckCardView(
-                title: "保险保单",
+                title: loc.t("precheck.cardInsurance"),
                 ready: summary.insuranceStatus.ready,
                 summaryLine: insuranceSummaryLine(summary.insuranceStatus),
                 detailLink: summary.insuranceStatus.insurancePolicyPdfUrl.map { url in
-                    PrecheckDetailLink(label: "查看保单 PDF", url: url)
+                    PrecheckDetailLink(label: loc.t("precheck.viewPolicyPdf"), url: url)
                 }
             )
             PrecheckCardView(
-                title: "AI 准备包",
+                title: loc.t("precheck.cardPreparation"),
                 ready: summary.preparationStatus.ready,
                 summaryLine: preparationSummaryLine(summary.preparationStatus),
                 detailLink: nil
             )
             PrecheckCardView(
-                title: "陪诊师资质",
+                title: loc.t("precheck.cardCompanionCert"),
                 ready: summary.companionCertStatus.ready,
                 summaryLine: PrecheckAccessibilityText.companionCertSummaryLine(summary.companionCertStatus),
                 detailLink: nil,  // 资质证明图通过 NavigationLink 单开页, 不在卡片直接展开
@@ -150,10 +151,10 @@ struct OrderPrecheckSummaryView: View {
         HStack(spacing: 6) {
             Image(systemName: "xmark.octagon.fill")
                 .foregroundStyle(.red)
-            Text("加载失败: \(err)")
+            Text(loc.t("precheck.loadFailed", err))
                 .font(.subheadline)
             Spacer()
-            Button("重试") {
+            Button(loc.t("common.retry")) {
                 Task { await viewModel.refresh() }
             }
             .font(.caption)
@@ -168,27 +169,29 @@ struct OrderPrecheckSummaryView: View {
 
     private func contractSummaryLine(_ card: ContractStatusCard) -> String {
         if card.ready {
-            let version = card.contractTemplateVersion.map { " v\($0)" } ?? ""
-            return "已生成\(version)"
+            if let v = card.contractTemplateVersion {
+                return loc.t("precheck.generatedVersion", v)
+            }
+            return loc.t("precheck.generated")
         }
-        return "未就绪"
+        return loc.t("precheck.notReady")
     }
 
     private func insuranceSummaryLine(_ card: InsuranceStatusCard) -> String {
         if card.ready, let policy = card.insurancePolicyNoMasked {
-            return "保单 \(policy)"
+            return loc.t("precheck.policyNo", policy)
         }
-        return card.ready ? "已生效" : "未就绪"
+        return card.ready ? loc.t("precheck.effective") : loc.t("precheck.notReady")
     }
 
     private func preparationSummaryLine(_ card: PreparationStatusCard) -> String {
         if card.ready {
             if let count = card.sectionsCount, count > 0 {
-                return "已生成 \(count) 项"
+                return loc.t("precheck.generatedCount", String(count))
             }
-            return "已生成"
+            return loc.t("precheck.generated")
         }
-        return "生成中"
+        return loc.t("precheck.generating")
     }
 
 }
@@ -199,35 +202,39 @@ struct OrderPrecheckSummaryView: View {
 /// lock VoiceOver / screen-reader semantics without snapshotting SwiftUI.
 enum PrecheckAccessibilityText {
     static func cardStatusText(_ ready: Bool) -> String {
-        ready ? "已就绪" : "未就绪"
+        let loc = LocalizationManager.shared
+        return ready ? loc.t("precheck.ready") : loc.t("precheck.notReady")
     }
 
     static func companionCertSummaryLine(_ card: CompanionCertStatusCard) -> String {
-        let status = "状态: \(cardStatusText(card.ready))"
-        let name = nonEmpty(card.companionCertPseudonymName).map { "姓名: \($0)" } ?? "姓名未提供"
-        let workId = nonEmpty(card.companionCertWorkId).map { "工号: \($0)" } ?? "工号未提供"
-        let qualifications = nonEmpty(card.companionCertQualifications?.joined(separator: "、"))
-            .map { "资质: \($0)" } ?? "资质未提供"
+        let loc = LocalizationManager.shared
+        let status = loc.t("precheck.a11yStatus", cardStatusText(card.ready))
+        let name = nonEmpty(card.companionCertPseudonymName).map { loc.t("precheck.a11yName", $0) } ?? loc.t("precheck.a11yNameMissing")
+        let workId = nonEmpty(card.companionCertWorkId).map { loc.t("precheck.a11yWorkId", $0) } ?? loc.t("precheck.a11yWorkIdMissing")
+        let qualifications = nonEmpty(card.companionCertQualifications?.joined(separator: loc.t("precheck.a11yQualSeparator")))
+            .map { loc.t("precheck.a11yQual", $0) } ?? loc.t("precheck.a11yQualMissing")
         let verifiedAt = formatDate(card.companionCertVerifiedAt)
-            .map { "认证时间: \($0)" }
-            ?? (card.ready ? "认证时间未提供" : "认证时间待核验")
+            .map { loc.t("precheck.a11yVerifiedAt", $0) }
+            ?? (card.ready ? loc.t("precheck.a11yVerifiedAtMissing") : loc.t("precheck.a11yVerifiedAtPending"))
 
         return [status, name, workId, qualifications, verifiedAt].joined(separator: "; ")
     }
 
     static func companionCertAccessibilityLabel(_ card: CompanionCertStatusCard) -> String {
-        "陪诊师资质: \(companionCertSummaryLine(card))"
+        LocalizationManager.shared.t("precheck.a11yCertLabel", companionCertSummaryLine(card))
     }
 
     static func companionCertAccessibilityHint(_ card: CompanionCertStatusCard) -> String {
+        let loc = LocalizationManager.shared
         if card.ready {
-            return "资质已通过核验, 可继续付款; 证件原图不会在用户端展示。"
+            return loc.t("precheck.a11yHintReady")
         }
-        return "资质尚未就绪, 请等待核验完成或重新选择陪诊师; 当前状态不只依赖颜色提示。"
+        return loc.t("precheck.a11yHintPending")
     }
 
     static func cardDefaultAccessibilityHint(hasDetailLink: Bool) -> String {
-        hasDetailLink ? "包含可查看详情链接。" : "状态卡片, 不需要额外操作。"
+        let loc = LocalizationManager.shared
+        return hasDetailLink ? loc.t("precheck.a11yHintHasLink") : loc.t("precheck.a11yHintNoAction")
     }
 
     private static func nonEmpty(_ text: String?) -> String? {
@@ -252,6 +259,7 @@ enum PrecheckAccessibilityText {
 
 /// 单张信任卡 — ready / blocked 两态
 struct PrecheckCardView: View {
+    @EnvironmentObject var loc: LocalizationManager
     let title: String
     let ready: Bool
     let summaryLine: String
@@ -309,7 +317,7 @@ struct PrecheckCardView: View {
                 Image(systemName: "checkmark.circle.fill")
                     .foregroundStyle(.green)
                     .font(.title3)
-                Text("已就绪")
+                Text(loc.t("precheck.ready"))
                     .font(.caption2)
                     .foregroundStyle(.green)
             }
@@ -319,7 +327,7 @@ struct PrecheckCardView: View {
                 Image(systemName: "clock.fill")
                     .foregroundStyle(.orange)
                     .font(.title3)
-                Text("未就绪")
+                Text(loc.t("precheck.notReady"))
                     .font(.caption2)
                     .foregroundStyle(.orange)
             }

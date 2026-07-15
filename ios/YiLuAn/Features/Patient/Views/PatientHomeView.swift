@@ -2,6 +2,7 @@ import SwiftUI
 
 struct PatientHomeView: View {
     @StateObject private var companionViewModel = CompanionProfileViewModel()
+    @EnvironmentObject var loc: LocalizationManager
 
     var body: some View {
         NavigationStack {
@@ -13,7 +14,7 @@ struct PatientHomeView: View {
                             .frame(height: 140)
                             .ignoresSafeArea(edges: .top)
 
-                        Text("找到您身边的\n专业陪诊师")
+                        Text(loc.t("patientHome.heroTitle"))
                             .font(.dsH1)
                             .foregroundStyle(.white)
                             .padding(.horizontal, Spacing.xl)
@@ -22,7 +23,7 @@ struct PatientHomeView: View {
 
                     // Service cards
                     VStack(alignment: .leading, spacing: Spacing.md) {
-                        Text("选择服务")
+                        Text(loc.t("home.selectService"))
                             .font(.dsTitle)
                             .foregroundStyle(Color.textPrimary)
                             .padding(.horizontal, Spacing.lg)
@@ -47,16 +48,16 @@ struct PatientHomeView: View {
                     // Recommended companions
                     VStack(alignment: .leading, spacing: Spacing.md) {
                         HStack {
-                            Text("推荐陪诊师")
+                            Text(loc.t("home.recommendedCompanions"))
                                 .font(.dsTitle)
                                 .foregroundStyle(Color.textPrimary)
                             Spacer()
                             NavigationLink {
                                 CompanionListView()
-                                    .navigationTitle("陪诊师列表")
+                                    .navigationTitle(loc.t("patientHome.companionList"))
                             } label: {
                                 HStack(spacing: 4) {
-                                    Text("更多")
+                                    Text(loc.t("patientHome.more"))
                                         .font(.dsSubheadline)
                                     Image(systemName: "chevron.right")
                                         .font(.system(size: 10, weight: .semibold))
@@ -80,7 +81,7 @@ struct PatientHomeView: View {
                                 Image(systemName: "person.2.slash")
                                     .font(.system(size: 32))
                                     .foregroundStyle(Color.textHint)
-                                Text("暂无推荐，稍后再来看看")
+                                Text(loc.t("patientHome.noRecommend"))
                                     .font(.dsSubheadline)
                                     .foregroundStyle(Color.textHint)
                             }
@@ -105,7 +106,7 @@ struct PatientHomeView: View {
                 .padding(.bottom, 120)
             }
             .background(Color.bgPage)
-            .navigationTitle("医路安")
+            .navigationTitle(loc.t("patientHome.appName"))
             .task {
                 await companionViewModel.loadCompanions()
             }

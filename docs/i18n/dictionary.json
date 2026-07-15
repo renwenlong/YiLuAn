@@ -1067,5 +1067,65 @@
     "userReviews":        { "zh-Hans": "用户评价", "en": "User Reviews" },
     "totalCount":         { "zh-Hans": "共 {total} 条", "en": "{total} total" },
     "viewAll":            { "zh-Hans": "查看全部评价", "en": "View all reviews" }
+  },
+
+  "patientProfile": {
+    "contactName":        { "zh-Hans": "联系人姓名", "en": "Contact name" },
+    "contactPhone":       { "zh-Hans": "联系人电话", "en": "Contact phone" },
+    "medicalInfo":        { "zh-Hans": "医疗信息", "en": "Medical information" },
+    "medicalNotes":       { "zh-Hans": "病历备注", "en": "Medical notes" },
+    "preferredHospital":  { "zh-Hans": "偏好医院", "en": "Preferred hospital" },
+    "selectHospital":     { "zh-Hans": "选择医院", "en": "Select hospital" },
+    "notSelected":        { "zh-Hans": "未选择", "en": "Not selected" },
+    "title":              { "zh-Hans": "患者信息", "en": "Patient info" },
+    "errorTitle":         { "zh-Hans": "错误", "en": "Error" },
+    "ok":                 { "zh-Hans": "确定", "en": "OK" }
+  },
+
+  "patientHome": {
+    "heroTitle":          { "zh-Hans": "找到您身边的\n专业陪诊师", "en": "Find a professional\ncompanion near you" },
+    "companionList":      { "zh-Hans": "陪诊师列表", "en": "Companions" },
+    "more":               { "zh-Hans": "更多", "en": "More" },
+    "noRecommend":        { "zh-Hans": "暂无推荐，稍后再来看看", "en": "No recommendations yet, check back later" },
+    "appName":            { "zh-Hans": "医路安", "en": "YiLuAn" }
+  },
+
+  "precheck": {
+    "loading":            { "zh-Hans": "加载信任卡...", "en": "Loading trust cards..." },
+    "title":              { "zh-Hans": "订单准备状态", "en": "Order readiness" },
+    "live":               { "zh-Hans": "实时", "en": "Live" },
+    "polling":            { "zh-Hans": "轮询中", "en": "Polling" },
+    "cardContract":       { "zh-Hans": "服务合同", "en": "Service contract" },
+    "cardInsurance":      { "zh-Hans": "保险保单", "en": "Insurance policy" },
+    "cardPreparation":    { "zh-Hans": "AI 准备包", "en": "AI prep pack" },
+    "cardCompanionCert":  { "zh-Hans": "陪诊师资质", "en": "Companion credentials" },
+    "viewContractPdf":    { "zh-Hans": "查看合同 PDF", "en": "View contract PDF" },
+    "viewPolicyPdf":      { "zh-Hans": "查看保单 PDF", "en": "View policy PDF" },
+    "loadFailed":         { "zh-Hans": "加载失败: {err}", "en": "Load failed: {err}", "_params": ["err"] },
+    "ready":              { "zh-Hans": "已就绪", "en": "Ready" },
+    "notReady":           { "zh-Hans": "未就绪", "en": "Not ready" },
+    "generated":          { "zh-Hans": "已生成", "en": "Generated" },
+    "generatedVersion":   { "zh-Hans": "已生成 v{version}", "en": "Generated v{version}", "_params": ["version"] },
+    "generatedCount":     { "zh-Hans": "已生成 {count} 项", "en": "Generated {count} item(s)", "_params": ["count"] },
+    "generating":         { "zh-Hans": "生成中", "en": "Generating" },
+    "policyNo":           { "zh-Hans": "保单 {policy}", "en": "Policy {policy}", "_params": ["policy"] },
+    "effective":          { "zh-Hans": "已生效", "en": "Effective" },
+    "a11yStatus":         { "zh-Hans": "状态: {status}", "en": "Status: {status}", "_params": ["status"] },
+    "a11yName":           { "zh-Hans": "姓名: {name}", "en": "Name: {name}", "_params": ["name"] },
+    "a11yNameMissing":    { "zh-Hans": "姓名未提供", "en": "Name not provided" },
+    "a11yWorkId":         { "zh-Hans": "工号: {id}", "en": "Staff ID: {id}", "_params": ["id"] },
+    "a11yWorkIdMissing":  { "zh-Hans": "工号未提供", "en": "Staff ID not provided" },
+    "a11yQual":           { "zh-Hans": "资质: {qual}", "en": "Credentials: {qual}", "_params": ["qual"] },
+    "a11yQualMissing":    { "zh-Hans": "资质未提供", "en": "Credentials not provided" },
+    "a11yQualSeparator":  { "zh-Hans": "、", "en": ", " },
+    "a11yVerifiedAt":     { "zh-Hans": "认证时间: {date}", "en": "Verified: {date}", "_params": ["date"] },
+    "a11yVerifiedAtMissing": { "zh-Hans": "认证时间未提供", "en": "Verification time not provided" },
+    "a11yVerifiedAtPending": { "zh-Hans": "认证时间待核验", "en": "Verification pending" },
+    "a11yCertLabel":      { "zh-Hans": "陪诊师资质: {summary}", "en": "Companion credentials: {summary}", "_params": ["summary"] },
+    "a11yHintReady":      { "zh-Hans": "资质已通过核验, 可继续付款; 证件原图不会在用户端展示。", "en": "Credentials verified, you may proceed to payment; original documents are not shown to users." },
+    "a11yHintPending":    { "zh-Hans": "资质尚未就绪, 请等待核验完成或重新选择陪诊师; 当前状态不只依赖颜色提示。", "en": "Credentials not ready yet; please wait for verification or reselect a companion; status does not rely on color alone." },
+    "a11yHintHasLink":    { "zh-Hans": "包含可查看详情链接。", "en": "Contains a link to view details." },
+    "a11yHintNoAction":   { "zh-Hans": "状态卡片, 不需要额外操作。", "en": "Status card, no action needed." },
+    "wsAuthFailed":       { "zh-Hans": "WS 鉴权失败 (code {code}): {reason}", "en": "WS auth failed (code {code}): {reason}", "_params": ["code", "reason"] }
   }
 }
