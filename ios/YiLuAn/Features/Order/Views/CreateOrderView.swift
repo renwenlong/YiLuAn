@@ -103,7 +103,7 @@ struct CreateOrderView: View {
                         stepSection(
                             stepIndex: 1,
                             summary: OrderSummary.summaryService(
-                                serviceName: selectedService?.displayName,
+                                serviceName: selectedService.map { loc.t("serviceType." + $0.rawValue) },
                                 price: selectedService?.price
                             )
                         ) {
