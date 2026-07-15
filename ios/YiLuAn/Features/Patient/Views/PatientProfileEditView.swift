@@ -2,19 +2,20 @@ import SwiftUI
 
 struct PatientProfileEditView: View {
     @StateObject private var viewModel = PatientProfileViewModel()
+    @EnvironmentObject var loc: LocalizationManager
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         Form {
-            Section("紧急联系人") {
-                TextField("联系人姓名", text: $viewModel.emergencyContact)
-                TextField("联系人电话", text: $viewModel.emergencyPhone)
+            Section(loc.t("profileEdit.emergencyContact")) {
+                TextField(loc.t("patientProfile.contactName"), text: $viewModel.emergencyContact)
+                TextField(loc.t("patientProfile.contactPhone"), text: $viewModel.emergencyPhone)
                     .keyboardType(.phonePad)
             }
 
-            Section("医疗信息") {
+            Section(loc.t("patientProfile.medicalInfo")) {
                 VStack(alignment: .leading) {
-                    Text("病历备注")
+                    Text(loc.t("patientProfile.medicalNotes"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     TextEditor(text: $viewModel.medicalNotes)
@@ -23,9 +24,9 @@ struct PatientProfileEditView: View {
             }
 
             if !viewModel.hospitals.isEmpty {
-                Section("偏好医院") {
-                    Picker("选择医院", selection: $viewModel.preferredHospitalId) {
-                        Text("未选择").tag("")
+                Section(loc.t("patientProfile.preferredHospital")) {
+                    Picker(loc.t("patientProfile.selectHospital"), selection: $viewModel.preferredHospitalId) {
+                        Text(loc.t("patientProfile.notSelected")).tag("")
                         ForEach(viewModel.hospitals) { hospital in
                             Text(hospital.name).tag(hospital.id)
                         }
@@ -42,7 +43,7 @@ struct PatientProfileEditView: View {
                         if viewModel.isLoading {
                             ProgressView()
                         } else {
-                            Text("保存")
+                            Text(loc.t("common.save"))
                         }
                         Spacer()
                     }
@@ -50,7 +51,7 @@ struct PatientProfileEditView: View {
                 .disabled(viewModel.isLoading)
             }
         }
-        .navigationTitle("患者信息")
+        .navigationTitle(loc.t("patientProfile.title"))
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await viewModel.loadProfile()
@@ -59,11 +60,11 @@ struct PatientProfileEditView: View {
         .onChange(of: viewModel.isSaved) { saved in
             if saved { dismiss() }
         }
-        .alert("错误", isPresented: .init(
+        .alert(loc.t("patientProfile.errorTitle"), isPresented: .init(
             get: { viewModel.errorMessage != nil },
             set: { if !$0 { viewModel.errorMessage = nil } }
         )) {
-            Button("确定", role: .cancel) {}
+            Button(loc.t("patientProfile.ok"), role: .cancel) {}
         } message: {
             Text(viewModel.errorMessage ?? "")
         }

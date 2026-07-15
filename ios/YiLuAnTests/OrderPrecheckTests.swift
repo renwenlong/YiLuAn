@@ -13,6 +13,18 @@ import XCTest
 @MainActor
 final class OrderPrecheckTests: XCTestCase {
 
+    // I18N-DEV-003B-8: precheck accessibility/summary 文案抽 key 后走 LocalizationManager.shared.t,
+    // 测试固定为中文以保证中文断言确定性(对齐 ShareOTPViewModelTests / WalletViewModelTests 惯例, F 类盲区同步)。
+    override func setUp() {
+        super.setUp()
+        LocalizationManager.shared.setLanguage(.zhHans)
+    }
+
+    override func tearDown() {
+        LocalizationManager.shared.setLanguage(.zhHans)
+        super.tearDown()
+    }
+
     // MARK: - Acceptance #1: Swift UI 展示 4 cert 字段
 
     func testOrderPrecheckSummaryDecoding() throws {

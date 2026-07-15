@@ -113,7 +113,7 @@ final class PrecheckViewModel: ObservableObject {
 
                 // 永久失败 (auth / authz 错): 不 fallback polling, 报错给上层
                 if code == 4001 || code == 4003 || code == 4004 || code == 4011 {
-                    self?.errorMessage = "WS 鉴权失败 (code \(code)): \(reason)"
+                    self?.errorMessage = LocalizationManager.shared.t("precheck.wsAuthFailed", String(code), reason)
                     return
                 }
 
