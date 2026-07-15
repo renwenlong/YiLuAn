@@ -6,6 +6,18 @@ import XCTest
 @MainActor
 final class ShareOTPViewModelTests: XCTestCase {
 
+    override func setUp() {
+        super.setUp()
+        // I18N-DEV-003B-7: 错误文案走 LocalizationManager.shared.t 抽 key 后,
+        // 测试固定为中文以保证断言确定性(对齐 WalletViewModelTests 惯例)。
+        LocalizationManager.shared.setLanguage(.zhHans)
+    }
+
+    override func tearDown() {
+        LocalizationManager.shared.setLanguage(.zhHans)
+        super.tearDown()
+    }
+
     func testExchangeSessionRejectsOTPShorterThan6() async {
         let vm = ShareOTPViewModel(shareToken: "tok-abc")
         vm.phone = "13800000001"
