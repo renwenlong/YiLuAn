@@ -15952,6 +15952,54 @@
           }
         }
       }
+    },
+    "contract.statusGenerating": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "合同生成中,请稍后查看"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contract is being generated, please check back later"
+          }
+        }
+      }
+    },
+    "contract.statusFailed": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "合同生成失败,客服已介入处理"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contract generation failed, customer service has been notified"
+          }
+        }
+      }
+    },
+    "contract.statusInvalidated": {
+      "localizations": {
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "合同已作废,请联系客服"
+          }
+        },
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Contract has been invalidated, please contact customer service"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

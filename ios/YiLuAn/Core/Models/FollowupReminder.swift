@@ -27,11 +27,12 @@ struct CreateFollowupReminderRequest: Encodable {
 
 extension FollowupReminder {
     var statusLabel: String {
+        let loc = LocalizationManager.shared
         switch status {
-        case "pending":   return "待提醒"
-        case "sent":      return "已发送"
-        case "cancelled": return "已取消"
-        case "failed":    return "发送失败"
+        case "pending":   return loc.t("followupReminders.statusPending")
+        case "sent":      return loc.t("followupReminders.statusSent")
+        case "cancelled": return loc.t("followupReminders.statusCancelled")
+        case "failed":    return loc.t("followupReminders.statusFailed")
         default:          return status
         }
     }

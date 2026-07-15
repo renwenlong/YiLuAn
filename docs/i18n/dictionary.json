@@ -1157,5 +1157,11 @@
   "shareScope": {
     "full":         { "zh-Hans": "完整分享（位置+进度+影像+摘要）", "en": "Full share (location+progress+images+summary)" },
     "progressOnly": { "zh-Hans": "仅进度", "en": "Progress only" }
+  },
+
+  "contract": {
+    "statusGenerating":   { "zh-Hans": "合同生成中,请稍后查看", "en": "Contract is being generated, please check back later" },
+    "statusFailed":       { "zh-Hans": "合同生成失败,客服已介入处理", "en": "Contract generation failed, customer service has been notified" },
+    "statusInvalidated":  { "zh-Hans": "合同已作废,请联系客服", "en": "Contract has been invalidated, please contact customer service" }
   }
 }
