@@ -1,0 +1,61 @@
+<!-- pages/patient/order-share/index.wxml
+     ANDROID-DEV-WX-SHARE-ENTRY 患者发起端：创建/复制/撤销家属分享 -->
+<view class="page">
+  <view class="intro">{{t['shareEntry.intro']}}</view>
+
+  <!-- 创建区 -->
+  <view class="card">
+    <view class="row">
+      <text class="label">{{t['shareEntry.scopeLabel']}}</text>
+      <picker mode="selector" range="{{scopeDisplay}}" value="{{scopeIndex}}" bindchange="onScopeChange">
+        <view class="picker-value">
+          {{ scope === 'full' ? t['shareScope.full'] : t['shareScope.progressOnly'] }}
+        </view>
+      </picker>
+    </view>
+    <view class="hint">{{t['shareEntry.limitReached']}}</view>
+    <button class="btn-primary" bindtap="onCreate" loading="{{creating}}" disabled="{{creating}}">
+      {{ creating ? t['shareEntry.creating'] : t['shareEntry.createButton'] }}
+    </button>
+  </view>
+
+  <!-- 列表区 -->
+  <view class="list-header">
+    <text class="list-title">{{t['shareEntry.activeListTitle']}}</text>
+    <text class="active-count">{{activeCountText}}</text>
+  </view>
+
+  <view wx:if="{{loading}}" class="empty">{{t['common.loading']}}</view>
+
+  <view wx:elif="{{shares.length === 0}}" class="empty">{{t['shareEntry.emptyList']}}</view>
+
+  <view wx:else>
+    <view class="share-item" wx:for="{{shares}}" wx:key="id">
+      <view class="share-scope-tag">
+        {{ item.share_scope === 'full' ? t['shareScope.full'] : t['shareScope.progressOnly'] }}
+      </view>
+      <view class="share-link-row">
+        <text class="link-label">{{t['shareEntry.linkLabel']}}</text>
+        <text class="link-value" selectable="{{true}}">{{item.share_url}}</text>
+      </view>
+      <view class="share-meta" wx:if="{{item.expiresText}}">
+        <text>{{t['shareEntry.expiresAt']}}: {{item.expiresText}}</text>
+      </view>
+      <view class="share-actions">
+        <button class="btn-mini" size="mini" data-url="{{item.share_url}}" bindtap="onCopy">
+          {{t['shareEntry.copyLink']}}
+        </button>
+        <button
+          class="btn-mini btn-danger"
+          size="mini"
+          data-id="{{item.id}}"
+          loading="{{revokingId === item.id}}"
+          disabled="{{revokingId === item.id}}"
+          bindtap="onRevoke"
+        >
+          {{ revokingId === item.id ? t['shareEntry.revoking'] : t['shareEntry.revoke'] }}
+        </button>
+      </view>
+    </view>
+  </view>
+</view>

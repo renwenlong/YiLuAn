@@ -32,7 +32,7 @@ var PAYMENT_STATUS_KEY = {
 Page({
   behaviors: [i18nBehavior],
   data: {
-    i18nScopes: ['common', 'orderDetail', 'orderStatus', 'serviceType'],
+    i18nScopes: ['common', 'orderDetail', 'orderStatus', 'serviceType', 'shareEntry'],
     order: null,
     loading: true,
     // AI-9: 操作锁，防止状态切换瞬间用户重复点击
@@ -411,6 +411,13 @@ Page({
   onReview() {
     router.navigate({
       url: `/pages/review/write/index?id=${this.orderId}`
+    })
+  },
+
+  // ANDROID-DEV-WX-SHARE-ENTRY: 跳转家属分享管理页(发起端)。
+  onShareToFamily() {
+    router.navigate({
+      url: `/pages/patient/order-detail/share/index?id=${this.orderId}`
     })
   },
 

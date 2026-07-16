@@ -232,5 +232,11 @@
     <block wx:if="{{order.status === 'rejected_by_companion' || order.status === 'expired'}}">
       <button class="btn-primary" bindtap="onReorder">{{t['orderDetail.reorder']}}</button>
     </block>
+
+    <!-- ANDROID-DEV-WX-SHARE-ENTRY: 家属分享入口。订单已有陪诊师/进度可分享时显示,
+         对齐 iOS 发起端语义(createShare)。付款后 accepted/in_progress/completed/reviewed 态。 -->
+    <block wx:if="{{order.status === 'accepted' || order.status === 'in_progress' || order.status === 'completed' || order.status === 'reviewed'}}">
+      <button class="btn-secondary" bindtap="onShareToFamily" disabled="{{actionLoading}}">{{t['shareEntry.entryButton']}}</button>
+    </block>
   </view>
 </view>
