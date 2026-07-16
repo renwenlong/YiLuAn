@@ -1,6 +1,9 @@
 const {
   exchangeShareSession,
   getShareOrder,
+  createShare,
+  listShares,
+  revokeShare,
 } = require('../../services/share')
 const {
   getShareSession,
@@ -185,5 +188,105 @@ describe('services/share — getShareOrder', () => {
     const view = await getShareOrder('tok-1')
     expect(view.patient_name_masked).toBe('王**')
     expect(getAttempts).toBe(2)
+  })
+})
+
+// ============================================================================
+// ANDROID-DEV-WX-SHARE-ENTRY — 发起端 (Owner 路径, 本人 access token)
+// ============================================================================
+describe('services/share — 发起端 createShare/listShares/revokeShare', () => {
+  beforeEach(() => {
+    // 发起端走本人 access token (services/api.js request)
+    wx.setStorageSync('yiluan_access_token', 'owner_token')
+  })
+
+  describe('createShare', () => {
+    test('POST /orders/{id}/shares with share_scope, returns CreateShareResponse', async () => {
+      __mockWxRequest(200, {
+        id: 'tok-row-1',
+        share_token: 'abc123',
+        share_url: 'https://m.yiluan.cn/s/abc123',
+        share_scope: 'full',
+        share_expires_at: '2026-07-20T00:00:00Z',
+        share_active_count: 1,
+      })
+      const out = await createShare('ord-1', 'full')
+      const callArgs = wx.request.mock.calls[0][0]
+      expect(callArgs.url).toContain('orders/ord-1/shares')
+      expect(callArgs.method).toBe('POST')
+      expect(callArgs.data).toEqual({ share_scope: 'full' })
+      // 发起端必须带本人 access token
+      expect(callArgs.header.Authorization).toBe('Bearer owner_token')
+      expect(out.share_token).toBe('abc123')
+      expect(out.share_url).toBe('https://m.yiluan.cn/s/abc123')
+      expect(out.share_active_count).toBe(1)
+    })
+
+    test('defaults scope to full', async () => {
+      __mockWxRequest(200, { id: 't', share_token: 'x', share_url: 'u', share_scope: 'full' })
+      await createShare('ord-2')
+      const callArgs = wx.request.mock.calls[0][0]
+      expect(callArgs.data).toEqual({ share_scope: 'full' })
+    })
+
+    test('supports progress_only scope', async () => {
+      __mockWxRequest(200, { id: 't', share_token: 'x', share_url: 'u', share_scope: 'progress_only' })
+      await createShare('ord-3', 'progress_only')
+      const callArgs = wx.request.mock.calls[0][0]
+      expect(callArgs.data).toEqual({ share_scope: 'progress_only' })
+    })
+
+    test('rejects without orderId', async () => {
+      await expect(createShare()).rejects.toThrow('orderId required')
+      expect(wx.request).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('listShares', () => {
+    test('GET /orders/{id}/shares returns ListSharesResponse', async () => {
+      __mockWxRequest(200, {
+        items: [
+          { id: 't1', share_token: 'a', share_url: 'ua', share_scope: 'full', share_expires_at: '2026-07-20T00:00:00Z' },
+          { id: 't2', share_token: 'b', share_url: 'ub', share_scope: 'progress_only', share_expires_at: '2026-07-21T00:00:00Z' },
+        ],
+        share_active_count: 2,
+      })
+      const out = await listShares('ord-1')
+      const callArgs = wx.request.mock.calls[0][0]
+      expect(callArgs.url).toContain('orders/ord-1/shares')
+      expect(callArgs.method).toBe('GET')
+      expect(callArgs.header.Authorization).toBe('Bearer owner_token')
+      expect(out.items).toHaveLength(2)
+      expect(out.share_active_count).toBe(2)
+    })
+
+    test('rejects without orderId', async () => {
+      await expect(listShares()).rejects.toThrow('orderId required')
+      expect(wx.request).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('revokeShare', () => {
+    test('DELETE /orders/{id}/shares/{tokenId}', async () => {
+      __mockWxRequest(200, {})
+      await revokeShare('ord-1', 'tok-row-1')
+      const callArgs = wx.request.mock.calls[0][0]
+      expect(callArgs.url).toContain('orders/ord-1/shares/tok-row-1')
+      expect(callArgs.method).toBe('DELETE')
+      expect(callArgs.header.Authorization).toBe('Bearer owner_token')
+    })
+
+    test('rejects without orderId or tokenId', async () => {
+      await expect(revokeShare('ord-1')).rejects.toThrow('orderId and tokenId required')
+      await expect(revokeShare(undefined, 'tok')).rejects.toThrow('orderId and tokenId required')
+      expect(wx.request).not.toHaveBeenCalled()
+    })
+  })
+
+  test('发起端与接收端存储隔离: createShare 不碰 share_session', async () => {
+    __mockWxRequest(200, { id: 't', share_token: 'x', share_url: 'u', share_scope: 'full' })
+    await createShare('ord-1', 'full')
+    // 发起端用本人 token, 不应写 share_session
+    expect(wx.getStorageSync('yiluan_share_session')).toBe('')
   })
 })

@@ -183,13 +183,62 @@ mustContain(swift, 'PrecheckAccessibilityText.companionCertAccessibilityHint', '
 mustContain(swift, '.accessibilityElement(children: .combine)', 'iOS combined card accessibility element')
 mustContain(swift, '.accessibilityLabel(accessibilityLabel ??', 'iOS accessibility label application')
 mustContain(swift, '.accessibilityHint(', 'iOS accessibility hint application')
-mustContain(swift, '姓名未提供', 'iOS missing pseudonym semantics')
-mustContain(swift, '工号未提供', 'iOS missing work id semantics')
-mustContain(swift, '资质未提供', 'iOS missing qualification semantics')
-mustContain(swift, '认证时间待核验', 'iOS pending verified-at semantics')
-mustContain(swift, '证件原图不会在用户端展示', 'iOS proof image non-display hint')
-mustContain(swift, '当前状态不只依赖颜色提示', 'iOS non-color status hint')
-mustContain(swift, 'Text("已就绪")', 'iOS visible ready state text')
-mustContain(swift, 'Text("未就绪")', 'iOS visible not-ready state text')
+
+// iOS a11y 契约 i18n 化（ANDROID-BUG-I18N-A11Y-GATE-STALE）：
+// I18N 迭代后 OrderPrecheckSummaryView.swift 的缺失/待核验语义 + 非色状态可见文本
+// 已从硬编码中文字面量（「姓名未提供」等）迁移到 loc.t("precheck.xxx") i18n key。
+// gate 随之从「验中文原文存在」升级为「验 key 被引用 + 字典中英双语非空」——
+// 与本文件微信侧 aria-label 的 i18n 化契约同族。锁死中文字面量 = 英文读屏无障碍缺陷。
+// a11y 契约意图（缺失语义/待核验语义/非色状态可读）完整保留，只是断言层从字面量迁到 key。
+const iosA11yKeys = [
+  'precheck.a11yNameMissing',       // 姓名缺失语义
+  'precheck.a11yWorkIdMissing',     // 工号缺失语义
+  'precheck.a11yQualMissing',       // 资质缺失语义
+  'precheck.a11yVerifiedAtPending', // 认证时间待核验语义
+  'precheck.a11yHintReady',         // 证件原图非展示提示（ready hint 内含）
+  'precheck.a11yHintPending',       // 非色状态提示（pending hint 内含）
+  'precheck.ready',                 // 可见就绪状态文本
+  'precheck.notReady',              // 可见未就绪状态文本
+]
+// (1) swift 源必须引用这些 a11y i18n key（loc.t("precheck.xxx")）
+for (const key of iosA11yKeys) {
+  mustContain(swift, `"${key}"`, `iOS a11y i18n key referenced ${key}`)
+}
+
+// (2) 字典（Localizable.xcstrings）里这些 key 必须中英双语非空（无缺译/无孤儿 key）
+const xcstringsPath = path.join(repo, 'ios/YiLuAn/Resources/Localizable.xcstrings')
+const xcstrings = JSON.parse(read(xcstringsPath))
+for (const key of iosA11yKeys) {
+  const entry = xcstrings.strings && xcstrings.strings[key]
+  assert(entry && entry.localizations, `iOS dict ${key} missing`)
+  const zh = entry.localizations['zh-Hans'] || entry.localizations['zh']
+  const en = entry.localizations['en']
+  const zhVal = zh && zh.stringUnit && zh.stringUnit.value
+  const enVal = en && en.stringUnit && en.stringUnit.value
+  assert(zhVal && String(zhVal).trim(), `iOS dict ${key} zh empty`)
+  assert(enVal && String(enVal).trim(), `iOS dict ${key} en empty`)
+}
+
+// (3) 不得在 swift 源的 a11y 语义处残留硬编码中文字面量（i18n 化后应零回填）
+const forbiddenIosCn = ['姓名未提供', '工号未提供', '资质未提供', '认证时间待核验', 'Text("已就绪")', 'Text("未就绪")']
+for (const needle of forbiddenIosCn) {
+  assert(!swift.includes(needle), `iOS hardcoded CN a11y residual (should be i18n key): ${needle}`)
+}
+
+// fail-closed 自测：新断言层必须真能挡回归（防 vacuous pass）。
+// ① swift 漏引 a11y key → must throw；② 字典 en 缺译 → must throw。
+expectThrows(
+  () => { mustContain('let x = loc.t("precheck.title")', '"precheck.a11yNameMissing"', 'mutation missing a11y key') },
+  'mutation self-test: swift missing a11y i18n key'
+)
+expectThrows(
+  () => {
+    const stub = { strings: { 'precheck.ready': { localizations: { 'zh-Hans': { stringUnit: { value: '已就绪' } }, en: { stringUnit: { value: '' } } } } } }
+    const e = stub.strings['precheck.ready']
+    const en = e.localizations['en']
+    assert(en.stringUnit.value && String(en.stringUnit.value).trim(), 'dict en empty')
+  },
+  'mutation self-test: dict en empty must fail-close'
+)
 
 console.log('[cert-card-a11y-contract] PASS — WeChat + iOS cert-card a11y contract holds')

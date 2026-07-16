@@ -14,6 +14,7 @@
 //     /session，staging 需配置真实 WECHAT_APP_ID/SECRET。
 
 const config = require('../config/index')
+const { request } = require('./api')
 const {
   getShareSession,
   setShareSession,
@@ -122,9 +123,65 @@ function getShareOrder(shareToken, { forceRefresh = false } = {}) {
     })
 }
 
+// ============================================================================
+// 发起端 (Owner 路径) — 患者本人为订单创建/管理家属分享
+// ADR-0036 §F2 / ANDROID-DEV-WX-SHARE-ENTRY
+//
+// 与接收端(家属)严格区分：发起端走本人 access token(services/api.js request),
+// **不用** share_session。对齐 iOS ShareService.createShare/listShares/revokeShare。
+// 端点：
+//   POST   /orders/{order_id}/shares          创建分享 → CreateShareResponse
+//   GET    /orders/{order_id}/shares          active 列表 → ListSharesResponse
+//   DELETE /orders/{order_id}/shares/{token_id} 撤销单个 token
+// 后端约束：同订单 active token 上限 3，第 4 个自动 revoke 最老一枚。
+// ============================================================================
+
+// 患者端为订单创建分享链接。scope: 'full' | 'progress_only'。
+// 返回 CreateShareResponse：{ id, share_token, share_url, share_scope,
+//   share_expires_at, share_active_count, ... }。
+function createShare(orderId, scope = 'full') {
+  if (!orderId) {
+    return Promise.reject(new Error('orderId required'))
+  }
+  return request({
+    url: 'orders/' + orderId + '/shares',
+    method: 'POST',
+    data: { share_scope: scope },
+  })
+}
+
+// 患者端查询订单当前 active 分享列表。
+// 返回 ListSharesResponse：{ items: [...], share_active_count }。
+function listShares(orderId) {
+  if (!orderId) {
+    return Promise.reject(new Error('orderId required'))
+  }
+  return request({
+    url: 'orders/' + orderId + '/shares',
+    method: 'GET',
+  })
+}
+
+// 患者端撤销单个分享 token（按 token 行 UUID）。
+// 触发服务端 WS close 4013 / 已发 viewer session 失效。
+function revokeShare(orderId, tokenId) {
+  if (!orderId || !tokenId) {
+    return Promise.reject(new Error('orderId and tokenId required'))
+  }
+  return request({
+    url: 'orders/' + orderId + '/shares/' + tokenId,
+    method: 'DELETE',
+  })
+}
+
 module.exports = {
+  // 接收端 (家属静默授权)
   exchangeShareSession,
   getShareOrder,
+  // 发起端 (患者本人 Owner 路径)
+  createShare,
+  listShares,
+  revokeShare,
   // 暴露给测试 / WS 模块复用
   _shareRequest,
   _wxLoginCode,

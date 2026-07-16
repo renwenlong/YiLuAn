@@ -15,7 +15,7 @@
   ],
   "subPackages": [
     { "root": "pages/patient/create-order",      "name": "p-create-order",   "pages": ["index"] },
-    { "root": "pages/patient/order-detail",      "name": "p-order-detail",   "pages": ["index"] },
+    { "root": "pages/patient/order-detail",      "name": "p-order-detail",   "pages": ["index", "share/index"] },
     { "root": "pages/patient/pay-result",        "name": "p-pay-result",     "pages": ["index"] },
     { "root": "pages/companion-detail",          "name": "p-companion-info", "pages": ["index"] },
     { "root": "pages/review",                    "name": "p-review",         "pages": ["write/index"] },
