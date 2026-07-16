@@ -8,4 +8,7 @@ package com.yiluan.ui
 object Routes {
     const val SPLASH = "splash"
     // B1+ 扩充：LOGIN / ROLE_SELECT / PATIENT_HOME / COMPANION_HOME / ...
+
+    /** 应用起始目的地（单一真源，供 NavHost 和测试共用）。 */
+    const val START_DESTINATION = SPLASH
 }
