@@ -1,0 +1,12 @@
+# Android build artifacts — ANDROID-DEV-B0-CORE
+.gradle/
+build/
+/local.properties
+/captures/
+*.apk
+*.aab
+*.ap_
+*.dex
+.cxx/
+# Keep gradle wrapper properties tracked; wrapper jar generated in CI.
+!gradle/wrapper/gradle-wrapper.properties

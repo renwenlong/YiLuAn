@@ -1,0 +1,108 @@
+# =============================================================================
+# Android CI — Gradle build + JVM unit tests
+# -----------------------------------------------------------------------------
+# ANDROID-DEV-B0-CORE. 参照 ios-ci.yml 的 OPS-014 模式：
+#   - changes job 永远跑（无 paths 过滤），避免 required check 变 missing。
+#   - build job 永远跑，内部 steps 用 step 级 `if:` 守护；非 android 改动
+#     第一步 echo vacuous pass（job conclusion=success）。
+#   - 命中 android/ 路径 → 真跑 gradle assemble + test（PR 必须实绿才合）。
+#
+# 本地 WSL 无 Android SDK/JDK，依赖本 CI 做编译+单测的唯一权威验证
+# (帝君 iOS 同款方案 A：本地写 + CI runner 兜底)。
+#
+# 首次无 gradle-wrapper.jar（二进制未提交）→ 用 `gradle wrapper` 生成后再
+# 用 ./gradlew 跑，或直接用 setup 的 gradle。这里用 gradle/actions/setup-gradle
+# 提供的 gradle 命令直接跑，绕过 wrapper jar 依赖。
+# =============================================================================
+name: Android CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: android-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect Android changes
+    runs-on: ubuntu-latest
+    outputs:
+      android: ${{ steps.filter.outputs.android }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          base: ${{ github.event.pull_request.base.ref || github.ref_name }}
+          filters: |
+            android:
+              - 'android/**'
+              - '.github/workflows/android-ci.yml'
+
+  build-and-test:
+    name: Build & Test (Android)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: changes
+    steps:
+      - name: Skip if non-Android changes
+        if: ${{ github.event_name != 'workflow_dispatch' && needs.changes.outputs.android != 'true' }}
+        run: |
+          echo "✅ No Android changes detected, skipping all Android build steps."
+          echo "This required check passes vacuously (path filter not matched)."
+
+      - name: Checkout repository
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.android == 'true' }}
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.android == 'true' }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.android == 'true' }}
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.android == 'true' }}
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Generate Gradle wrapper (if jar missing)
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.android == 'true' }}
+        working-directory: android
+        run: |
+          if [ ! -f gradle/wrapper/gradle-wrapper.jar ]; then
+            echo "wrapper jar missing → generating via gradle wrapper"
+            gradle wrapper --gradle-version 8.9
+          fi
+
+      - name: Print toolchain versions
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.android == 'true' }}
+        working-directory: android
+        run: |
+          java -version
+          ./gradlew --version
+
+      - name: Assemble debug + run JVM unit tests
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.changes.outputs.android == 'true' }}
+        working-directory: android
+        run: |
+          ./gradlew :app:assembleDebug :app:testDebugUnitTest --stacktrace
+
+      - name: Upload test results
+        if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.changes.outputs.android == 'true') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-test-results-${{ github.run_id }}
+          path: |
+            android/app/build/reports/tests/
+            android/app/build/test-results/
+          if-no-files-found: warn
+          retention-days: 14
