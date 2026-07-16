@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base theme; Compose 驱动实际 UI，这里给 Material3 NoActionBar 宿主主题。 -->
+    <style name="Theme.YiLuAn" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>
