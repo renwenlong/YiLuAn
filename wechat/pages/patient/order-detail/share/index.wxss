@@ -1,0 +1,146 @@
+/* pages/patient/order-share/index.wxss
+   ANDROID-DEV-WX-SHARE-ENTRY 患者发起端分享管理页 */
+@import "/styles/variables.wxss";
+
+.page {
+  padding: 24rpx;
+  min-height: 100vh;
+  box-sizing: border-box;
+}
+
+.intro {
+  font-size: 26rpx;
+  color: var(--color-text-secondary, #888);
+  line-height: 1.6;
+  margin-bottom: 24rpx;
+}
+
+.card {
+  background: var(--color-bg-card, #fff);
+  border-radius: 16rpx;
+  padding: 28rpx 24rpx;
+  margin-bottom: 32rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+}
+
+.label {
+  font-size: 28rpx;
+  color: var(--color-text-primary, #333);
+}
+
+.picker-value {
+  font-size: 28rpx;
+  color: var(--color-primary, #3b6cff);
+  padding: 8rpx 16rpx;
+  border: 1rpx solid var(--color-border, #e5e5e5);
+  border-radius: 8rpx;
+}
+
+.hint {
+  font-size: 24rpx;
+  color: var(--color-text-tertiary, #aaa);
+  line-height: 1.5;
+  margin-bottom: 24rpx;
+}
+
+.btn-primary {
+  background: var(--color-primary, #3b6cff);
+  color: #fff;
+  font-size: 30rpx;
+  border-radius: 44rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+}
+
+.btn-primary[disabled] {
+  opacity: 0.6;
+}
+
+.list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16rpx;
+}
+
+.list-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: var(--color-text-primary, #333);
+}
+
+.active-count {
+  font-size: 24rpx;
+  color: var(--color-text-secondary, #888);
+}
+
+.empty {
+  text-align: center;
+  color: var(--color-text-tertiary, #aaa);
+  font-size: 26rpx;
+  padding: 48rpx 0;
+}
+
+.share-item {
+  background: var(--color-bg-card, #fff);
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+.share-scope-tag {
+  display: inline-block;
+  font-size: 22rpx;
+  color: var(--color-primary, #3b6cff);
+  background: rgba(59, 108, 255, 0.1);
+  padding: 4rpx 16rpx;
+  border-radius: 20rpx;
+  margin-bottom: 16rpx;
+}
+
+.share-link-row {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 12rpx;
+}
+
+.link-label {
+  font-size: 24rpx;
+  color: var(--color-text-secondary, #888);
+  margin-bottom: 4rpx;
+}
+
+.link-value {
+  font-size: 24rpx;
+  color: var(--color-text-primary, #333);
+  word-break: break-all;
+}
+
+.share-meta {
+  font-size: 24rpx;
+  color: var(--color-text-tertiary, #aaa);
+  margin-bottom: 16rpx;
+}
+
+.share-actions {
+  display: flex;
+  gap: 16rpx;
+  justify-content: flex-end;
+}
+
+.btn-mini {
+  font-size: 24rpx;
+  margin: 0;
+}
+
+.btn-danger {
+  color: var(--color-danger, #e64340);
+}
