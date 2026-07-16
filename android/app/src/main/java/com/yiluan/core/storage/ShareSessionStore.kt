@@ -32,11 +32,6 @@ class ShareSessionStore @Inject constructor(
         )
     }
 
-    private companion object {
-        const val KEY_SESSION = "share_session"
-        const val KEY_EXPIRES_AT = "share_session_expires_at" // epoch millis
-    }
-
     fun save(session: String, expiresAtMillis: Long) {
         prefs.edit()
             .putString(KEY_SESSION, session)
