@@ -1,7 +1,7 @@
 package com.yiluan.core.network
 
 import app.cash.turbine.test
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
@@ -41,7 +41,7 @@ class WebSocketClientTest {
         server.url("/ws").toString().replaceFirst("http", "ws")
 
     @Test
-    fun `建连触发 Open 事件`() = runTest {
+    fun `建连触发 Open 事件`() = runBlocking {
         server.enqueue(MockResponse().withWebSocketUpgrade(object : okhttp3.WebSocketListener() {}))
 
         client.connect(wsUrl()).test {
@@ -51,7 +51,7 @@ class WebSocketClientTest {
     }
 
     @Test
-    fun `服务端下发消息触发 Message 事件`() = runTest {
+    fun `服务端下发消息触发 Message 事件`() = runBlocking {
         server.enqueue(
             MockResponse().withWebSocketUpgrade(object : okhttp3.WebSocketListener() {
                 override fun onOpen(webSocket: okhttp3.WebSocket, response: okhttp3.Response) {
@@ -70,7 +70,7 @@ class WebSocketClientTest {
     }
 
     @Test
-    fun `服务端关闭触发 Closed 事件并结束 Flow`() = runTest {
+    fun `服务端关闭触发 Closed 事件并结束 Flow`() = runBlocking {
         server.enqueue(
             MockResponse().withWebSocketUpgrade(object : okhttp3.WebSocketListener() {
                 override fun onOpen(webSocket: okhttp3.WebSocket, response: okhttp3.Response) {
@@ -94,7 +94,7 @@ class WebSocketClientTest {
     }
 
     @Test
-    fun `自定义心跳间隔不影响建连`() = runTest {
+    fun `自定义心跳间隔不影响建连`() = runBlocking {
         server.enqueue(MockResponse().withWebSocketUpgrade(object : okhttp3.WebSocketListener() {}))
 
         // pingInterval=1s，验证参数传入不崩且能正常建连（心跳由 OkHttp 内部驱动）。
