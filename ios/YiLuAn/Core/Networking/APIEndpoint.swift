@@ -169,9 +169,11 @@ struct APIEndpoint {
         APIEndpoint(path: "orders/\(orderId)/shares", method: .get, requiresAuth: true)
     }
 
-    /// DELETE /api/v1/shares/{token_id}  — owner 吊销单个 token（触发 WS close 4013）
-    static func revokeShare(tokenId: String) -> APIEndpoint {
-        APIEndpoint(path: "shares/\(tokenId)", method: .delete, requiresAuth: true)
+    /// DELETE /api/v1/orders/{order_id}/shares/{token_id}  — owner 吊销单个 token（触发 WS close 4013）
+    /// ANDROID-DEV-B7-IOS-SHARE-ENTRY 修正: 后端真实路径需 order_id + token_id,
+    /// 原实现 shares/{tokenId} 缺 order_id 会 404（既存未接线故未暴露, 本 task 接 UI 前修正）。
+    static func revokeShare(orderId: String, tokenId: String) -> APIEndpoint {
+        APIEndpoint(path: "orders/\(orderId)/shares/\(tokenId)", method: .delete, requiresAuth: true)
     }
 
     /// POST /api/v1/shares/{token}/otp  — 家属侧请求下发验证码（40 字符 token）

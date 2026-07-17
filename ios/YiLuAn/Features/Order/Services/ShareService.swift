@@ -37,8 +37,9 @@ enum ShareService {
 
     /// 患者端吊销单个 token（按 token 行 UUID）。
     /// 触发服务端 WS close 4013 / 已发 viewer session 失效。
-    static func revokeShare(tokenId: String) async throws {
-        try await APIClient.shared.requestVoid(.revokeShare(tokenId: tokenId))
+    /// ANDROID-DEV-B7: 后端路径需 orderId + tokenId。
+    static func revokeShare(orderId: String, tokenId: String) async throws {
+        try await APIClient.shared.requestVoid(.revokeShare(orderId: orderId, tokenId: tokenId))
     }
 
     // MARK: - Family endpoints (OTP fallback path, F2)

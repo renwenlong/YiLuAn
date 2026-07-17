@@ -21,6 +21,8 @@ struct OrderDetailView: View {
     @State private var showEmergencySheet = false
     /// [F-07] 复诊提醒创建面板
     @State private var showFollowupSheet = false
+    // ANDROID-DEV-B7-IOS-SHARE-ENTRY: 家属分享发起管理 sheet
+    @State private var showShareManage = false
 
     /// S3-DEV-001-CONTRACT-UI (ADR-0047 §6.3): 合同/保障 checkbox 默认 unchecked.
     /// PIPL/民法典电子合同合规要求,不允许 "记住选择" 跳过下次确认.
@@ -111,6 +113,10 @@ struct OrderDetailView: View {
         }
         .sheet(isPresented: $showFollowupSheet) {
             FollowupReminderCreateSheet(orderId: orderId) {}
+        }
+        // ANDROID-DEV-B7-IOS-SHARE-ENTRY: 家属分享发起管理页。
+        .sheet(isPresented: $showShareManage) {
+            ShareManageView(orderId: orderId)
         }
         // 统一挂载后端 guard-code 提示。
         .phoneRequiredAlert($viewModel.phoneRequiredMessage)
@@ -361,6 +367,25 @@ struct OrderDetailView: View {
             // P1-2: 完成状态下的评价入口 / 已评价摘要
             if order.status == .completed || order.status == .reviewed {
                 reviewSection(order)
+            }
+
+            // ANDROID-DEV-B7-IOS-SHARE-ENTRY: 家属分享发起入口。
+            // 对齐小程序 WX-SHARE 发起端: 付款后有进度可分享时显示
+            // (accepted/in_progress/completed/reviewed 态)。
+            if order.status == .accepted || order.status == .inProgress
+                || order.status == .completed || order.status == .reviewed {
+                Button {
+                    showShareManage = true
+                } label: {
+                    HStack {
+                        Image(systemName: "person.2.badge.gearshape")
+                        Text(loc.t("shareEntry.entryButton"))
+                    }
+                    .frame(maxWidth: .infinity, minHeight: minTapSide)
+                }
+                .buttonStyle(.bordered)
+                .tint(.accent)
+                .disabled(actionInProgress)
             }
         }
     }
