@@ -55,8 +55,10 @@ final class APIEndpointTests: XCTestCase {
     }
 
     func testRevokeShareEndpoint() {
-        let endpoint = APIEndpoint.revokeShare(tokenId: "tok-uuid")
-        XCTAssertEqual(endpoint.path, "shares/tok-uuid")
+        // ANDROID-DEV-B7-IOS-SHARE-ENTRY: revokeShare 修正为后端真实路径
+        // orders/{orderId}/shares/{tokenId}（原 shares/{tokenId} 缺 order_id 会 404）。
+        let endpoint = APIEndpoint.revokeShare(orderId: "order-1", tokenId: "tok-uuid")
+        XCTAssertEqual(endpoint.path, "orders/order-1/shares/tok-uuid")
         XCTAssertEqual(endpoint.method, .delete)
         XCTAssertTrue(endpoint.requiresAuth)
     }
