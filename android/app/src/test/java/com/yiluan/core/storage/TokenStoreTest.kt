@@ -8,6 +8,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -74,6 +75,6 @@ class TokenStoreTest {
     @Test
     fun `accessTokenFlow 反映最新值`() = runTest {
         store.saveTokens(access = "accFlow", refresh = "r")
-        assertEquals("accFlow", kotlinx.coroutines.flow.first(store.accessTokenFlow))
+        assertEquals("accFlow", store.accessTokenFlow.first())
     }
 }
