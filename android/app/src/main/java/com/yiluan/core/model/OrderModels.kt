@@ -103,22 +103,24 @@ data class Order(
     @SerialName("timeline_index") val timelineIndex: Int? = null,
     @SerialName("created_at") val createdAt: String? = null,
     @SerialName("updated_at") val updatedAt: String? = null,
-) {
-    val orderStatus: OrderStatus? get() = OrderStatus.fromValue(status)
-    val paymentStateEnum: PaymentState? get() = PaymentState.fromValue(paymentState)
-    val serviceTypeEnum: ServiceType? get() = ServiceType.fromValue(serviceType)
+)
 
-    /** 患者是否可发起支付：created 态且未支付。 */
-    val canPay: Boolean
-        get() = orderStatus == OrderStatus.CREATED &&
-            paymentStateEnum != PaymentState.PAID
+// Order 计算属性抽为扩展（保持 @Serializable data class 纯数据，规避 KSP/serialization 插件
+// 对 data class body 内计算属性 + 同文件 enum 引用的解析问题）。
 
-    /** 患者是否可取消：created/accepted/in_progress。 */
-    val canCancel: Boolean
-        get() = orderStatus in setOf(
-            OrderStatus.CREATED, OrderStatus.ACCEPTED, OrderStatus.IN_PROGRESS,
-        )
-}
+val Order.orderStatus: OrderStatus? get() = OrderStatus.fromValue(status)
+val Order.paymentStateEnum: PaymentState? get() = PaymentState.fromValue(paymentState)
+val Order.serviceTypeEnum: ServiceType? get() = ServiceType.fromValue(serviceType)
+
+/** 患者是否可发起支付：created 态且未支付。 */
+val Order.canPay: Boolean
+    get() = orderStatus == OrderStatus.CREATED && paymentStateEnum != PaymentState.PAID
+
+/** 患者是否可取消：created/accepted/in_progress。 */
+val Order.canCancel: Boolean
+    get() = orderStatus in setOf(
+        OrderStatus.CREATED, OrderStatus.ACCEPTED, OrderStatus.IN_PROGRESS,
+    )
 
 @Serializable
 data class OrderListResponse(

@@ -4,6 +4,7 @@ import com.yiluan.core.model.CreateOrderRequest
 import com.yiluan.core.model.Order
 import com.yiluan.core.model.PaymentState
 import com.yiluan.core.model.PrepayResponse
+import com.yiluan.core.model.paymentStateEnum
 import com.yiluan.core.network.OrderApi
 import javax.inject.Inject
 import javax.inject.Singleton

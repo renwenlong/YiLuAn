@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yiluan.R
 import com.yiluan.core.model.Order
+import com.yiluan.core.model.canCancel
+import com.yiluan.core.model.canPay
 
 /**
  * 订单详情屏：详情 + Precheck 信任卡占位 + 患者操作（支付/取消）+ pay-result。
