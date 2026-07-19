@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">YiLuAn</string>
+
+    <!-- ANDROID-DEV-B1-AUTH: authentication flow -->
+    <string name="auth_login_title">Sign in / Sign up</string>
+    <string name="auth_login_subtitle">Unregistered numbers will be created automatically</string>
+    <string name="auth_phone_label">Phone number</string>
+    <string name="auth_phone_placeholder">Enter your phone number</string>
+    <string name="auth_send_otp">Send code</string>
+    <string name="auth_sending">Sending…</string>
+    <string name="auth_otp_title">Enter verification code</string>
+    <string name="auth_otp_sent_to">Code sent to %1$s</string>
+    <string name="auth_code_label">Verification code</string>
+    <string name="auth_code_placeholder">Enter the 6-digit code</string>
+    <string name="auth_login">Sign in</string>
+    <string name="auth_verifying">Signing in…</string>
+    <string name="auth_change_phone">Change phone number</string>
+    <string name="auth_role_title">Choose your role</string>
+    <string name="auth_role_subtitle">You can switch later in settings</string>
+    <string name="auth_role_patient">Patient</string>
+    <string name="auth_role_patient_desc">Find companion services and book medical escort</string>
+    <string name="auth_role_companion">Companion</string>
+    <string name="auth_role_companion_desc">Provide companion services and earn income</string>
+
+    <!-- Error messages -->
+    <string name="auth_err_invalid_phone">Please enter a valid phone number</string>
+    <string name="auth_err_invalid_code">Please enter a 6-digit code</string>
+    <string name="auth_err_send_otp_failed">Failed to send code, please try again later</string>
+    <string name="auth_err_verify_otp_failed">Invalid or expired code</string>
+    <string name="auth_err_set_role_failed">Failed to set role, please try again</string>
+</resources>
