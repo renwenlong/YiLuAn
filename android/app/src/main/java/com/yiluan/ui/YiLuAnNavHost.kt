@@ -5,22 +5,28 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.yiluan.feature.auth.AuthScreen
+import com.yiluan.feature.order.CreateOrderScreen
+import com.yiluan.feature.order.OrderDetailScreen
+import com.yiluan.feature.order.OrderListScreen
+import com.yiluan.feature.order.PatientHomeScreen
 
 /**
  * 应用导航宿主（单 Activity + Navigation-Compose）。
- * ANDROID-DEV-B0-CORE — 骨架：splash 起始目的地。
- * ANDROID-DEV-B1-AUTH — 挂 auth（登录流程）+ home 占位；splash 按 token 决定去向。
+ * ANDROID-DEV-B0-CORE — 骨架 splash。
+ * ANDROID-DEV-B1-AUTH — auth 登录流程 + splash 按 token 路由。
+ * ANDROID-DEV-B2-PATIENT — 患者闭环: home/create-order/order-list/order-detail。
  */
 @Composable
 fun YiLuAnNavHost(
@@ -46,7 +52,34 @@ fun YiLuAnNavHost(
                     )
                 }
                 composable(Routes.HOME) {
-                    HomePlaceholderScreen()
+                    PatientHomeScreen(
+                        onCreateOrder = { navController.navigate(Routes.CREATE_ORDER) },
+                        onMyOrders = { navController.navigate(Routes.ORDER_LIST) },
+                    )
+                }
+                composable(Routes.CREATE_ORDER) {
+                    CreateOrderScreen(
+                        onCreated = { order ->
+                            navController.navigate(Routes.orderDetail(order.id)) {
+                                popUpTo(Routes.CREATE_ORDER) { inclusive = true }
+                            }
+                        },
+                    )
+                }
+                composable(Routes.ORDER_LIST) {
+                    OrderListScreen(
+                        isCompanion = false,
+                        onOrderClick = { orderId ->
+                            navController.navigate(Routes.orderDetail(orderId))
+                        },
+                    )
+                }
+                composable(
+                    route = Routes.ORDER_DETAIL,
+                    arguments = listOf(navArgument(Routes.ARG_ORDER_ID) { type = NavType.StringType }),
+                ) { backStackEntry ->
+                    val orderId = backStackEntry.arguments?.getString(Routes.ARG_ORDER_ID).orEmpty()
+                    OrderDetailScreen(orderId = orderId, isCompanion = false)
                 }
             }
         }
@@ -55,7 +88,6 @@ fun YiLuAnNavHost(
 
 /**
  * 启动屏：查本地 token 决定去登录还是主界面。
- * 有 token → HOME；无 → AUTH。
  */
 @Composable
 private fun SplashScreen(
@@ -73,16 +105,5 @@ private fun SplashScreen(
         contentAlignment = Alignment.Center,
     ) {
         CircularProgressIndicator()
-    }
-}
-
-/** 登录后主界面占位（患者/陪诊员真实 home 在 B2/B3 落地）。 */
-@Composable
-private fun HomePlaceholderScreen() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(text = "医路安")
     }
 }

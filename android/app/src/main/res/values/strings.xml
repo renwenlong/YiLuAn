@@ -29,4 +29,60 @@
     <string name="auth_err_send_otp_failed">验证码发送失败，请稍后重试</string>
     <string name="auth_err_verify_otp_failed">验证码错误或已过期</string>
     <string name="auth_err_set_role_failed">身份选择失败，请重试</string>
+
+    <!-- ANDROID-DEV-B2-PATIENT: 患者闭环 -->
+    <string name="common_ok">确定</string>
+    <string name="patient_home_title">你好，欢迎使用医路安</string>
+    <string name="patient_home_subtitle">预约陪诊，安心就医</string>
+    <string name="patient_home_create_order">立即下单</string>
+    <string name="patient_home_my_orders">我的订单</string>
+
+    <string name="order_create_title">创建陪诊订单</string>
+    <string name="order_hospital_label">就诊医院</string>
+    <string name="order_hospital_placeholder">搜索医院名称</string>
+    <string name="order_service_type_label">服务类型</string>
+    <string name="order_date_label">预约日期</string>
+    <string name="order_time_label">预约时间</string>
+    <string name="order_desc_label">备注说明（选填）</string>
+    <string name="order_submit">提交订单</string>
+    <string name="order_err_hospital_required">请先选择就诊医院</string>
+    <string name="order_err_create_failed">下单失败，请稍后重试</string>
+
+    <string name="service_full_accompany">全程陪诊</string>
+    <string name="service_half_accompany">半程陪诊</string>
+    <string name="service_errand">代办跑腿</string>
+
+    <string name="order_tab_all">全部</string>
+    <string name="order_tab_pending">待处理</string>
+    <string name="order_tab_in_progress">进行中</string>
+    <string name="order_tab_completed">已完成</string>
+    <string name="order_list_empty">暂无订单</string>
+    <string name="order_list_error">订单加载失败</string>
+    <string name="order_detail_error">订单详情加载失败</string>
+
+    <string name="order_number_fmt">订单号：%1$s</string>
+    <string name="order_appointment_fmt">预约：%1$s %2$s</string>
+    <string name="order_price_fmt">金额：¥%1$s</string>
+    <string name="order_desc_fmt">备注：%1$s</string>
+    <string name="order_pay_now">立即支付</string>
+    <string name="order_cancel">取消订单</string>
+
+    <string name="order_status_created">待接单</string>
+    <string name="order_status_accepted">已接单</string>
+    <string name="order_status_in_progress">进行中</string>
+    <string name="order_status_completed">已完成</string>
+    <string name="order_status_reviewed">已评价</string>
+    <string name="order_status_cancelled_by_patient">患者已取消</string>
+    <string name="order_status_cancelled_by_companion">陪诊员已取消</string>
+    <string name="order_status_rejected_by_companion">陪诊员已拒单</string>
+    <string name="order_status_expired">已过期</string>
+    <string name="order_status_unknown">未知状态</string>
+
+    <string name="pay_result_success_title">支付成功</string>
+    <string name="pay_result_success_msg">支付已完成，正在等待陪诊员接单</string>
+    <string name="pay_result_fail_title">支付失败</string>
+    <string name="pay_result_fail_msg">支付未完成，请稍后重试</string>
+
+    <string name="precheck_title">就诊准备</string>
+    <string name="precheck_placeholder">就诊准备信息将在陪诊员接单后展示</string>
 </resources>

@@ -29,4 +29,60 @@
     <string name="auth_err_send_otp_failed">Failed to send code, please try again later</string>
     <string name="auth_err_verify_otp_failed">Invalid or expired code</string>
     <string name="auth_err_set_role_failed">Failed to set role, please try again</string>
+
+    <!-- ANDROID-DEV-B2-PATIENT: patient closed loop -->
+    <string name="common_ok">OK</string>
+    <string name="patient_home_title">Welcome to YiLuAn</string>
+    <string name="patient_home_subtitle">Book medical companion services with confidence</string>
+    <string name="patient_home_create_order">Create order</string>
+    <string name="patient_home_my_orders">My orders</string>
+
+    <string name="order_create_title">Create companion order</string>
+    <string name="order_hospital_label">Hospital</string>
+    <string name="order_hospital_placeholder">Search hospital name</string>
+    <string name="order_service_type_label">Service type</string>
+    <string name="order_date_label">Appointment date</string>
+    <string name="order_time_label">Appointment time</string>
+    <string name="order_desc_label">Notes (optional)</string>
+    <string name="order_submit">Submit order</string>
+    <string name="order_err_hospital_required">Please select a hospital first</string>
+    <string name="order_err_create_failed">Failed to create order, please try again later</string>
+
+    <string name="service_full_accompany">Full accompaniment</string>
+    <string name="service_half_accompany">Half accompaniment</string>
+    <string name="service_errand">Errand</string>
+
+    <string name="order_tab_all">All</string>
+    <string name="order_tab_pending">Pending</string>
+    <string name="order_tab_in_progress">In progress</string>
+    <string name="order_tab_completed">Completed</string>
+    <string name="order_list_empty">No orders yet</string>
+    <string name="order_list_error">Failed to load orders</string>
+    <string name="order_detail_error">Failed to load order detail</string>
+
+    <string name="order_number_fmt">Order No.: %1$s</string>
+    <string name="order_appointment_fmt">Appointment: %1$s %2$s</string>
+    <string name="order_price_fmt">Amount: ¥%1$s</string>
+    <string name="order_desc_fmt">Notes: %1$s</string>
+    <string name="order_pay_now">Pay now</string>
+    <string name="order_cancel">Cancel order</string>
+
+    <string name="order_status_created">Awaiting acceptance</string>
+    <string name="order_status_accepted">Accepted</string>
+    <string name="order_status_in_progress">In progress</string>
+    <string name="order_status_completed">Completed</string>
+    <string name="order_status_reviewed">Reviewed</string>
+    <string name="order_status_cancelled_by_patient">Cancelled by patient</string>
+    <string name="order_status_cancelled_by_companion">Cancelled by companion</string>
+    <string name="order_status_rejected_by_companion">Rejected by companion</string>
+    <string name="order_status_expired">Expired</string>
+    <string name="order_status_unknown">Unknown</string>
+
+    <string name="pay_result_success_title">Payment successful</string>
+    <string name="pay_result_success_msg">Payment completed, waiting for a companion to accept</string>
+    <string name="pay_result_fail_title">Payment failed</string>
+    <string name="pay_result_fail_msg">Payment was not completed, please try again later</string>
+
+    <string name="precheck_title">Visit preparation</string>
+    <string name="precheck_placeholder">Visit preparation info will show after a companion accepts</string>
 </resources>

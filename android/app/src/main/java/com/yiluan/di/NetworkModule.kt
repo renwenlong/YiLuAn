@@ -112,4 +112,16 @@ object NetworkModule {
     @Singleton
     fun provideUserApi(@Named("authed") retrofit: Retrofit): UserApi =
         retrofit.create(UserApi::class.java)
+
+    /** 订单 API（需登录）。 */
+    @Provides
+    @Singleton
+    fun provideOrderApi(@Named("authed") retrofit: Retrofit): OrderApi =
+        retrofit.create(OrderApi::class.java)
+
+    /** 医院 API（需登录）。 */
+    @Provides
+    @Singleton
+    fun provideHospitalApi(@Named("authed") retrofit: Retrofit): HospitalApi =
+        retrofit.create(HospitalApi::class.java)
 }
