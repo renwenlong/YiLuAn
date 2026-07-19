@@ -1,4 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">医路安</string>
+
+    <!-- ANDROID-DEV-B1-AUTH: 认证流程 -->
+    <string name="auth_login_title">登录 / 注册</string>
+    <string name="auth_login_subtitle">未注册的手机号将自动创建账号</string>
+    <string name="auth_phone_label">手机号</string>
+    <string name="auth_phone_placeholder">请输入手机号</string>
+    <string name="auth_send_otp">获取验证码</string>
+    <string name="auth_sending">发送中…</string>
+    <string name="auth_otp_title">输入验证码</string>
+    <string name="auth_otp_sent_to">验证码已发送至 %1$s</string>
+    <string name="auth_code_label">验证码</string>
+    <string name="auth_code_placeholder">请输入 6 位验证码</string>
+    <string name="auth_login">登录</string>
+    <string name="auth_verifying">登录中…</string>
+    <string name="auth_change_phone">修改手机号</string>
+    <string name="auth_role_title">选择你的身份</string>
+    <string name="auth_role_subtitle">可稍后在设置中切换</string>
+    <string name="auth_role_patient">患者</string>
+    <string name="auth_role_patient_desc">寻找陪诊服务，预约就医陪同</string>
+    <string name="auth_role_companion">陪诊员</string>
+    <string name="auth_role_companion_desc">提供陪诊服务，接单赚取收入</string>
+
+    <!-- 错误提示 -->
+    <string name="auth_err_invalid_phone">请输入正确的手机号</string>
+    <string name="auth_err_invalid_code">请输入 6 位数字验证码</string>
+    <string name="auth_err_send_otp_failed">验证码发送失败，请稍后重试</string>
+    <string name="auth_err_verify_otp_failed">验证码错误或已过期</string>
+    <string name="auth_err_set_role_failed">身份选择失败，请重试</string>
 </resources>
