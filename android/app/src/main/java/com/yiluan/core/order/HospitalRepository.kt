@@ -14,5 +14,11 @@ class HospitalRepository @Inject constructor(
     private val hospitalApi: HospitalApi,
 ) {
     suspend fun searchHospitals(keyword: String? = null): List<Hospital> =
-        hospitalApi.listHospitals(keyword = keyword?.takeIf { it.isNotBlank() }).items
+        hospitalApi.listHospitals(
+            keyword = keyword?.takeIf { it.isNotBlank() },
+            province = null,
+            city = null,
+            page = 1,
+            pageSize = 20,
+        ).items
 }

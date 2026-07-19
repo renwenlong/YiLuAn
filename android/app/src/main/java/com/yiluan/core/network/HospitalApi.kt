@@ -14,10 +14,10 @@ import retrofit2.http.Query
 interface HospitalApi {
     @GET("hospitals")
     suspend fun listHospitals(
-        @Query("keyword") keyword: String? = null,
-        @Query("province") province: String? = null,
-        @Query("city") city: String? = null,
-        @Query("page") page: Int = 1,
-        @Query("page_size") pageSize: Int = 20,
+        @Query("keyword") keyword: String?,
+        @Query("province") province: String?,
+        @Query("city") city: String?,
+        @Query("page") page: Int,
+        @Query("page_size") pageSize: Int,
     ): HospitalListResponse
 }

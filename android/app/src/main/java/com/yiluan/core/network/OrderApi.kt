@@ -28,9 +28,9 @@ interface OrderApi {
      */
     @GET("orders")
     suspend fun listOrders(
-        @Query("status") status: String? = null,
-        @Query("page") page: Int = 1,
-        @Query("page_size") pageSize: Int = 20,
+        @Query("status") status: String?,
+        @Query("page") page: Int,
+        @Query("page_size") pageSize: Int,
     ): OrderListResponse
 
     /** 订单详情（仅参与方可见）。 */

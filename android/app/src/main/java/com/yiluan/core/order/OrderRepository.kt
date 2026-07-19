@@ -32,7 +32,7 @@ class OrderRepository @Inject constructor(
         orderApi.createOrder(request)
 
     suspend fun listOrders(status: String? = null, page: Int = 1): List<Order> =
-        orderApi.listOrders(status = status, page = page).items
+        orderApi.listOrders(status = status, page = page, pageSize = 20).items
 
     suspend fun getOrder(orderId: String): Order =
         orderApi.getOrder(orderId)
