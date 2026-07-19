@@ -46,6 +46,6 @@ class YiLuAnNavHostSmokeTest {
         }
         // HOME = 患者首页（无 Hilt 依赖），验下单入口按钮文案存在，
         // 证明单 Activity + Navigation 骨架 + B2 患者入口贯通。
-        composeRule.onNodeWithText("立即下单").assertExists()
+        composeRule.onNodeWithText("Create order").assertExists()
     }
 }
