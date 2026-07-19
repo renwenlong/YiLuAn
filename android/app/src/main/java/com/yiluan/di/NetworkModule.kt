@@ -4,6 +4,8 @@ import com.yiluan.BuildConfig
 import com.yiluan.core.network.ApiEndpoint
 import com.yiluan.core.network.AuthApi
 import com.yiluan.core.network.AuthInterceptor
+import com.yiluan.core.network.HospitalApi
+import com.yiluan.core.network.OrderApi
 import com.yiluan.core.network.UserApi
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
