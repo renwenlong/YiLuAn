@@ -32,6 +32,7 @@
 
     <!-- ANDROID-DEV-B2-PATIENT: 患者闭环 -->
     <string name="common_ok">确定</string>
+    <string name="common_cancel">取消</string>
     <string name="patient_home_title">你好，欢迎使用医路安</string>
     <string name="patient_home_subtitle">预约陪诊，安心就医</string>
     <string name="patient_home_create_order">立即下单</string>
@@ -85,4 +86,58 @@
 
     <string name="precheck_title">就诊准备</string>
     <string name="precheck_placeholder">就诊准备信息将在陪诊员接单后展示</string>
+
+    <!-- ANDROID-DEV-B6-LONGTAIL: 长尾功能 -->
+    <string name="patient_home_settings">设置</string>
+    <string name="profile_err_invalid">输入不合法，请检查</string>
+
+    <string name="family_title">家庭成员</string>
+    <string name="family_name">姓名</string>
+    <string name="family_phone">手机号（选填）</string>
+    <string name="family_add">添加成员</string>
+    <string name="family_delete">删除</string>
+
+    <string name="emergency_title">紧急联系人</string>
+    <string name="emergency_name">姓名</string>
+    <string name="emergency_phone">手机号</string>
+    <string name="emergency_relationship">关系</string>
+    <string name="emergency_add">添加联系人</string>
+    <string name="emergency_delete">删除</string>
+
+    <string name="wallet_title">我的钱包</string>
+    <string name="wallet_balance_fmt">余额：¥%1$s</string>
+    <string name="wallet_income_fmt">总收入：¥%1$s</string>
+    <string name="wallet_expense_fmt">总支出：¥%1$s</string>
+    <string name="wallet_withdrawable_fmt">可提现：¥%1$s</string>
+    <string name="wallet_transactions_title">交易流水</string>
+    <string name="wallet_amount_fmt">金额：¥%1$s</string>
+
+    <string name="bind_phone_title">绑定手机号</string>
+    <string name="bind_phone_resend">重新发送</string>
+    <string name="bind_phone_submit">确认绑定</string>
+    <string name="bind_phone_failed">绑定失败，验证码错误或已过期</string>
+
+    <string name="settings_title">设置</string>
+    <string name="settings_privacy">隐私政策</string>
+    <string name="settings_terms">服务条款</string>
+    <string name="settings_delete_account">注销账户</string>
+    <string name="delete_account_confirm_title">确认注销？</string>
+    <string name="delete_account_confirm_msg">注销后账户及数据将永久删除，不可恢复。确定继续？</string>
+    <string name="delete_account_confirm_ok">确认注销</string>
+
+    <string name="legal_privacy_title">隐私政策</string>
+    <string name="legal_privacy_body">我们重视您的隐私。本政策说明医路安如何收集、使用和保护您的个人信息。我们仅在提供陪诊服务所必需的范围内收集信息，并严格遵守相关法律法规。生效日期：2026-04-10。</string>
+    <string name="legal_terms_title">服务条款</string>
+    <string name="legal_terms_body">欢迎使用医路安。使用本平台即表示您同意本服务条款。平台提供陪诊信息撺合服务，您应真实提供信息并遵守平台规则。生效日期：2026-04-10。</string>
+
+    <string name="review_title">写评价</string>
+    <string name="review_punctuality">准时度</string>
+    <string name="review_professionalism">专业度</string>
+    <string name="review_communication">沟通</string>
+    <string name="review_attitude">服务态度</string>
+    <string name="review_content_label">评价内容</string>
+    <string name="review_content_hint">请填写 5-500 字的评价</string>
+    <string name="review_submit">提交评价</string>
+    <string name="review_err_content">评价内容需 5-500 字</string>
+    <string name="review_err_submit">评价提交失败，请重试</string>
 </resources>

@@ -32,6 +32,7 @@
 
     <!-- ANDROID-DEV-B2-PATIENT: patient closed loop -->
     <string name="common_ok">OK</string>
+    <string name="common_cancel">Cancel</string>
     <string name="patient_home_title">Welcome to YiLuAn</string>
     <string name="patient_home_subtitle">Book medical companion services with confidence</string>
     <string name="patient_home_create_order">Create order</string>
@@ -85,4 +86,58 @@
 
     <string name="precheck_title">Visit preparation</string>
     <string name="precheck_placeholder">Visit preparation info will show after a companion accepts</string>
+
+    <!-- ANDROID-DEV-B6-LONGTAIL: long-tail -->
+    <string name="patient_home_settings">Settings</string>
+    <string name="profile_err_invalid">Invalid input, please check</string>
+
+    <string name="family_title">Family members</string>
+    <string name="family_name">Name</string>
+    <string name="family_phone">Phone (optional)</string>
+    <string name="family_add">Add member</string>
+    <string name="family_delete">Delete</string>
+
+    <string name="emergency_title">Emergency contacts</string>
+    <string name="emergency_name">Name</string>
+    <string name="emergency_phone">Phone</string>
+    <string name="emergency_relationship">Relationship</string>
+    <string name="emergency_add">Add contact</string>
+    <string name="emergency_delete">Delete</string>
+
+    <string name="wallet_title">My wallet</string>
+    <string name="wallet_balance_fmt">Balance: ¥%1$s</string>
+    <string name="wallet_income_fmt">Total income: ¥%1$s</string>
+    <string name="wallet_expense_fmt">Total expense: ¥%1$s</string>
+    <string name="wallet_withdrawable_fmt">Withdrawable: ¥%1$s</string>
+    <string name="wallet_transactions_title">Transactions</string>
+    <string name="wallet_amount_fmt">Amount: ¥%1$s</string>
+
+    <string name="bind_phone_title">Bind phone number</string>
+    <string name="bind_phone_resend">Resend</string>
+    <string name="bind_phone_submit">Confirm binding</string>
+    <string name="bind_phone_failed">Binding failed, invalid or expired code</string>
+
+    <string name="settings_title">Settings</string>
+    <string name="settings_privacy">Privacy policy</string>
+    <string name="settings_terms">Terms of service</string>
+    <string name="settings_delete_account">Delete account</string>
+    <string name="delete_account_confirm_title">Confirm deletion?</string>
+    <string name="delete_account_confirm_msg">Your account and data will be permanently deleted and cannot be recovered. Continue?</string>
+    <string name="delete_account_confirm_ok">Confirm deletion</string>
+
+    <string name="legal_privacy_title">Privacy Policy</string>
+    <string name="legal_privacy_body">We value your privacy. This policy explains how YiLuAn collects, uses and protects your personal information. We only collect information necessary to provide companion services and strictly comply with applicable laws. Effective date: 2026-04-10.</string>
+    <string name="legal_terms_title">Terms of Service</string>
+    <string name="legal_terms_body">Welcome to YiLuAn. By using this platform you agree to these terms. The platform provides companion information matching services; you must provide accurate information and follow platform rules. Effective date: 2026-04-10.</string>
+
+    <string name="review_title">Write a review</string>
+    <string name="review_punctuality">Punctuality</string>
+    <string name="review_professionalism">Professionalism</string>
+    <string name="review_communication">Communication</string>
+    <string name="review_attitude">Attitude</string>
+    <string name="review_content_label">Review content</string>
+    <string name="review_content_hint">Please write 5-500 characters</string>
+    <string name="review_submit">Submit review</string>
+    <string name="review_err_content">Review content must be 5-500 characters</string>
+    <string name="review_err_submit">Failed to submit review, please retry</string>
 </resources>

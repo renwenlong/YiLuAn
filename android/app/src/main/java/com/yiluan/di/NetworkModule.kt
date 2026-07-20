@@ -4,9 +4,14 @@ import com.yiluan.BuildConfig
 import com.yiluan.core.network.ApiEndpoint
 import com.yiluan.core.network.AuthApi
 import com.yiluan.core.network.AuthInterceptor
+import com.yiluan.core.network.EmergencyContactApi
+import com.yiluan.core.network.FamilyMemberApi
+import com.yiluan.core.network.FollowupReminderApi
 import com.yiluan.core.network.HospitalApi
 import com.yiluan.core.network.OrderApi
+import com.yiluan.core.network.ReviewApi
 import com.yiluan.core.network.UserApi
+import com.yiluan.core.network.WalletApi
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
 import dagger.Provides
@@ -126,4 +131,30 @@ object NetworkModule {
     @Singleton
     fun provideHospitalApi(@Named("authed") retrofit: Retrofit): HospitalApi =
         retrofit.create(HospitalApi::class.java)
+
+    // ── B6 长尾 API（均 authed）──
+    @Provides
+    @Singleton
+    fun provideFamilyMemberApi(@Named("authed") retrofit: Retrofit): FamilyMemberApi =
+        retrofit.create(FamilyMemberApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideEmergencyContactApi(@Named("authed") retrofit: Retrofit): EmergencyContactApi =
+        retrofit.create(EmergencyContactApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideWalletApi(@Named("authed") retrofit: Retrofit): WalletApi =
+        retrofit.create(WalletApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideReviewApi(@Named("authed") retrofit: Retrofit): ReviewApi =
+        retrofit.create(ReviewApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideFollowupReminderApi(@Named("authed") retrofit: Retrofit): FollowupReminderApi =
+        retrofit.create(FollowupReminderApi::class.java)
 }

@@ -22,6 +22,7 @@ import com.yiluan.R
 fun PatientHomeScreen(
     onCreateOrder: () -> Unit,
     onMyOrders: () -> Unit,
+    onSettings: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -45,6 +46,16 @@ fun PatientHomeScreen(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(stringResource(R.string.patient_home_my_orders))
+        }
+
+        // 设置入口（B6: 法务/注销等）。
+        if (onSettings != null) {
+            OutlinedButton(
+                onClick = onSettings,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.patient_home_settings))
+            }
         }
     }
 }
