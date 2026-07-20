@@ -21,6 +21,14 @@ import com.yiluan.feature.order.CreateOrderScreen
 import com.yiluan.feature.order.OrderDetailScreen
 import com.yiluan.feature.order.OrderListScreen
 import com.yiluan.feature.order.PatientHomeScreen
+import com.yiluan.feature.profile.BindPhoneScreen
+import com.yiluan.feature.profile.EmergencyContactsScreen
+import com.yiluan.feature.profile.FamilyMembersScreen
+import com.yiluan.feature.profile.LegalDoc
+import com.yiluan.feature.profile.LegalScreen
+import com.yiluan.feature.profile.SettingsScreen
+import com.yiluan.feature.profile.WalletScreen
+import com.yiluan.feature.review.ReviewScreen
 
 /**
  * 应用导航宿主（单 Activity + Navigation-Compose）。
@@ -55,6 +63,7 @@ fun YiLuAnNavHost(
                     PatientHomeScreen(
                         onCreateOrder = { navController.navigate(Routes.CREATE_ORDER) },
                         onMyOrders = { navController.navigate(Routes.ORDER_LIST) },
+                        onSettings = { navController.navigate(Routes.SETTINGS) },
                     )
                 }
                 composable(Routes.CREATE_ORDER) {
@@ -80,6 +89,34 @@ fun YiLuAnNavHost(
                 ) { backStackEntry ->
                     val orderId = backStackEntry.arguments?.getString(Routes.ARG_ORDER_ID).orEmpty()
                     OrderDetailScreen(orderId = orderId, isCompanion = false)
+                }
+
+                // ── B6 长尾 ──
+                composable(Routes.SETTINGS) {
+                    SettingsScreen(
+                        onPrivacy = { navController.navigate(Routes.LEGAL_PRIVACY) },
+                        onTerms = { navController.navigate(Routes.LEGAL_TERMS) },
+                        onAccountDeleted = {
+                            navController.navigate(Routes.AUTH) {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        },
+                    )
+                }
+                composable(Routes.FAMILY_MEMBERS) { FamilyMembersScreen() }
+                composable(Routes.EMERGENCY_CONTACTS) { EmergencyContactsScreen() }
+                composable(Routes.WALLET) { WalletScreen() }
+                composable(Routes.BIND_PHONE) {
+                    BindPhoneScreen(onBound = { navController.popBackStack() })
+                }
+                composable(Routes.LEGAL_PRIVACY) { LegalScreen(doc = LegalDoc.PRIVACY) }
+                composable(Routes.LEGAL_TERMS) { LegalScreen(doc = LegalDoc.TERMS) }
+                composable(
+                    route = Routes.REVIEW,
+                    arguments = listOf(navArgument(Routes.ARG_ORDER_ID) { type = NavType.StringType }),
+                ) { backStackEntry ->
+                    val orderId = backStackEntry.arguments?.getString(Routes.ARG_ORDER_ID).orEmpty()
+                    ReviewScreen(orderId = orderId, onSubmitted = { navController.popBackStack() })
                 }
             }
         }

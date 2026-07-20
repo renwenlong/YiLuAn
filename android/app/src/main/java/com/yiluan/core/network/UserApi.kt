@@ -5,6 +5,7 @@ import com.yiluan.core.model.TokenResponse
 import com.yiluan.core.model.UpdateMeRequest
 import com.yiluan.core.model.User
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.POST
 
@@ -34,4 +35,8 @@ interface UserApi {
      */
     @POST("users/me/switch-role")
     suspend fun switchRole(@Body body: SwitchRoleRequest): TokenResponse
+
+    /** 注销账户（永久删除，B6）。前端需二次确认。 */
+    @DELETE("users/me")
+    suspend fun deleteAccount()
 }

@@ -1,10 +1,12 @@
 package com.yiluan.core.network
 
+import com.yiluan.core.model.BindPhoneRequest
 import com.yiluan.core.model.RefreshRequest
 import com.yiluan.core.model.SendOtpRequest
 import com.yiluan.core.model.SendOtpResponse
 import com.yiluan.core.model.TokenPair
 import com.yiluan.core.model.TokenResponse
+import com.yiluan.core.model.User
 import com.yiluan.core.model.VerifyOtpRequest
 import retrofit2.http.Body
 import retrofit2.http.POST
@@ -32,4 +34,8 @@ interface AuthApi {
      */
     @POST("auth/verify-otp")
     suspend fun verifyOtp(@Body body: VerifyOtpRequest): TokenResponse
+
+    /** 绑定手机号（需登录，B6）。返回更新后 User。 */
+    @POST("auth/bind-phone")
+    suspend fun bindPhone(@Body body: BindPhoneRequest): User
 }

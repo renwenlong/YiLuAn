@@ -25,6 +25,19 @@ object Routes {
 
     const val ARG_ORDER_ID = "orderId"
 
+    // ── B6 长尾 ──
+    const val SETTINGS = "settings"
+    const val FAMILY_MEMBERS = "family_members"
+    const val EMERGENCY_CONTACTS = "emergency_contacts"
+    const val WALLET = "wallet"
+    const val BIND_PHONE = "bind_phone"
+    const val LEGAL_PRIVACY = "legal_privacy"
+    const val LEGAL_TERMS = "legal_terms"
+
+    /** 写评价，带 orderId。 */
+    const val REVIEW = "review/{orderId}"
+    fun review(orderId: String): String = "review/$orderId"
+
     /** 应用起始目的地（单一真源，供 NavHost 和测试共用）。 */
     const val START_DESTINATION = SPLASH
 }
