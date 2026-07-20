@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.yiluan.core.model.EmergencyContact
 import com.yiluan.core.model.EmergencyContactRequest
-import com.yiluan.core.model.FamilyMember
+import com.yiluan.core.model.FamilyMemberProfile
 import com.yiluan.core.model.FamilyMemberRequest
 import com.yiluan.core.model.PaymentTransaction
 import com.yiluan.core.model.WalletSummary
@@ -198,7 +198,7 @@ enum class ProfileErrorKey {
 
 /** 个人中心 UI 状态。 */
 data class ProfileUiState(
-    val familyMembers: List<FamilyMember> = emptyList(),
+    val familyMembers: List<FamilyMemberProfile> = emptyList(),
     val isLoadingFamily: Boolean = false,
     val emergencyContacts: List<EmergencyContact> = emptyList(),
     val isLoadingEmergency: Boolean = false,

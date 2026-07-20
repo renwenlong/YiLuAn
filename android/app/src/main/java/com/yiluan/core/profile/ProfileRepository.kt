@@ -4,7 +4,7 @@ import com.yiluan.core.model.BindPhoneRequest
 import com.yiluan.core.model.CreateFollowupReminderRequest
 import com.yiluan.core.model.EmergencyContact
 import com.yiluan.core.model.EmergencyContactRequest
-import com.yiluan.core.model.FamilyMember
+import com.yiluan.core.model.FamilyMemberProfile
 import com.yiluan.core.model.FamilyMemberRequest
 import com.yiluan.core.model.FollowupReminder
 import com.yiluan.core.model.PaymentTransaction
@@ -35,9 +35,9 @@ class ProfileRepository @Inject constructor(
     private val tokenStore: TokenStore,
 ) {
     // 家庭成员
-    suspend fun listFamilyMembers(): List<FamilyMember> = familyApi.list().items
-    suspend fun createFamilyMember(req: FamilyMemberRequest): FamilyMember = familyApi.create(req)
-    suspend fun updateFamilyMember(id: String, req: FamilyMemberRequest): FamilyMember =
+    suspend fun listFamilyMembers(): List<FamilyMemberProfile> = familyApi.list().items
+    suspend fun createFamilyMember(req: FamilyMemberRequest): FamilyMemberProfile = familyApi.create(req)
+    suspend fun updateFamilyMember(id: String, req: FamilyMemberRequest): FamilyMemberProfile =
         familyApi.update(id, req)
     suspend fun deleteFamilyMember(id: String) = familyApi.delete(id)
 

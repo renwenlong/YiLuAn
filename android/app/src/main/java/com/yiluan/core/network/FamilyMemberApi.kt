@@ -1,7 +1,7 @@
 package com.yiluan.core.network
 
-import com.yiluan.core.model.FamilyMember
 import com.yiluan.core.model.FamilyMemberListResponse
+import com.yiluan.core.model.FamilyMemberProfile
 import com.yiluan.core.model.FamilyMemberRequest
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -19,13 +19,13 @@ interface FamilyMemberApi {
     suspend fun list(): FamilyMemberListResponse
 
     @POST("users/me/family-members")
-    suspend fun create(@Body body: FamilyMemberRequest): FamilyMember
+    suspend fun create(@Body body: FamilyMemberRequest): FamilyMemberProfile
 
     @PATCH("users/me/family-members/{memberId}")
     suspend fun update(
         @Path("memberId") memberId: String,
         @Body body: FamilyMemberRequest,
-    ): FamilyMember
+    ): FamilyMemberProfile
 
     @DELETE("users/me/family-members/{memberId}")
     suspend fun delete(@Path("memberId") memberId: String)

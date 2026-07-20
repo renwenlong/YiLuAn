@@ -9,10 +9,10 @@ import kotlinx.serialization.Serializable
  * 金额用 String(Decimal 元), 全 snake_case 显式 @SerialName。
  */
 
-// MARK: - 家庭成员
+// MARK: - 家庭成员（B6 管理用完整版；OrderModels.FamilyMember 是订单嵌套快照，勿混）
 
 @Serializable
-data class FamilyMember(
+data class FamilyMemberProfile(
     @SerialName("id") val id: String,
     @SerialName("user_id") val userId: String? = null,
     @SerialName("name") val name: String,
@@ -27,7 +27,7 @@ data class FamilyMember(
 
 @Serializable
 data class FamilyMemberListResponse(
-    @SerialName("items") val items: List<FamilyMember> = emptyList(),
+    @SerialName("items") val items: List<FamilyMemberProfile> = emptyList(),
     @SerialName("total") val total: Int = 0,
 )
 

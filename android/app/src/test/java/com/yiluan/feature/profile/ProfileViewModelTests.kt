@@ -1,7 +1,7 @@
 package com.yiluan.feature.profile
 
 import com.yiluan.core.model.EmergencyContact
-import com.yiluan.core.model.FamilyMember
+import com.yiluan.core.model.FamilyMemberProfile
 import com.yiluan.core.model.WalletSummary
 import com.yiluan.core.profile.ProfileRepository
 import io.mockk.coEvery
@@ -44,7 +44,7 @@ class ProfileViewModelTests {
 
     @Test
     fun `加载家庭成员成功`() = runTest(dispatcher) {
-        coEvery { repo.listFamilyMembers() } returns listOf(FamilyMember(id = "f1", name = "张三"))
+        coEvery { repo.listFamilyMembers() } returns listOf(FamilyMemberProfile(id = "f1", name = "张三"))
         vm.loadFamilyMembers()
         dispatcher.scheduler.advanceUntilIdle()
         assertEquals(1, vm.uiState.value.familyMembers.size)
@@ -60,8 +60,8 @@ class ProfileViewModelTests {
 
     @Test
     fun `添加家庭成员成功后重新加载`() = runTest(dispatcher) {
-        coEvery { repo.createFamilyMember(any()) } returns FamilyMember(id = "f1", name = "张三")
-        coEvery { repo.listFamilyMembers() } returns listOf(FamilyMember(id = "f1", name = "张三"))
+        coEvery { repo.createFamilyMember(any()) } returns FamilyMemberProfile(id = "f1", name = "张三")
+        coEvery { repo.listFamilyMembers() } returns listOf(FamilyMemberProfile(id = "f1", name = "张三"))
         vm.addFamilyMember(name = "张三", relation = "parent", phone = "13800138000")
         dispatcher.scheduler.advanceUntilIdle()
         coVerify { repo.createFamilyMember(any()) }

@@ -26,7 +26,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.yiluan.R
-import com.yiluan.core.model.FamilyMember
+import com.yiluan.core.model.FamilyMemberProfile
 
 /**
  * 家庭成员管理：列表 + 添加 + 删除。
@@ -87,7 +87,7 @@ fun FamilyMembersScreen(
 }
 
 @Composable
-private fun FamilyRow(m: FamilyMember, onDelete: () -> Unit) {
+private fun FamilyRow(m: FamilyMemberProfile, onDelete: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(16.dp),
