@@ -55,4 +55,12 @@ class OrderRepository @Inject constructor(
 
     suspend fun cancelOrder(orderId: String): Order =
         orderApi.cancel(orderId)
+
+    // ── B3 陪诊员 order action ──
+    suspend fun acceptOrder(orderId: String): Order = orderApi.accept(orderId)
+    suspend fun startOrder(orderId: String): Order = orderApi.start(orderId)
+    suspend fun requestStartOrder(orderId: String): Order = orderApi.requestStart(orderId)
+    suspend fun confirmStartOrder(orderId: String): Order = orderApi.confirmStart(orderId)
+    suspend fun completeOrder(orderId: String): Order = orderApi.complete(orderId)
+    suspend fun rejectOrder(orderId: String): Order = orderApi.reject(orderId)
 }

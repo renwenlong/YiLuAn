@@ -5,6 +5,7 @@ import com.yiluan.core.network.ApiEndpoint
 import com.yiluan.core.network.AuthApi
 import com.yiluan.core.network.AuthInterceptor
 import com.yiluan.core.network.ChatApi
+import com.yiluan.core.network.CompanionApi
 import com.yiluan.core.network.EmergencyContactApi
 import com.yiluan.core.network.FamilyMemberApi
 import com.yiluan.core.network.FollowupReminderApi
@@ -170,4 +171,10 @@ object NetworkModule {
     @Singleton
     fun provideNotificationApi(@Named("authed") retrofit: Retrofit): NotificationApi =
         retrofit.create(NotificationApi::class.java)
+
+    /** 陆诊员 API（需登录，B3）。 */
+    @Provides
+    @Singleton
+    fun provideCompanionApi(@Named("authed") retrofit: Retrofit): CompanionApi =
+        retrofit.create(CompanionApi::class.java)
 }
