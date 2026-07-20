@@ -25,6 +25,14 @@ object Routes {
 
     const val ARG_ORDER_ID = "orderId"
 
+    // ── B4 实时 ──
+    const val CHAT_LIST = "chat_list"
+    const val NOTIFICATIONS = "notifications"
+
+    /** 聊天室，带 orderId。 */
+    const val CHAT_ROOM = "chat_room/{orderId}"
+    fun chatRoom(orderId: String): String = "chat_room/$orderId"
+
     // ── B6 长尾 ──
     const val SETTINGS = "settings"
     const val FAMILY_MEMBERS = "family_members"

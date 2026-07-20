@@ -17,6 +17,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.yiluan.feature.auth.AuthScreen
+import com.yiluan.feature.chat.ChatListScreen
+import com.yiluan.feature.chat.ChatRoomScreen
+import com.yiluan.feature.notification.NotificationListScreen
 import com.yiluan.feature.order.CreateOrderScreen
 import com.yiluan.feature.order.OrderDetailScreen
 import com.yiluan.feature.order.OrderListScreen
@@ -64,6 +67,8 @@ fun YiLuAnNavHost(
                         onCreateOrder = { navController.navigate(Routes.CREATE_ORDER) },
                         onMyOrders = { navController.navigate(Routes.ORDER_LIST) },
                         onSettings = { navController.navigate(Routes.SETTINGS) },
+                        onChat = { navController.navigate(Routes.CHAT_LIST) },
+                        onNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                     )
                 }
                 composable(Routes.CREATE_ORDER) {
@@ -111,6 +116,21 @@ fun YiLuAnNavHost(
                 }
                 composable(Routes.LEGAL_PRIVACY) { LegalScreen(doc = LegalDoc.PRIVACY) }
                 composable(Routes.LEGAL_TERMS) { LegalScreen(doc = LegalDoc.TERMS) }
+
+                // ── B4 实时 ──
+                composable(Routes.CHAT_LIST) {
+                    ChatListScreen(
+                        onConversationClick = { orderId -> navController.navigate(Routes.chatRoom(orderId)) },
+                    )
+                }
+                composable(
+                    route = Routes.CHAT_ROOM,
+                    arguments = listOf(navArgument(Routes.ARG_ORDER_ID) { type = NavType.StringType }),
+                ) { backStackEntry ->
+                    val oid = backStackEntry.arguments?.getString(Routes.ARG_ORDER_ID).orEmpty()
+                    ChatRoomScreen(orderId = oid)
+                }
+                composable(Routes.NOTIFICATIONS) { NotificationListScreen() }
                 composable(
                     route = Routes.REVIEW,
                     arguments = listOf(navArgument(Routes.ARG_ORDER_ID) { type = NavType.StringType }),

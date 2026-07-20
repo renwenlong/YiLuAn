@@ -140,4 +140,19 @@
     <string name="review_submit">提交评价</string>
     <string name="review_err_content">评价内容需 5-500 字</string>
     <string name="review_err_submit">评价提交失败，请重试</string>
+
+    <!-- ANDROID-DEV-B4-REALTIME: 实时 -->
+    <string name="patient_home_chat">消息</string>
+    <string name="patient_home_notifications">通知</string>
+    <string name="chat_list_title">消息</string>
+    <string name="chat_list_empty">暂无会话</string>
+    <string name="chat_reconnecting">连接中…</string>
+    <string name="chat_input_hint">输入消息</string>
+    <string name="chat_send">发送</string>
+    <string name="notification_title_fmt">通知（未读 %1$d）</string>
+    <string name="notification_mark_all_read">全部已读</string>
+    <string name="notification_empty">暂无通知</string>
+    <string name="notification_error">通知加载失败</string>
+    <string name="notification_untitled">新通知</string>
+    <string name="notification_unread_tag">未读</string>
 </resources>

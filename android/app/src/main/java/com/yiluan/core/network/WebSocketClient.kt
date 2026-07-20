@@ -73,4 +73,62 @@ class WebSocketClient @Inject constructor(
         val ws = client.newWebSocket(request, listener)
         awaitClose { ws.close(1000, "client closed") }
     }
+
+    /**
+     * 双向连接（B4）：返回能发帧的 WsConnection。
+     * 与 connect() 区别: 暴露 send()，供 first-frame auth / app 层 JSON ping / 发消息。
+     * @param pingIntervalSeconds 0 = 禁 OkHttp 原生 ping（后端只认 app 层 JSON ping）。
+     */
+    fun openConnection(url: String, pingIntervalSeconds: Long = 0L): WsConnection {
+        val client = baseClient.newBuilder()
+            .pingInterval(pingIntervalSeconds, TimeUnit.SECONDS)
+            .build()
+        val request = Request.Builder().url(url).build()
+        return WsConnection(client, request)
+    }
+
+    /**
+     * 可发帧的 WS 连接。events 供 collect，send() 发 JSON 帧，close() 关连。
+     */
+    class WsConnection internal constructor(
+        private val client: OkHttpClient,
+        private val request: Request,
+    ) {
+        @Volatile private var ws: WebSocket? = null
+
+        val events: Flow<WsEvent> = callbackFlow {
+            val listener = object : WebSocketListener() {
+                override fun onOpen(webSocket: WebSocket, response: Response) {
+                    ws = webSocket
+                    trySend(WsEvent.Open)
+                }
+                override fun onMessage(webSocket: WebSocket, text: String) {
+                    trySend(WsEvent.Message(text))
+                }
+                override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
+                    webSocket.close(code, reason)
+                }
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    trySend(WsEvent.Closed(code, reason))
+                    channel.close()
+                }
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    trySend(WsEvent.Failure(t))
+                    channel.close(t)
+                }
+            }
+            val socket = client.newWebSocket(request, listener)
+            ws = socket
+            awaitClose { socket.close(1000, "client closed") }
+        }
+
+        /** 发送 JSON 文本帧（未连上返回 false）。 */
+        fun send(text: String): Boolean = ws?.send(text) ?: false
+
+        /** 主动关连。 */
+        fun close() {
+            ws?.close(1000, "client closed")
+            ws = null
+        }
+    }
 }

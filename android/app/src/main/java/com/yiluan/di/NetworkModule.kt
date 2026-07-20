@@ -4,10 +4,12 @@ import com.yiluan.BuildConfig
 import com.yiluan.core.network.ApiEndpoint
 import com.yiluan.core.network.AuthApi
 import com.yiluan.core.network.AuthInterceptor
+import com.yiluan.core.network.ChatApi
 import com.yiluan.core.network.EmergencyContactApi
 import com.yiluan.core.network.FamilyMemberApi
 import com.yiluan.core.network.FollowupReminderApi
 import com.yiluan.core.network.HospitalApi
+import com.yiluan.core.network.NotificationApi
 import com.yiluan.core.network.OrderApi
 import com.yiluan.core.network.ReviewApi
 import com.yiluan.core.network.UserApi
@@ -157,4 +159,15 @@ object NetworkModule {
     @Singleton
     fun provideFollowupReminderApi(@Named("authed") retrofit: Retrofit): FollowupReminderApi =
         retrofit.create(FollowupReminderApi::class.java)
+
+    // ── B4 实时 API（authed）──
+    @Provides
+    @Singleton
+    fun provideChatApi(@Named("authed") retrofit: Retrofit): ChatApi =
+        retrofit.create(ChatApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideNotificationApi(@Named("authed") retrofit: Retrofit): NotificationApi =
+        retrofit.create(NotificationApi::class.java)
 }

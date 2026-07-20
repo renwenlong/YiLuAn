@@ -140,4 +140,19 @@
     <string name="review_submit">Submit review</string>
     <string name="review_err_content">Review content must be 5-500 characters</string>
     <string name="review_err_submit">Failed to submit review, please retry</string>
+
+    <!-- ANDROID-DEV-B4-REALTIME: realtime -->
+    <string name="patient_home_chat">Messages</string>
+    <string name="patient_home_notifications">Notifications</string>
+    <string name="chat_list_title">Messages</string>
+    <string name="chat_list_empty">No conversations</string>
+    <string name="chat_reconnecting">Connecting…</string>
+    <string name="chat_input_hint">Type a message</string>
+    <string name="chat_send">Send</string>
+    <string name="notification_title_fmt">Notifications (%1$d unread)</string>
+    <string name="notification_mark_all_read">Mark all read</string>
+    <string name="notification_empty">No notifications</string>
+    <string name="notification_error">Failed to load notifications</string>
+    <string name="notification_untitled">New notification</string>
+    <string name="notification_unread_tag">Unread</string>
 </resources>
