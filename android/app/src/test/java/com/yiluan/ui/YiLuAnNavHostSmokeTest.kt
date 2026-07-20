@@ -34,14 +34,18 @@ class YiLuAnNavHostSmokeTest {
         assertEquals(Routes.SPLASH, Routes.START_DESTINATION)
         assertEquals("auth", Routes.AUTH)
         assertEquals("home", Routes.HOME)
+        assertEquals("create_order", Routes.CREATE_ORDER)
+        assertEquals("order_list", Routes.ORDER_LIST)
+        assertEquals("order_detail/o1", Routes.orderDetail("o1"))
     }
 
     @Test
-    fun `NavHost 渲染占位主界面不崩`() {
+    fun `NavHost 渲染患者首页不崩`() {
         composeRule.setContent {
             YiLuAnNavHost(startDestination = Routes.HOME)
         }
-        // HOME 占位屏显示 app 名，证明单 Activity + Navigation 骨架跑通。
-        composeRule.onNodeWithText("医路安").assertExists()
+        // HOME = 患者首页（无 Hilt 依赖），验下单入口按钮文案存在，
+        // 证明单 Activity + Navigation 骨架 + B2 患者入口贯通。
+        composeRule.onNodeWithText("Create order").assertExists()
     }
 }

@@ -1,0 +1,50 @@
+package com.yiluan.feature.order
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
+import com.yiluan.R
+
+/**
+ * 患者首页：入口到下单 + 我的订单。
+ * ANDROID-DEV-B2-PATIENT — 对齐 iOS PatientHomeView（B2 精简版）。
+ */
+@Composable
+fun PatientHomeScreen(
+    onCreateOrder: () -> Unit,
+    onMyOrders: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+    ) {
+        Text(text = stringResource(R.string.patient_home_title))
+        Text(text = stringResource(R.string.patient_home_subtitle))
+
+        Button(
+            onClick = onCreateOrder,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.patient_home_create_order))
+        }
+
+        OutlinedButton(
+            onClick = onMyOrders,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(stringResource(R.string.patient_home_my_orders))
+        }
+    }
+}
