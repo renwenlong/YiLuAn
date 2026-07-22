@@ -121,6 +121,15 @@
     <string name="settings_privacy">隐私政策</string>
     <string name="settings_terms">服务条款</string>
     <string name="settings_followups">复诊提醒</string>
+    <string name="settings_edit_profile">编辑资料</string>
+    <string name="settings_about">关于</string>
+    <string name="profile_edit_title">编辑资料</string>
+    <string name="profile_edit_display_name">昵称</string>
+    <string name="profile_edit_avatar_url">头像链接</string>
+    <string name="profile_edit_save">保存</string>
+    <string name="about_title">关于一路安</string>
+    <string name="about_version">版本 %1$s</string>
+    <string name="about_company">一路安陆陆医疗科技</string>
     <string name="followup_title">复诊提醒</string>
     <string name="followup_empty">暂无复诊提醒</string>
     <string name="followup_delete">删除</string>

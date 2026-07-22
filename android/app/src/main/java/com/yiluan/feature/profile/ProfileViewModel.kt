@@ -8,6 +8,7 @@ import com.yiluan.core.model.FamilyMemberProfile
 import com.yiluan.core.model.FamilyMemberRequest
 import com.yiluan.core.model.FollowupReminder
 import com.yiluan.core.model.PaymentTransaction
+import com.yiluan.core.model.User
 import com.yiluan.core.model.WalletSummary
 import com.yiluan.core.profile.ProfileRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -145,6 +146,41 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    // MARK: - 编辑资料
+
+    /** 拉当前资料回显编辑页。 */
+    fun loadProfile() {
+        _uiState.update { it.copy(isLoadingProfile = true) }
+        viewModelScope.launch {
+            try {
+                val user = repository.currentUser()
+                _uiState.update { it.copy(isLoadingProfile = false, profile = user) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoadingProfile = false, error = ProfileErrorKey.LOAD_FAILED) }
+            }
+        }
+    }
+
+    /** 保存资料（昵称/头像），成功后刷新 profile + 置 profileSaved。 */
+    fun saveProfile(displayName: String, avatarUrl: String?) {
+        if (displayName.isBlank() || displayName.length > 50) {
+            _uiState.update { it.copy(error = ProfileErrorKey.INVALID_INPUT) }
+            return
+        }
+        _uiState.update { it.copy(isMutating = true, error = null, profileSaved = false) }
+        viewModelScope.launch {
+            try {
+                val updated = repository.updateProfile(
+                    displayName = displayName,
+                    avatarUrl = avatarUrl?.takeIf { it.isNotBlank() },
+                )
+                _uiState.update { it.copy(isMutating = false, profile = updated, profileSaved = true) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isMutating = false, error = ProfileErrorKey.SAVE_FAILED) }
+            }
+        }
+    }
+
     // MARK: - 钱包
 
     fun loadWallet() {
@@ -235,6 +271,9 @@ data class ProfileUiState(
     val isLoadingWallet: Boolean = false,
     val followups: List<FollowupReminder> = emptyList(),
     val isLoadingFollowups: Boolean = false,
+    val profile: User? = null,
+    val isLoadingProfile: Boolean = false,
+    val profileSaved: Boolean = false,
     val bindOtpSent: Boolean = false,
     val isMutating: Boolean = false,
     val error: ProfileErrorKey? = null,

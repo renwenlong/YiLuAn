@@ -3,6 +3,7 @@ package com.yiluan.feature.profile
 import com.yiluan.core.model.EmergencyContact
 import com.yiluan.core.model.FamilyMemberProfile
 import com.yiluan.core.model.FollowupReminder
+import com.yiluan.core.model.User
 import com.yiluan.core.model.WalletSummary
 import com.yiluan.core.profile.ProfileRepository
 import io.mockk.coEvery
@@ -170,5 +171,40 @@ class ProfileViewModelTests {
         dispatcher.scheduler.advanceUntilIdle()
         coVerify { repo.deleteFollowup("r1") }
         coVerify { repo.listFollowups() }
+    }
+
+    // ---- 编辑资料补漏页 (ANDROID-DEV-GAP-PROFILE-EDIT) ----
+
+    @Test
+    fun `加载资料回显`() = runTest(dispatcher) {
+        coEvery { repo.currentUser() } returns User(id = "u1", displayName = "老王")
+        vm.loadProfile()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals("老王", vm.uiState.value.profile?.displayName)
+    }
+
+    @Test
+    fun `保存资料空昵称报错不调后端`() = runTest(dispatcher) {
+        vm.saveProfile(displayName = "", avatarUrl = null)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(ProfileErrorKey.INVALID_INPUT, vm.uiState.value.error)
+        coVerify(exactly = 0) { repo.updateProfile(any(), any()) }
+    }
+
+    @Test
+    fun `保存资料成功置 profileSaved`() = runTest(dispatcher) {
+        coEvery { repo.updateProfile(any(), any()) } returns User(id = "u1", displayName = "新名")
+        vm.saveProfile(displayName = "新名", avatarUrl = null)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(vm.uiState.value.profileSaved)
+        assertEquals("新名", vm.uiState.value.profile?.displayName)
+    }
+
+    @Test
+    fun `保存资料失败设错误 key`() = runTest(dispatcher) {
+        coEvery { repo.updateProfile(any(), any()) } throws RuntimeException("net")
+        vm.saveProfile(displayName = "新名", avatarUrl = null)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(ProfileErrorKey.SAVE_FAILED, vm.uiState.value.error)
     }
 }
