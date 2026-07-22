@@ -15,14 +15,15 @@ import androidx.compose.ui.unit.dp
 import com.yiluan.R
 
 /**
- * 患者首页：入口到下单 + 我的订单。
- * ANDROID-DEV-B2-PATIENT — 对齐 iOS PatientHomeView（B2 精简版）。
+ * 患者首页：下单 / 我的订单 / 陪诊员工作台(B3) / 设置(B6) / 消息+通知(B4)。
+ * ANDROID-DEV-B2-PATIENT — 对齐 iOS PatientHomeView。
  */
 @Composable
 fun PatientHomeScreen(
     onCreateOrder: () -> Unit,
     onMyOrders: () -> Unit,
     onSettings: (() -> Unit)? = null,
+    onCompanionMode: (() -> Unit)? = null,
     onChat: (() -> Unit)? = null,
     onNotifications: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
@@ -50,7 +51,17 @@ fun PatientHomeScreen(
             Text(stringResource(R.string.patient_home_my_orders))
         }
 
-        // 设置入口（B6: 法务/注销等）。
+        // 陪诊员工作台入口（B3）。
+        if (onCompanionMode != null) {
+            OutlinedButton(
+                onClick = onCompanionMode,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.patient_home_companion_mode))
+            }
+        }
+
+        // 设置入口（B6）。
         if (onSettings != null) {
             OutlinedButton(
                 onClick = onSettings,

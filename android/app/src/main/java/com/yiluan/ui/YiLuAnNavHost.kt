@@ -19,6 +19,11 @@ import androidx.navigation.navArgument
 import com.yiluan.feature.auth.AuthScreen
 import com.yiluan.feature.chat.ChatListScreen
 import com.yiluan.feature.chat.ChatRoomScreen
+import com.yiluan.feature.companion.AvailableOrdersScreen
+import com.yiluan.feature.companion.CompanionDetailScreen
+import com.yiluan.feature.companion.CompanionHomeScreen
+import com.yiluan.feature.companion.CompanionSetupScreen
+import com.yiluan.feature.companion.TodayOrdersScreen
 import com.yiluan.feature.notification.NotificationListScreen
 import com.yiluan.feature.order.CreateOrderScreen
 import com.yiluan.feature.order.OrderDetailScreen
@@ -35,9 +40,7 @@ import com.yiluan.feature.review.ReviewScreen
 
 /**
  * 应用导航宿主（单 Activity + Navigation-Compose）。
- * ANDROID-DEV-B0-CORE — 骨架 splash。
- * ANDROID-DEV-B1-AUTH — auth 登录流程 + splash 按 token 路由。
- * ANDROID-DEV-B2-PATIENT — 患者闭环: home/create-order/order-list/order-detail。
+ * B0 splash / B1 auth / B2 患者闭环 / B6 长尾 / B4 实时 / B3 陪诊员闭环。
  */
 @Composable
 fun YiLuAnNavHost(
@@ -67,6 +70,7 @@ fun YiLuAnNavHost(
                         onCreateOrder = { navController.navigate(Routes.CREATE_ORDER) },
                         onMyOrders = { navController.navigate(Routes.ORDER_LIST) },
                         onSettings = { navController.navigate(Routes.SETTINGS) },
+                        onCompanionMode = { navController.navigate(Routes.COMPANION_HOME) },
                         onChat = { navController.navigate(Routes.CHAT_LIST) },
                         onNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                     )
@@ -116,6 +120,13 @@ fun YiLuAnNavHost(
                 }
                 composable(Routes.LEGAL_PRIVACY) { LegalScreen(doc = LegalDoc.PRIVACY) }
                 composable(Routes.LEGAL_TERMS) { LegalScreen(doc = LegalDoc.TERMS) }
+                composable(
+                    route = Routes.REVIEW,
+                    arguments = listOf(navArgument(Routes.ARG_ORDER_ID) { type = NavType.StringType }),
+                ) { backStackEntry ->
+                    val orderId = backStackEntry.arguments?.getString(Routes.ARG_ORDER_ID).orEmpty()
+                    ReviewScreen(orderId = orderId, onSubmitted = { navController.popBackStack() })
+                }
 
                 // ── B4 实时 ──
                 composable(Routes.CHAT_LIST) {
@@ -131,12 +142,39 @@ fun YiLuAnNavHost(
                     ChatRoomScreen(orderId = oid)
                 }
                 composable(Routes.NOTIFICATIONS) { NotificationListScreen() }
+
+                // ── B3 陪诊员闭环 ──
+                composable(Routes.COMPANION_HOME) {
+                    CompanionHomeScreen(
+                        onAvailableOrders = { navController.navigate(Routes.COMPANION_AVAILABLE) },
+                        onTodayOrders = { navController.navigate(Routes.COMPANION_TODAY) },
+                        onSetup = { navController.navigate(Routes.COMPANION_SETUP) },
+                        onProfile = { navController.navigate(Routes.COMPANION_PROFILE) },
+                    )
+                }
+                composable(Routes.COMPANION_AVAILABLE) {
+                    AvailableOrdersScreen(
+                        onOrderClick = { orderId -> navController.navigate(Routes.orderDetail(orderId)) },
+                    )
+                }
+                composable(Routes.COMPANION_TODAY) {
+                    TodayOrdersScreen(
+                        onOrderClick = { orderId -> navController.navigate(Routes.orderDetail(orderId)) },
+                    )
+                }
+                composable(Routes.COMPANION_SETUP) {
+                    CompanionSetupScreen(onApplied = { navController.popBackStack() })
+                }
+                composable(Routes.COMPANION_PROFILE) {
+                    // 本人档案复用 setup 入口（完整本人页后续）。
+                    CompanionSetupScreen(onApplied = { navController.popBackStack() })
+                }
                 composable(
-                    route = Routes.REVIEW,
-                    arguments = listOf(navArgument(Routes.ARG_ORDER_ID) { type = NavType.StringType }),
+                    route = Routes.COMPANION_DETAIL,
+                    arguments = listOf(navArgument(Routes.ARG_COMPANION_ID) { type = NavType.StringType }),
                 ) { backStackEntry ->
-                    val orderId = backStackEntry.arguments?.getString(Routes.ARG_ORDER_ID).orEmpty()
-                    ReviewScreen(orderId = orderId, onSubmitted = { navController.popBackStack() })
+                    val companionId = backStackEntry.arguments?.getString(Routes.ARG_COMPANION_ID).orEmpty()
+                    CompanionDetailScreen(companionId = companionId)
                 }
             }
         }

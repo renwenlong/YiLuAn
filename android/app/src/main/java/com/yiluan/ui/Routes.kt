@@ -46,6 +46,18 @@ object Routes {
     const val REVIEW = "review/{orderId}"
     fun review(orderId: String): String = "review/$orderId"
 
+    // ── B3 陆诊员闭环 ──
+    const val COMPANION_HOME = "companion_home"
+    const val COMPANION_AVAILABLE = "companion_available"
+    const val COMPANION_TODAY = "companion_today"
+    const val COMPANION_SETUP = "companion_setup"
+    const val COMPANION_PROFILE = "companion_profile"
+
+    /** 陆诊员详情（患者视角），带 companionId。 */
+    const val COMPANION_DETAIL = "companion_detail/{companionId}"
+    fun companionDetail(companionId: String): String = "companion_detail/$companionId"
+    const val ARG_COMPANION_ID = "companionId"
+
     /** 应用起始目的地（单一真源，供 NavHost 和测试共用）。 */
     const val START_DESTINATION = SPLASH
 }
