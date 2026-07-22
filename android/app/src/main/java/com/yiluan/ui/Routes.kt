@@ -39,6 +39,8 @@ object Routes {
     const val EMERGENCY_CONTACTS = "emergency_contacts"
     const val WALLET = "wallet"
     const val FOLLOWUP_REMINDERS = "followup_reminders"
+    const val PROFILE_EDIT = "profile_edit"
+    const val ABOUT = "about"
     const val BIND_PHONE = "bind_phone"
     const val LEGAL_PRIVACY = "legal_privacy"
     const val LEGAL_TERMS = "legal_terms"

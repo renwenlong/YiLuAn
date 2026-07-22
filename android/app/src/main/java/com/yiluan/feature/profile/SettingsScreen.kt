@@ -35,6 +35,8 @@ fun SettingsScreen(
     onPrivacy: () -> Unit,
     onTerms: () -> Unit,
     onFollowups: () -> Unit,
+    onEditProfile: () -> Unit,
+    onAbout: () -> Unit,
     onAccountDeleted: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = hiltViewModel(),
@@ -48,6 +50,10 @@ fun SettingsScreen(
     ) {
         Text(text = stringResource(R.string.settings_title))
 
+        OutlinedButton(onClick = onEditProfile, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.settings_edit_profile))
+        }
+
         OutlinedButton(onClick = onPrivacy, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.settings_privacy))
         }
@@ -57,6 +63,10 @@ fun SettingsScreen(
 
         OutlinedButton(onClick = onFollowups, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.settings_followups))
+        }
+
+        OutlinedButton(onClick = onAbout, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.settings_about))
         }
 
         Button(

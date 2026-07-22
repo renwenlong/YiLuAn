@@ -121,6 +121,15 @@
     <string name="settings_privacy">Privacy policy</string>
     <string name="settings_terms">Terms of service</string>
     <string name="settings_followups">Follow-up reminders</string>
+    <string name="settings_edit_profile">Edit profile</string>
+    <string name="settings_about">About</string>
+    <string name="profile_edit_title">Edit profile</string>
+    <string name="profile_edit_display_name">Nickname</string>
+    <string name="profile_edit_avatar_url">Avatar URL</string>
+    <string name="profile_edit_save">Save</string>
+    <string name="about_title">About YiLuAn</string>
+    <string name="about_version">Version %1$s</string>
+    <string name="about_company">YiLuAn Medical Technology</string>
     <string name="followup_title">Follow-up reminders</string>
     <string name="followup_empty">No follow-up reminders yet</string>
     <string name="followup_delete">Delete</string>

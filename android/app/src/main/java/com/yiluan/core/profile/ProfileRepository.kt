@@ -60,6 +60,19 @@ class ProfileRepository @Inject constructor(
         followupApi.create(orderId, req)
     suspend fun deleteFollowup(reminderId: String) = followupApi.delete(reminderId)
 
+    // 编辑资料
+    /** 拉当前用户资料（用于编辑页回显）。 */
+    suspend fun currentUser(): User = userApi.me()
+
+    /** 更新资料（仅传要改的字段），返回更新后 User。 */
+    suspend fun updateProfile(displayName: String?, avatarUrl: String?): User =
+        userApi.updateMe(
+            com.yiluan.core.model.UpdateMeRequest(
+                displayName = displayName,
+                avatarUrl = avatarUrl,
+            ),
+        )
+
     // 绑手机
     /** 向目标手机发验证码（绑定前）。 */
     suspend fun sendBindOtp(phone: String) {
