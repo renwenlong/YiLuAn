@@ -2,6 +2,7 @@ package com.yiluan.feature.profile
 
 import com.yiluan.core.model.EmergencyContact
 import com.yiluan.core.model.FamilyMemberProfile
+import com.yiluan.core.model.FollowupReminder
 import com.yiluan.core.model.WalletSummary
 import com.yiluan.core.profile.ProfileRepository
 import io.mockk.coEvery
@@ -128,5 +129,46 @@ class ProfileViewModelTests {
         vm.deleteAccount(onDeleted = {})
         dispatcher.scheduler.advanceUntilIdle()
         assertEquals(ProfileErrorKey.DELETE_FAILED, vm.uiState.value.error)
+    }
+
+    // ---- 复诊提醒补漏页 (ANDROID-DEV-GAP-FOLLOWUP-REMINDERS) ----
+
+    private fun reminder(id: String, status: String = "pending") =
+        FollowupReminder(id = id, orderId = "o1", remindAt = "2026-08-01 09:00", status = status)
+
+    @Test
+    fun `加载复诊提醒成功`() = runTest(dispatcher) {
+        coEvery { repo.listFollowups() } returns listOf(reminder("r1"), reminder("r2"))
+        vm.loadFollowups()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(2, vm.uiState.value.followups.size)
+        assertEquals(false, vm.uiState.value.isLoadingFollowups)
+    }
+
+    @Test
+    fun `加载复诊提醒空态`() = runTest(dispatcher) {
+        coEvery { repo.listFollowups() } returns emptyList()
+        vm.loadFollowups()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(vm.uiState.value.followups.isEmpty())
+    }
+
+    @Test
+    fun `加载复诊提醒失败设错误 key`() = runTest(dispatcher) {
+        coEvery { repo.listFollowups() } throws RuntimeException("net")
+        vm.loadFollowups()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(ProfileErrorKey.LOAD_FAILED, vm.uiState.value.error)
+        assertEquals(false, vm.uiState.value.isLoadingFollowups)
+    }
+
+    @Test
+    fun `删除复诊提醒成功后重拉`() = runTest(dispatcher) {
+        coEvery { repo.deleteFollowup("r1") } returns Unit
+        coEvery { repo.listFollowups() } returns emptyList()
+        vm.deleteFollowup("r1")
+        dispatcher.scheduler.advanceUntilIdle()
+        coVerify { repo.deleteFollowup("r1") }
+        coVerify { repo.listFollowups() }
     }
 }

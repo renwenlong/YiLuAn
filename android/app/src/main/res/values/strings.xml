@@ -120,6 +120,10 @@
     <string name="settings_title">设置</string>
     <string name="settings_privacy">隐私政策</string>
     <string name="settings_terms">服务条款</string>
+    <string name="settings_followups">复诊提醒</string>
+    <string name="followup_title">复诊提醒</string>
+    <string name="followup_empty">暂无复诊提醒</string>
+    <string name="followup_delete">删除</string>
     <string name="settings_delete_account">注销账户</string>
     <string name="delete_account_confirm_title">确认注销？</string>
     <string name="delete_account_confirm_msg">注销后账户及数据将永久删除，不可恢复。确定继续？</string>

@@ -120,6 +120,10 @@
     <string name="settings_title">Settings</string>
     <string name="settings_privacy">Privacy policy</string>
     <string name="settings_terms">Terms of service</string>
+    <string name="settings_followups">Follow-up reminders</string>
+    <string name="followup_title">Follow-up reminders</string>
+    <string name="followup_empty">No follow-up reminders yet</string>
+    <string name="followup_delete">Delete</string>
     <string name="settings_delete_account">Delete account</string>
     <string name="delete_account_confirm_title">Confirm deletion?</string>
     <string name="delete_account_confirm_msg">Your account and data will be permanently deleted and cannot be recovered. Continue?</string>

@@ -34,6 +34,7 @@ import com.yiluan.R
 fun SettingsScreen(
     onPrivacy: () -> Unit,
     onTerms: () -> Unit,
+    onFollowups: () -> Unit,
     onAccountDeleted: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ProfileViewModel = hiltViewModel(),
@@ -52,6 +53,10 @@ fun SettingsScreen(
         }
         OutlinedButton(onClick = onTerms, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.settings_terms))
+        }
+
+        OutlinedButton(onClick = onFollowups, modifier = Modifier.fillMaxWidth()) {
+            Text(stringResource(R.string.settings_followups))
         }
 
         Button(
