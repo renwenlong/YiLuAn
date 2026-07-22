@@ -38,6 +38,7 @@ object Routes {
     const val FAMILY_MEMBERS = "family_members"
     const val EMERGENCY_CONTACTS = "emergency_contacts"
     const val WALLET = "wallet"
+    const val FOLLOWUP_REMINDERS = "followup_reminders"
     const val BIND_PHONE = "bind_phone"
     const val LEGAL_PRIVACY = "legal_privacy"
     const val LEGAL_TERMS = "legal_terms"

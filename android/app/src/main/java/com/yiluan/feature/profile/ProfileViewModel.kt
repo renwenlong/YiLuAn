@@ -6,6 +6,7 @@ import com.yiluan.core.model.EmergencyContact
 import com.yiluan.core.model.EmergencyContactRequest
 import com.yiluan.core.model.FamilyMemberProfile
 import com.yiluan.core.model.FamilyMemberRequest
+import com.yiluan.core.model.FollowupReminder
 import com.yiluan.core.model.PaymentTransaction
 import com.yiluan.core.model.WalletSummary
 import com.yiluan.core.profile.ProfileRepository
@@ -117,6 +118,33 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    // MARK: - 复诊提醒
+
+    /** 拉取当前用户的复诊提醒列表。 */
+    fun loadFollowups() {
+        _uiState.update { it.copy(isLoadingFollowups = true) }
+        viewModelScope.launch {
+            try {
+                val list = repository.listFollowups()
+                _uiState.update { it.copy(isLoadingFollowups = false, followups = list) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoadingFollowups = false, error = ProfileErrorKey.LOAD_FAILED) }
+            }
+        }
+    }
+
+    /** 删除一条复诊提醒(仅 pending 可删)，成功后重拉。 */
+    fun deleteFollowup(id: String) {
+        viewModelScope.launch {
+            try {
+                repository.deleteFollowup(id)
+                loadFollowups()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = ProfileErrorKey.SAVE_FAILED) }
+            }
+        }
+    }
+
     // MARK: - 钱包
 
     fun loadWallet() {
@@ -205,6 +233,8 @@ data class ProfileUiState(
     val wallet: WalletSummary? = null,
     val transactions: List<PaymentTransaction> = emptyList(),
     val isLoadingWallet: Boolean = false,
+    val followups: List<FollowupReminder> = emptyList(),
+    val isLoadingFollowups: Boolean = false,
     val bindOtpSent: Boolean = false,
     val isMutating: Boolean = false,
     val error: ProfileErrorKey? = null,

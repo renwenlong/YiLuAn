@@ -35,6 +35,7 @@ import com.yiluan.feature.share.ShareOtpScreen
 import com.yiluan.feature.profile.BindPhoneScreen
 import com.yiluan.feature.profile.EmergencyContactsScreen
 import com.yiluan.feature.profile.FamilyMembersScreen
+import com.yiluan.feature.profile.FollowupRemindersScreen
 import com.yiluan.feature.profile.LegalDoc
 import com.yiluan.feature.profile.LegalScreen
 import com.yiluan.feature.profile.SettingsScreen
@@ -108,6 +109,7 @@ fun YiLuAnNavHost(
                     SettingsScreen(
                         onPrivacy = { navController.navigate(Routes.LEGAL_PRIVACY) },
                         onTerms = { navController.navigate(Routes.LEGAL_TERMS) },
+                        onFollowups = { navController.navigate(Routes.FOLLOWUP_REMINDERS) },
                         onAccountDeleted = {
                             navController.navigate(Routes.AUTH) {
                                 popUpTo(0) { inclusive = true }
@@ -116,6 +118,7 @@ fun YiLuAnNavHost(
                     )
                 }
                 composable(Routes.FAMILY_MEMBERS) { FamilyMembersScreen() }
+                composable(Routes.FOLLOWUP_REMINDERS) { FollowupRemindersScreen() }
                 composable(Routes.EMERGENCY_CONTACTS) { EmergencyContactsScreen() }
                 composable(Routes.WALLET) { WalletScreen() }
                 composable(Routes.BIND_PHONE) {
