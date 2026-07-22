@@ -29,6 +29,9 @@ import com.yiluan.feature.order.CreateOrderScreen
 import com.yiluan.feature.order.OrderDetailScreen
 import com.yiluan.feature.order.OrderListScreen
 import com.yiluan.feature.order.PatientHomeScreen
+import com.yiluan.feature.precheck.PrecheckSummaryScreen
+import com.yiluan.feature.share.ShareManageScreen
+import com.yiluan.feature.share.ShareOtpScreen
 import com.yiluan.feature.profile.BindPhoneScreen
 import com.yiluan.feature.profile.EmergencyContactsScreen
 import com.yiluan.feature.profile.FamilyMembersScreen
@@ -175,6 +178,29 @@ fun YiLuAnNavHost(
                 ) { backStackEntry ->
                     val companionId = backStackEntry.arguments?.getString(Routes.ARG_COMPANION_ID).orEmpty()
                     CompanionDetailScreen(companionId = companionId)
+                }
+
+                // ── B5 Precheck + Share ──
+                composable(
+                    route = Routes.PRECHECK,
+                    arguments = listOf(navArgument(Routes.ARG_ORDER_ID) { type = NavType.StringType }),
+                ) { e ->
+                    val oid = e.arguments?.getString(Routes.ARG_ORDER_ID).orEmpty()
+                    PrecheckSummaryScreen(orderId = oid)
+                }
+                composable(
+                    route = Routes.SHARE_MANAGE,
+                    arguments = listOf(navArgument(Routes.ARG_ORDER_ID) { type = NavType.StringType }),
+                ) { e ->
+                    val oid = e.arguments?.getString(Routes.ARG_ORDER_ID).orEmpty()
+                    ShareManageScreen(orderId = oid)
+                }
+                composable(
+                    route = Routes.SHARE_OTP,
+                    arguments = listOf(navArgument(Routes.ARG_TOKEN) { type = NavType.StringType }),
+                ) { e ->
+                    val t = e.arguments?.getString(Routes.ARG_TOKEN).orEmpty()
+                    ShareOtpScreen(token = t)
                 }
             }
         }

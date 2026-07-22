@@ -4,6 +4,8 @@ import com.yiluan.BuildConfig
 import com.yiluan.core.network.ApiEndpoint
 import com.yiluan.core.network.AuthApi
 import com.yiluan.core.network.AuthInterceptor
+import com.yiluan.core.network.PrecheckApi
+import com.yiluan.core.network.ShareApi
 import com.yiluan.core.network.ChatApi
 import com.yiluan.core.network.CompanionApi
 import com.yiluan.core.network.EmergencyContactApi
@@ -177,4 +179,16 @@ object NetworkModule {
     @Singleton
     fun provideCompanionApi(@Named("authed") retrofit: Retrofit): CompanionApi =
         retrofit.create(CompanionApi::class.java)
+
+    /** Precheck API（需登录，B5）。 */
+    @Provides
+    @Singleton
+    fun providePrecheckApi(@Named("authed") retrofit: Retrofit): PrecheckApi =
+        retrofit.create(PrecheckApi::class.java)
+
+    /** Share API（发起端 authed + 接收端 no-auth，B5）。 */
+    @Provides
+    @Singleton
+    fun provideShareApi(@Named("authed") retrofit: Retrofit): ShareApi =
+        retrofit.create(ShareApi::class.java)
 }

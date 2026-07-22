@@ -200,4 +200,34 @@
     <string name="companion_err_action_msg">操作失败，请稍后重试</string>
     <string name="companion_err_apply_invalid_msg">请填写真实姓名（2-50字）并选择至少一个服务类型</string>
     <string name="companion_err_apply_failed_msg">入驻申请提交失败，请重试</string>
+
+    <!-- ANDROID-DEV-B5-PRECHECK-SHARE -->
+    <string name="precheck_not_found">该订单暂无准备信息</string>
+    <string name="precheck_load_error">加载失败，请重试</string>
+    <string name="precheck_all_ready">全部就绪</string>
+    <string name="precheck_blocked_fmt">暂不可用：%1$s</string>
+    <string name="precheck_card_contract">服务合同</string>
+    <string name="precheck_card_insurance">意外保险</string>
+    <string name="precheck_card_preparation">就诊准备包</string>
+    <string name="precheck_card_companion_cert">陪诊师资质</string>
+    <string name="precheck_status_ready">已就绪</string>
+    <string name="precheck_status_pending">准备中</string>
+    <string name="precheck_contract_version_fmt">合同版本：%1$s</string>
+    <string name="precheck_insurance_policy_fmt">保单号：%1$s</string>
+    <string name="precheck_prep_sections_fmt">共 %1$d 项</string>
+    <string name="precheck_cert_name_fmt">陪诊师：%1$s</string>
+    <string name="share_manage_title">分享给家属</string>
+    <string name="share_scope_progress">仅进度</string>
+    <string name="share_scope_full">完整信息</string>
+    <string name="share_create">生成分享链接</string>
+    <string name="share_revoke">撤销</string>
+    <string name="share_err_create">生成失败，请重试</string>
+    <string name="share_otp_title">查看分享订单</string>
+    <string name="share_otp_subtitle">验证手机号后查看订单进度</string>
+    <string name="share_order_title">订单进度</string>
+    <string name="share_order_hospital_fmt">医院：%1$s</string>
+    <string name="share_order_status_fmt">状态：%1$s</string>
+    <string name="share_order_patient_fmt">患者：%1$s</string>
+    <string name="share_order_companion_fmt">陪诊师：%1$s</string>
+    <string name="share_order_timeline_title">进度时间线</string>
 </resources>
