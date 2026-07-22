@@ -23,6 +23,8 @@ fun PatientHomeScreen(
     onCreateOrder: () -> Unit,
     onMyOrders: () -> Unit,
     onSettings: (() -> Unit)? = null,
+    onChat: (() -> Unit)? = null,
+    onNotifications: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -55,6 +57,18 @@ fun PatientHomeScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(stringResource(R.string.patient_home_settings))
+            }
+        }
+
+        // 聊天/通知入口（B4）。
+        if (onChat != null) {
+            OutlinedButton(onClick = onChat, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.patient_home_chat))
+            }
+        }
+        if (onNotifications != null) {
+            OutlinedButton(onClick = onNotifications, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.patient_home_notifications))
             }
         }
     }
