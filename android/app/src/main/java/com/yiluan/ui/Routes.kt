@@ -24,6 +24,10 @@ object Routes {
     fun orderDetail(orderId: String): String = "order_detail/$orderId"
 
     const val ARG_ORDER_ID = "orderId"
+    const val ARG_PAY_OUTCOME = "outcome"
+    const val PAY_RESULT = "pay_result/{orderId}/{outcome}"
+    fun payResult(orderId: String, success: Boolean): String =
+        "pay_result/$orderId/${if (success) "success" else "fail"}"
 
     // ── B4 实时 ──
     const val CHAT_LIST = "chat_list"

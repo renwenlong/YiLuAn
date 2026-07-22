@@ -27,6 +27,7 @@ import com.yiluan.feature.companion.TodayOrdersScreen
 import com.yiluan.feature.notification.NotificationListScreen
 import com.yiluan.feature.order.CreateOrderScreen
 import com.yiluan.feature.order.OrderDetailScreen
+import com.yiluan.feature.order.PaymentResultScreen
 import com.yiluan.feature.order.OrderListScreen
 import com.yiluan.feature.order.PatientHomeScreen
 import com.yiluan.feature.precheck.PrecheckSummaryScreen
@@ -103,7 +104,31 @@ fun YiLuAnNavHost(
                     arguments = listOf(navArgument(Routes.ARG_ORDER_ID) { type = NavType.StringType }),
                 ) { backStackEntry ->
                     val orderId = backStackEntry.arguments?.getString(Routes.ARG_ORDER_ID).orEmpty()
-                    OrderDetailScreen(orderId = orderId, isCompanion = false)
+                    OrderDetailScreen(
+                        orderId = orderId,
+                        isCompanion = false,
+                        onNavigateToPayResult = { success ->
+                            navController.navigate(Routes.payResult(orderId, success))
+                        },
+                    )
+                }
+                composable(
+                    route = Routes.PAY_RESULT,
+                    arguments = listOf(
+                        navArgument(Routes.ARG_ORDER_ID) { type = NavType.StringType },
+                        navArgument(Routes.ARG_PAY_OUTCOME) { type = NavType.StringType },
+                    ),
+                ) { backStackEntry ->
+                    val orderId = backStackEntry.arguments?.getString(Routes.ARG_ORDER_ID).orEmpty()
+                    val success = backStackEntry.arguments?.getString(Routes.ARG_PAY_OUTCOME) == "success"
+                    PaymentResultScreen(
+                        isSuccess = success,
+                        onViewOrder = { navController.popBackStack() },
+                        onGoHome = {
+                            navController.navigate(Routes.HOME) { popUpTo(Routes.HOME) { inclusive = true } }
+                        },
+                        onRetry = { navController.popBackStack() },
+                    )
                 }
 
                 // ── B6 长尾 ──
