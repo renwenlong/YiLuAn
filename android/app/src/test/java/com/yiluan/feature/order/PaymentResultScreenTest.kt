@@ -16,7 +16,7 @@ import org.robolectric.annotation.GraphicsMode
  * PaymentResultScreen 独立支付结果页 Compose UI 测试。
  * ANDROID-BUG-GAP-PAYRESULT-TEST-COVERAGE — 补 #411 vacuous pass(独立页零测试)。
  * 验 AC1 成功态引导(viewOrder/goHome) / AC2 失败态引导(retry/viewOrder) / 按钮回调触发。
- * 文案用 values/strings.xml 中文默认(Robolectric 默认 locale)。
+ * 文案用 values-en/strings.xml 英文(Robolectric 默认 en locale, 同 NavHostSmokeTest)。
  */
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -32,8 +32,8 @@ class PaymentResultScreenTest {
         composeRule.setContent {
             PaymentResultScreen(isSuccess = true, onViewOrder = {}, onGoHome = {}, onRetry = {})
         }
-        composeRule.onNodeWithText("查看订单").assertIsDisplayed()
-        composeRule.onNodeWithText("返回首页").assertIsDisplayed()
+        composeRule.onNodeWithText("View order").assertIsDisplayed()
+        composeRule.onNodeWithText("Back to home").assertIsDisplayed()
     }
 
     // AC1: 成功态不显示失败态的重试按钮
@@ -42,7 +42,7 @@ class PaymentResultScreenTest {
         composeRule.setContent {
             PaymentResultScreen(isSuccess = true, onViewOrder = {}, onGoHome = {}, onRetry = {})
         }
-        composeRule.onNodeWithText("重试支付").assertDoesNotExist()
+        composeRule.onNodeWithText("Retry payment").assertDoesNotExist()
     }
 
     // AC2: 失败态显示 retry + viewOrder 引导按钮
@@ -51,8 +51,8 @@ class PaymentResultScreenTest {
         composeRule.setContent {
             PaymentResultScreen(isSuccess = false, onViewOrder = {}, onGoHome = {}, onRetry = {})
         }
-        composeRule.onNodeWithText("重试支付").assertIsDisplayed()
-        composeRule.onNodeWithText("查看订单").assertIsDisplayed()
+        composeRule.onNodeWithText("Retry payment").assertIsDisplayed()
+        composeRule.onNodeWithText("View order").assertIsDisplayed()
     }
 
     // AC2: 失败态不显示成功态的返回首页按钮
@@ -61,7 +61,7 @@ class PaymentResultScreenTest {
         composeRule.setContent {
             PaymentResultScreen(isSuccess = false, onViewOrder = {}, onGoHome = {}, onRetry = {})
         }
-        composeRule.onNodeWithText("返回首页").assertDoesNotExist()
+        composeRule.onNodeWithText("Back to home").assertDoesNotExist()
     }
 
     // AC3: 成功态点击 viewOrder 触发回调
@@ -76,7 +76,7 @@ class PaymentResultScreenTest {
                 onRetry = {},
             )
         }
-        composeRule.onNodeWithText("查看订单").performClick()
+        composeRule.onNodeWithText("View order").performClick()
         assertTrue(viewOrderClicked)
     }
 
@@ -92,7 +92,7 @@ class PaymentResultScreenTest {
                 onRetry = {},
             )
         }
-        composeRule.onNodeWithText("返回首页").performClick()
+        composeRule.onNodeWithText("Back to home").performClick()
         assertTrue(goHomeClicked)
     }
 
@@ -108,7 +108,7 @@ class PaymentResultScreenTest {
                 onRetry = { retryClicked = true },
             )
         }
-        composeRule.onNodeWithText("重试支付").performClick()
+        composeRule.onNodeWithText("Retry payment").performClick()
         assertTrue(retryClicked)
     }
 }
