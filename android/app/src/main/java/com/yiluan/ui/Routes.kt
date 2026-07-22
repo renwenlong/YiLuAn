@@ -58,6 +58,15 @@ object Routes {
     fun companionDetail(companionId: String): String = "companion_detail/$companionId"
     const val ARG_COMPANION_ID = "companionId"
 
+    // ── B5 Precheck + Share ──
+    const val PRECHECK = "precheck/{orderId}"
+    fun precheck(orderId: String): String = "precheck/$orderId"
+    const val SHARE_MANAGE = "share_manage/{orderId}"
+    fun shareManage(orderId: String): String = "share_manage/$orderId"
+    const val SHARE_OTP = "share_otp/{token}"
+    fun shareOtp(token: String): String = "share_otp/$token"
+    const val ARG_TOKEN = "token"
+
     /** 应用起始目的地（单一真源，供 NavHost 和测试共用）。 */
     const val START_DESTINATION = SPLASH
 }

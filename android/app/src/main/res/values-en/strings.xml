@@ -200,4 +200,35 @@
     <string name="companion_err_action_msg">Action failed, please try again later</string>
     <string name="companion_err_apply_invalid_msg">Please enter a real name (2-50 chars) and select at least one service type</string>
     <string name="companion_err_apply_failed_msg">Failed to submit application, please retry</string>
+
+    <!-- ANDROID-DEV-B5-PRECHECK-SHARE -->
+    <string name="precheck_title">Visit preparation</string>
+    <string name="precheck_not_found">No preparation info for this order</string>
+    <string name="precheck_load_error">Failed to load, please retry</string>
+    <string name="precheck_all_ready">All ready</string>
+    <string name="precheck_blocked_fmt">Not available: %1$s</string>
+    <string name="precheck_card_contract">Service contract</string>
+    <string name="precheck_card_insurance">Accident insurance</string>
+    <string name="precheck_card_preparation">Visit prep package</string>
+    <string name="precheck_card_companion_cert">Companion qualification</string>
+    <string name="precheck_status_ready">Ready</string>
+    <string name="precheck_status_pending">Preparing</string>
+    <string name="precheck_contract_version_fmt">Contract version: %1$s</string>
+    <string name="precheck_insurance_policy_fmt">Policy No.: %1$s</string>
+    <string name="precheck_prep_sections_fmt">%1$d sections</string>
+    <string name="precheck_cert_name_fmt">Companion: %1$s</string>
+    <string name="share_manage_title">Share with family</string>
+    <string name="share_scope_progress">Progress only</string>
+    <string name="share_scope_full">Full info</string>
+    <string name="share_create">Create share link</string>
+    <string name="share_revoke">Revoke</string>
+    <string name="share_err_create">Failed to create, please retry</string>
+    <string name="share_otp_title">View shared order</string>
+    <string name="share_otp_subtitle">Verify phone to view order progress</string>
+    <string name="share_order_title">Order progress</string>
+    <string name="share_order_hospital_fmt">Hospital: %1$s</string>
+    <string name="share_order_status_fmt">Status: %1$s</string>
+    <string name="share_order_patient_fmt">Patient: %1$s</string>
+    <string name="share_order_companion_fmt">Companion: %1$s</string>
+    <string name="share_order_timeline_title">Progress timeline</string>
 </resources>
