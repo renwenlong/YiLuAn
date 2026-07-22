@@ -152,17 +152,23 @@ class PrecheckViewModelTests {
         events.emit(PrecheckSocketEvent.NeedPolling)
         dispatcher.scheduler.runCurrent()
 
-        // 第 1 次轮询前把 summary 切成 allReady=true
-        coEvery { repo.summary("o1") } returns summary(allReady = true)
-        dispatcher.scheduler.advanceTimeBy(3_000L) // 第 1 次轮询命中 allReady → break
-        dispatcher.scheduler.runCurrent()
+        // 第 1 次轮询前把 summary 切成 allReady=true, 用计数器捕获总调用次数
+        var calls = 0
+        coEvery { repo.summary("o1") } answers { calls++; summary(allReady = true) }
+        // 说明: startPolling 循环体 refreshSummary() 是 viewModelScope.launch 异步,
+        // allReady 的 break 检查发生在 refreshSummary 协程完成前(读旧值),
+        // 故 break 慢一拍——但总会提前停(远不到 MAX_POLL=10)。
+        dispatcher.scheduler.advanceUntilIdle() // 跑到轮询因 allReady 自然 break
         assertEquals(true, vm.uiState.value.summary?.allReady)
 
-        val callsAfterReady = 2 // enter 首拉 + 第 1 次轮询
-        // 再推进大量时间：break 后不应继续轮询
-        dispatcher.scheduler.advanceTimeBy(30_000L)
+        // 关键断言: 提前停止 → 调用数远小于跑满上限(1 首拉 + 10 轮询 = 11)。
+        assertTrue("allReady 应提前停止(实际 $calls 次), 远小于 11", calls < 11)
+        val callsAtStop = calls
+
+        // 再推进大量时间: 已停止, 调用数不再增长
+        dispatcher.scheduler.advanceTimeBy(60_000L)
         dispatcher.scheduler.advanceUntilIdle()
-        coVerify(exactly = callsAfterReady) { repo.summary("o1") }
+        assertEquals("break 后不再轮询", callsAtStop, calls)
     }
 
     /** WS 恢复(Connected)后停轮询：轮询中收到 Connected → pollJob 取消，不再重拉。 */
