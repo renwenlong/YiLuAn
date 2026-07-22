@@ -115,18 +115,18 @@ class ShareViewModel @Inject constructor(
         }
     }
 
-    /** 拉脱敏订单（用本地 share_session）；session 无/过期 → 回 OTP 阶段。 */
+    /** 拉脱敏订单（用本地 share_session）；null 仅表未加载到，不重置 stage。 */
     fun loadShareOrder() {
         viewModelScope.launch {
             try {
                 val order = repository.shareOrder()
-                if (order == null) {
-                    _uiState.update { it.copy(otpStage = OtpStage.ENTER_PHONE, sharedOrder = null) }
-                } else {
+                if (order != null) {
                     _uiState.update { it.copy(sharedOrder = order) }
                 }
+                // order==null 时保持当前 stage（SUCCESS 后订单可能未拉到, 展示 loading），
+                // 不打回 OTP；真正 session 过期走 catch(401) 分支。
             } catch (e: Exception) {
-                // 401 → session 过期 → 回 OTP
+                // 401 → session 过期/被 revoke → 回 OTP
                 repository.clearSession()
                 _uiState.update { it.copy(otpStage = OtpStage.ENTER_PHONE, sharedOrder = null) }
             }
