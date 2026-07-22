@@ -202,7 +202,6 @@
     <string name="companion_err_apply_failed_msg">Failed to submit application, please retry</string>
 
     <!-- ANDROID-DEV-B5-PRECHECK-SHARE -->
-    <string name="precheck_title">Visit preparation</string>
     <string name="precheck_not_found">No preparation info for this order</string>
     <string name="precheck_load_error">Failed to load, please retry</string>
     <string name="precheck_all_ready">All ready</string>

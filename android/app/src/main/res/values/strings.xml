@@ -202,7 +202,6 @@
     <string name="companion_err_apply_failed_msg">入驻申请提交失败，请重试</string>
 
     <!-- ANDROID-DEV-B5-PRECHECK-SHARE -->
-    <string name="precheck_title">就诊准备</string>
     <string name="precheck_not_found">该订单暂无准备信息</string>
     <string name="precheck_load_error">加载失败，请重试</string>
     <string name="precheck_all_ready">全部就绪</string>
