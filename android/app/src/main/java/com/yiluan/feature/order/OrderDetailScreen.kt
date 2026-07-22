@@ -7,13 +7,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -36,6 +34,7 @@ import com.yiluan.core.model.canPay
 fun OrderDetailScreen(
     orderId: String,
     isCompanion: Boolean,
+    onNavigateToPayResult: (Boolean) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: OrderViewModel = hiltViewModel(),
 ) {
@@ -60,33 +59,12 @@ fun OrderDetailScreen(
             )
     }
 
-    // pay-result 弹层
-    state.payResult?.let { outcome ->
-        val isSuccess = outcome == PayOutcomeUi.SUCCESS
-        AlertDialog(
-            onDismissRequest = viewModel::dismissPayResult,
-            confirmButton = {
-                TextButton(onClick = viewModel::dismissPayResult) {
-                    Text(stringResource(R.string.common_ok))
-                }
-            },
-            title = {
-                Text(
-                    stringResource(
-                        if (isSuccess) R.string.pay_result_success_title
-                        else R.string.pay_result_fail_title,
-                    ),
-                )
-            },
-            text = {
-                Text(
-                    stringResource(
-                        if (isSuccess) R.string.pay_result_success_msg
-                        else R.string.pay_result_fail_msg,
-                    ),
-                )
-            },
-        )
+    // 支付有结果 → 导航到独立支付结果页(带 viewOrder/goHome/retry 引导), 导航后清除避免重复触发
+    LaunchedEffect(state.payResult) {
+        state.payResult?.let { outcome ->
+            onNavigateToPayResult(outcome == PayOutcomeUi.SUCCESS)
+            viewModel.dismissPayResult()
+        }
     }
 }
 
