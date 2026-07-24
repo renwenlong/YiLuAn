@@ -29,6 +29,13 @@
     <string name="auth_err_send_otp_failed">验证码发送失败，请稍后重试</string>
     <string name="auth_err_verify_otp_failed">验证码错误或已过期</string>
     <string name="auth_err_set_role_failed">身份选择失败，请重试</string>
+    <!-- ANDROID-DEV-GAP-PROFILE-SETUP: 首次登录资料初始化 -->
+    <string name="profile_setup_title">完善资料</string>
+    <string name="profile_setup_subtitle">设置昵称以完成注册</string>
+    <string name="profile_setup_nickname_hint">请输入昵称</string>
+    <string name="profile_setup_finish">完成</string>
+    <string name="profile_setup_err_empty">昵称不能为空</string>
+    <string name="profile_setup_err_failed">保存失败，请重试</string>
 
     <!-- ANDROID-DEV-B2-PATIENT: 患者闭环 -->
     <string name="common_ok">确定</string>

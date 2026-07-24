@@ -49,6 +49,14 @@ class AuthRepository @Inject constructor(
     }
 
     /**
+     * 首次登录资料初始化：POST /users/me 设 display_name，不换 token，返回更新后 User。
+     * ANDROID-DEV-GAP-PROFILE-SETUP — 对齐 iOS ProfileSetupView 昵称初始化。
+     */
+    suspend fun updateProfile(displayName: String): User {
+        return userApi.updateMe(UpdateMeRequest(displayName = displayName))
+    }
+
+    /**
      * 已登录切换角色：POST /users/me/switch-role，返回新 token 对（必须重存）。
      */
     suspend fun switchRole(role: String): User {

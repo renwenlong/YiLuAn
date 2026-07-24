@@ -29,6 +29,13 @@
     <string name="auth_err_send_otp_failed">Failed to send code, please try again later</string>
     <string name="auth_err_verify_otp_failed">Invalid or expired code</string>
     <string name="auth_err_set_role_failed">Failed to set role, please try again</string>
+    <!-- ANDROID-DEV-GAP-PROFILE-SETUP: first-login profile init -->
+    <string name="profile_setup_title">Complete profile</string>
+    <string name="profile_setup_subtitle">Set a nickname to finish registration</string>
+    <string name="profile_setup_nickname_hint">Enter nickname</string>
+    <string name="profile_setup_finish">Finish</string>
+    <string name="profile_setup_err_empty">Nickname cannot be empty</string>
+    <string name="profile_setup_err_failed">Save failed, please try again</string>
 
     <!-- ANDROID-DEV-B2-PATIENT: patient closed loop -->
     <string name="common_ok">OK</string>

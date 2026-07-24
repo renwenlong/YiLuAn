@@ -49,6 +49,13 @@ fun AuthScreen(
             modifier = modifier,
         )
 
+        AuthStage.PROFILE_SETUP -> ProfileSetupScreen(
+            state = state,
+            onSubmit = viewModel::submitProfileSetup,
+            errorText = errorText,
+            modifier = modifier,
+        )
+
         AuthStage.DONE -> LaunchedEffect(Unit) { onAuthenticated() }
     }
 }
@@ -60,4 +67,6 @@ private fun errorStringRes(key: ErrorKey): Int = when (key) {
     ErrorKey.SEND_OTP_FAILED -> R.string.auth_err_send_otp_failed
     ErrorKey.VERIFY_OTP_FAILED -> R.string.auth_err_verify_otp_failed
     ErrorKey.SET_ROLE_FAILED -> R.string.auth_err_set_role_failed
+    ErrorKey.INVALID_DISPLAY_NAME -> R.string.profile_setup_err_empty
+    ErrorKey.PROFILE_SETUP_FAILED -> R.string.profile_setup_err_failed
 }
