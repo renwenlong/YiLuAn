@@ -180,6 +180,16 @@
     <string name="companion_home_today">今日订单</string>
     <string name="companion_home_setup">入驻申请</string>
     <string name="companion_home_profile">我的档案</string>
+    <!-- ANDROID-DEV-GAP-COMPANION-PROFILE: 陪诊员本人资料页 -->
+    <string name="companion_profile_title">我的档案</string>
+    <string name="companion_profile_stat_rating">平均评分</string>
+    <string name="companion_profile_stat_orders">总订单</string>
+    <string name="companion_profile_stat_income">总收入</string>
+    <string name="companion_profile_bio">个人简介</string>
+    <string name="companion_profile_service_area">服务区域</string>
+    <string name="companion_profile_edit">编辑资料</string>
+    <string name="companion_profile_income_fmt">¥%1$s</string>
+    <string name="companion_profile_empty">暂无档案数据</string>
     <string name="companion_available_title">抢单大厅</string>
     <string name="companion_available_empty">暂无可接订单</string>
     <string name="companion_available_error">加载失败，请重试</string>

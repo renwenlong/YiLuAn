@@ -2,6 +2,7 @@ package com.yiluan.feature.companion
 
 import com.yiluan.core.companion.CompanionRepository
 import com.yiluan.core.model.CompanionProfile
+import com.yiluan.core.model.CompanionStats
 import com.yiluan.core.model.Order
 import com.yiluan.core.model.ServiceType
 import com.yiluan.core.order.OrderRepository
@@ -172,5 +173,41 @@ class CompanionViewModelTests {
         dispatcher.scheduler.advanceUntilIdle()
         assertEquals("张**", vm.uiState.value.viewedCompanion?.displayName)
         assertTrue(vm.uiState.value.viewedCompanion!!.isVerified)
+    }
+
+    // ── ANDROID-DEV-GAP-COMPANION-PROFILE: 本人资料页数据加载 ──
+
+    @Test
+    fun `加载本人档案填充 profile 与统计`() = runTest(dispatcher) {
+        coEvery { companionRepo.myProfile() } returns CompanionProfile(
+            id = "me1",
+            realName = "张三",
+            bio = "资深陪诊",
+            serviceArea = "北京朝阳",
+            verificationStatus = "verified",
+        )
+        coEvery { companionRepo.myStats() } returns CompanionStats(
+            totalOrders = 42,
+            avgRating = 4.8,
+            totalEarnings = "3200.00",
+        )
+        vm.loadMyProfile()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals("me1", vm.uiState.value.myProfile?.id)
+        assertEquals("张三", vm.uiState.value.myProfile?.realName)
+        assertEquals(42, vm.uiState.value.myStats?.totalOrders)
+        assertEquals(4.8, vm.uiState.value.myStats?.avgRating!!, 0.001)
+        assertEquals("3200.00", vm.uiState.value.myStats?.totalEarnings)
+        assertFalse(vm.uiState.value.profileError)
+    }
+
+    @Test
+    fun `加载本人档案失败设 profileError 空态`() = runTest(dispatcher) {
+        coEvery { companionRepo.myProfile() } throws RuntimeException("net")
+        vm.loadMyProfile()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(vm.uiState.value.profileError)
+        assertEquals(null, vm.uiState.value.myProfile)
+        assertEquals(null, vm.uiState.value.myStats)
     }
 }

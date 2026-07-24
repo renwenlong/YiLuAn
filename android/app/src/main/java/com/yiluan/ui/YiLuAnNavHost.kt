@@ -22,6 +22,7 @@ import com.yiluan.feature.chat.ChatRoomScreen
 import com.yiluan.feature.companion.AvailableOrdersScreen
 import com.yiluan.feature.companion.CompanionDetailScreen
 import com.yiluan.feature.companion.CompanionHomeScreen
+import com.yiluan.feature.companion.CompanionSelfProfileScreen
 import com.yiluan.feature.companion.CompanionSetupScreen
 import com.yiluan.feature.companion.TodayOrdersScreen
 import com.yiluan.feature.notification.NotificationListScreen
@@ -205,8 +206,9 @@ fun YiLuAnNavHost(
                     CompanionSetupScreen(onApplied = { navController.popBackStack() })
                 }
                 composable(Routes.COMPANION_PROFILE) {
-                    // 本人档案复用 setup 入口（完整本人页后续）。
-                    CompanionSetupScreen(onApplied = { navController.popBackStack() })
+                    CompanionSelfProfileScreen(
+                        onEdit = { navController.navigate(Routes.PROFILE_EDIT) },
+                    )
                 }
                 composable(
                     route = Routes.COMPANION_DETAIL,
