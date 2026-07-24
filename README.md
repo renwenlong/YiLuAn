@@ -2,12 +2,12 @@
 
 连接需要就医陪伴的患者与专业陪诊师，提供全程陪诊、半程陪诊、代办跑腿等服务。
 
-> **最后更新：** 2026-05-29（文档全量审计对齐最新 code；git HEAD `013cecf`）
-> **后端测试：** pytest 全绿（118 个测试文件；具体 passed 数以 CI `deploy.yml` 实跑为准，本次文档审计未重跑）　**前端测试（微信小程序）：** 369 passed / 54 suites（Jest，本次实跑）　**iOS 测试：** XCTest 离线快照（需 macOS/Xcode，本次未跑）
+> **最后更新：** 2026-07-24（新增 Android 原生客户端交付，三端完全对齐；基线后端审计对齐最新 code）
+> **后端测试：** pytest 全绿（118 个测试文件；具体 passed 数以 CI `deploy.yml` 实跑为准）　**前端测试（微信小程序）：** 369 passed / 54 suites（Jest）　**iOS 测试：** XCTest（需 macOS/Xcode）　**Android 测试：** JUnit + Compose UI test（CI Build & Test Android）
 > **代码规模（本次审计实测）：** 30 张表 / 44 个 alembic 迁移 / 27 个 model 文件 / 23 个 service / 14 个 repository（+ 泛型基类）/ 15 个 schema 模块 / 10 个 provider 文件 / 102 个 REST + WS 路由
 > **子项目：** `admin-h5/`（管理后台，陪诊师审核等）
 > **关键能力（已落地）：** 微信真实支付/退款回调（幂等）、Aliyun SMS、OTP 暴破防护、订单过期自动退款、统一 outbound 可靠性装饰器（timeout + retry + circuit breaker）、`/readiness` 健康探针、APScheduler 调度、WS 同用户连接数限制；紧急联系人/呼叫（PII 加密）、代下单家属管理、复诊提醒、家属订单分享（短链 + share_session）、追加式钱包账本、AI 订单摘要、资金对账、死信补偿队列、HTTP 幂等键、前端遥测埋点、Apple Sign-In
-> **关键决策索引：** ADR-0026（outbound 可靠性）/ ADR-0029（PII 加密）/ ADR-0032（钱包账本 + 对账）/ ADR-0034（admin v2 JWT）/ ADR-0036（家属分享）/ D-018~D-020（调度+连接限制）/ D-027（callback log TTL + OSS 归档）/ D-028（零提交日告警）/ D-031（fix 与 test 优先级）/ D-032（XcodeGen）/ D-056（家属）/ D-058（幂等键）
+> **关键决策索引：** ADR-0026（outbound 可靠性）/ ADR-0029（PII 加密）/ ADR-0032（钱包账本 + 对账）/ ADR-0034（admin v2 JWT）/ ADR-0036（家属分享）/ ADR-0064（Android 客户端：方向 A Kotlin+Compose / 微信支付走 mock、资质搁置 / 三端完全对齐 / FCM 一期后置）/ D-018~D-020（调度+连接限制）/ D-027（callback log TTL + OSS 归档）/ D-028（零提交日告警）/ D-031（fix 与 test 优先级）/ D-032（XcodeGen）/ D-056（家属）/ D-058（幂等键）
 
 ---
 
@@ -16,6 +16,7 @@
 | 层级 | 技术 | 说明 |
 |------|------|------|
 | **iOS** | SwiftUI + MVVM | 原生 iOS 客户端, iOS 17+, @MainActor + ObservableObject |
+| **Android** | Kotlin + Jetpack Compose + MVVM | 原生 Android 客户端, 31 Screen, Hilt DI + Retrofit/OkHttp WS + Navigation-Compose + DataStore；三端与小程序完全对齐 |
 | **微信小程序** | 原生框架 (WXML + WXSS + JS) | 30 页面, 9 组件, Observer 状态管理 |
 | **后端** | Python 3.11 + FastAPI 0.115 (async) | 异步全链路, Pydantic v2 校验 |
 | **ORM** | SQLAlchemy 2.0 (async) + Alembic | asyncpg 驱动, Repository 泛型模式 |
@@ -357,6 +358,36 @@ YiLuAn/
 └── SharedViews/
     └── MainTabView.swift              # 双角色 TabView (患者4tab / 陪诊师4tab)
 ```
+
+### Android `android/app/src/main/java/com/yiluan/`
+
+> 方向 A（原生 Kotlin + Jetpack Compose），按 iOS Feature 结构 1:1 对齐，三端与小程序完全对齐（ADR-0064）。**31 Screen 逐页覆盖小程序 34 页 golden 基线无缺口**（PM 逐页终验 FULL ratify）。
+
+```
+com/yiluan/
+├── YiLuAnApp.kt                        # @HiltAndroidApp 入口
+├── MainActivity.kt                     # setContent + NavHost
+├── core/
+│   ├── network/                        # Retrofit + AuthInterceptor(401 并发静默刷新) + WebSocketClient(OkHttp WS + 重连/心跳)
+│   ├── storage/                        # TokenStore(DataStore) + ShareSessionStore(EncryptedSharedPreferences)
+│   ├── model/                          # DTO（对齐后端契约，消费 openapi）
+│   ├── auth/ order/ companion/ profile/ # Repository 层（消费既有后端 API，零 backend 改动）
+├── di/                                 # Hilt NetworkModule / StorageModule
+├── feature/                            # 逐模块对齐 iOS Feature + 小程序页
+│   ├── auth/          # AuthScreen / PhoneInputScreen / OtpInputScreen / RoleSelectScreen
+│   ├── order/         # PatientHomeScreen / CreateOrderScreen / OrderListScreen / OrderDetailScreen / PaymentResultScreen
+│   ├── companion/     # CompanionHomeScreen / AvailableOrdersScreen / TodayOrdersScreen / CompanionDetailScreen / CompanionSetupScreen
+│   ├── chat/          # ChatListScreen / ChatRoomScreen（WS 实时）
+│   ├── notification/  # NotificationListScreen（WS + REST）
+│   ├── review/        # ReviewScreen
+│   ├── precheck/      # PrecheckSummaryScreen（一期强制：4 信任卡 + WS + 轮询兜底）
+│   ├── share/         # ShareOrderScreen / ShareOtpScreen / ShareManageScreen（一期强制：OTP + WS）
+│   └── profile/       # SettingsScreen(个人中心枢线) / ProfileEditScreen / AboutScreen / WalletScreen /
+│                    #  FamilyMembersScreen / EmergencyContactsScreen / FollowupRemindersScreen / BindPhoneScreen / LegalScreen
+└── ui/                                 # Routes / YiLuAnNavHost / SplashViewModel
+```
+
+> **客户端差异说明：**支付一期走微信支付 mock provider（资质搁置，后端零改动切真）；推送一期仅 device_token 注册 + WebSocket 前台实时 + App 内通知（FCM 离线派送二期）；Apple Sign-In 为 iOS 专属（安卓不做）。
 
 ---
 
@@ -985,12 +1016,12 @@ OrderResponse:
 ## 架构设计
 
 ```
-┌─────────────┐     ┌──────────────────┐
-│   iOS App   │     │  微信小程序       │
-│  (SwiftUI)  │     │  (WXML/WXSS/JS)  │
-└──────┬──────┘     └────────┬─────────┘
-       │ HTTPS/WSS           │ HTTPS/WSS
-       └──────────┬──────────┘
+┌─────────────┐  ┌─────────────┐  ┌──────────────────┐
+│   iOS App   │  │ Android App │  │  微信小程序       │
+│  (SwiftUI)  │  │  (Compose)  │  │  (WXML/WXSS/JS)  │
+└──────┬──────┘  └──────┬──────┘  └────────┬─────────┘
+       │ HTTPS/WSS      │ HTTPS/WSS         │ HTTPS/WSS
+       └────────────────┼───────────────────┘
                   ▼
     ┌─────────────────────────────┐
     │   Azure Container Apps      │
@@ -1056,6 +1087,8 @@ Request → API Route → Service → Repository → Database
 | Node.js | 16+ | 微信小程序测试 (Jest) |
 | npm | 8+ | 依赖管理 |
 | Xcode | 15+ | iOS 开发 (macOS only) |
+| JDK | 17 | Android 开发/构建 (Gradle) |
+| Android Studio / SDK | latest | Android 开发/调试 |
 | 微信开发者工具 | latest | 小程序调试/预览 |
 
 > ℹ️ **部署编排统一在 `deploy/` 目录**：通用骨架 `deploy/docker-compose.yml` + `env.<环境>` 配置，切环境只改 `--env-file`。
