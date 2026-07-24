@@ -180,6 +180,16 @@
     <string name="companion_home_today">Today\'s orders</string>
     <string name="companion_home_setup">Apply to join</string>
     <string name="companion_home_profile">My profile</string>
+    <!-- ANDROID-DEV-GAP-COMPANION-PROFILE: companion self profile page -->
+    <string name="companion_profile_title">My profile</string>
+    <string name="companion_profile_stat_rating">Avg rating</string>
+    <string name="companion_profile_stat_orders">Total orders</string>
+    <string name="companion_profile_stat_income">Total income</string>
+    <string name="companion_profile_bio">Bio</string>
+    <string name="companion_profile_service_area">Service area</string>
+    <string name="companion_profile_edit">Edit profile</string>
+    <string name="companion_profile_income_fmt">¥%1$s</string>
+    <string name="companion_profile_empty">No profile data</string>
     <string name="companion_available_title">Order hall</string>
     <string name="companion_available_empty">No available orders</string>
     <string name="companion_available_error">Failed to load, please retry</string>
