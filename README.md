@@ -2,11 +2,12 @@
 
 连接需要就医陪伴的患者与专业陪诊师，提供全程陪诊、半程陪诊、代办跑腿等服务。
 
-> **最后更新：** 2026-05-29（文档全量审计对齐最新 code；git HEAD `013cecf`）
-> **后端测试：** pytest 全绿（118 个测试文件；具体 passed 数以 CI `deploy.yml` 实跑为准，本次文档审计未重跑）　**前端测试（微信小程序）：** 369 passed / 54 suites（Jest，本次实跑）　**iOS 测试：** XCTest 离线快照（需 macOS/Xcode，本次未跑）
+> **最后更新：** 2026-07-24（安卓原生端 epic 收口，三端功能对齐；git HEAD `072e897`）
+> **后端测试：** pytest 全绿（118 个测试文件；具体 passed 数以 CI `deploy.yml` 实跑为准，本次文档审计未重跑）　**前端测试（微信小程序）：** 369 passed / 54 suites（Jest）　**iOS 测试：** XCTest 离线快照（需 macOS/Xcode）　**安卓测试：** 148 JVM 单测全绿（JUnit + MockK + Robolectric/Compose UI test，CI `ios-ci.yml`/Android runner 实跑）
 > **代码规模（本次审计实测）：** 30 张表 / 44 个 alembic 迁移 / 27 个 model 文件 / 23 个 service / 14 个 repository（+ 泛型基类）/ 15 个 schema 模块 / 10 个 provider 文件 / 102 个 REST + WS 路由
 > **子项目：** `admin-h5/`（管理后台，陪诊师审核等）
 > **关键能力（已落地）：** 微信真实支付/退款回调（幂等）、Aliyun SMS、OTP 暴破防护、订单过期自动退款、统一 outbound 可靠性装饰器（timeout + retry + circuit breaker）、`/readiness` 健康探针、APScheduler 调度、WS 同用户连接数限制；紧急联系人/呼叫（PII 加密）、代下单家属管理、复诊提醒、家属订单分享（短链 + share_session）、追加式钱包账本、AI 订单摘要、资金对账、死信补偿队列、HTTP 幂等键、前端遥测埋点、Apple Sign-In
+> **三端客户端（功能对齐）：** 微信小程序 + iOS（SwiftUI）+ **安卓原生（Jetpack Compose，2026-07 落地）**——三端 Precheck 信任卡（WS 推送 + 轮询兜底）/ 家属订单分享（Share WS）/ 患者+陪诊师双角色闭环 后端交互契约一致（详见 `docs/audits/2026-07-22-android-b8-三端契约对齐审计.md`）
 > **关键决策索引：** ADR-0026（outbound 可靠性）/ ADR-0029（PII 加密）/ ADR-0032（钱包账本 + 对账）/ ADR-0034（admin v2 JWT）/ ADR-0036（家属分享）/ D-018~D-020（调度+连接限制）/ D-027（callback log TTL + OSS 归档）/ D-028（零提交日告警）/ D-031（fix 与 test 优先级）/ D-032（XcodeGen）/ D-056（家属）/ D-058（幂等键）
 
 ---
@@ -357,6 +358,44 @@ YiLuAn/
 └── SharedViews/
     └── MainTabView.swift              # 双角色 TabView (患者4tab / 陪诊师4tab)
 ```
+
+---
+
+### 安卓原生 `android/`
+
+Jetpack Compose + Hilt (DI) + Retrofit + kotlinx.serialization + Navigation Compose。
+单 Activity + Compose NavHost 架构，MVVM (ViewModel + StateFlow)。
+2026-07 落地，功能对齐 iOS/微信小程序三端。
+
+```
+app/src/main/java/com/yiluan/
+├── core/                              # 数据与基础设施层
+│   ├── network/                      # 14 个 Retrofit Api 接口 (Auth/User/Order/Companion/
+│   │                                 #   Chat/Notification/Precheck/Share/Followup...) + WebSocketClient
+│   ├── realtime/                     # 4 个 WS Socket (Chat/Notification/Precheck/Share) + Repository
+│   ├── model/                        # kotlinx.serialization 数据模型
+│   ├── auth/ order/ companion/       # 各领域 Repository
+│   │   precheck/ profile/ share/
+│   └── storage/                      # TokenStore (DataStore 安全存储)
+├── di/                                # Hilt Module (NetworkModule 双 Retrofit: authed/public)
+├── feature/                           # 31 个 Screen + 10 个 ViewModel，按领域分模块
+│   ├── auth/                         # 4 屏: Phone/Otp 输入 + 角色选择
+│   ├── order/                        # 5 屏: 下单/列表/详情/患者首页/支付结果页
+│   ├── companion/                    # 5 屏: 陪诊师首页/详情/抢单/今日/入驻
+│   ├── chat/                         # 2 屏: 会话列表/聊天室 (WS 实时)
+│   ├── notification/                 # 通知列表 (WS 推送)
+│   ├── review/                       # 评价
+│   ├── precheck/                     # Precheck 4 信任卡 (WS + 5s/3s×10 轮询兜底)
+│   ├── share/                        # 3 屏: 分享管理/发起/OTP 接收 (Share WS)
+│   └── profile/                      # 9 屏: 设置/家庭成员/紧急联系人/钱包/绑手机/
+│                                     #   法务/复诊提醒/编辑资料/关于
+└── ui/                                # Routes (导航契约) + YiLuAnNavHost
+
+app/src/test/                          # 19 个测试文件, 148 JVM 单测 (JUnit + MockK
+                                       #   + Robolectric/Compose UI test), 非 instrumented
+```
+
+> 安卓端本地开发环境为 Linux/WSL 无 Android SDK 完整构建能力时，编译+资源+单测以 GitHub Actions Android runner CI 为准（同 iOS 无 Xcode 走 CI 兜底）。
 
 ---
 
