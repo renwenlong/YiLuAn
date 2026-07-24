@@ -92,7 +92,7 @@ class AuthViewModel @Inject constructor(
 
     // MARK: - 选角色
 
-    /** 首次选角色（不换 token）：成功进入 DONE。 */
+    /** 首次选角色（不换 token）：成功后按资料是否初始化路由。 */
     fun selectRole(role: UserRole) {
         if (_uiState.value.isSubmittingRole) return
         _uiState.update { it.copy(isSubmittingRole = true, errorMessage = null) }
@@ -100,10 +100,33 @@ class AuthViewModel @Inject constructor(
             try {
                 val user = repository.setRole(role.value)
                 _uiState.update {
-                    it.copy(isSubmittingRole = false, user = user, stage = AuthStage.DONE)
+                    it.copy(isSubmittingRole = false, user = user, stage = resolveStage(user))
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(isSubmittingRole = false, errorMessage = ErrorKey.SET_ROLE_FAILED) }
+            }
+        }
+    }
+
+    // MARK: - 首次登录资料初始化 (ANDROID-DEV-GAP-PROFILE-SETUP)
+
+    /** 提交首次资料初始化（昵称）：成功进 DONE。 */
+    fun submitProfileSetup(displayName: String) {
+        val name = displayName.trim()
+        if (name.isEmpty()) {
+            _uiState.update { it.copy(errorMessage = ErrorKey.INVALID_DISPLAY_NAME) }
+            return
+        }
+        if (_uiState.value.isSubmittingProfile) return
+        _uiState.update { it.copy(isSubmittingProfile = true, errorMessage = null) }
+        viewModelScope.launch {
+            try {
+                val user = repository.updateProfile(name)
+                _uiState.update {
+                    it.copy(isSubmittingProfile = false, user = user, stage = AuthStage.DONE)
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isSubmittingProfile = false, errorMessage = ErrorKey.PROFILE_SETUP_FAILED) }
             }
         }
     }
@@ -112,17 +135,22 @@ class AuthViewModel @Inject constructor(
 
     /**
      * 登录后路由（对齐 iOS YiLuAnApp）：
-     *  role==null → ROLE_SELECT；否则 → DONE（上层按 role 跳患者/陪诊员）。
+     *  role==null → ROLE_SELECT；资料未初始化(displayName 空) → PROFILE_SETUP；否则 → DONE。
      */
     private fun routeAfterLogin(user: User) {
-        val stage = if (UserRole.fromValue(user.role) == null) {
-            AuthStage.ROLE_SELECT
-        } else {
-            AuthStage.DONE
-        }
         _uiState.update {
-            it.copy(isVerifying = false, user = user, stage = stage)
+            it.copy(isVerifying = false, user = user, stage = resolveStage(user))
         }
+    }
+
+    /**
+     * 阶段决策（对齐 iOS YiLuAnApp 顶层路由）：
+     *  role==null → ROLE_SELECT；displayName 空/空白 → PROFILE_SETUP；否则 → DONE。
+     */
+    private fun resolveStage(user: User): AuthStage = when {
+        UserRole.fromValue(user.role) == null -> AuthStage.ROLE_SELECT
+        user.displayName.isNullOrBlank() -> AuthStage.PROFILE_SETUP
+        else -> AuthStage.DONE
     }
 
     private companion object {
@@ -132,11 +160,12 @@ class AuthViewModel @Inject constructor(
 }
 
 /** 认证阶段。 */
-enum class AuthStage { PHONE_INPUT, OTP_INPUT, ROLE_SELECT, DONE }
+enum class AuthStage { PHONE_INPUT, OTP_INPUT, ROLE_SELECT, PROFILE_SETUP, DONE }
 
 /** 错误 key（映射到 i18n string，不在 ViewModel 里拼中文）。 */
 enum class ErrorKey {
-    INVALID_PHONE, INVALID_CODE, SEND_OTP_FAILED, VERIFY_OTP_FAILED, SET_ROLE_FAILED
+    INVALID_PHONE, INVALID_CODE, SEND_OTP_FAILED, VERIFY_OTP_FAILED, SET_ROLE_FAILED,
+    INVALID_DISPLAY_NAME, PROFILE_SETUP_FAILED,
 }
 
 /** 认证 UI 状态（单一不可变快照）。 */
@@ -147,6 +176,7 @@ data class AuthUiState(
     val isSending: Boolean = false,
     val isVerifying: Boolean = false,
     val isSubmittingRole: Boolean = false,
+    val isSubmittingProfile: Boolean = false,
     val user: User? = null,
     val errorMessage: ErrorKey? = null,
 )

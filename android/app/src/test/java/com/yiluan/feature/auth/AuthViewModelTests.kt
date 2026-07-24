@@ -154,4 +154,51 @@ class AuthViewModelTests {
         assertEquals("", vm.uiState.value.code)
         assertNull(vm.uiState.value.errorMessage)
     }
+
+    // ── ANDROID-DEV-GAP-PROFILE-SETUP: 首次登录资料初始化路由 + 提交 ──
+
+    @Test
+    fun `role有值但displayName空路由到PROFILE_SETUP`() = runTest(dispatcher) {
+        coEvery { repository.verifyOtp("13800138000", "123456") } returns
+            userWith("patient", displayName = null)
+        vm.onPhoneChange("13800138000")
+        vm.onCodeChange("123456")
+        vm.verifyOtp()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(AuthStage.PROFILE_SETUP, vm.uiState.value.stage)
+    }
+
+    @Test
+    fun `选角色后displayName空路由到PROFILE_SETUP`() = runTest(dispatcher) {
+        coEvery { repository.setRole("patient") } returns userWith("patient", displayName = "")
+        vm.selectRole(UserRole.PATIENT)
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(AuthStage.PROFILE_SETUP, vm.uiState.value.stage)
+    }
+
+    @Test
+    fun `提交昵称成功进DONE`() = runTest(dispatcher) {
+        coEvery { repository.updateProfile("小红") } returns userWith("patient", displayName = "小红")
+        vm.submitProfileSetup("小红")
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(AuthStage.DONE, vm.uiState.value.stage)
+        assertEquals("小红", vm.uiState.value.user?.displayName)
+        coVerify { repository.updateProfile("小红") }
+    }
+
+    @Test
+    fun `提交空昵称不调后端设错误`() = runTest(dispatcher) {
+        vm.submitProfileSetup("   ")
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(ErrorKey.INVALID_DISPLAY_NAME, vm.uiState.value.errorMessage)
+        coVerify(exactly = 0) { repository.updateProfile(any()) }
+    }
+
+    @Test
+    fun `提交昵称失败设错误 key`() = runTest(dispatcher) {
+        coEvery { repository.updateProfile(any()) } throws RuntimeException("net")
+        vm.submitProfileSetup("小红")
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(ErrorKey.PROFILE_SETUP_FAILED, vm.uiState.value.errorMessage)
+    }
 }
