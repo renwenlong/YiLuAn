@@ -127,6 +127,12 @@
     <string name="bind_phone_submit">确认绑定</string>
     <string name="bind_phone_failed">绑定失败，验证码错误或已过期</string>
 
+    <!-- ANDROID-DEV-GAP-COMPANION-LIST-DETAIL: 患者浏览陪诊师列表 -->
+    <string name="companion_list_title">找陪诊师</string>
+    <string name="companion_list_empty">暂无可预约的陪诊师</string>
+    <string name="companion_list_error">加载失败，请重试</string>
+    <string name="companion_list_rating_fmt">评分 %1$s · %2$d 单</string>
+    <string name="patient_home_find_companion">找陪诊师</string>
     <string name="settings_title">设置</string>
     <!-- ANDROID-DEV-GAP-PROFILE-HUB-REACHABILITY: 个人中心聚合页 -->
     <string name="profile_hub_title">我的</string>

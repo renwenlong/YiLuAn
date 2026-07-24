@@ -63,6 +63,7 @@ object Routes {
 
     /** 陆诊员详情（患者视角），带 companionId。 */
     const val COMPANION_DETAIL = "companion_detail/{companionId}"
+    const val COMPANION_LIST = "companion_list"
     fun companionDetail(companionId: String): String = "companion_detail/$companionId"
     const val ARG_COMPANION_ID = "companionId"
 

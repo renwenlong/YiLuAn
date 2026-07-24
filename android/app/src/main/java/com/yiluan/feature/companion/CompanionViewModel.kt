@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.yiluan.core.companion.CompanionRepository
 import com.yiluan.core.model.ApplyCompanionRequest
 import com.yiluan.core.model.CompanionProfile
+import com.yiluan.core.model.CompanionDirectoryItem
 import com.yiluan.core.model.CompanionStats
 import com.yiluan.core.model.Order
 import com.yiluan.core.model.ServiceType
@@ -179,6 +180,21 @@ class CompanionViewModel @Inject constructor(
         }
     }
 
+    // MARK: - 陪诊师列表(患者浏览, GAP-COMPANION-LIST-DETAIL)
+
+    /** 拉陪诊师列表供患者浏览 → 点击进详情。 */
+    fun loadCompanions() {
+        _uiState.update { it.copy(isLoadingCompanions = true, companionsError = false) }
+        viewModelScope.launch {
+            try {
+                val list = companionRepository.searchCompanions()
+                _uiState.update { it.copy(isLoadingCompanions = false, companions = list) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isLoadingCompanions = false, companionsError = true) }
+            }
+        }
+    }
+
     fun clearActionError() {
         _uiState.update { it.copy(actionError = null) }
     }
@@ -223,6 +239,10 @@ data class CompanionUiState(
     val viewedCompanion: CompanionProfile? = null,
     val isLoadingDetail: Boolean = false,
     val detailError: Boolean = false,
+    // 陪诊师列表(患者浏览, GAP-COMPANION-LIST-DETAIL)
+    val companions: List<CompanionDirectoryItem> = emptyList(),
+    val isLoadingCompanions: Boolean = false,
+    val companionsError: Boolean = false,
     // 通用
     val actionError: CompanionErrorKey? = null,
 )

@@ -72,6 +72,16 @@ fun PatientHomeScreen(
             }
         }
 
+        // 找陪诊师入口（GAP-COMPANION-LIST-DETAIL 可达性）。
+        if (onFindCompanion != null) {
+            OutlinedButton(
+                onClick = onFindCompanion,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.patient_home_find_companion))
+            }
+        }
+
         // 设置入口（B6）。
         if (onSettings != null) {
             OutlinedButton(

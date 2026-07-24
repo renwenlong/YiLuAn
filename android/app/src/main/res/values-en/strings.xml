@@ -127,6 +127,12 @@
     <string name="bind_phone_submit">Confirm binding</string>
     <string name="bind_phone_failed">Binding failed, invalid or expired code</string>
 
+    <!-- ANDROID-DEV-GAP-COMPANION-LIST-DETAIL: patient browse companion list -->
+    <string name="companion_list_title">Find companion</string>
+    <string name="companion_list_empty">No companions available</string>
+    <string name="companion_list_error">Load failed, please try again</string>
+    <string name="companion_list_rating_fmt">Rating %1$s · %2$d orders</string>
+    <string name="patient_home_find_companion">Find companion</string>
     <string name="settings_title">Settings</string>
     <!-- ANDROID-DEV-GAP-PROFILE-HUB-REACHABILITY: profile hub aggregation page -->
     <string name="profile_hub_title">Profile</string>

@@ -22,6 +22,7 @@ import com.yiluan.feature.chat.ChatRoomScreen
 import com.yiluan.feature.companion.AvailableOrdersScreen
 import com.yiluan.feature.companion.CompanionDetailScreen
 import com.yiluan.feature.companion.CompanionHomeScreen
+import com.yiluan.feature.companion.CompanionListScreen
 import com.yiluan.feature.companion.CompanionSelfProfileScreen
 import com.yiluan.feature.companion.CompanionSetupScreen
 import com.yiluan.feature.companion.TodayOrdersScreen
@@ -83,6 +84,7 @@ fun YiLuAnNavHost(
                         onChat = { navController.navigate(Routes.CHAT_LIST) },
                         onNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                         onProfile = { navController.navigate(Routes.PROFILE) },
+                        onFindCompanion = { navController.navigate(Routes.COMPANION_LIST) },
                     )
                 }
                 composable(Routes.PROFILE) {
@@ -222,6 +224,11 @@ fun YiLuAnNavHost(
                 }
                 composable(Routes.COMPANION_SETUP) {
                     CompanionSetupScreen(onApplied = { navController.popBackStack() })
+                }
+                composable(Routes.COMPANION_LIST) {
+                    CompanionListScreen(
+                        onCompanionClick = { id -> navController.navigate(Routes.companionDetail(id)) },
+                    )
                 }
                 composable(Routes.COMPANION_PROFILE) {
                     CompanionSelfProfileScreen(
