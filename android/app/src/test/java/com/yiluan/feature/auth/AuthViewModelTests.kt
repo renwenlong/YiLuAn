@@ -42,8 +42,8 @@ class AuthViewModelTests {
         Dispatchers.resetMain()
     }
 
-    private fun userWith(role: String?): User =
-        User(id = "u1", phone = "13800138000", role = role)
+    private fun userWith(role: String?, displayName: String? = "已有昵称"): User =
+        User(id = "u1", phone = "13800138000", role = role, displayName = displayName)
 
     @Test
     fun `手机号非数字被过滤且限长11`() {
