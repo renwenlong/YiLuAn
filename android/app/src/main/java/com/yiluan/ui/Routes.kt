@@ -14,6 +14,7 @@ object Routes {
 
     /** 登录后主界面（B2 起 = 患者首页）。 */
     const val HOME = "home"
+    const val PROFILE = "profile"
 
     // ── B2 患者闭环 ──
     const val CREATE_ORDER = "create_order"

@@ -40,6 +40,7 @@ import com.yiluan.feature.profile.AboutScreen
 import com.yiluan.feature.profile.FamilyMembersScreen
 import com.yiluan.feature.profile.FollowupRemindersScreen
 import com.yiluan.feature.profile.ProfileEditScreen
+import com.yiluan.feature.profile.ProfileScreen
 import com.yiluan.feature.profile.LegalDoc
 import com.yiluan.feature.profile.LegalScreen
 import com.yiluan.feature.profile.SettingsScreen
@@ -81,6 +82,21 @@ fun YiLuAnNavHost(
                         onCompanionMode = { navController.navigate(Routes.COMPANION_HOME) },
                         onChat = { navController.navigate(Routes.CHAT_LIST) },
                         onNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
+                        onProfile = { navController.navigate(Routes.PROFILE) },
+                    )
+                }
+                composable(Routes.PROFILE) {
+                    ProfileScreen(
+                        onEditProfile = { navController.navigate(Routes.PROFILE_EDIT) },
+                        onBindPhone = { navController.navigate(Routes.BIND_PHONE) },
+                        onWallet = { navController.navigate(Routes.WALLET) },
+                        onFamily = { navController.navigate(Routes.FAMILY_MEMBERS) },
+                        onEmergency = { navController.navigate(Routes.EMERGENCY_CONTACTS) },
+                        onFollowups = { navController.navigate(Routes.FOLLOWUP_REMINDERS) },
+                        onNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
+                        onSettings = { navController.navigate(Routes.SETTINGS) },
+                        onAbout = { navController.navigate(Routes.ABOUT) },
+                        onCompanionHome = { navController.navigate(Routes.COMPANION_PROFILE) },
                     )
                 }
                 composable(Routes.CREATE_ORDER) {
@@ -111,6 +127,8 @@ fun YiLuAnNavHost(
                         onNavigateToPayResult = { success ->
                             navController.navigate(Routes.payResult(orderId, success))
                         },
+                        onReview = { navController.navigate(Routes.review(orderId)) },
+                        onShare = { navController.navigate(Routes.shareManage(orderId)) },
                     )
                 }
                 composable(

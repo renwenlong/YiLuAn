@@ -128,6 +128,18 @@
     <string name="bind_phone_failed">绑定失败，验证码错误或已过期</string>
 
     <string name="settings_title">设置</string>
+    <!-- ANDROID-DEV-GAP-PROFILE-HUB-REACHABILITY: 个人中心聚合页 -->
+    <string name="profile_hub_title">我的</string>
+    <string name="profile_hub_edit">个人资料</string>
+    <string name="profile_hub_companion">陪诊员主页</string>
+    <string name="profile_hub_bind_phone">绑定手机号</string>
+    <string name="profile_hub_wallet">我的钱包</string>
+    <string name="profile_hub_family">家庭成员</string>
+    <string name="profile_hub_emergency">紧急联系人</string>
+    <string name="profile_hub_followup">复诊提醒</string>
+    <string name="profile_hub_notifications">消息通知</string>
+    <string name="profile_hub_settings">设置</string>
+    <string name="profile_hub_about">关于我们</string>
     <string name="settings_privacy">隐私政策</string>
     <string name="settings_terms">服务条款</string>
     <string name="settings_followups">复诊提醒</string>

@@ -26,6 +26,7 @@ fun PatientHomeScreen(
     onCompanionMode: (() -> Unit)? = null,
     onChat: (() -> Unit)? = null,
     onNotifications: (() -> Unit)? = null,
+    onProfile: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -58,6 +59,16 @@ fun PatientHomeScreen(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(stringResource(R.string.patient_home_companion_mode))
+            }
+        }
+
+        // 个人中心（我的）入口（GAP-PROFILE-HUB）——聚合钱包/家人/紧急/绑手机/复诊等入口。
+        if (onProfile != null) {
+            OutlinedButton(
+                onClick = onProfile,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.profile_hub_title))
             }
         }
 
