@@ -210,4 +210,28 @@ class CompanionViewModelTests {
         assertEquals(null, vm.uiState.value.myProfile)
         assertEquals(null, vm.uiState.value.myStats)
     }
+
+    // ── ANDROID-DEV-GAP-COMPANION-LIST-DETAIL: 患者浏览陪诊师列表 ──
+
+    @Test
+    fun `加载陪诊师列表填充 companions`() = runTest(dispatcher) {
+        coEvery { companionRepo.searchCompanions(any(), any()) } returns listOf(
+            com.yiluan.core.model.CompanionDirectoryItem(id = "c1", pseudonymName = "张**", avgRating = 4.5, totalOrders = 20),
+            com.yiluan.core.model.CompanionDirectoryItem(id = "c2", pseudonymName = "李**", avgRating = 4.9, totalOrders = 50),
+        )
+        vm.loadCompanions()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals(2, vm.uiState.value.companions.size)
+        assertEquals("c1", vm.uiState.value.companions[0].id)
+        assertFalse(vm.uiState.value.companionsError)
+    }
+
+    @Test
+    fun `加载陪诊师列表失败设 companionsError`() = runTest(dispatcher) {
+        coEvery { companionRepo.searchCompanions(any(), any()) } throws RuntimeException("net")
+        vm.loadCompanions()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(vm.uiState.value.companionsError)
+        assertTrue(vm.uiState.value.companions.isEmpty())
+    }
 }
