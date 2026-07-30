@@ -27,6 +27,7 @@ fun PatientHomeScreen(
     onChat: (() -> Unit)? = null,
     onNotifications: (() -> Unit)? = null,
     onProfile: (() -> Unit)? = null,
+    onFindCompanion: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     Column(
