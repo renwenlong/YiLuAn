@@ -35,6 +35,8 @@ fun OrderDetailScreen(
     orderId: String,
     isCompanion: Boolean,
     onNavigateToPayResult: (Boolean) -> Unit = {},
+    onReview: () -> Unit = {},
+    onShare: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: OrderViewModel = hiltViewModel(),
 ) {
@@ -55,6 +57,8 @@ fun OrderDetailScreen(
                 isMutating = state.isMutating,
                 onPay = { viewModel.payOrder(orderId) },
                 onCancel = { viewModel.cancelOrder(orderId) },
+                onReview = onReview,
+                onShare = onShare,
                 modifier = modifier,
             )
     }
@@ -76,6 +80,8 @@ private fun OrderDetailContent(
     isMutating: Boolean,
     onPay: () -> Unit,
     onCancel: () -> Unit,
+    onReview: () -> Unit = {},
+    onShare: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -118,6 +124,22 @@ private fun OrderDetailContent(
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Text(stringResource(R.string.order_cancel))
+                }
+            }
+            // 分享给家属入口（GAP-PROFILE-HUB 可达性）。
+            OutlinedButton(
+                onClick = onShare,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.share_manage_title))
+            }
+            // 写评价入口（完成态显示，GAP-PROFILE-HUB 可达性）。
+            if (order.status == "completed") {
+                OutlinedButton(
+                    onClick = onReview,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(stringResource(R.string.review_title))
                 }
             }
         }
