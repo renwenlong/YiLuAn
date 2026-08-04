@@ -7,8 +7,6 @@ import asyncio
 import pytest
 from httpx import AsyncClient
 
-from app.models.order import OrderStatus
-
 
 @pytest.mark.asyncio
 class TestConcurrentPayment:
@@ -17,18 +15,26 @@ class TestConcurrentPayment:
     async def test_concurrent_pay_same_order(
         self, authenticated_client: AsyncClient, seed_hospital, seed_order
     ):
-        """Concurrent pay requests on the same order expose a TOCTOU race condition.
+        """Concurrent pay requests on the same order — SQLite path.
 
-        The `get_by_order_and_type` idempotency check and the subsequent INSERT
-        are not atomic, so concurrent requests can both pass the check and then
-        one fails with UNIQUE constraint violation (IntegrityError).
+        The production race is FIXED via SELECT ... FOR UPDATE: ``pay_order``
+        loads the row through ``_get_order_for_update_or_404`` →
+        ``order_repo.get_by_id_for_update`` (``.with_for_update()`` in
+        ``backend/app/repositories/order.py``), which serialises concurrent
+        ``POST /orders/{id}/pay`` so only one caller wins.
 
-        This test documents the current behavior. Production fix options:
-        1. Catch IntegrityError in create_prepay and return 400
-        2. Use SELECT FOR UPDATE (requires PostgreSQL, not SQLite)
-        3. Use advisory lock or distributed lock (Redis)
+        ⚠️ LIMITATION — this SQLite test does NOT actually exercise that lock:
+        ``with_for_update()`` is a **no-op** on SQLite, so this path cannot
+        prove concurrent-pay serialisation. Do NOT read a green run here as
+        evidence the race is covered.
 
-        TODO: Fix the race condition before production deployment.
+        ✅ REAL COVERAGE lives in
+        ``backend/tests/smoke/test_pg_prepay_race.py`` (``-m smoke``), which
+        runs under real Postgres where ``FOR UPDATE`` is enforced and pins the
+        contract: exactly 1×2xx winner + 4×400 rejects, 0×5xx, no
+        IntegrityError / UNIQUE leak to the client. That smoke runs in
+        ci-smoke.yml's ``smoke-pg`` job ("Smoke tests (real Postgres +
+        alembic)"). See S3-PAY-PREPAY-RACE-CI-REQUIRED-GATE.
         """
         user = authenticated_client._test_user
         hospital = await seed_hospital()
