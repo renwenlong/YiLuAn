@@ -12,17 +12,30 @@ in place this is the auditable identity dimension.
 TODO: replace with OAuth2/JWT admin login in a future sprint.
 """
 
+import secrets
+
 from fastapi import Header
 
 from app.config import settings
 from app.exceptions import BadRequestException, UnauthorizedException
 
 
+def _admin_token_valid(candidate: str) -> bool:
+    """Constant-time compare of the presented admin token.
+
+    Uses :func:`secrets.compare_digest` so validation time does not depend on
+    how many leading bytes match — closing the timing side-channel a plain
+    ``==``/``!=`` compare would leak (attacker byte-by-byte token recovery).
+    """
+    expected = settings.admin_api_token or ""
+    return secrets.compare_digest(str(candidate), str(expected))
+
+
 async def require_admin_token(
     x_admin_token: str = Header(..., alias="X-Admin-Token"),
 ) -> str:
     """Validate the admin API token from request header."""
-    if x_admin_token != settings.admin_api_token:
+    if not _admin_token_valid(x_admin_token):
         raise UnauthorizedException("Invalid admin token")
     return x_admin_token
 
@@ -37,7 +50,7 @@ async def require_admin_operator(
     it lands in ``admin_audit_logs.operator`` and ``reconciliation_actions.payload``
     so the double-sign close (D-048) can compare "different admin".
     """
-    if x_admin_token != settings.admin_api_token:
+    if not _admin_token_valid(x_admin_token):
         raise UnauthorizedException("Invalid admin token")
     op = (x_admin_operator or "").strip()
     if not op or len(op) > 64:
