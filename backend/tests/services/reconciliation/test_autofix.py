@@ -28,12 +28,10 @@ from app.models.reconciliation import (
 )
 from app.services.reconciliation.autofix import (
     MAX_AUTO_RETRIES_PER_ORDER,
-    AutoFixResult,
     autofix_diff,
     autofix_run_diffs,
 )
 from tests.conftest import test_session_factory
-
 
 pytestmark = pytest.mark.asyncio
 
@@ -240,3 +238,83 @@ async def test_autofix_increments_retry_counter():
         assert result.outcome == "success"
         await s.refresh(diff)
         assert diff.auto_retry_count == 2
+
+
+# ---------------------------------------------------------------------------
+# S3-PERF-RECON-AUTOFIX-N1-BATCH — 批量预取消除 N+1
+# ---------------------------------------------------------------------------
+async def _count_diff_selects(session, diff_ids):
+    """跑 autofix_run_diffs 并统计针对 reconciliation_diffs 的 SELECT 次数."""
+    from sqlalchemy import event
+
+    seen: list[str] = []
+
+    def _before_cursor_execute(conn, cursor, statement, *a, **k):
+        sql = " ".join(statement.split())
+        if sql.upper().startswith("SELECT") and "reconciliation_diffs" in sql:
+            seen.append(sql)
+
+    bind = session.get_bind()
+    sync_engine = getattr(bind, "sync_engine", bind)
+    event.listen(sync_engine, "before_cursor_execute", _before_cursor_execute)
+    try:
+        results = await autofix_run_diffs(session, diff_ids)
+    finally:
+        event.remove(sync_engine, "before_cursor_execute", _before_cursor_execute)
+    return results, seen
+
+
+async def test_autofix_run_diffs_batch_fetches_in_single_query():
+    """AC#1: N 个 diff 的取行查询从 N 次降为 1 次批量 IN 查询."""
+    async with test_session_factory() as s:
+        run = await _mk_run(s)
+        diffs = [
+            await _mk_diff(s, run.id, kind=ReconDiffKind.amount_mismatch)
+            for _ in range(5)
+        ]
+        diff_ids = [d.id for d in diffs]
+        # 清 identity map，强制真实走 DB（否则 session.get 会命中缓存，
+        # 掩盖 N+1 的真实 round-trip 数）
+        s.expunge_all()
+
+        results, selects = await _count_diff_selects(s, diff_ids)
+        await s.commit()
+
+    # 取行阶段只发 1 条 diff SELECT，且是 IN 批量查询
+    fetch_selects = [q for q in selects if " IN (" in q.upper()]
+    assert len(fetch_selects) == 1, (
+        f"期望 1 条批量 IN 查询，实际 {len(fetch_selects)} 条: {fetch_selects}"
+    )
+    assert len(results) == 5
+    assert all(r.outcome == "escalated" for r in results)
+
+
+async def test_autofix_run_diffs_batch_preserves_order_and_missing():
+    """AC#2/AC#3: 缺失 id 仍 escalate/skipped 不中断；结果顺序 == 入参顺序."""
+    async with test_session_factory() as s:
+        run = await _mk_run(s)
+        d1 = await _mk_diff(s, run.id, kind=ReconDiffKind.amount_mismatch)
+        d2 = await _mk_diff(s, run.id, kind=ReconDiffKind.missing_payment)
+        miss_a = uuid.uuid4()
+        miss_b = uuid.uuid4()
+        # 缺失 id 穿插在中间和末尾，验证不中断且顺序对齐
+        order = [miss_a, d1.id, miss_b, d2.id]
+        results = await autofix_run_diffs(s, order)
+        await s.commit()
+
+    assert [r.diff_id for r in results] == order
+    assert results[0].outcome == "skipped"
+    assert results[0].action_kind == ReconActionKind.escalate
+    assert results[0].error == "diff not found"
+    assert results[1].outcome == "escalated"
+    assert results[2].outcome == "skipped"
+    assert results[2].error == "diff not found"
+    assert results[3].outcome == "success"
+
+
+async def test_autofix_run_diffs_empty_list_makes_no_query():
+    """空入参不应发批量查询（避免 IN () 空集语法问题）."""
+    async with test_session_factory() as s:
+        results, selects = await _count_diff_selects(s, [])
+    assert results == []
+    assert selects == []
