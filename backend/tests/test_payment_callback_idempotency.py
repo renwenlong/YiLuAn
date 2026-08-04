@@ -31,7 +31,6 @@ from app.services.providers.payment import (
 from app.services.providers.payment.base import OrderDTO, RefundDTO
 from tests.conftest import test_session_factory
 
-
 # ---------------------------------------------------------------------------
 # Provider factory + abstraction
 # ---------------------------------------------------------------------------
@@ -87,10 +86,17 @@ class TestProviderInterface:
         result = await p.query(OrderDTO(order_number="YLA-1", amount_yuan=99.0))
         assert result["trade_state"] == "SUCCESS"
 
-    async def test_wechat_query_not_implemented(self):
+    async def test_wechat_query_no_creds_returns_mock(self):
+        """S3-PAY-WECHAT-V3-QUERY-CLOSE-WIRE: query() 已接线.
+
+        原 ``test_wechat_query_not_implemented`` 断言 NotImplementedError,
+        契约已随接线失效。改写为断言无凭据 mock 回退契约 (AC-4),
+        保住原覆盖点。有凭据真实路径见 ``test_wechatpay_query_close.py``。
+        """
         p = WechatPaymentProvider()
-        with pytest.raises(NotImplementedError):
-            await p.query(OrderDTO(order_number="YLA-1", amount_yuan=99.0))
+        result = await p.query(OrderDTO(order_number="YLA-1", amount_yuan=99.0))
+        assert result["out_trade_no"] == "YLA-1"
+        assert result["trade_state"] == "SUCCESS"
 
     async def test_required_production_settings_listed(self):
         from app.services.providers.payment.wechat import (

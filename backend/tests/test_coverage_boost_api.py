@@ -9,10 +9,9 @@ from uuid import uuid4
 
 import pytest
 
-from app.models.companion_profile import CompanionProfile, VerificationStatus
-from app.models.order import Order, OrderStatus, ServiceType
+from app.models.order import OrderStatus
 from app.models.payment import Payment
-from app.models.user import User, UserRole
+from app.models.user import User
 from tests.conftest import test_session_factory
 
 pytestmark = pytest.mark.asyncio
@@ -502,21 +501,30 @@ class TestWechatPaymentProvider:
         out = await prov.verify_callback({}, b"not-json")
         assert out["verified"] is True
 
-    async def test_query_not_implemented(self, monkeypatch):
+    async def test_query_no_creds_returns_mock(self, monkeypatch):
+        """S3-PAY-WECHAT-V3-QUERY-CLOSE-WIRE: query() 已接线.
+
+        原 ``test_query_not_implemented`` 断言 NotImplementedError, 该契约
+        已随本次接线失效。改写为断言新契约: 无凭据走 mock 回退 (AC-4),
+        保住原覆盖点 (无凭据分支不炸)。有凭据真实解析路径 + 异常分类见
+        ``tests/test_wechatpay_query_close.py``。
+        """
         from app.services.providers.payment.base import OrderDTO
 
         prov = self._make(
             monkeypatch, wechat_pay_mch_id="", wechat_pay_api_key_v3=""
         )
-        with pytest.raises(NotImplementedError):
-            await prov.query(
-                OrderDTO(
-                    order_number="x",
-                    amount_yuan=1.0,
-                    description="d",
-                    openid="o",
-                )
+        out = await prov.query(
+            OrderDTO(
+                order_number="x",
+                amount_yuan=1.0,
+                description="d",
+                openid="o",
             )
+        )
+        assert out["out_trade_no"] == "x"
+        assert out["trade_state"] == "SUCCESS"
+        assert out["status"] == "success"
 
     async def test_close_order_mock(self, monkeypatch):
         prov = self._make(
@@ -524,14 +532,48 @@ class TestWechatPaymentProvider:
         )
         assert await prov.close_order("X") == {"status": "success"}
 
-    async def test_close_order_with_creds_not_implemented(self, monkeypatch):
+    async def test_close_order_with_creds_calls_v3_close(self, monkeypatch):
+        """S3-PAY-WECHAT-V3-QUERY-CLOSE-WIRE: close_order() 已接线.
+
+        原 ``test_close_order_with_creds_not_implemented`` 断言
+        NotImplementedError — 接线后该用例**真打到了微信生产端点**
+        ``api.mch.weixin.qq.com``(CI 出真网请求 + 拿到真实业务错误码)。
+
+        改写为: mock ``httpx.AsyncClient``, 断言构造了正确的 v3 关单
+        请求 (URL/body mchid) 并解析成功响应。**禁止真实外呼**。
+        """
+        from unittest.mock import AsyncMock, patch
+
+        import httpx
+
         prov = self._make(
             monkeypatch,
             wechat_pay_mch_id="MCH",
             wechat_pay_api_key_v3="K" * 32,
         )
-        with pytest.raises(NotImplementedError):
-            await prov.close_order("X")
+        monkeypatch.setattr(
+            type(prov), "_rsa_sign", lambda self, *a, **k: "sig"
+        )
+
+        client = AsyncMock()
+        client.post.return_value = httpx.Response(
+            status_code=204,
+            request=httpx.Request("POST", "https://api.mch.weixin.qq.com/"),
+        )
+        client.__aenter__ = AsyncMock(return_value=client)
+        client.__aexit__ = AsyncMock(return_value=False)
+
+        with patch(
+            "app.services.providers.payment.wechat.httpx.AsyncClient",
+            return_value=client,
+        ):
+            out = await prov.close_order("X")
+
+        assert out == {"status": "success"}
+        # 真实 v3 关单契约: URL + body mchid
+        called_url = client.post.call_args[0][0]
+        assert called_url.endswith("/v3/pay/transactions/out-trade-no/X/close")
+        assert client.post.call_args.kwargs["json"] == {"mchid": "MCH"}
 
     async def test_verify_signature_missing_headers(self, monkeypatch):
         from app.exceptions import BadRequestException
