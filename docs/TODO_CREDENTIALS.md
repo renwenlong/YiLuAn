@@ -22,6 +22,34 @@
 - 支付回调 HTTPS URL（`WECHAT_PAY_NOTIFY_URL`，需域名 + ICP 备案后配置）
 - 微信小程序 AppID（`WECHAT_APP_ID`，真实值）
 
+### 代码接线状态（S3-PAY-WECHAT-V3-QUERY-CLOSE-WIRE, 2026-08-04）
+
+微信支付 v3 provider（`backend/app/services/providers/payment/wechat.py`）**代码路径已全部接线**，凭据到位即可切真，无需再改代码：
+
+| 方法 | 生产 API | 状态 |
+|------|----------|------|
+| `create_order()` | `POST /v3/pay/transactions/jsapi` | ✅ 已接线 |
+| `query()` | `GET /v3/pay/transactions/out-trade-no/{no}?mchid={mch}` | ✅ **本次接线**（trade_state→内部状态映射） |
+| `close_order()` | `POST /v3/pay/transactions/out-trade-no/{no}/close` | ✅ **本次接线**（204/200 成功） |
+| `refund()` | `POST /v3/refund/domestic/refunds` | ✅ 已接线 |
+| `verify_callback()` | 验签 + AES-GCM 解密 | ✅ 已接线 |
+
+对账（query）/ 关单（close_order）真实链路此前 `raise NotImplementedError`，**本次已修复**。无凭据时保持 mock 行为不变（`_has_credentials=False` 分支）。
+
+**剩余凭据落地 checklist（切真前逐项确认）：**
+
+- [ ] `WECHAT_PAY_MCH_ID` — 商户号（B-01 审核中）
+- [ ] `WECHAT_PAY_API_KEY_V3` — APIv3 32 字节密钥
+- [ ] `WECHAT_PAY_CERT_SERIAL` — 商户证书序列号
+- [ ] `WECHAT_PAY_PRIVATE_KEY_PATH` — 商户私钥 PEM 路径
+- [ ] `WECHAT_PAY_PLATFORM_CERT_PATH` — 微信平台证书 PEM 路径
+- [ ] `WECHAT_PAY_NOTIFY_URL` — 回调 HTTPS URL（依赖域名 + ICP 备案）
+- [ ] `WECHAT_APP_ID` — 小程序 AppID（真实值）
+- [ ] 上述写入 Azure Key Vault + 容器环境变量挂载
+- [ ] 设 `PAYMENT_PROVIDER=wechat` + `ENVIRONMENT=production`
+- [ ] 启动自检：`Settings.validate_production_config` 会在 prod + wechat 缺任一凭据时 **fail-fast**（拒绝静默 fallback mock），确认启动不报错即凭据齐全
+- [ ] 真环境 smoke：下单 → query 对账 → close 关单 → refund 退款全链路复验
+
 ### 提交方式
 
 1. 登录 [微信支付商户平台](https://pay.weixin.qq.com) 申请商户号。

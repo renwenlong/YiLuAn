@@ -36,12 +36,19 @@ TODO (real production hardening)
   refund Payment record status update is not yet implemented in
   ``payment_callback.py::wechat_refund_callback``).
 * Add metrics (latency / success rate) per provider call.
+
+Production credential guard
+---------------------------
+``Settings.validate_production_config`` rejects
+``payment_provider == "wechat"`` in ``environment == "production"`` when any
+of MCH_ID / API_KEY_V3 / CERT_SERIAL / PRIVATE_KEY_PATH is missing — so the
+real gateway (create_order / query / close_order / refund) can never be
+enabled in prod without full credentials.
 """
 
 from __future__ import annotations
 
 import base64
-import httpx
 import json
 import logging
 import threading
@@ -49,6 +56,8 @@ import time
 import uuid
 from decimal import ROUND_HALF_UP, Decimal  # noqa: F401  (Decimal used via type hints)
 from typing import Any
+
+import httpx
 
 from app.config import settings
 from app.exceptions import BadRequestException
@@ -79,6 +88,32 @@ REQUIRED_PRODUCTION_SETTINGS: tuple[str, ...] = (
 # Module-level platform-certificate cache (thread-safe).
 _platform_cert_cache: dict[str, Any] = {}
 _cert_cache_lock = threading.Lock()
+
+
+# WeChat Pay v3 ``trade_state`` → internal order status mapping.
+# Ref: https://pay.weixin.qq.com/docs/merchant/apis/jsapi-payment/query-by-out-trade-no.html
+#   SUCCESS   支付成功      REFUND    转入退款
+#   NOTPAY    未支付        CLOSED    已关闭
+#   REVOKED   已撤销(付码支付) USERPAYING 用户支付中
+#   PAYERROR  支付失败
+_TRADE_STATE_STATUS: dict[str, str] = {
+    "SUCCESS": "success",
+    "REFUND": "refund",
+    "NOTPAY": "pending",
+    "USERPAYING": "pending",
+    "CLOSED": "closed",
+    "REVOKED": "closed",
+    "PAYERROR": "failed",
+}
+
+
+def _map_trade_state(trade_state: str) -> str:
+    """Map WeChat v3 ``trade_state`` to an internal payment status.
+
+    Unknown / empty states map to ``"unknown"`` so callers can decide
+    (rather than silently treating them as a definitive terminal state).
+    """
+    return _TRADE_STATE_STATUS.get((trade_state or "").upper(), "unknown")
 
 
 class WechatPaymentProvider(PaymentProvider):
@@ -270,25 +305,100 @@ class WechatPaymentProvider(PaymentProvider):
 
     @outbound_call(provider="wechat_pay", timeout=5.0, max_retries=2, distributed=True)
     async def query(self, order: OrderDTO) -> dict[str, Any]:
-        # Real implementation would call:
-        #   GET /v3/pay/transactions/out-trade-no/{out_trade_no}?mchid={mch_id}
-        # Not yet wired; raise so callers know this is a TODO.
-        raise NotImplementedError(
-            "WechatPaymentProvider.query() not implemented yet — "
-            "see docs/TODO_CREDENTIALS.md and the module docstring."
-        )
+        """Query a transaction by out_trade_no.
 
+        Real path (``_has_credentials``): GET
+        ``/v3/pay/transactions/out-trade-no/{out_trade_no}?mchid={mch_id}``
+        and map WeChat ``trade_state`` to an internal order status.
+
+        No-credentials path keeps the mock shape (``trade_state=SUCCESS``)
+        so the small-program client can be wired without a merchant account.
+        """
+        if not self._has_credentials:
+            # Mirror real response shape with mock data.
+            return {
+                "out_trade_no": order.order_number,
+                "trade_state": "SUCCESS",
+                "status": "success",
+            }
+
+        path = (
+            f"/v3/pay/transactions/out-trade-no/{order.order_number}"
+            f"?mchid={self.mch_id}"
+        )
+        url = f"https://api.mch.weixin.qq.com{path}"
+
+        # GET has no body — signature signs an empty body string.
+        headers = self._build_auth_header("GET", path, None)
+
+        async with httpx.AsyncClient() as client:
+            try:
+                resp = await client.get(url, headers=headers, timeout=30)
+            except (httpx.TimeoutException, httpx.RequestError) as exc:
+                logger.error("WeChat query network error: %s", exc)
+                raise classify_httpx_exception(exc) from exc
+
+        # 4xx → NonRetryable (参数/签名错); 5xx/408/429/network → Retryable
+        # (query 是幂等只读, 重试安全) — 走 @outbound_call CB+retry.
+        try:
+            resp.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            logger.error(
+                "WeChat query failed: %s %s", resp.status_code, resp.text
+            )
+            raise classify_httpx_exception(exc) from exc
+
+        data = resp.json()
+        trade_state = data.get("trade_state", "")
+        return {
+            "out_trade_no": data.get("out_trade_no", order.order_number),
+            "transaction_id": data.get("transaction_id"),
+            "trade_state": trade_state,
+            "trade_state_desc": data.get("trade_state_desc"),
+            "status": _map_trade_state(trade_state),
+        }
+
+    @outbound_call(provider="wechat_pay", timeout=5.0, max_retries=2, distributed=True)
     async def close_order(self, out_trade_no: str) -> dict[str, Any]:
-        # Real implementation would call:
-        #   POST /v3/pay/transactions/out-trade-no/{out_trade_no}/close
-        #   body: {"mchid": self.mch_id}
-        # For now, fall back to mock-style success when credentials are absent.
+        """Close a prepay order so it can no longer be paid.
+
+        Real path (``_has_credentials``): POST
+        ``/v3/pay/transactions/out-trade-no/{out_trade_no}/close`` with body
+        ``{"mchid": mch_id}``. WeChat returns HTTP 204 (No Content) on
+        success. No-credentials path keeps mock-style success.
+        """
         if not self._has_credentials:
             return {"status": "success"}
-        raise NotImplementedError(
-            "WechatPaymentProvider.close_order() production path not "
-            "implemented yet — see docs/TODO_CREDENTIALS.md."
-        )
+
+        path = f"/v3/pay/transactions/out-trade-no/{out_trade_no}/close"
+        url = f"https://api.mch.weixin.qq.com{path}"
+        body = {"mchid": self.mch_id}
+
+        headers = self._build_auth_header("POST", path, body)
+
+        async with httpx.AsyncClient() as client:
+            try:
+                resp = await client.post(
+                    url, json=body, headers=headers, timeout=30
+                )
+            except (httpx.TimeoutException, httpx.RequestError) as exc:
+                logger.error("WeChat close_order network error: %s", exc)
+                raise classify_httpx_exception(exc) from exc
+
+        # Close returns 204 No Content on success. 4xx → NonRetryable;
+        # 5xx/network → Retryable (close 幂等, 重试安全).
+        if resp.status_code not in (200, 204):
+            try:
+                resp.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                logger.error(
+                    "WeChat close_order failed: %s %s",
+                    resp.status_code,
+                    resp.text,
+                )
+                raise classify_httpx_exception(exc) from exc
+
+        return {"status": "success"}
 
     # ------------------------------------------------- signature / crypto
 
