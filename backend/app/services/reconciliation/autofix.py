@@ -234,9 +234,23 @@ async def autofix_run_diffs(
     Diffs are processed in the order given; failures are recorded but
     do not abort the loop.
     """
+    # [S3-PERF-RECON-AUTOFIX-N1-BATCH AC#1] 批量预取消除 N+1:
+    # 原实现在循环内逐行 ``await session.get(...)``, N 个 diff = N 次 DB
+    # round-trip。改为循环前一次 ``SELECT ... WHERE id IN (...)`` 建
+    # id->row map, 循环内改查 map。缺失 id 落 map 外, 仍走原 escalate/
+    # skipped 分支 (AC#2); 循环顺序仍按入参 ``diff_ids`` (AC#3)。
+    diff_map: dict[uuid.UUID, ReconciliationDiff] = {}
+    if diff_ids:
+        rows = await session.execute(
+            select(ReconciliationDiff).where(
+                ReconciliationDiff.id.in_(diff_ids)
+            )
+        )
+        diff_map = {row.id: row for row in rows.scalars().all()}
+
     out: list[AutoFixResult] = []
     for did in diff_ids:
-        diff = await session.get(ReconciliationDiff, did)
+        diff = diff_map.get(did)
         if diff is None:
             out.append(
                 AutoFixResult(
