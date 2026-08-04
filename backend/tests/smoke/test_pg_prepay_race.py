@@ -4,15 +4,13 @@ Why this exists
 ---------------
 The unit suite runs against SQLite in-memory.  ``with_for_update()`` is a
 **no-op** on SQLite, which means the order-row lock in
-``OrderService._get_order_for_update_or_404`` has never been exercised by
-the test suite.  See the TODO at
-``backend/tests/test_payment_concurrent.py:30``:
+``OrderService._get_order_for_update_or_404`` cannot be exercised by the
+SQLite unit path (see the LIMITATION note in
+``backend/tests/test_payment_concurrent.py``).
 
-    # TODO: Fix the race condition before production deployment.
-
-This file pins the contract under a real Postgres where ``SELECT ... FOR
-UPDATE`` actually serialises the five concurrent ``POST /orders/{id}/pay``
-requests.
+This file is the **real coverage** for that lock: it pins the contract
+under a real Postgres where ``SELECT ... FOR UPDATE`` actually serialises
+the five concurrent ``POST /orders/{id}/pay`` requests.
 
 Contract
 --------
