@@ -219,22 +219,25 @@ class TestAzureRealSdkUnit:
 
     def test_build_client_uses_default_credential_when_no_conn(self, monkeypatch):
         """无 conn 但有 account name 时走 DefaultAzureCredential。"""
+        import sys
+        from types import ModuleType
         from unittest.mock import MagicMock, patch
 
         import app.services.storage_backend as sb
         from app.config import settings as _s
 
+        credential = MagicMock(name="DefaultAzureCredential")
+        identity_module = ModuleType("azure.identity")
+        identity_module.DefaultAzureCredential = credential
+        monkeypatch.setitem(sys.modules, "azure.identity", identity_module)
         monkeypatch.setattr(_s, "azure_storage_connection_string", "")
         monkeypatch.setattr(_s, "azure_storage_account_name", "myacct")
         with patch(
-            "azure.identity.DefaultAzureCredential",
-            return_value=MagicMock(name="cred"),
-        ) as cred, patch(
             "azure.storage.blob.BlobServiceClient",
             return_value=MagicMock(name="svc"),
         ) as svc_cls:
             client = sb._build_azure_client()  # noqa: SLF001
-        assert cred.call_count == 1
+        assert credential.call_count == 1
         assert svc_cls.call_count == 1
         # account_url 指向 chinacloudapi (21Vianet)
         _args, kwargs = svc_cls.call_args
