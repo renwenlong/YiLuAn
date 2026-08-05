@@ -13,6 +13,7 @@ import functools
 import ipaddress
 import socket
 from collections.abc import Iterator
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -29,6 +30,11 @@ _current_nodeid: contextvars.ContextVar[str] = contextvars.ContextVar(
     "network_guard_nodeid", default="collection/import"
 )
 _installed = False
+
+_CHECKED_IN_TESTS_ROOT = Path(__file__).resolve().parent
+# Key: nodeid relative to ``backend/tests``. Value: target/reason/owner/PM trail.
+# Empty by design: the repository currently has no approved real-network tests.
+AUDITED_ALLOW_NETWORK_EXEMPTIONS: dict[str, dict[str, str]] = {}
 
 _original_socket_connect = socket.socket.connect
 _original_socket_connect_ex = socket.socket.connect_ex
@@ -187,6 +193,50 @@ def pytest_configure(config: Any) -> None:
         "allow_network: permit real non-loopback network for one test; requires "
         "documented target, reason, owner, and PM approval",
     )
+
+
+def _checked_in_allow_network_nodeids(items: list[Any]) -> set[str]:
+    """Return collected checked-in tests that inherit ``allow_network``.
+
+    Inspecting collected items follows pytest's real marker inheritance, so
+    function, class and module-level ``pytestmark`` forms cannot diverge from
+    the permission decision in ``pytest_runtest_protocol``.
+    """
+    marked_nodeids: set[str] = set()
+    for item in items:
+        try:
+            relative_path = Path(str(item.path)).resolve().relative_to(
+                _CHECKED_IN_TESTS_ROOT
+            )
+        except ValueError:
+            # Generated probes outside the checked-in test tree may exercise
+            # the escape hatch without becoming repository exemptions.
+            continue
+        if not any(item.iter_markers(name="allow_network")):
+            continue
+        suffix = item.nodeid.partition("::")[2]
+        nodeid = relative_path.as_posix()
+        if suffix:
+            nodeid = f"{nodeid}::{suffix}"
+        marked_nodeids.add(nodeid)
+    return marked_nodeids
+
+
+def pytest_collection_modifyitems(items: list[Any]) -> None:
+    """Reject checked-in marker usage that lacks a complete audit record."""
+    marked_nodeids = _checked_in_allow_network_nodeids(items)
+    audited_nodeids = set(AUDITED_ALLOW_NETWORK_EXEMPTIONS)
+    if marked_nodeids == audited_nodeids:
+        return
+
+    unregistered = sorted(marked_nodeids - audited_nodeids)
+    stale = sorted(audited_nodeids - marked_nodeids)
+    details: list[str] = []
+    if unregistered:
+        details.append("未登记 marker: " + ", ".join(unregistered))
+    if stale:
+        details.append("失效登记: " + ", ".join(stale))
+    raise pytest.UsageError("allow_network 豁免审计不一致；" + "；".join(details))
 
 
 @pytest.hookimpl(hookwrapper=True, tryfirst=True)

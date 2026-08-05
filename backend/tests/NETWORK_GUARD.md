@@ -26,6 +26,11 @@ def test_explicit_external_integration():
 申请豁免必须在本文件“当前豁免清单”登记：完整 nodeid、目标域名/IP、理由、
 owner、PM 审核记录。未登记的 marker 使用视为违规。
 
+审计在 pytest collection 完成后读取每个实际 item 的
+`iter_markers("allow_network")`，因此 function/async function、class decorator、
+module-level `pytestmark`（单 marker 或 list）都会按 pytest 的真实继承语义登记，
+不能用 marker 语法变体绕过。
+
 ### 当前豁免清单
 
 **空。** 当前仓库没有允许真实外网的 pytest 用例。
@@ -45,7 +50,7 @@ owner、PM 审核记录。未登记的 marker 使用视为违规。
 
 - `tests/test_network_guard.py`：function body、module collection/import、session
   fixture setup、fixture teardown、DNS、IPv4/IPv6 loopback、httpx Request 构造、
-  subprocess/curl 边界及空豁免清单守卫。
+  subprocess/curl 边界、function/class/module marker 反证及空豁免清单守卫。
 - `tests/test_coverage_boost_w18.py`、`tests/test_wechatpay_outbound_classify.py`、
   `tests/test_wechatpay_query_close.py`：外部 provider mock 与安全 Request 构造。
 - 默认测试集、真 PostgreSQL smoke、Azurite、docker marker 和 required CI 必须

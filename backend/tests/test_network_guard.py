@@ -6,6 +6,7 @@ import ast
 import socket
 import subprocess
 import sys
+import tempfile
 import threading
 from pathlib import Path
 
@@ -17,7 +18,6 @@ from tests.network_guard import OutboundNetworkBlockedError
 
 _BLOCKED_TARGET = ("192.0.2.1", 9)  # RFC 5737 TEST-NET-1; never a production API.
 _EXPECTED_MESSAGE = "该用例需 mock 外部调用"
-_AUDITED_ALLOW_NETWORK_EXEMPTIONS: set[str] = set()
 
 
 def test_function_body_external_tcp_is_blocked():
@@ -223,31 +223,35 @@ def test_curl_subprocess_boundary_is_explicit_and_loopback_still_works():
     assert result.returncode == 0, result.stderr
 
 
-def _is_allow_network_marker(node: ast.expr) -> bool:
-    if isinstance(node, ast.Call):
-        node = node.func
-    return (
-        isinstance(node, ast.Attribute)
-        and node.attr == "allow_network"
-        and isinstance(node.value, ast.Attribute)
-        and node.value.attr == "mark"
-        and isinstance(node.value.value, ast.Name)
-        and node.value.value.id == "pytest"
-    )
-
-
-def test_checked_in_allow_network_markers_match_audited_registry():
+@pytest.mark.parametrize(
+    "marker_source",
+    [
+        "@pytest.mark.allow_network\ndef test_probe(): pass",
+        "@pytest.mark.allow_network\nasync def test_probe(): pass",
+        "@pytest.mark.allow_network\nclass TestProbe:\n    def test_probe(self): pass",
+        "pytestmark = pytest.mark.allow_network\n\ndef test_probe(): pass",
+        "pytestmark = [pytest.mark.allow_network]\n\ndef test_probe(): pass",
+    ],
+    ids=["function", "async-function", "class", "module-single", "module-list"],
+)
+def test_unregistered_checked_in_allow_network_marker_is_rejected(marker_source):
+    """Exercise pytest's actual marker inheritance for every supported shape."""
     tests_root = Path(__file__).resolve().parent
-    marked_nodeids: set[str] = set()
-    for path in tests_root.rglob("*.py"):
-        tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        for node in ast.walk(tree):
-            if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                continue
-            if any(_is_allow_network_marker(marker) for marker in node.decorator_list):
-                marked_nodeids.add(f"{path.relative_to(tests_root)}::{node.name}")
+    with tempfile.TemporaryDirectory(
+        prefix=".network-guard-audit-", dir=tests_root
+    ) as probe_dir:
+        result = _run_isolated_pytest(
+            Path(probe_dir),
+            "import pytest\n\n" + marker_source + "\n",
+        )
 
-    assert marked_nodeids == _AUDITED_ALLOW_NETWORK_EXEMPTIONS
+    assert result.returncode != 0
+    assert "allow_network 豁免审计不一致" in result.stdout + result.stderr
+    assert "未登记 marker" in result.stdout + result.stderr
+
+
+def test_checked_in_allow_network_audit_registry_is_empty():
+    assert network_guard.AUDITED_ALLOW_NETWORK_EXEMPTIONS == {}
 
 
 def _string_literals(node: ast.AST) -> list[str]:
