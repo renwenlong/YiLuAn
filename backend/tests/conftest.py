@@ -1,5 +1,12 @@
+# ruff: noqa: I001 -- network guard must import before application modules.
 import uuid
 from typing import AsyncGenerator
+
+# S3-OPS-TEST-NO-OUTBOUND-NETWORK-GUARD:
+# Import before application modules so test collection/import, session fixtures
+# and test bodies all default to zero real outbound network. Import has the
+# deliberate side effect of installing the process-wide socket/DNS guard.
+from tests import network_guard as _network_guard
 
 import pytest
 from httpx import ASGITransport, AsyncClient
@@ -19,6 +26,11 @@ from app.models.patient_profile import PatientProfile
 from app.models.payment import Payment
 from app.models.review import Review
 from app.models.user import User, UserRole
+
+# Re-export hooks instead of loading the already-imported module as a plugin;
+# this keeps early installation without pytest's duplicate-import warning.
+pytest_configure = _network_guard.pytest_configure
+pytest_runtest_protocol = _network_guard.pytest_runtest_protocol
 
 
 # ---------------------------------------------------------------------------
