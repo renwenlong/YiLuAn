@@ -27,12 +27,24 @@ PR queue 速度 vs deploy infra 不匹配：
 | 组件 | 现状 | 缺口 |
 |------|------|------|
 | `.github/workflows/deploy.yml` | SCAFFOLDING ONLY，push 触发已注释，仅 `workflow_dispatch` | Azure 资源 + GH Secrets + Environments 全未配 |
-| `.github/workflows/staging-rehearsal.yml` | `if: false` DISABLED，等 self-hosted runner `staging-mock` | runner 未注册 |
+| `.github/workflows/staging-rehearsal.yml` | 方案 B 仓库侧已实现：`STAGING_RUNNER_READY` gate + weekly cron + CI gate + deployment metadata | runner 未注册、repo variable 未设置，故 job 安全 skip |
 | `docs/STAGING_REHEARSAL_RUNBOOK.md` | ✅ 手动 SOP 已存在可用 | 胡桃无 SSH 授权，仅帝君可执行 |
 | `deploy/` 目录 | ✅ docker-compose + up.sh/down.sh + nginx + env 模板齐全 | — |
 | `docs/TODO_CREDENTIALS.md` | Azure/微信/阿里云凭据全 **Pending（责任人=帝君）** | 真凭据未到位 |
 
-**关键结论**：三条路径的骨架都已搭好，差的全是**前置授权/资源**，不是代码。
+### 2.1 2026-08-10 实时能力复核
+
+通过 GitHub API/CLI 对 `renwenlong/YiLuAn` 实测：
+
+| 外部能力 | 实测结果 | 对方案影响 |
+|---|---|---|
+| Actions repository secrets | 0 项 | A 不可启用 |
+| GitHub Environments | 0 个 | A 的 staging/production reviewer gate 不存在 |
+| self-hosted runners | 0 台 | B 代码可审，但无法实际执行 rehearsal |
+| repository variables | 0 项 | `STAGING_RUNNER_READY` 未激活，B scheduled job 安全 skip |
+| main required checks | `strict=true`，共 5 项 | B 的 pre-deploy gate 已同步包含真实 Postgres + alembic smoke |
+
+**关键结论**：仓库内能完成的 B 路径代码、cron、文档、fail-closed CI gate 和可见性已就绪；真正执行仍依赖帝君提供常驻 Docker 主机并注册 runner。A/C 分别仍卡 Azure 资源与受限 SSH 授权，不能由 agent 猜测或伪造。
 
 ## 3. 三方案对比
 

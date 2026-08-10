@@ -16,12 +16,17 @@
 #   - Only conclusion == "success" passes. pending / failure / cancelled
 #     / timed_out / skipped / neutral all abort.
 #
-# Required checks are the GitHub branch-protection required status checks
-# for `main` (authoritative source), as of 2026-06-26:
+# Required checks mirror the GitHub branch-protection required status checks
+# for `main` (authoritative source), as of 2026-08-10:
 #   - Backend Tests
 #   - Docker Build Verification
 #   - WeChat Mini Program Tests
 #   - Build & Test (iOS Simulator)
+#   - Smoke tests (real Postgres + alembic)
+#
+# Keep this list synchronized with branch protection. A newly required check
+# must fail closed here until it is explicitly added and covered by this
+# script's fixture tests.
 #
 # Usage:
 #   ./check-main-ci.sh [--sha <commit-sha>] [--repo <owner/repo>]
@@ -53,6 +58,7 @@ REQUIRED_CHECKS=(
   "Docker Build Verification"
   "WeChat Mini Program Tests"
   "Build & Test (iOS Simulator)"
+  "Smoke tests (real Postgres + alembic)"
 )
 
 # --- arg parsing --------------------------------------------------------

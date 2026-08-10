@@ -82,21 +82,20 @@ inert，**无需 revert workflow**。
 
 ---
 
-## 3. 启用 weekly cron（可选）
+## 3. Weekly cron（仓库侧已启用）
 
-`workflow_dispatch` 手动触发在 runner 就绪 + variable 设好后即可用。要恢复
-每周三 14:00 GMT+8 自动跑，取消 `staging-rehearsal.yml` 顶部 `schedule:` 的
-注释：
+`staging-rehearsal.yml` 已配置每周三 14:00 GMT+8：
 
 ```yaml
 on:
   workflow_dispatch: {}
   schedule:
-    - cron: '0 6 * * 3'   # 14:00 GMT+8
+    - cron: '0 6 * * 3'   # Wednesday 14:00 GMT+8
 ```
 
-（这一步需改 workflow 文件 + 走 PR，故列为可选；先用 `workflow_dispatch`
-手动验证 runner 通路 OK 再开 cron。）
+runner 尚未注册或 `STAGING_RUNNER_READY` 不为 `true` 时，job-level gate 会在
+runner 分配前把该次 run 标为 skipped，不会无限排队。runner 就绪后先用
+`workflow_dispatch` 验证一次；此后 cron 无需再次改文件即可自动执行。
 
 ---
 
@@ -113,13 +112,14 @@ workflow 在 `checkout` 之后、`./up.sh` 之前内嵌一个 **CI gate step**�
     deploy/staging/check-main-ci.sh --sha "$(git rev-parse HEAD)"
 ```
 
-`deploy/staging/check-main-ci.sh` 校验**待部署 commit** 的 4 个
+`deploy/staging/check-main-ci.sh` 校验**待部署 commit** 的 5 个
 branch-protection required checks 全部 `success`，否则 `exit 1` abort 部署：
 
 - `Backend Tests`
 - `Docker Build Verification`
 - `WeChat Mini Program Tests`
 - `Build & Test (iOS Simulator)`
+- `Smoke tests (real Postgres + alembic)`
 
 **严格性**：任一 required check 为 `failure` / `pending` / `skipped` /
 **MISSING（根本没跑）** 都会 abort —— 防止未过 CI 的代码污染刻晴的验收环境。
@@ -136,9 +136,10 @@ branch-protection required checks 全部 `success`，否则 `exit 1` abort 部�
 
 1. 手动触发：repo Actions → staging-rehearsal → Run workflow（选 main）。
 2. 观察 job 在 `yiluan-staging-runner` 上 pick up。
-3. CI gate step 通过（main HEAD 4 required 全绿时）。
-4. staging 栈拉起 → replay GREEN → 报告 upload → teardown。
-5. 失败排查见 `docs/STAGING_REHEARSAL_RUNBOOK.md` §4。
+3. CI gate step 通过（main HEAD 5 required 全绿时）。
+4. staging 栈拉起；Actions job summary 显示 runner-local URL、commit SHA、部署时间和 run 链接。
+5. replay GREEN → 报告 upload → teardown。
+6. 失败排查见 `docs/STAGING_REHEARSAL_RUNBOOK.md` §4。
 
 ---
 

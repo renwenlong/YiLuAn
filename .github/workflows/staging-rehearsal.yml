@@ -16,10 +16,11 @@ name: staging-rehearsal
 
 on:
   workflow_dispatch: {}
-  # Gated by STAGING_RUNNER_READY at the job level (below); cron stays
-  # commented until a self-hosted runner is registered.  See setup doc §3.
-  # schedule:
-  #   - cron: '0 6 * * 3'   # 14:00 GMT+8
+  # Safe to keep scheduled before runner activation: the job-level variable
+  # gate below evaluates before runner assignment, so an unconfigured repo
+  # records a skipped run instead of queueing forever on a missing runner.
+  schedule:
+    - cron: '0 6 * * 3'   # Wednesday 14:00 GMT+8
 
 jobs:
   rehearsal:
@@ -46,6 +47,18 @@ jobs:
         working-directory: deploy
         shell: bash
         run: ./up.sh
+
+      - name: Publish staging metadata
+        shell: bash
+        run: |
+          {
+            echo "## Staging rehearsal deployment"
+            echo
+            echo "- URL: http://127.0.0.1:18080 (runner-local)"
+            echo "- Version: \`${GITHUB_SHA}\`"
+            echo "- Deployed at: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+            echo "- Run: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          } >> "${GITHUB_STEP_SUMMARY}"
 
       - name: Run weekly rehearsal
         shell: bash

@@ -109,10 +109,11 @@ docker compose + 本地 18080 端口的栈）。
 1. 在常驻机器上注册 self-hosted runner，label 含 `staging-mock`。
 2. 设 repo variable `STAGING_RUNNER_READY=true`（job 的 `if` 条件依赖它，
    **不需要再改 workflow 文件**；停用就把 variable 改掉）。
-3. （可选）取消 workflow 顶部 `schedule:` 注释恢复 weekly cron。
+3. weekly cron 已启用；variable 未开启时 scheduled job 会安全 skip，runner 就绪后自动生效。
 
 > workflow 已内嵌 ADR-0059 §5.5 CI gate（`deploy/staging/check-main-ci.sh`），
-> 部署前强制校验 main HEAD 的 required checks 全绿，防未过 CI 代码污染验收环境。
+> 部署前强制校验 main HEAD 的 5 个 required checks 全绿，防未过 CI 代码污染验收环境。
+> 栈拉起后，Actions job summary 会公开 runner-local URL、commit SHA、部署时间和 run 链接，供刻晴核对演练版本。
 
 ## 8. 验收 checklist（每周跑完贴到群里）
 
