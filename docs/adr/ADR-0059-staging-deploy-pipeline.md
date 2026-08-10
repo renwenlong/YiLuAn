@@ -1,169 +1,146 @@
-# ADR-0059: Staging 自动部署流水线 — 路径决策
+# ADR-0059: Staging 部署路径
 
-- **状态**: 🟡 草案（魈 review 必补点已落实，待帝君拍路径）
-- **日期**: 2026-06-25
-- **作者**: 胡桃（调研 + 草案）
-- **决策者**: 帝君（拍 OPS 路径 + 权限模型）
-- **Review**: 魈 🔴#1 agent-SSH 威胁模型（§4.5）+ 🔴#2 redeploy CI gate（§5.5）已补；🟡#3#4 可选增强（§6.5）已补
+- **状态**: ✅ 已接受
+- **提案日期**: 2026-06-25
+- **决定日期**: 2026-08-10
+- **作者**: 胡桃（调研 + 实施）
+- **决策者**: 帝君
+- **决定**: 采用方案 C（手动 SOP + 受限部署触发）
+- **Review**: 魈 r1 要求 ADR 与实际选择一致，并保留权限威胁模型和 redeploy CI gate
 - **关联 task**: `S3-OPS-STAGING-AUTO-DEPLOY-PIPELINE` (P2)
-- **取代**: 本 ADR 原 taskboard 引用编号 ADR-0054 已被 `ADR-0054-precheck-ui-native-pivot.md` 占用，改用 ADR-0059。
+- **取代**: 原 taskboard 引用的 ADR-0054 编号已被占用，故使用 ADR-0059
 
-> ⚠️ **本 ADR 是调研 + 三方案对比草案，核心决策点（路径选择 + SSH/权限模型）需帝君拍板**。胡桃仅交付调研产出，不擅自起手 implement phase。
+> 2026-08-10 帝君明确选择 **C**。方案 A（Azure-native）和方案 B
+>（self-hosted runner）当前均不启用；后续若外部资源与运营需求变化，须另开
+>决策记录，不得把本 ADR 解释成已授权自动部署。
 
----
+## 1. 背景
 
-## 1. 背景与痛点
+main 高频接收 PR，但 staging 不会自动反映。现有部署依赖手动 SOP，胡桃没有
+受限部署入口时，每次 redeploy 都要等待帝君操作，影响刻晴在 staging 的验收。
 
-PR queue 速度 vs deploy infra 不匹配：
+## 2. 决策时能力盘点
 
-- **main 高频接收 PR**（24h 曾接 7+ PR），但 **staging 不会自动反映**
-- 实际 staging deploy 路径是**手动 SOP**（`docs/STAGING_REHEARSAL_RUNBOOK.md`: `cd deploy && ./up.sh`）
-- 后果：
-  - **测试员（刻晴）** 在 staging 验业务时数据/代码陈旧
-  - **胡桃 redeploy 卡帝君 SSH 授权**（无独立部署权限）
+2026-08-10 通过 GitHub API/CLI 对 `renwenlong/YiLuAn` 实测：
 
-## 2. 现状盘点（evidence-first）
-
-| 组件 | 现状 | 缺口 |
-|------|------|------|
-| `.github/workflows/deploy.yml` | SCAFFOLDING ONLY，push 触发已注释，仅 `workflow_dispatch` | Azure 资源 + GH Secrets + Environments 全未配 |
-| `.github/workflows/staging-rehearsal.yml` | 方案 B 仓库侧已实现：`STAGING_RUNNER_READY` gate + weekly cron + CI gate + deployment metadata | runner 未注册、repo variable 未设置，故 job 安全 skip |
-| `docs/STAGING_REHEARSAL_RUNBOOK.md` | ✅ 手动 SOP 已存在可用 | 胡桃无 SSH 授权，仅帝君可执行 |
-| `deploy/` 目录 | ✅ docker-compose + up.sh/down.sh + nginx + env 模板齐全 | — |
-| `docs/TODO_CREDENTIALS.md` | Azure/微信/阿里云凭据全 **Pending（责任人=帝君）** | 真凭据未到位 |
-
-### 2.1 2026-08-10 实时能力复核
-
-通过 GitHub API/CLI 对 `renwenlong/YiLuAn` 实测：
-
-| 外部能力 | 实测结果 | 对方案影响 |
+| 能力 | 实测结果 | 结论 |
 |---|---|---|
-| Actions repository secrets | 0 项 | A 不可启用 |
+| Actions repository secrets | 0 项 | 方案 A 不可启用 |
 | GitHub Environments | 0 个 | A 的 staging/production reviewer gate 不存在 |
-| self-hosted runners | 0 台 | B 代码可审，但无法实际执行 rehearsal |
-| repository variables | 0 项 | `STAGING_RUNNER_READY` 未激活，B scheduled job 安全 skip |
-| main required checks | `strict=true`，共 5 项 | B 的 pre-deploy gate 已同步包含真实 Postgres + alembic smoke |
+| self-hosted runners | 0 台 | 方案 B 无执行载体 |
+| repository variables | 0 项 | `STAGING_RUNNER_READY` 未激活 |
+| main required checks | `strict=true`，共 5 项 | 手动 redeploy 前必须逐项 fail-closed 校验 |
+| 手动 staging SOP | 已存在 | 可作为方案 C 的基础 |
+| 受限 SSH / deploy wrapper | 未提供 | C 的运行期外部前置，未满足前仍由帝君手动执行 |
 
-**关键结论**：仓库内能完成的 B 路径代码、cron、文档、fail-closed CI gate 和可见性已就绪；真正执行仍依赖帝君提供常驻 Docker 主机并注册 runner。A/C 分别仍卡 Azure 资源与受限 SSH 授权，不能由 agent 猜测或伪造。
+`.github/workflows/staging-rehearsal.yml` 保留 `workflow_dispatch` 和
+`STAGING_RUNNER_READY` gate 作为历史方案 B 的惰性骨架，但 weekly cron 保持注释，
+不得以本 ADR 为由启用。
 
-## 3. 三方案对比
+## 3. 备选方案
 
-### 方案 A：Azure-native pipeline（deploy.yml 启用）
+### A. Azure-native pipeline
 
-**做法**：配齐 Azure 资源 + GH Secrets + Environments，取消 deploy.yml push 触发注释。
+配齐 Azure 资源、GitHub Secrets 与 Environments 后，通过 `deploy.yml` 自动部署。
+长期能力最完整，但当前资源与权限均不存在，不能落地。
 
-| 维度 | 评估 |
-|------|------|
-| staging 自动化 | ✅ 每 PR merge 自动部署 staging |
-| production 安全 | ✅ GH Environment reviewer 审批（帝君手动 gate）|
-| 前置成本 | ❌ **高** — 需 Azure RG/ACR/Container Apps/PostgreSQL/Redis/Key Vault 全部就位 |
-| 卡帝君钥匙 | ❌ ACR_USERNAME/ACR_PASSWORD/AZURE_CREDENTIALS/STAGING_DATABASE_URL |
-| 胡桃可独立推进 | ❌ 完全卡 Azure 资源到位 |
-| 长期价值 | ✅✅ 最完整，production-grade，一劳永逸 |
+### B. Self-hosted runner
 
-### 方案 B：Self-hosted runner（staging-rehearsal.yml 启用）
+注册带 `staging-mock` label 的常驻 runner，运行 rehearsal workflow。仓库已有惰性
+骨架和 CI gate，但当前没有 runner；而且 weekly rehearsal 不等于 main 每次合并后
+自动刷新 staging。
 
-**做法**：注册 self-hosted runner（label `staging-mock`），启用 staging-rehearsal.yml + weekly cron。
+### C. 手动 SOP + 受限部署触发（已选择）
 
-| 维度 | 评估 |
-|------|------|
-| staging 自动化 | 🟡 weekly rehearsal 自动，但非每 PR 触发 |
-| 前置成本 | 🟡 中 — 需一台常驻机器跑 runner（Docker 环境）|
-| 卡帝君钥匙 | 🟡 需帝君提供机器 + 注册 runner token |
-| 胡桃可独立推进 | ❌ 需机器 + runner 注册权限 |
-| 长期价值 | 🟡 解 rehearsal 自动化，不解"每 PR staging 反映"痛点 |
+保留人工确认，通过受限入口执行固定 redeploy 流程：校验目标 SHA 的 required
+checks、更新 staging checkout、拉起服务、验活并回报版本。详细步骤见
+`docs/STAGING_REDEPLOY_QUICK.md`。
 
-### 方案 C：手动 SOP + 授权 hutao SSH（保留现状强化）
+| 维度 | 结论 |
+|---|---|
+| 自动化 | 不自动；保留人工确认 |
+| 前置成本 | 最低，但仍需帝君一次性提供受限入口 |
+| 安全边界 | agent 不持有常驻私钥，不获得任意 shell / 任意 sudo |
+| 当前可执行性 | 仓库侧 SOP 与 CI gate 可完成；外部授权前仍由帝君执行 |
+| 定位 | Azure-native 路径成熟前的可控过渡方案 |
 
-**做法**：完善 `docs/STAGING_REDEPLOY_QUICK.md`，授权 hutao SSH（限定 sudo 范围 + git pull），胡桃可独立按文档 redeploy。
+## 4. 权限与威胁模型
 
-| 维度 | 评估 |
-|------|------|
-| staging 自动化 | ❌ 仍手动，但**胡桃可自助**不再卡帝君每次操作 |
-| 前置成本 | ✅ **最低** — 仅需一次性 SSH 授权 + 文档 |
-| 卡帝君钥匙 | 🟡 仅一次性 SSH key 授权（非每次）|
-| 胡桃可独立推进 | 🟡 授权后可独立 redeploy（解最痛的"卡帝君 SSH"）|
-| 长期价值 | 🟡 过渡方案，不如 A 自动化，但**立即可落地解当前痛点** |
+### 4.1 强制安全边界
 
-## 4. 权限模型选项（需帝君拍）
+方案 C 的批准**不是**对通用 SSH、sudo 或凭据读取的授权。实现必须满足：
 
-无论选哪条路径，**SSH/部署权限模型**需帝君明确：
+1. private key、SSH CA 签发权和主机凭据不落 agent workspace；
+2. agent 只能触发固定 redeploy 流程，不能获得任意远程 shell；
+3. sudo 范围仅覆盖预定义部署动作，不允许通配任意命令；
+4. 目标必须是 `origin/main` 上的明确 commit SHA；
+5. redeploy 前的 CI gate 不可绕过；
+6. 每次执行必须留下操作者、SHA、时间、结果和 staging URL 的审计记录。
 
-| 选项 | SSH key 谁拿 | sudo 范围 | git pull |
-|------|------------|----------|----------|
-| P-1 最严 | 仅帝君 | — | 手动 |
-| P-2 中（推荐配方案 C）| hutao 专用 key（限 staging 主机）| 仅 `docker compose` / `systemctl restart yiluan-*` | hutao 手动触发 |
-| P-3 自动 | CI service account | deploy 范围 | push 自动 |
+推荐基础设施实现为 bastion / host 上的白名单脚本（原方案 I-3）；也可用 5–15
+分钟短时 SSH 证书（I-2），但仍只能调用白名单脚本。禁止给 agent 常驻 full SSH key。
 
-### 4.5 agent-SSH 威胁模型（🔴 魈 review 必补 — 方案 C / P-2 的安全前提）
+### 4.2 未激活边界
 
-**风险**：若直接给 hutao agent 一把常驻 SSH private key 落在 agent workspace（`~/.ssh/`），等于把 staging 主机的持久访问权交给一个 LLM-driven agent 进程。威胁面：
-- agent workspace 被读 → key 泄露 → 横向移动到 staging 主机
-- agent 被 prompt-injection 诱导执行非预期 deploy / 删库
-- key 无过期 → 长期暴露窗口
+截至决定时，受限 SSH / wrapper 尚未配置。因此“采用 C”表示**路径已定**，不表示
+胡桃已经获得主机访问权。外部入口就绪前，帝君仍是实际部署操作者；胡桃只提供
+目标 SHA、CI gate 证据与命令清单。
 
-**隔离方案（按隔离强度递增，需帝君选）**：
+## 5. 手动 redeploy 的强制 CI gate
 
-| 方案 | 做法 | 隔离强度 | 成本 |
-|------|------|---------|------|
-| **I-1 key 不落 agent workspace** | SSH key 存 gateway host（非 agent 可读路径），agent 通过受限 exec 包装调用，key 路径 agent 无读权 | 中 | 低 |
-| **I-2 短时证书（推荐）** | SSH CA 签发短时（如 5-15min）证书，agent 每次 deploy 前请求一次性 cert，过期自动失效 | 高 | 中（需 SSH CA / vault-ssh）|
-| **I-3 bastion 跳板 + 预定义脚本** | agent 只能 SSH 到 bastion 触发**白名单脚本**（如 `/opt/yiluan/redeploy.sh`），无法跑任意命令，无 sudo shell | 最高 | 中高 |
+redeploy 必须校验**待部署 SHA**的 branch-protection required checks，且以下 5 项
+全部存在并为 `success`：
 
-**胡桃推荐 I-3 或 I-2**：agent 持久 full SSH（I-1 的弱化版）不可取——即使限 sudo 范围，agent 仍能在主机跑任意 git/docker 命令。**I-3 bastion + 白名单脚本** 把 agent 能做的事锁死成「触发预定义 redeploy」一个动作，prompt-injection 也无法越界。若嫌 bastion 重，退而求其次 **I-2 短时 cert** 把暴露窗口压到分钟级。
+- `Backend Tests`
+- `Docker Build Verification`
+- `WeChat Mini Program Tests`
+- `Build & Test (iOS Simulator)`
+- `Smoke tests (real Postgres + alembic)`
 
-**红线**：无论哪个隔离方案，**private key / CA 签发权绝不落 agent workspace**，agent 只能拿「触发权」不能拿「凭据本体」。
-
-## 5. 推荐（胡桃视角，供帝君参考）
-
-**分阶段**：
-1. **即刻（解当前痛点）**：方案 C — 授权 hutao SSH（P-2 权限模型）+ 写 QUICK redeploy 文档。**最低成本，立即让刻晴 staging 不陈旧 + 解胡桃卡 SSH**。
-2. **Azure 资源到位后**：升级方案 A — 真正的 push 自动部署 + production reviewer gate。
-
-理由：方案 A 长期最优但**完全卡 Azure 资源（帝君钥匙未到位）**，现在做 = 干等。方案 C 一次性 SSH 授权就能立即解痛点，是务实过渡。两者不冲突，C 是 A 到位前的桥。
-
-### 5.5 redeploy 前 CI gate（🔴 魈 review 必补 — 防部署未过 CI 的代码）
-
-**风险**：无论方案 C 手动触发还是方案 A 自动 push，若不校验 main HEAD 的 CI 状态，可能把**未过 CI（红/pending）的 commit** 部署到 staging，污染刻晴验收环境。
-
-**强制 gate**：redeploy（脚本 / pipeline）执行前**必须**校验目标 commit 的 required check 全绿：
+仓库实现为：
 
 ```bash
-# redeploy.sh 前置 gate（方案 C bastion 白名单脚本内嵌 / 方案 A pipeline 步骤）
-HEAD_SHA=$(git rev-parse HEAD)
-CONCLUSION=$(gh api "repos/{owner}/{repo}/commits/${HEAD_SHA}/check-runs" \
-  --jq '[.check_runs[] | select(.name|test("Backend Tests|Docker Build|WeChat")) | .conclusion] | unique')
-# 必须全为 ["success"]，否则 abort
-if [ "$CONCLUSION" != '["success"]' ]; then
-  echo "❌ CI not green for ${HEAD_SHA}: ${CONCLUSION} — abort deploy"
-  exit 1
-fi
+deploy/staging/check-main-ci.sh --sha <origin-main-sha>
 ```
 
-**要点**：
-- 校验**目标 commit**（待部署的 SHA），不是「最近一次任意 run」
-- 只认 required checks 全 `success`，pending / failure / skipped 一律 abort
-- 方案 C：嵌进 bastion 白名单脚本（agent 触发也绕不过 gate）
-- 方案 A：作为 deploy job 的前置 step（test job 后、deploy 前）
+任一 check 为 missing、pending、failure、cancelled、skipped 或 neutral 都必须中止。
+脚本的 fixture 测试见 `deploy/staging/test_check_main_ci.sh`。
 
-## 6. 待帝君决策项（拍这几个就能起手 implement）
+## 6. 实施与运行流程
 
-1. **路径**：A（Azure 等资源）/ B（self-hosted runner）/ C（SSH 授权过渡）/ A+C 分阶段？
-2. **权限模型**：P-1 / P-2 / P-3？
-3. 若选 C：是否同意给 hutao staging 主机访问（**按 §4.5 隔离方案 I-1/I-2/I-3 选一**，胡桃推荐 I-3 bastion 白名单脚本或 I-2 短时 cert，绝不给常驻 full key）？
-4. **CI gate（§5.5）确认**：redeploy 前强制校验目标 commit required checks 全绿——这条无论选哪路径都建议硬性纳入，帝君确认即可。
+### 6.1 仓库侧（本 ADR 对应 PR）
 
-### 6.5 可选增强（🟡 魈 review 可选 — 不阻塞拍板）
+1. 保持 weekly cron 注释，不激活方案 B；
+2. 同步 CI gate 到 main 的 5 个 required checks；
+3. 提供 `docs/STAGING_REDEPLOY_QUICK.md`；
+4. 保留 `docs/STAGING_REHEARSAL_RUNBOOK.md` 作为完整演练与故障排查手册；
+5. 在文档中明确 SSH 授权未到位时的人工交接边界。
 
-- **🟡 自动化触发（C→A 桥）**：方案 C 阶段可加 main push webhook → 通知 hutao「main 有新 commit 可 redeploy」，半自动降低遗忘成本，但仍人工确认触发（不直接自动 deploy，保留 gate）。
-- **🟡 C→A 拆桥 checklist**：Azure 资源到位后从 C 切 A 的迁移步骤——① 配齐 Secrets/Environments ② deploy.yml 取消 push 注释 ③ 跑一次 workflow_dispatch 验证 ④ 确认 §5.5 CI gate 已嵌入 pipeline ⑤ staging 验证通过后再开 production reviewer gate ⑥ 保留方案 C 脚本作为 A 故障时的 fallback。
+### 6.2 外部前置（帝君 / 基础设施）
 
----
+1. 在 staging 主机或 bastion 安装白名单 redeploy wrapper；
+2. 选择 I-3 白名单脚本或 I-2 短时证书，不下发常驻 agent 私钥；
+3. 限制 wrapper 只接受 `origin/main` SHA，并内嵌 §5 CI gate；
+4. 首次执行后核对审计记录和 staging 版本回报。
 
-## 7. 不破坏现有（AC#3）
+## 7. 后果
 
-实施期 `docs/STAGING_REHEARSAL_RUNBOOK.md` 保留为 fallback，不删现有手动路径。
+### 正向
 
-## 8. 实施后透明度（AC#4）
+- 不等待 Azure 或常驻 runner，即可沿现有部署栈落地；
+- 每次部署保留人工确认，权限面小于通用 SSH；
+- 5 项 required checks fail-closed，避免红灯或未跑 CI 的 commit 污染 staging；
+- 将“路径已决定”和“外部权限已配置”分开，避免假完成。
 
-实施完成后 hutao + 凝光 + 刻晴同步新 redeploy 路径，staging URL/版本号/部署时间透明（metric or 文档）。
+### 代价与限制
+
+- staging 不会随 main 自动刷新，仍可能因人工遗漏而陈旧；
+- 帝君必须先配置受限入口，否则胡桃仍不能独立 redeploy；
+- 白名单脚本 / 短时证书属于主机侧配置，不由仓库 PR 自动完成；
+- 方案 B 的 workflow 骨架继续保持 inert，方案 A 仍等待 Azure 资源。
+
+## 8. 后续升级条件
+
+当 Azure 资源、Secrets、Environments 和 production reviewer gate 全部就绪时，可另开
+ADR 评估从 C 升级到 A。升级不得静默修改本 ADR，也不得在未重新评审权限模型时
+启用 push 自动部署。
