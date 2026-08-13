@@ -5,6 +5,10 @@
 > **Why**: 5 个 P0 Blocker（B-01~B-05）等待外部资源期间，用 mock provider
 > 跑完整患者旅程，避免 provider 抽象层 drift、回归手感丢失。
 > 决议来源: D-044。
+>
+> **部署路径决策**：ADR-0059 已于 2026-08-10 选择方案 C（手动 SOP +
+> 受限部署触发）。快速 redeploy 步骤见 `docs/STAGING_REDEPLOY_QUICK.md`；受限
+> SSH / wrapper 未配置前仍由帝君在 staging 主机执行。
 
 ## 1. 准备
 
@@ -95,24 +99,22 @@ cd C:\Users\wenlongren\Desktop\PZAPP\YiLuAn-staging\deploy\staging
 ./down.ps1 -RemoveVolumes   # 同时删 pgdata，下次首次启动会重建
 ```
 
-## 7. CI 触发（GitHub Actions，可选）
+## 7. 当前触发方式与 GitHub Actions 骨架
 
-`.github/workflows/staging-rehearsal.yml` 配置了 weekly rehearsal（每周三
-14:00 GMT+8），但需要 self-hosted runner（hosted runner 不能跑
-docker compose + 本地 18080 端口的栈）。
+ADR-0059 已选择方案 C：每次 redeploy 人工确认，并按
+`docs/STAGING_REDEPLOY_QUICK.md` 执行。`deploy/staging/check-main-ci.sh` 会在部署前
+校验目标 SHA 的 5 个 required checks；任一缺失、未完成或失败均中止。
 
-当前状态：**未启用 self-hosted runner**，每周演练靠本 runbook 手动执行。
+`.github/workflows/staging-rehearsal.yml` 仅保留历史方案 B 的
+`workflow_dispatch` 惰性骨架：
 
-**启用方法**（ADR-0059 方案 B）：完整步骤见
-`docs/STAGING_RUNNER_SETUP.md`。要点：
+- self-hosted runner 当前未配置；
+- `STAGING_RUNNER_READY` 当前未设置；
+- weekly `schedule` 保持注释；
+- 不得以 ADR-0059 为由激活自动触发。
 
-1. 在常驻机器上注册 self-hosted runner，label 含 `staging-mock`。
-2. 设 repo variable `STAGING_RUNNER_READY=true`（job 的 `if` 条件依赖它，
-   **不需要再改 workflow 文件**；停用就把 variable 改掉）。
-3. （可选）取消 workflow 顶部 `schedule:` 注释恢复 weekly cron。
-
-> workflow 已内嵌 ADR-0059 §5.5 CI gate（`deploy/staging/check-main-ci.sh`），
-> 部署前强制校验 main HEAD 的 required checks 全绿，防未过 CI 代码污染验收环境。
+`docs/STAGING_RUNNER_SETUP.md` 仅作未选方案 B 的技术参考。未来若要改选 B，必须
+另行决策并重新评审 runner 权限和运维责任。
 
 ## 8. 验收 checklist（每周跑完贴到群里）
 
@@ -124,4 +126,4 @@ docker compose + 本地 18080 端口的栈）。
 
 ---
 
-**最后更新**：2026-04-27（首版，随 D-044 落地）
+**最后更新**：2026-08-10（同步 ADR-0059 方案 C）

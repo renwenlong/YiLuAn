@@ -1,6 +1,10 @@
-# Staging Self-Hosted Runner Setup (ADR-0059 方案 B)
+# Staging Self-Hosted Runner Setup（未选方案 B 的技术参考）
 
-> **目的**：注册并启用一台 self-hosted GitHub Actions runner，让
+> **状态**：ADR-0059 已于 2026-08-10 选择方案 C。本文件不构成启用授权；
+> weekly cron 必须保持注释，且当前不得注册 runner 或设置
+> `STAGING_RUNNER_READY`。未来若改选 B，须另行决策和 Review。
+>
+> **目的**：记录未选方案 B 的技术路径：注册并启用一台 self-hosted GitHub Actions runner，让
 > `.github/workflows/staging-rehearsal.yml` 的 weekly staging rehearsal
 > 自动跑（方案 B，ADR-0059）。
 >
@@ -9,7 +13,7 @@
 > `if` 跳过），每周演练仍按 `docs/STAGING_REHEARSAL_RUNBOOK.md` 手动跑
 > （fallback 不受影响 — AC#3）。
 >
-> **决策来源**：ADR-0059 §3 方案 B + §5.5 CI gate + §6.5 可选增强。
+> **历史来源**：ADR-0059 的备选方案 B 与 CI gate 设计。
 
 ---
 
@@ -150,4 +154,4 @@ branch-protection required checks 全部 `success`，否则 `exit 1` abort 部�
 
 ---
 
-**最后更新**：2026-06-26（随 ADR-0059 方案 B 实施 / S3-OPS-STAGING-AUTO-DEPLOY-PIPELINE）
+**最后更新**：2026-08-10（标记为 ADR-0059 未选方案 B 的技术参考）
