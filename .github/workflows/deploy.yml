@@ -47,8 +47,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r backend/requirements.txt
-          pip install pytest pytest-asyncio aiosqlite
+          pip install -r backend/requirements-dev.txt
 
       - name: Run backend tests
         run: cd backend && python -m pytest tests/ -v
