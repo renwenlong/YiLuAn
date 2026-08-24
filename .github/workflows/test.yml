@@ -150,7 +150,7 @@ jobs:
       - name: Assert production image excludes development dependencies
         if: ${{ needs.changes.outputs.backend == 'true' }}
         run: |
-          docker run --rm --entrypoint python yiluan-backend:test - <<'PY'
+          docker run --rm -i --entrypoint python yiluan-backend:test - <<'PY'
           import importlib.metadata
           import re
 
