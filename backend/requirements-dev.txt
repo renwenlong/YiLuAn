@@ -1,0 +1,14 @@
+# Install runtime dependencies first so local development and CI exercise the
+# same application dependency set as the production image.
+-r requirements.txt
+
+# Testing
+pytest==8.3.4
+pytest-asyncio==0.25.0
+hypothesis==6.122.3  # property-based fuzz for money_safety / share_security release gate (S2-TEST-001)
+schemathesis==4.10.0  # OpenAPI schema contract lock for prep-package endpoints (S3-DEV-002-PREP-API AC#5)
+aiosqlite==0.20.0
+
+# Formatting and linting
+black==24.10.0
+ruff==0.8.6

@@ -11,6 +11,7 @@ on:
       - 'backend/tests/test_storage_backend_azurite.py'
       - 'backend/tests/test_storage_backend.py'
       - 'backend/requirements.txt'
+      - 'backend/requirements-dev.txt'
       - '.github/workflows/azurite-ci.yml'
   push:
     branches: [main]
@@ -46,8 +47,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r backend/requirements.txt
-          pip install pytest pytest-asyncio
+          pip install -r backend/requirements-dev.txt
       - name: Verify azurite reachability
         run: |
           # 实施验证 (AC#5): 连接串 BlobEndpoint=http://127.0.0.1:10000 在 runner 网络可达。
