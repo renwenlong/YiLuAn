@@ -147,6 +147,27 @@ jobs:
         # 与 deploy/docker-compose.yml backend.build.context: .. 保持一致.
         run: docker build -t yiluan-backend:test -f backend/Dockerfile .
 
+      - name: Assert production image excludes development dependencies
+        if: ${{ needs.changes.outputs.backend == 'true' }}
+        run: |
+          docker run --rm -i --entrypoint python yiluan-backend:test - <<'PY'
+          import importlib.metadata
+          import re
+
+          dev_only = {
+              "pytest", "pytest-asyncio", "hypothesis", "schemathesis",
+              "aiosqlite", "black", "ruff",
+          }
+          installed = {
+              re.sub(r"[-_.]+", "-", dist.metadata["Name"]).lower()
+              for dist in importlib.metadata.distributions()
+          }
+          leaked = sorted(dev_only & installed)
+          if leaked:
+              raise SystemExit(f"development dependencies leaked into production image: {leaked}")
+          print("PASS: production image contains no development-only dependencies")
+          PY
+
   wechat:
     name: WeChat Mini Program Tests
     runs-on: ubuntu-latest
