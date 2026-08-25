@@ -137,7 +137,7 @@ def test_sign_read_url_generates_sas(backend, monkeypatch):
     except Exception as exc:  # azurite delegation-key gap
         pytest.skip(f"azurite delegation key unsupported ({type(exc).__name__})")
     assert signed.url.startswith(
-        f"https://{_ACCOUNT}.blob.core.chinacloudapi.cn/{backend.container_name}/cert/e.jpg?"
+        f"https://{_ACCOUNT}.blob.core.windows.net/{backend.container_name}/cert/e.jpg?"
     )
     # SAS query carries a signature + expiry
     assert "sig=" in signed.url
