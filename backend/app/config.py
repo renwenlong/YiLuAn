@@ -32,12 +32,11 @@ class Settings(BaseSettings):
     azure_storage_container_avatars: str = "avatars"
     azure_storage_container_chat: str = "chat-images"
 
-    # S2-DEV-016 / ADR-0045: Storage backend selector (local | azure)
-    # Phase A: local (default, filesystem + HMAC signed URL).
-    # Phase B: azure (mock until 21Vianet account + ENV ready, real azure-storage-blob SDK).
+    # S2-DEV-016 / ADR-0045 + ADR-0065: Storage backend selector.
     storage_backend: str = "local"
-    # Azure cert image container (used when storage_backend=azure).
+    # Azure Global account config shared by SDK client and all signed URLs.
     azure_storage_account_name: str = ""
+    azure_storage_account_url: str = ""
     azure_storage_container_cert: str = "yiluan-cert-dev"
 
     # S3-DEV-001 / ADR-0046 §3.3: Contract storage WORM policy switch.

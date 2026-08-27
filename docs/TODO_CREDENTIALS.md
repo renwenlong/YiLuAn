@@ -1,6 +1,6 @@
 # 医路安外部凭证 / 资源依赖追踪
 
-> 本文档追踪上线前必须就位的 5 个外部凭证 / 资源 Blocker。
+> 本文档追踪上线前必须就位的外部凭证 / 资源 Blocker。
 > 状态：Pending | In Progress | Done
 > 责任人默认 = 用户（项目负责人）
 
@@ -245,6 +245,29 @@ Azure 资源创建 < 1 小时（自助）；需 Azure 订阅已开通。
 
 ---
 
+## B-06 Azure Global Blob Storage（East Asia）
+
+**状态：** Pending
+**责任人 / 催办人：** 用户 / Ops
+
+### 所需资源与配置
+
+- Azure Global `eastasia` storage account；Blob endpoint 必须为 `https://{account}.blob.core.windows.net`
+- staging / production 独立 container、身份和最小 data-plane RBAC
+- `STORAGE_BACKEND=azure`
+- `AZURE_STORAGE_ACCOUNT_NAME` / `AZURE_STORAGE_ACCOUNT_URL` / `AZURE_STORAGE_CONTAINER_CERT`
+- `AZURE_TENANT_ID` / `AZURE_CLIENT_ID` 与凭据引用（值仅存 Key Vault / CI secret）
+
+禁止使用 Azure China / 21Vianet tenant、endpoint 或凭据。staging smoke 只使用构造或脱敏对象；production real-PII 在数据出境与隐私审批前保持禁用。PostgreSQL / Redis 拓扑、迁移、复制和切流均不在本项范围内。
+
+### 验证与回滚
+
+1. 在获批执行主机验证 Global DNS/TLS、RBAC，以及 create/read/download/delete、metadata 与 immutability/WORM。
+2. smoke 仅清理本次创建的测试对象，不触碰已有数据。
+3. 回滚时将应用切回原 storage 配置并撤销本次身份/container 授权；不操作 PostgreSQL / Redis。
+
+---
+
 > 以上凭证 / 资源准备好后通知团队，Phase 2 真实接入可随时切换。
 > 当前所有开发使用 mock provider 先行推进，架构已预留切换能力。
 > Provider 抽象详见 `backend/app/services/providers/payment/` 及 `backend/app/services/providers/sms/`。
@@ -255,7 +278,7 @@ Azure 资源创建 < 1 小时（自助）；需 Azure 订阅已开通。
 
 ## 2026-04-29 状态快照（W18 Day 3）
 
-5 个 Blocker 全部仍 **Pending**，等待外部资源到位：
+外部 Blocker 全部仍 **Pending**，等待资源到位：
 
 | Blocker | 等待天数（自 2026-04-10） | Owner |
 |---|---|---|
@@ -264,5 +287,6 @@ Azure 资源创建 < 1 小时（自助）；需 Azure 订阅已开通。
 | B-03 ACR / 监控 | 17 | Ops |
 | B-04 ICP 备案 | 19 | PM（关键路径） |
 | B-05 Apple 开发者 | 19 | PM |
+| B-06 Azure Global Blob | — | Ops |
 
 所有外部凭证到位后可按 \docs/runbook-go-live.md\ 30 分钟完成上线。

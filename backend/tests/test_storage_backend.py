@@ -97,7 +97,9 @@ class TestAzureBlobStorageBackendMock:
         obj = backend.put("a.jpg", b"hello-azure", content_type="image/jpeg")
         assert obj.uri == "azure-blob://a.jpg"
         signed = backend.sign_read_url(obj, ttl_seconds=60)
-        assert "blob.core.chinacloudapi.cn" in signed.url
+        assert signed.url.startswith(
+            "https://mock-account.blob.core.windows.net/yiluan-cert-mock/a.jpg?"
+        )
         assert "_mock_sig=" in signed.url
         # 重建签名验
         sig = backend._signature(obj.key, signed.expires_at)  # noqa: SLF001
@@ -209,6 +211,12 @@ class TestAzureRealSdkUnit:
         from app.config import settings as _s
 
         monkeypatch.setattr(_s, "azure_storage_connection_string", "CONN=x;")
+        monkeypatch.setattr(_s, "azure_storage_account_name", "myacct")
+        monkeypatch.setattr(
+            _s,
+            "azure_storage_account_url",
+            "https://myacct.blob.core.windows.net",
+        )
         with patch(
             "azure.storage.blob.BlobServiceClient.from_connection_string",
             return_value=MagicMock(name="svc"),
@@ -232,6 +240,11 @@ class TestAzureRealSdkUnit:
         monkeypatch.setitem(sys.modules, "azure.identity", identity_module)
         monkeypatch.setattr(_s, "azure_storage_connection_string", "")
         monkeypatch.setattr(_s, "azure_storage_account_name", "myacct")
+        monkeypatch.setattr(
+            _s,
+            "azure_storage_account_url",
+            "https://myacct.blob.core.windows.net",
+        )
         with patch(
             "azure.storage.blob.BlobServiceClient",
             return_value=MagicMock(name="svc"),
@@ -239,10 +252,65 @@ class TestAzureRealSdkUnit:
             client = sb._build_azure_client()  # noqa: SLF001
         assert credential.call_count == 1
         assert svc_cls.call_count == 1
-        # account_url 指向 chinacloudapi (21Vianet)
         _args, kwargs = svc_cls.call_args
-        assert "chinacloudapi.cn" in kwargs.get("account_url", "")
+        assert kwargs.get("account_url") == "https://myacct.blob.core.windows.net"
         assert client is not None
+
+    def test_real_sas_uses_configured_global_account_url(self, monkeypatch):
+        from unittest.mock import MagicMock, patch
+
+        be = AzureBlobStorageBackend(
+            account_name="myacct",
+            account_url="https://myacct.blob.core.windows.net",
+            container_name="cont",
+            blob_service_client=MagicMock(),
+        )
+        with patch(
+            "azure.storage.blob.generate_blob_sas", return_value="sig=real"
+        ):
+            signed = be.sign_read_url(
+                StoredObject(scheme=be.scheme, key="cert/a.jpg"),
+                ttl_seconds=60,
+            )
+        assert signed.url.startswith(
+            "https://myacct.blob.core.windows.net/cont/cert/a.jpg?"
+        )
+
+    @pytest.mark.parametrize(
+        "account_url",
+        [
+            "https://myacct.blob.core.chinacloudapi.cn",
+            "https://login.chinacloudapi.cn/myacct",
+        ],
+    )
+    def test_build_client_rejects_azure_china_endpoint(
+        self, monkeypatch, account_url
+    ):
+        import app.services.storage_backend as sb
+        from app.config import settings as _s
+
+        monkeypatch.setattr(_s, "azure_storage_connection_string", "")
+        monkeypatch.setattr(_s, "azure_storage_account_name", "myacct")
+        monkeypatch.setattr(_s, "azure_storage_account_url", account_url)
+        with pytest.raises(RuntimeError, match="Azure Global"):
+            sb._build_azure_client()  # noqa: SLF001
+
+    def test_build_client_rejects_azure_china_authority(self, monkeypatch):
+        import app.services.storage_backend as sb
+        from app.config import settings as _s
+
+        monkeypatch.setattr(_s, "azure_storage_connection_string", "")
+        monkeypatch.setattr(_s, "azure_storage_account_name", "myacct")
+        monkeypatch.setattr(
+            _s,
+            "azure_storage_account_url",
+            "https://myacct.blob.core.windows.net",
+        )
+        monkeypatch.setenv(
+            "AZURE_AUTHORITY_HOST", "https://login.chinacloudapi.cn"
+        )
+        with pytest.raises(RuntimeError, match="Azure Global"):
+            sb._build_azure_client()  # noqa: SLF001
 
     def test_build_client_missing_all_raises(self, monkeypatch):
         """无 conn 也无 account name → fail-fast RuntimeError。"""
@@ -251,6 +319,7 @@ class TestAzureRealSdkUnit:
 
         monkeypatch.setattr(_s, "azure_storage_connection_string", "")
         monkeypatch.setattr(_s, "azure_storage_account_name", "")
+        monkeypatch.setattr(_s, "azure_storage_account_url", "")
         with pytest.raises(RuntimeError, match="AZURE_STORAGE"):
             sb._build_azure_client()  # noqa: SLF001
 
@@ -289,6 +358,7 @@ class TestStorageBackendFactory:
         monkeypatch.setattr(_s, "storage_backend", "azure")
         monkeypatch.setattr(_s, "azure_storage_connection_string", "")
         monkeypatch.setattr(_s, "azure_storage_account_name", "")
+        monkeypatch.setattr(_s, "azure_storage_account_url", "")
         with pytest.raises(RuntimeError, match="AZURE_STORAGE"):
             get_storage_backend()
 
@@ -305,6 +375,12 @@ class TestStorageBackendFactory:
         )
         monkeypatch.setattr(_s, "storage_backend", "azure")
         monkeypatch.setattr(_s, "azure_storage_connection_string", azurite_conn)
+        monkeypatch.setattr(_s, "azure_storage_account_name", "devstoreaccount1")
+        monkeypatch.setattr(
+            _s,
+            "azure_storage_account_url",
+            "https://devstoreaccount1.blob.core.windows.net",
+        )
         b = get_storage_backend()
         assert isinstance(b, AzureBlobStorageBackend)
         assert b.is_real_sdk is True

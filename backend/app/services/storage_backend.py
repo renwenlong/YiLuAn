@@ -349,7 +349,7 @@ class AzureBlobStorageBackend(StorageBackend):
       is injected, all IO goes through ``azure-storage-blob``. Used in
       production (creds via ENV) and azurite integration tests.
     - **Mock mode**: when no client is injected, an in-memory ``dict`` emulates
-      blob storage. Keeps dev/CI working before 21Vianet creds land and lets
+      blob storage. Keeps dev/CI independent of cloud credentials and lets
       Phase A unit tests run unchanged.
 
     Auth (Phase B, ADR-0045 §3.2): production constructs the client from
@@ -377,16 +377,15 @@ class AzureBlobStorageBackend(StorageBackend):
         self,
         account_name: str = "mock-account",
         container_name: str = "yiluan-cert-mock",
-        sign_url_template: str = (
-            "https://{account}.blob.core.chinacloudapi.cn/{container}/{key}"
-            "?sig=MOCK&se={expires}"
-        ),
+        account_url: str | None = None,
         *,
         blob_service_client: object | None = None,
     ) -> None:
         self.account_name = account_name
+        self.account_url = (
+            account_url or f"https://{account_name}.blob.core.windows.net"
+        ).rstrip("/")
         self.container_name = container_name
-        self._sign_url_template = sign_url_template
         # Real SDK client (BlobServiceClient) when injected; else None -> mock.
         self._client = blob_service_client
         # In-memory store (mock mode only): key -> (bytes, content_type)
@@ -522,12 +521,10 @@ class AzureBlobStorageBackend(StorageBackend):
         if self._client is None:
             # Mock: append HMAC so tamper tests still pass.
             sig = self._signature(obj.key, expires)
-            url = self._sign_url_template.format(
-                account=self.account_name,
-                container=self.container_name,
-                key=obj.key,
-                expires=expires,
-            ) + f"&_mock_sig={sig}"
+            url = (
+                f"{self.account_url}/{self.container_name}/{obj.key}"
+                f"?sig=MOCK&se={expires}&_mock_sig={sig}"
+            )
             return SignedReadURL(url=url, expires_at=expires)
         # Real SDK: User Delegation SAS (no account key needed; uses AAD).
         from datetime import datetime, timezone
@@ -549,10 +546,7 @@ class AzureBlobStorageBackend(StorageBackend):
             expiry=expiry_dt,
             start=start_dt,
         )
-        base = (
-            f"https://{self.account_name}.blob.core.chinacloudapi.cn/"
-            f"{self.container_name}/{obj.key}"
-        )
+        base = f"{self.account_url}/{self.container_name}/{obj.key}"
         return SignedReadURL(url=f"{base}?{sas}", expires_at=expires)
 
     def verify_sig(self, key: str, expires: int, sig: str) -> StoredObject:
@@ -601,37 +595,57 @@ class AzureBlobStorageBackend(StorageBackend):
 _backend_singleton: StorageBackend | None = None
 
 
-def _build_azure_client() -> object:
-    """Construct a real ``BlobServiceClient`` from environment configuration.
+_AZURE_CHINA_DOMAIN = "china" + "cloudapi.cn"
 
-    Auth resolution order (Phase B, ADR-0045 3.2):
 
-    1. ``AZURE_STORAGE_CONNECTION_STRING`` (full connection string; also how
-       azurite is wired in integration tests) when present.
-    2. Otherwise ``DefaultAzureCredential`` against
-       ``https://{account}.blob.core.chinacloudapi.cn`` (service principal via
-       ``AZURE_CLIENT_ID`` / ``AZURE_CLIENT_SECRET`` / ``AZURE_TENANT_ID``).
+def _validated_azure_account_url() -> str:
+    """Return the configured Azure Global account URL or fail closed."""
+    from urllib.parse import urlparse
 
-    Raises ``RuntimeError`` when neither a connection string nor an account
-    name is configured, so misconfiguration fails fast at startup.
-    """
+    account = (getattr(settings, "azure_storage_account_name", "") or "").strip()
+    account_url = (
+        getattr(settings, "azure_storage_account_url", "") or ""
+    ).strip().rstrip("/")
+    authority = os.getenv("AZURE_AUTHORITY_HOST", "").lower()
+    if _AZURE_CHINA_DOMAIN in account_url.lower() or _AZURE_CHINA_DOMAIN in authority:
+        raise RuntimeError("Azure Global configuration required; Azure China is rejected")
+    if not account or not account_url:
+        raise RuntimeError(
+            "STORAGE_BACKEND=azure requires AZURE_STORAGE_ACCOUNT_NAME and "
+            "AZURE_STORAGE_ACCOUNT_URL"
+        )
+    parsed = urlparse(account_url)
+    expected_host = f"{account}.blob.core.windows.net"
+    if (
+        parsed.scheme != "https"
+        or parsed.hostname != expected_host
+        or parsed.path not in ("", "/")
+        or parsed.params
+        or parsed.query
+        or parsed.fragment
+    ):
+        raise RuntimeError(
+            "AZURE_STORAGE_ACCOUNT_URL must be the Azure Global endpoint "
+            f"https://{expected_host}"
+        )
+    return account_url
+
+
+def _build_azure_client(account_url: str | None = None) -> object:
+    """Construct a real ``BlobServiceClient`` from Azure Global config."""
     from azure.storage.blob import BlobServiceClient
 
+    resolved_account_url = account_url or _validated_azure_account_url()
     conn = (getattr(settings, "azure_storage_connection_string", "") or "").strip()
+    if _AZURE_CHINA_DOMAIN in conn.lower():
+        raise RuntimeError("Azure Global configuration required; Azure China is rejected")
     if conn:
         return BlobServiceClient.from_connection_string(conn)
 
-    account = (getattr(settings, "azure_storage_account_name", "") or "").strip()
-    if not account:
-        raise RuntimeError(
-            "STORAGE_BACKEND=azure requires AZURE_STORAGE_CONNECTION_STRING or "
-            "AZURE_STORAGE_ACCOUNT_NAME to be set"
-        )
     from azure.identity import DefaultAzureCredential
 
-    account_url = f"https://{account}.blob.core.chinacloudapi.cn"
     return BlobServiceClient(
-        account_url=account_url, credential=DefaultAzureCredential()
+        account_url=resolved_account_url, credential=DefaultAzureCredential()
     )
 
 
@@ -651,15 +665,15 @@ def get_storage_backend() -> StorageBackend:
 
     backend_name = (getattr(settings, "storage_backend", "local") or "local").lower()
     if backend_name == "azure":
-        client = _build_azure_client()
-        account = (
-            getattr(settings, "azure_storage_account_name", "") or "mock-account"
-        ).strip() or "mock-account"
+        account_url = _validated_azure_account_url()
+        client = _build_azure_client(account_url)
+        account = settings.azure_storage_account_name.strip()
         container = (
             getattr(settings, "azure_storage_container_cert", "") or "yiluan-cert-mock"
         ).strip() or "yiluan-cert-mock"
         _backend_singleton = AzureBlobStorageBackend(
             account_name=account,
+            account_url=account_url,
             container_name=container,
             blob_service_client=client,
         )

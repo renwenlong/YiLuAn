@@ -88,7 +88,7 @@ class TestCertificationImageFactoryIntegration:
         uri = await cert_image.save_certification_image(_UploadStub(b"a" * 20))
         url = cert_image.sign_certification_image_url(uri)
         assert url is not None
-        assert "blob.core.chinacloudapi.cn" in url
+        assert "blob.core.windows.net" in url
         reset_storage_backend()
 
     async def test_sign_external_https_url_returns_none(self):
