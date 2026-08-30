@@ -131,3 +131,16 @@ def test_pure_production_deploy_workflows_do_not_install_dev_requirements() -> N
         assert not references[name] & DEV_REQUIREMENTS_PATHS, (
             f"{name} must not install requirements-dev.txt"
         )
+
+
+def test_azure_app_service_workflow_packages_dependencies_and_sets_entrypoint() -> None:
+    workflow = (ROOT / ".github/workflows/main_wxapp-api-ren.yml").read_text(encoding="utf-8")
+
+    assert "--target .python_packages/lib/site-packages" in workflow
+    assert "-r backend/requirements.txt" in workflow
+    assert "include-hidden-files: true" in workflow
+    assert "!.git/" in workflow
+    assert "startup-command:" in workflow
+    assert "cd /home/site/wwwroot/backend" in workflow
+    assert "PYTHONPATH=/home/site/wwwroot/.python_packages/lib/site-packages" in workflow
+    assert "python -m uvicorn app.main:app --host 0.0.0.0 --port 8000" in workflow
