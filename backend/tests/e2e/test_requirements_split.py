@@ -35,11 +35,16 @@ PROD_REQUIREMENTS_WORKFLOWS = {
 PURE_PROD_REQUIREMENTS_WORKFLOWS = {
     "main_wxapp-api-ren.yml",
 }
-DEV_REQUIREMENTS_SNIPPETS = {
-    "pip install -r backend/requirements-dev.txt",
-    "pip install -r requirements-dev.txt",
+DEV_REQUIREMENTS_PATHS = {
+    "backend/requirements-dev.txt",
+    "requirements-dev.txt",
 }
-PROD_REQUIREMENTS_SNIPPET = "pip install -r backend/requirements.txt"
+PROD_REQUIREMENTS_PATH = "backend/requirements.txt"
+APPROVED_REQUIREMENTS_PATHS = DEV_REQUIREMENTS_PATHS | {PROD_REQUIREMENTS_PATH}
+REQUIREMENTS_INSTALL_PATTERN = re.compile(
+    r"\bpip\s+install\b[^\n#]*?(?:^|\s)-r\s+[\"']?"
+    r"(?P<path>[^\"'\s|;&]*requirements(?:-dev)?\.txt)"
+)
 
 
 def package_names(path: Path) -> set[str]:
@@ -81,41 +86,48 @@ def test_production_dockerfile_installs_only_prod_requirements() -> None:
     assert "requirements-dev.txt" not in dockerfile
 
 
-def test_ci_workflows_using_dev_requirements_are_accounted_for() -> None:
+def workflow_requirements_references() -> dict[str, set[str]]:
+    """Return every requirements file installed by each workflow."""
     workflow_dir = ROOT / ".github/workflows"
-    referenced = {
-        path.name
-        for path in workflow_dir.glob("*.yml")
-        if any(snippet in path.read_text(encoding="utf-8") for snippet in DEV_REQUIREMENTS_SNIPPETS)
+    references = {}
+    for path in (*workflow_dir.glob("*.yml"), *workflow_dir.glob("*.yaml")):
+        matches = {
+            match.group("path")
+            for match in REQUIREMENTS_INSTALL_PATTERN.finditer(path.read_text(encoding="utf-8"))
+        }
+        if matches:
+            references[path.name] = matches
+    return references
+
+
+def test_all_workflow_requirements_references_use_approved_paths() -> None:
+    references = workflow_requirements_references()
+    rejected = {
+        name: sorted(paths - APPROVED_REQUIREMENTS_PATHS)
+        for name, paths in references.items()
+        if paths - APPROVED_REQUIREMENTS_PATHS
     }
+    assert not rejected, f"workflows install unapproved requirements paths: {rejected}"
+
+
+def test_ci_workflows_using_dev_requirements_are_accounted_for() -> None:
+    references = workflow_requirements_references()
+    referenced = {name for name, paths in references.items() if paths & DEV_REQUIREMENTS_PATHS}
     assert referenced == DEV_REQUIREMENTS_WORKFLOWS
-    for name in DEV_REQUIREMENTS_WORKFLOWS:
-        text = (workflow_dir / name).read_text(encoding="utf-8")
-        assert any(snippet in text for snippet in DEV_REQUIREMENTS_SNIPPETS), (
-            f"{name} does not install requirements-dev.txt"
-        )
 
 
 def test_production_deploy_workflows_using_prod_requirements_are_accounted_for() -> None:
-    workflow_dir = ROOT / ".github/workflows"
-    referenced = {
-        path.name
-        for path in workflow_dir.glob("*.yml")
-        if PROD_REQUIREMENTS_SNIPPET in path.read_text(encoding="utf-8")
-    }
+    references = workflow_requirements_references()
+    referenced = {name for name, paths in references.items() if PROD_REQUIREMENTS_PATH in paths}
     assert referenced == PROD_REQUIREMENTS_WORKFLOWS
-    for name in PROD_REQUIREMENTS_WORKFLOWS:
-        text = (workflow_dir / name).read_text(encoding="utf-8")
-        assert PROD_REQUIREMENTS_SNIPPET in text, (
-            f"{name} does not install backend/requirements.txt"
-        )
 
 
 def test_pure_production_deploy_workflows_do_not_install_dev_requirements() -> None:
-    workflow_dir = ROOT / ".github/workflows"
+    references = workflow_requirements_references()
     for name in PURE_PROD_REQUIREMENTS_WORKFLOWS:
-        text = (workflow_dir / name).read_text(encoding="utf-8")
-        assert PROD_REQUIREMENTS_SNIPPET in text, f"{name} must install backend/requirements.txt"
-        assert not any(snippet in text for snippet in DEV_REQUIREMENTS_SNIPPETS), (
+        assert PROD_REQUIREMENTS_PATH in references.get(name, set()), (
+            f"{name} must install backend/requirements.txt"
+        )
+        assert not references[name] & DEV_REQUIREMENTS_PATHS, (
             f"{name} must not install requirements-dev.txt"
         )
