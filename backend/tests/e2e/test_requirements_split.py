@@ -19,7 +19,7 @@ DEV_ONLY = {
     "black",
     "ruff",
 }
-WORKFLOWS = {
+DEV_REQUIREMENTS_WORKFLOWS = {
     "alembic-smoke.yml",
     "api-docs-check.yml",
     "azurite-ci.yml",
@@ -28,6 +28,18 @@ WORKFLOWS = {
     "openapi-diff.yml",
     "test.yml",
 }
+PROD_REQUIREMENTS_WORKFLOWS = {
+    "deploy.yml",
+    "main_wxapp-api-ren.yml",
+}
+PURE_PROD_REQUIREMENTS_WORKFLOWS = {
+    "main_wxapp-api-ren.yml",
+}
+DEV_REQUIREMENTS_SNIPPETS = {
+    "pip install -r backend/requirements-dev.txt",
+    "pip install -r requirements-dev.txt",
+}
+PROD_REQUIREMENTS_SNIPPET = "pip install -r backend/requirements.txt"
 
 
 def package_names(path: Path) -> set[str]:
@@ -69,15 +81,41 @@ def test_production_dockerfile_installs_only_prod_requirements() -> None:
     assert "requirements-dev.txt" not in dockerfile
 
 
-def test_all_requirements_workflows_use_the_split_files() -> None:
+def test_ci_workflows_using_dev_requirements_are_accounted_for() -> None:
     workflow_dir = ROOT / ".github/workflows"
     referenced = {
         path.name
         for path in workflow_dir.glob("*.yml")
-        if "requirements.txt" in path.read_text(encoding="utf-8")
-        or "requirements-dev.txt" in path.read_text(encoding="utf-8")
+        if any(snippet in path.read_text(encoding="utf-8") for snippet in DEV_REQUIREMENTS_SNIPPETS)
     }
-    assert referenced == WORKFLOWS
-    for name in WORKFLOWS:
+    assert referenced == DEV_REQUIREMENTS_WORKFLOWS
+    for name in DEV_REQUIREMENTS_WORKFLOWS:
         text = (workflow_dir / name).read_text(encoding="utf-8")
-        assert "requirements-dev.txt" in text, f"{name} does not reference requirements-dev.txt"
+        assert any(snippet in text for snippet in DEV_REQUIREMENTS_SNIPPETS), (
+            f"{name} does not install requirements-dev.txt"
+        )
+
+
+def test_production_deploy_workflows_using_prod_requirements_are_accounted_for() -> None:
+    workflow_dir = ROOT / ".github/workflows"
+    referenced = {
+        path.name
+        for path in workflow_dir.glob("*.yml")
+        if PROD_REQUIREMENTS_SNIPPET in path.read_text(encoding="utf-8")
+    }
+    assert referenced == PROD_REQUIREMENTS_WORKFLOWS
+    for name in PROD_REQUIREMENTS_WORKFLOWS:
+        text = (workflow_dir / name).read_text(encoding="utf-8")
+        assert PROD_REQUIREMENTS_SNIPPET in text, (
+            f"{name} does not install backend/requirements.txt"
+        )
+
+
+def test_pure_production_deploy_workflows_do_not_install_dev_requirements() -> None:
+    workflow_dir = ROOT / ".github/workflows"
+    for name in PURE_PROD_REQUIREMENTS_WORKFLOWS:
+        text = (workflow_dir / name).read_text(encoding="utf-8")
+        assert PROD_REQUIREMENTS_SNIPPET in text, f"{name} must install backend/requirements.txt"
+        assert not any(snippet in text for snippet in DEV_REQUIREMENTS_SNIPPETS), (
+            f"{name} must not install requirements-dev.txt"
+        )
